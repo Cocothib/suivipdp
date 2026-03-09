@@ -2182,6 +2182,178 @@ const App = {
       risks: ['Travaux en toiture', 'Soudure', 'Terrassement', 'Levage', 'Élagage'] },
   ],
 
+  RISK_DEFAULTS: {
+    'Chute de plain-pied': {
+      situation: 'Sol glissant, inégal, encombré ou en pente ; câbles au sol ; conditions météo (pluie, gel)',
+      prevention: 'Chaussures de sécurité antidérapantes ; balisage des zones ; maintien de l\'ordre et propreté ; éclairage adapté',
+      niveau: 2
+    },
+    'Travail en hauteur': {
+      situation: 'Intervention sur toiture, nacelle, échafaudage ou échelle ; absence de protection périphérique',
+      prevention: 'Harnais antichute + ligne de vie ; garde-corps ; nacelle homologuée ; vérification des équipements ; formation travail en hauteur',
+      niveau: 3
+    },
+    'Chute d\'objet': {
+      situation: 'Manutention de panneaux, outils ou matériel en hauteur ; stockage instable',
+      prevention: 'Port du casque ; balisage de la zone de travail en contrebas ; arrimage du matériel ; filets de protection',
+      niveau: 2
+    },
+    'Glissade': {
+      situation: 'Surface mouillée, boueuse ou verglacée ; présence d\'huile ou graisse',
+      prevention: 'Chaussures adaptées ; nettoyage immédiat des déversements ; sablage/salage en hiver ; signalisation sol glissant',
+      niveau: 1
+    },
+    'Risque électrique': {
+      situation: 'Intervention sur ou à proximité d\'installations électriques sous tension ; armoire électrique ; câblage',
+      prevention: 'Consignation / mise hors tension ; habilitation électrique requise (B1V/B2V/BR/BC) ; EPI isolants (gants, tapis) ; VAT avant intervention',
+      niveau: 3
+    },
+    'Arc électrique': {
+      situation: 'Court-circuit lors de manœuvres sur cellules HTA/BT ; défaut d\'isolement',
+      prevention: 'Écran facial anti-arc ; vêtements ARC Flash ; distance de sécurité ; procédure de consignation stricte',
+      niveau: 4
+    },
+    'Tension continue PV': {
+      situation: 'Panneaux photovoltaïques produisant en permanence dès exposition à la lumière ; tension DC non consignable',
+      prevention: 'Bâche opaque sur panneaux ; coupure côté onduleur ; gants isolants 1000V DC ; mesure de tension avant intervention ; habilitation BP',
+      niveau: 3
+    },
+    'Contact indirect': {
+      situation: 'Défaut d\'isolement mettant sous tension des masses métalliques ; absence de mise à la terre',
+      prevention: 'Vérification de la mise à la terre ; contrôle d\'isolement ; différentiel adapté ; EPI isolants',
+      niveau: 2
+    },
+    'Incendie / Explosion': {
+      situation: 'Présence de matériaux inflammables ; travaux par points chauds ; stockage de produits chimiques',
+      prevention: 'Permis de feu ; extincteur à proximité ; dégagement des matériaux combustibles ; surveillance post-travaux 2h',
+      niveau: 3
+    },
+    'ATEX': {
+      situation: 'Zone à atmosphère explosive (poussières, gaz, vapeurs) ; silo, local batterie, cuve',
+      prevention: 'Zonage ATEX respecté ; matériel antidéflagrant ; détecteur de gaz ; ventilation ; interdiction de flamme nue',
+      niveau: 4
+    },
+    'Échauffement': {
+      situation: 'Surchauffe de composants électriques, connecteurs, câbles sous-dimensionnés',
+      prevention: 'Contrôle thermographique ; serrage des connexions ; dimensionnement correct des câbles ; ventilation',
+      niveau: 2
+    },
+    'Risque chimique': {
+      situation: 'Utilisation ou exposition à des produits chimiques (solvants, acides, peintures, huiles)',
+      prevention: 'FDS consultées ; EPI adaptés (gants, lunettes, masque) ; ventilation ; stockage conforme ; douche de sécurité',
+      niveau: 2
+    },
+    'Amiante': {
+      situation: 'Présence d\'amiante dans toiture, isolants, joints (bâtiments avant 1997)',
+      prevention: 'Repérage amiante avant travaux (DTA) ; si présence : sous-section 4 ; entreprise certifiée ; EPI FFP3 ; plan de retrait',
+      niveau: 4
+    },
+    'Poussières': {
+      situation: 'Émission de poussières lors de perçage, meulage, découpe ; poussières de bois, silice',
+      prevention: 'Masque FFP2/FFP3 ; aspiration à la source ; humidification ; nettoyage régulier',
+      niveau: 1
+    },
+    'Risque biologique': {
+      situation: 'Présence d\'insectes (guêpes, frelons), tiques, rongeurs, moisissures ; intervention en milieu agricole',
+      prevention: 'Inspection visuelle préalable ; vêtements couvrants ; trousse de premiers secours ; éloignement nids',
+      niveau: 2
+    },
+    'Manutention mécanique': {
+      situation: 'Utilisation d\'engins de levage, chariot élévateur, grue ; charges suspendues',
+      prevention: 'CACES à jour ; plan de levage ; balisage zone d\'évolution ; élingage conforme ; vérification périodique',
+      niveau: 3
+    },
+    'Manutention manuelle': {
+      situation: 'Port de charges lourdes ou répétitif (panneaux, câbles, outils) ; postures contraignantes',
+      prevention: 'Aide mécanique (diable, chariot) ; limitation des charges (<25 kg) ; formation gestes et postures ; travail à deux',
+      niveau: 2
+    },
+    'Écrasement': {
+      situation: 'Coincement entre pièces mobiles, structures, engins ; basculement de charge',
+      prevention: 'Balisage des zones ; calage des charges ; arrêt des machines avant intervention ; coordination des manœuvres',
+      niveau: 3
+    },
+    'Coupure': {
+      situation: 'Manipulation de tôles, câbles, outils tranchants ; verre brisé',
+      prevention: 'Gants anti-coupure ; protections sur outils ; rangement des objets tranchants ; trousse de secours',
+      niveau: 1
+    },
+    'Circulation / Co-activité': {
+      situation: 'Circulation simultanée de véhicules et piétons ; co-activité entre plusieurs entreprises sur le même site',
+      prevention: 'Plan de circulation affiché ; gilet haute visibilité ; balisage des zones de travail ; coordination des interventions ; réunion de chantier',
+      niveau: 2
+    },
+    'Choc / Heurt': {
+      situation: 'Déplacement d\'engins, mouvement de pièces, portes, obstacles à hauteur de tête',
+      prevention: 'Casque de chantier ; signalisation des obstacles ; balisage ; klaxon de recul sur engins',
+      niveau: 2
+    },
+    'Renversement': {
+      situation: 'Engin sur terrain instable ou en pente ; charge déséquilibrée ; vent fort',
+      prevention: 'Étude de sol ; calage/stabilisateurs ; respect des abaques de charge ; arrêt par vent fort (>60 km/h)',
+      niveau: 3
+    },
+    'Bruit': {
+      situation: 'Exposition au bruit >80 dB(A) : groupes électrogènes, meuleuses, marteaux-piqueurs, éoliennes',
+      prevention: 'Bouchons d\'oreilles ou casque antibruit ; éloignement de la source ; rotation des postes ; mesure de bruit',
+      niveau: 1
+    },
+    'Espace confiné': {
+      situation: 'Intervention dans local technique fermé, cuve, regard, fosse ; risque d\'asphyxie ou intoxication',
+      prevention: 'Détecteur 4 gaz ; ventilation forcée ; surveillance extérieure permanente ; autorisation de travail ; formation',
+      niveau: 4
+    },
+    'Travail isolé': {
+      situation: 'Intervention seul sur site isolé ; impossibilité d\'alerter en cas d\'accident',
+      prevention: 'PTI/DATI (dispositif d\'alerte) ; check-in régulier ; procédure d\'alerte ; binôme si possible',
+      niveau: 2
+    },
+    'Intempéries': {
+      situation: 'Travail en extérieur par pluie, vent fort, orage, neige, canicule',
+      prevention: 'Suivi météo ; arrêt des travaux en hauteur par vent >45 km/h ; abri disponible ; arrêt immédiat si orage',
+      niveau: 2
+    },
+    'Chaleur / Froid': {
+      situation: 'Exposition prolongée à la chaleur (toiture en été) ou au froid (hiver) ; coup de chaleur',
+      prevention: 'Hydratation régulière ; pauses à l\'ombre ; horaires aménagés ; vêtements adaptés ; crème solaire',
+      niveau: 2
+    },
+    'Rayonnement solaire': {
+      situation: 'Réverbération sur panneaux PV ; exposition UV prolongée en extérieur',
+      prevention: 'Lunettes de protection UV ; crème solaire ; chapeau/casquette sous casque ; pauses régulières à l\'ombre',
+      niveau: 1
+    },
+    'Travaux en toiture': {
+      situation: 'Accès et circulation sur toiture (fragile, pente, hauteur) ; chute au travers ou du bord',
+      prevention: 'Filet de sécurité ou ligne de vie ; chemins de circulation balisés ; test de résistance ; garde-corps périphériques',
+      niveau: 3
+    },
+    'Soudure': {
+      situation: 'Travaux par points chauds ; projection de métal en fusion ; fumées de soudage',
+      prevention: 'Permis de feu ; écran de soudage ; masque à ventilation assistée ; extincteur ; protection des tiers',
+      niveau: 2
+    },
+    'Terrassement': {
+      situation: 'Tranchées, fouilles ; risque d\'effondrement des parois ; réseaux enterrés (gaz, électricité, eau)',
+      prevention: 'DICT réalisée ; blindage des tranchées >1,30 m ; détection des réseaux ; balisage ; interdiction de circuler en bord de fouille',
+      niveau: 3
+    },
+    'Levage': {
+      situation: 'Opération de levage par grue, palan, chariot télescopique ; charge suspendue au-dessus de personnes',
+      prevention: 'Plan de levage ; balisage de la zone ; vérification des élingues ; interdiction de stationner sous la charge ; CACES',
+      niveau: 3
+    },
+    'Élagage': {
+      situation: 'Travaux d\'élagage à proximité de lignes électriques ou de panneaux ; chute de branches',
+      prevention: 'Périmètre de sécurité ; EPI tronçonneuse ; distance aux lignes électriques ; personnel qualifié',
+      niveau: 2
+    },
+  },
+
+  _getRiskDefaults(name) {
+    return this.RISK_DEFAULTS[name] || { situation: '', prevention: '', niveau: 2 };
+  },
+
   _getCurrentRisques() {
     if (this._riskPickerCtx === 'vic') return this.currentVIC?.risques || [];
     return this.currentPDP?.risques || [];
@@ -2247,7 +2419,8 @@ const App = {
     if (idx >= 0) {
       risques.splice(idx, 1);
     } else {
-      risques.push({ danger: name, situation: '', prevention: '', niveau: 2, localisation: '' });
+      const def = this._getRiskDefaults(name);
+      risques.push({ danger: name, situation: def.situation, prevention: def.prevention, niveau: def.niveau || 2, localisation: '' });
     }
     // Update chip visual
     const chips = document.querySelectorAll('#risk-picker-categories .risk-chip');
@@ -2324,7 +2497,8 @@ const App = {
   addPredefinedRisk(name) {
     this.currentPDP.risques = this.currentPDP.risques||[];
     if (this.currentPDP.risques.some(r => r.danger===name)) { this.toast('Déjà ajouté','warning'); return; }
-    this.currentPDP.risques.push({ danger:name, situation:'', prevention:'', niveau:1 });
+    const def = this._getRiskDefaults(name);
+    this.currentPDP.risques.push({ danger:name, situation:def.situation, prevention:def.prevention, niveau:def.niveau||2 });
     this.renderRisquesList(); this.toast('Risque ajouté');
   },
 
@@ -2876,7 +3050,8 @@ const App = {
   addVICPredefinedRisk(name) {
     this.currentVIC.risques = this.currentVIC.risques||[];
     if (this.currentVIC.risques.some(r => r.danger===name)) { this.toast('Déjà ajouté','warning'); return; }
-    this.currentVIC.risques.push({ danger:name, situation:'', prevention:'', niveau:1, localisation:'' });
+    const def = this._getRiskDefaults(name);
+    this.currentVIC.risques.push({ danger:name, situation:def.situation, prevention:def.prevention, niveau:def.niveau||2, localisation:'' });
     this.renderVICRisquesList(); this.toast('Risque ajouté');
   },
 
