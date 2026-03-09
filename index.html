@@ -418,6 +418,168 @@ body {
 }
 .btn-save-flash { animation: save-flash 0.6s ease; }
 
+/* ---- Risk Picker ---- */
+.risk-picker-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1rem;
+    border: 2px dashed var(--agw-green);
+    border-radius: 12px;
+    background: rgba(0, 105, 62, 0.04);
+    color: var(--agw-green);
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    width: 100%;
+    justify-content: center;
+}
+.risk-picker-btn:hover {
+    background: rgba(0, 105, 62, 0.1);
+    border-style: solid;
+    transform: translateY(-1px);
+}
+.risk-picker-search {
+    border-radius: 24px;
+    padding: 0.6rem 1rem 0.6rem 2.5rem;
+    border: 1px solid #dee2e6;
+    font-size: 0.9rem;
+    background: #f8f9fa;
+    width: 100%;
+}
+.risk-picker-search:focus {
+    background: #fff;
+    border-color: var(--agw-green);
+    box-shadow: 0 0 0 3px rgba(0, 105, 62, 0.1);
+    outline: none;
+}
+.risk-cat-section { margin-bottom: 0.5rem; }
+.risk-cat-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 0.4rem 0;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid #f0f0f0;
+}
+.risk-cat-header:hover { color: var(--agw-green); }
+.risk-cat-icon {
+    font-size: 1rem;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    color: #fff;
+    flex-shrink: 0;
+}
+.risk-cat-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0.5rem 0 0.25rem 0;
+}
+.risk-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 9px 15px;
+    border-radius: 24px;
+    border: 1.5px solid #dee2e6;
+    background: #fff;
+    font-size: 0.84rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+.risk-chip:hover {
+    border-color: var(--agw-green);
+    background: rgba(0, 105, 62, 0.05);
+}
+.risk-chip:active { transform: scale(0.95); }
+.risk-chip.selected {
+    background: var(--agw-green);
+    color: #fff;
+    border-color: var(--agw-green);
+    box-shadow: 0 2px 6px rgba(0, 105, 62, 0.3);
+}
+.risk-chip .chip-check { display: none; font-size: 0.7rem; }
+.risk-chip.selected .chip-check { display: inline; }
+.risk-selected-summary {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(0, 105, 62, 0.06);
+    border-radius: 8px;
+    font-size: 0.82rem;
+    color: var(--agw-green);
+    font-weight: 600;
+}
+.risk-selected-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    border-radius: 12px;
+    background: var(--agw-green);
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+#modal-risk-picker .modal-body { max-height: 70vh; overflow-y: auto; }
+#modal-risk-picker .modal-footer { border-top: 1px solid #eee; padding: 0.6rem 1rem; }
+.risk-picker-custom-input {
+    display: flex;
+    gap: 8px;
+    padding: 0.75rem 0;
+    border-top: 1px solid #eee;
+    margin-top: 0.5rem;
+}
+.risk-picker-custom-input input {
+    flex: 1;
+    border-radius: 24px;
+    padding: 8px 16px;
+    border: 1.5px solid #dee2e6;
+    font-size: 0.85rem;
+}
+.risk-picker-custom-input input:focus {
+    border-color: var(--agw-green);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 105, 62, 0.1);
+}
+.risk-picker-custom-input button {
+    border-radius: 24px;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+@media (max-width: 576px) {
+    #modal-risk-picker .modal-dialog {
+        margin: 0;
+        min-height: 100vh;
+        max-width: 100%;
+    }
+    #modal-risk-picker .modal-content {
+        border: 0;
+        border-radius: 0;
+        min-height: 100vh;
+    }
+    #modal-risk-picker .modal-body { max-height: calc(100vh - 140px); }
+    .risk-chip {
+        padding: 11px 16px;
+        font-size: 0.9rem;
+    }
+}
+
 /* ---- Print ---- */
 @media print {
     .navbar, .toast-container, .btn, .mobile-bottom-nav, .no-print { display: none !important; }
@@ -733,25 +895,14 @@ body {
           <span class="badge" style="background:#fd7e14">Élevé</span>
           <span class="badge bg-danger">Critique</span>
         </div>
-        <div class="mb-2">
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Chute de plain-pied')">+ Chute plain-pied</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Travail en hauteur')">+ Hauteur</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Risque électrique')">+ Électrique</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Risque chimique')">+ Chimique</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Manutention mécanique')">+ Manutention</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Incendie / Explosion')">+ Incendie</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Circulation / Co-activité')">+ Co-activité</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Choc / Heurt')">+ Choc / Heurt</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Bruit')">+ Bruit</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Espace confiné')">+ Espace confiné</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Travail isolé')">+ Travail isolé</button>
+        <div id="pdp-risk-selected-summary" class="risk-selected-summary mb-2" style="display:none">
+          <span class="risk-selected-count" id="pdp-risk-count">0</span>
+          <span>risque(s) identifié(s)</span>
         </div>
-        <!-- Risques personnalisés PDP -->
-        <div id="pdp-custom-risks-btns" class="d-flex flex-wrap gap-1 mb-2"></div>
-        <div class="input-group input-group-sm mb-2" style="max-width:400px">
-          <input type="text" class="form-control" id="pdp-custom-risk-input" placeholder="Nouveau type de risque...">
-          <button class="btn btn-outline-primary" onclick="App.addPDPCustomRisk()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
-        </div>
+        <button class="risk-picker-btn mb-2" onclick="App.openRiskPicker('pdp')">
+          <i class="bi bi-shield-plus" style="font-size:1.1rem"></i>
+          Sélectionner des risques
+        </button>
         <div id="risques-list-container"></div>
       </div>
     </div>
@@ -948,24 +1099,14 @@ body {
         <span><i class="bi bi-exclamation-triangle"></i>Risques identifiés sur site</span>
         <button class="btn btn-sm btn-outline-primary" onclick="App.addVICRisque()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
       </div>
-      <div class="d-flex flex-wrap gap-1 mb-2">
-        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Chute de plain-pied')">+ Chute plain-pied</button>
-        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Travail en hauteur')">+ Hauteur</button>
-        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Risque électrique')">+ Électrique</button>
-        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Risque chimique')">+ Chimique</button>
-        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Manutention mécanique')">+ Manutention</button>
-        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Incendie / Explosion')">+ Incendie</button>
-        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Circulation / Co-activité')">+ Co-activité</button>
-        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Choc / Heurt')">+ Choc / Heurt</button>
-        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Bruit')">+ Bruit</button>
-        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Espace confiné')">+ Espace confiné</button>
+      <div id="vic-risk-selected-summary" class="risk-selected-summary mb-2" style="display:none">
+        <span class="risk-selected-count" id="vic-risk-count">0</span>
+        <span>risque(s) identifié(s)</span>
       </div>
-      <!-- Risques personnalisés -->
-      <div id="vic-custom-risks-btns" class="d-flex flex-wrap gap-1 mb-2"></div>
-      <div class="input-group input-group-sm mb-2" style="max-width:400px">
-        <input type="text" class="form-control" id="vic-custom-risk-input" placeholder="Nouveau type de risque...">
-        <button class="btn btn-outline-primary" onclick="App.addVICCustomRisk()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
-      </div>
+      <button class="risk-picker-btn mb-2" onclick="App.openRiskPicker('vic')">
+        <i class="bi bi-shield-plus" style="font-size:1.1rem"></i>
+        Sélectionner des risques
+      </button>
       <div id="vic-risques-list-container"></div>
     </div>
 
@@ -1159,6 +1300,36 @@ body {
     <div class="modal-content">
       <div class="modal-header"><h6 class="modal-title"><i class="bi bi-link-45deg me-1"></i>Sélectionner</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body" id="modal-vic-link-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Risk Picker Modal -->
+<div class="modal fade" id="modal-risk-picker" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title"><i class="bi bi-shield-plus me-2"></i>Sélectionner des risques</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="position-relative mb-3">
+          <i class="bi bi-search position-absolute" style="left:12px;top:50%;transform:translateY(-50%);color:#aaa"></i>
+          <input type="text" class="risk-picker-search" id="risk-picker-search" placeholder="Rechercher un risque..." oninput="App.filterRiskPicker(this.value)">
+        </div>
+        <div id="risk-picker-categories"></div>
+        <div class="risk-picker-custom-input">
+          <input type="text" id="risk-picker-custom-input" placeholder="Risque personnalisé...">
+          <button class="btn btn-outline-primary btn-sm" onclick="App.addCustomRiskFromPicker()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
+        </div>
+      </div>
+      <div class="modal-footer justify-content-between">
+        <div class="risk-selected-summary" id="risk-picker-footer-summary">
+          <span class="risk-selected-count" id="risk-picker-footer-count">0</span>
+          <span>risque(s)</span>
+        </div>
+        <button class="btn btn-primary btn-sm px-4" data-bs-dismiss="modal"><i class="bi bi-check-lg me-1"></i>Valider</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1844,6 +2015,7 @@ const App = {
     this.renderPDPVICLink();
     this.renderEEList();
     this.renderRisquesList();
+    this._riskPickerCtx = 'pdp'; this.updateRiskCounters();
     this.renderMesuresList();
     document.getElementById('pdp-instructions').value = p.instructions||'';
     this.renderExigencesList();
@@ -1929,7 +2101,7 @@ const App = {
     document.querySelectorAll('#pdp-section-tabs .section-tab').forEach(t => t.classList.remove('active'));
     document.querySelector(`#pdp-section-tabs .section-tab[onclick*="${section}"]`)?.classList.add('active');
     if (section === 'signatures') setTimeout(() => this.initSignatureCanvases(), 100);
-    if (section === 'risques') this.renderCustomRiskBtns('pdp-custom-risks-btns', 'App.addPredefinedRisk');
+    if (section === 'risques') { this._riskPickerCtx = 'pdp'; this.updateRiskCounters(); }
   },
 
   // ---- EE ----
@@ -1989,12 +2161,157 @@ const App = {
     this.renderEEList(); this.renderSignaturesEE(); this.addHist(`EE retirée: ${n}`);
   },
 
+  // ---- RISK PICKER ----
+  _riskPickerCtx: null, // 'pdp' or 'vic'
+  _riskPickerModal: null,
+
+  RISK_CATALOG: [
+    { cat: 'Chutes', icon: 'bi-arrow-down-circle-fill', color: '#dc3545',
+      risks: ['Chute de plain-pied', 'Travail en hauteur', 'Chute d\'objet', 'Glissade'] },
+    { cat: 'Électrique', icon: 'bi-lightning-charge-fill', color: '#fd7e14',
+      risks: ['Risque électrique', 'Arc électrique', 'Tension continue PV', 'Contact indirect'] },
+    { cat: 'Incendie / Explosion', icon: 'bi-fire', color: '#e63946',
+      risks: ['Incendie / Explosion', 'ATEX', 'Échauffement'] },
+    { cat: 'Chimique / Biologique', icon: 'bi-droplet-half', color: '#6f42c1',
+      risks: ['Risque chimique', 'Amiante', 'Poussières', 'Risque biologique'] },
+    { cat: 'Mécanique', icon: 'bi-gear-fill', color: '#0d6efd',
+      risks: ['Manutention mécanique', 'Manutention manuelle', 'Écrasement', 'Coupure'] },
+    { cat: 'Circulation / Co-activité', icon: 'bi-truck', color: '#198754',
+      risks: ['Circulation / Co-activité', 'Choc / Heurt', 'Renversement'] },
+    { cat: 'Environnement', icon: 'bi-cloud-sun-fill', color: '#20c997',
+      risks: ['Bruit', 'Espace confiné', 'Travail isolé', 'Intempéries', 'Chaleur / Froid', 'Rayonnement solaire'] },
+    { cat: 'Travaux spécifiques', icon: 'bi-tools', color: '#6c757d',
+      risks: ['Travaux en toiture', 'Soudure', 'Terrassement', 'Levage', 'Élagage'] },
+  ],
+
+  _getCurrentRisques() {
+    if (this._riskPickerCtx === 'vic') return this.currentVIC?.risques || [];
+    return this.currentPDP?.risques || [];
+  },
+
+  _isRiskSelected(name) {
+    return this._getCurrentRisques().some(r => r.danger === name);
+  },
+
+  async openRiskPicker(ctx) {
+    this._riskPickerCtx = ctx;
+    this.renderRiskPickerContent();
+    this.updateRiskCounters();
+    document.getElementById('risk-picker-search').value = '';
+    if (!this._riskPickerModal) this._riskPickerModal = new bootstrap.Modal(document.getElementById('modal-risk-picker'));
+    this._riskPickerModal.show();
+  },
+
+  async renderRiskPickerContent() {
+    const customList = await this.loadCustomRisks();
+    const container = document.getElementById('risk-picker-categories');
+    let html = '';
+    // Standard categories
+    for (const cat of this.RISK_CATALOG) {
+      html += `<div class="risk-cat-section" data-cat="${cat.cat}">`;
+      html += `<div class="risk-cat-header">`;
+      html += `<span class="risk-cat-icon" style="background:${cat.color}"><i class="bi ${cat.icon}"></i></span>`;
+      html += `<span>${cat.cat}</span>`;
+      html += `</div>`;
+      html += `<div class="risk-cat-chips">`;
+      for (const r of cat.risks) {
+        const sel = this._isRiskSelected(r) ? ' selected' : '';
+        html += `<div class="risk-chip${sel}" onclick="App.toggleRiskInPicker('${r.replace(/'/g,"\\'")}')" data-risk="${this.esc(r)}">`;
+        html += `<i class="bi bi-check2 chip-check"></i>${this.esc(r)}`;
+        html += `</div>`;
+      }
+      html += `</div></div>`;
+    }
+    // Custom risks category
+    if (customList.length) {
+      html += `<div class="risk-cat-section" data-cat="Personnalisés">`;
+      html += `<div class="risk-cat-header">`;
+      html += `<span class="risk-cat-icon" style="background:#0dcaf0"><i class="bi bi-star-fill"></i></span>`;
+      html += `<span>Mes risques personnalisés</span>`;
+      html += `</div>`;
+      html += `<div class="risk-cat-chips">`;
+      for (const r of customList) {
+        const sel = this._isRiskSelected(r) ? ' selected' : '';
+        html += `<div class="risk-chip${sel}" onclick="App.toggleRiskInPicker('${r.replace(/'/g,"\\'")}')" data-risk="${this.esc(r)}">`;
+        html += `<i class="bi bi-check2 chip-check"></i>${this.esc(r)}`;
+        html += `</div>`;
+      }
+      html += `</div></div>`;
+    }
+    container.innerHTML = html;
+  },
+
+  toggleRiskInPicker(name) {
+    const risques = this._riskPickerCtx === 'vic'
+      ? (this.currentVIC.risques = this.currentVIC.risques || [])
+      : (this.currentPDP.risques = this.currentPDP.risques || []);
+    const idx = risques.findIndex(r => r.danger === name);
+    if (idx >= 0) {
+      risques.splice(idx, 1);
+    } else {
+      risques.push({ danger: name, situation: '', prevention: '', niveau: 2, localisation: '' });
+    }
+    // Update chip visual
+    const chips = document.querySelectorAll('#risk-picker-categories .risk-chip');
+    chips.forEach(chip => {
+      if (chip.dataset.risk === name) chip.classList.toggle('selected');
+    });
+    this.updateRiskCounters();
+    // Update list behind modal
+    if (this._riskPickerCtx === 'vic') this.renderVICRisquesList();
+    else this.renderRisquesList();
+  },
+
+  updateRiskCounters() {
+    const risques = this._getCurrentRisques();
+    const n = risques.length;
+    // Picker footer
+    const fc = document.getElementById('risk-picker-footer-count');
+    if (fc) fc.textContent = n;
+    // Context summary
+    const ctx = this._riskPickerCtx || 'pdp';
+    const summary = document.getElementById(ctx + '-risk-selected-summary');
+    const count = document.getElementById(ctx + '-risk-count');
+    if (summary) summary.style.display = n > 0 ? 'flex' : 'none';
+    if (count) count.textContent = n;
+  },
+
+  filterRiskPicker(query) {
+    const q = (query || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    document.querySelectorAll('#risk-picker-categories .risk-cat-section').forEach(sec => {
+      let anyVisible = false;
+      sec.querySelectorAll('.risk-chip').forEach(chip => {
+        const name = (chip.dataset.risk || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const match = !q || name.includes(q);
+        chip.style.display = match ? '' : 'none';
+        if (match) anyVisible = true;
+      });
+      sec.style.display = anyVisible ? '' : 'none';
+    });
+  },
+
+  async addCustomRiskFromPicker() {
+    const inp = document.getElementById('risk-picker-custom-input');
+    const name = (inp.value || '').trim();
+    if (!name) { this.toast('Saisissez un nom de risque', 'warning'); return; }
+    await this.saveCustomRisk(name);
+    inp.value = '';
+    // Add the risk directly
+    this.toggleRiskInPicker(name);
+    // Re-render to show the new custom risk in the list
+    await this.renderRiskPickerContent();
+    // Re-apply search filter if any
+    const search = document.getElementById('risk-picker-search').value;
+    if (search) this.filterRiskPicker(search);
+    this.toast('Risque personnalisé ajouté');
+  },
+
   // ---- RISQUES ----
   renderRisquesList() {
     const c = document.getElementById('risques-list-container');
     const r = this.currentPDP.risques||[];
     if (!r.length) { c.innerHTML = '<p class="text-muted small">Aucun risque identifié.</p>'; return; }
-    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong><select class="form-select form-select-sm" style="width:auto" onchange="App.currentPDP.risques[${i}].niveau=+this.value;App.renderRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentPDP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea><textarea class="form-control form-control-sm" rows="1" placeholder="Mesures de prévention..." onchange="App.currentPDP.risques[${i}].prevention=this.value">${this.esc(r.prevention||'')}</textarea></div><button class="btn btn-outline-danger btn-sm" onclick="App.currentPDP.risques.splice(${i},1);App.renderRisquesList()"><i class="bi bi-trash"></i></button></div></div>`).join('');
+    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong><select class="form-select form-select-sm" style="width:auto" onchange="App.currentPDP.risques[${i}].niveau=+this.value;App.renderRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentPDP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea><textarea class="form-control form-control-sm" rows="1" placeholder="Mesures de prévention..." onchange="App.currentPDP.risques[${i}].prevention=this.value">${this.esc(r.prevention||'')}</textarea></div><button class="btn btn-outline-danger btn-sm" onclick="App.currentPDP.risques.splice(${i},1);App.renderRisquesList();App._riskPickerCtx='pdp';App.updateRiskCounters()"><i class="bi bi-trash"></i></button></div></div>`).join('');
   },
 
   addRisque() {
@@ -2355,7 +2672,7 @@ const App = {
     document.getElementById('vic-observations').value = v.observations||'';
     this.renderVICEEList();
     this.renderVICRisquesList();
-    this.renderCustomRiskBtns('vic-custom-risks-btns', 'App.addVICPredefinedRisk');
+    this._riskPickerCtx = 'vic'; this.updateRiskCounters();
     this.renderVICPhotos();
     this.renderVICSignaturesEE();
     this.renderVICPDPLink();
@@ -2512,7 +2829,7 @@ const App = {
     const c = document.getElementById('vic-risques-list-container');
     const r = this.currentVIC.risques||[];
     if (!r.length) { c.innerHTML = '<p class="text-muted small">Aucun risque identifié.</p>'; return; }
-    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong><select class="form-select form-select-sm" style="width:auto" onchange="App.currentVIC.risques[${i}].niveau=+this.value;App.renderVICRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentVIC.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea><textarea class="form-control form-control-sm" rows="1" placeholder="Mesures de prévention..." onchange="App.currentVIC.risques[${i}].prevention=this.value">${this.esc(r.prevention||'')}</textarea><input type="text" class="form-control form-control-sm mt-1" placeholder="Localisation sur site..." onchange="App.currentVIC.risques[${i}].localisation=this.value" value="${this.esc(r.localisation||'')}"></div><button class="btn btn-outline-danger btn-sm" onclick="App.currentVIC.risques.splice(${i},1);App.renderVICRisquesList()"><i class="bi bi-trash"></i></button></div></div>`).join('');
+    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong><select class="form-select form-select-sm" style="width:auto" onchange="App.currentVIC.risques[${i}].niveau=+this.value;App.renderVICRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentVIC.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea><textarea class="form-control form-control-sm" rows="1" placeholder="Mesures de prévention..." onchange="App.currentVIC.risques[${i}].prevention=this.value">${this.esc(r.prevention||'')}</textarea><input type="text" class="form-control form-control-sm mt-1" placeholder="Localisation sur site..." onchange="App.currentVIC.risques[${i}].localisation=this.value" value="${this.esc(r.localisation||'')}"></div><button class="btn btn-outline-danger btn-sm" onclick="App.currentVIC.risques.splice(${i},1);App.renderVICRisquesList();App._riskPickerCtx='vic';App.updateRiskCounters()"><i class="bi bi-trash"></i></button></div></div>`).join('');
   },
 
   addVICRisque() {
@@ -2808,35 +3125,7 @@ const App = {
     list.push(name);
     await db.settings.put({ key:'customRisks', value:list });
   },
-  async renderCustomRiskBtns(containerId, handler) {
-    const list = await this.loadCustomRisks();
-    const c = document.getElementById(containerId);
-    if (!c) return;
-    if (!list.length) { c.innerHTML = ''; return; }
-    c.innerHTML = list.map(r => `<button class="btn btn-outline-info btn-sm me-1 mb-1" onclick="${handler}('${r.replace(/'/g,"\\'")}')">+ ${this.esc(r)}</button>`).join('');
-  },
-
-  async addVICCustomRisk() {
-    const inp = document.getElementById('vic-custom-risk-input');
-    const name = (inp.value||'').trim();
-    if (!name) { this.toast('Saisissez un nom de risque','warning'); return; }
-    await this.saveCustomRisk(name);
-    this.addVICPredefinedRisk(name);
-    inp.value = '';
-    this.renderCustomRiskBtns('vic-custom-risks-btns', 'App.addVICPredefinedRisk');
-    this.renderCustomRiskBtns('pdp-custom-risks-btns', 'App.addPredefinedRisk');
-  },
-
-  async addPDPCustomRisk() {
-    const inp = document.getElementById('pdp-custom-risk-input');
-    const name = (inp.value||'').trim();
-    if (!name) { this.toast('Saisissez un nom de risque','warning'); return; }
-    await this.saveCustomRisk(name);
-    this.addPredefinedRisk(name);
-    inp.value = '';
-    this.renderCustomRiskBtns('pdp-custom-risks-btns', 'App.addPredefinedRisk');
-    this.renderCustomRiskBtns('vic-custom-risks-btns', 'App.addVICPredefinedRisk');
-  },
+  // renderCustomRiskBtns, addVICCustomRisk, addPDPCustomRisk replaced by risk picker
 
   // ---- VIC EXPORT PDF ----
   async exportVICPDF() {
