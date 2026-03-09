@@ -1064,15 +1064,13 @@ body {
         <div class="col-md-4">
           <label class="form-label">Statut</label>
           <select class="form-select" id="vic-statut">
-            <option value="planifiee">Planifiée</option>
             <option value="effectuee">Effectuée</option>
             <option value="validee">Validée (signée)</option>
           </select>
         </div>
         <div class="col-md-6"><label class="form-label">Date de la visite *</label><input type="date" class="form-control" id="vic-date"></div>
-        <div class="col-md-6"><label class="form-label">Heure</label><input type="time" class="form-control" id="vic-heure"></div>
         <div class="col-md-6"><label class="form-label">Site / Adresse</label><input type="text" class="form-control" id="vic-site" placeholder="Ex: Bouxières-sous-Froidmont"></div>
-        <div class="col-md-6"><label class="form-label">Lieu précis</label><input type="text" class="form-control" id="vic-lieu" placeholder="Ex: Hangar de stockage"></div>
+        <div class="col-md-6"><label class="form-label">Lieu</label><input type="text" class="form-control" id="vic-lieu" placeholder="Ex: Hangar de stockage"></div>
         <div class="col-12"><label class="form-label">Objet de l'intervention</label><textarea class="form-control" id="vic-objet" rows="2" placeholder="Nature des travaux prévus..."></textarea></div>
       </div>
     </div>
@@ -1883,8 +1881,8 @@ const App = {
     // VIC dashboard
     const vics = await db.vics.orderBy('dateCreation').reverse().toArray();
     const recentVICs = vics.slice(0,3);
-    const statutLabelsVIC = { planifiee:'Planifiée', effectuee:'Effectuée', validee:'Validée' };
-    const statutColorsVIC = { planifiee:'secondary', effectuee:'primary', validee:'success' };
+    const statutLabelsVIC = { effectuee:'Effectuée', validee:'Validée' };
+    const statutColorsVIC = { effectuee:'primary', validee:'success' };
     document.getElementById('dashboard-vics').innerHTML = recentVICs.length === 0
       ? '<p class="text-muted small m-2">Aucune VIC. <a href="#" onclick="App.newVIC()">Créer une VIC</a></p>'
       : recentVICs.map(v => `<div class="d-flex align-items-center gap-2 p-2 border-bottom" style="cursor:pointer" onclick="App.openVIC(${v.id})"><span class="badge bg-${statutColorsVIC[v.statut]||'secondary'}">${statutLabelsVIC[v.statut]||v.statut}</span><span class="flex-grow-1 small">${this.esc(v.numero||'')} — ${this.esc(v.site||'')}</span><span class="text-muted small">${v.dateVisite||'—'}</span></div>`).join('');
@@ -2629,7 +2627,7 @@ const App = {
   newVIC() {
     const s = this._settings || {};
     this.currentVIC = {
-      numero:'', refOperation:'', statut:'planifiee',
+      numero:'', refOperation:'', statut:'effectuee',
       dateVisite:'', heure:'', site:'', lieu:'', objet:'',
       euParticipant: { nom:s.euResponsable||'', fonction:'Responsable QSE', tel:s.euTel||'' },
       entreprisesExt: [],
@@ -2659,9 +2657,8 @@ const App = {
     const v = this.currentVIC;
     document.getElementById('vic-numero').value = v.numero||'';
     document.getElementById('vic-ref-operation').value = v.refOperation||'';
-    document.getElementById('vic-statut').value = v.statut||'planifiee';
+    document.getElementById('vic-statut').value = v.statut||'effectuee';
     document.getElementById('vic-date').value = v.dateVisite||'';
-    document.getElementById('vic-heure').value = v.heure||'';
     document.getElementById('vic-site').value = v.site||'';
     document.getElementById('vic-lieu').value = v.lieu||'';
     document.getElementById('vic-objet').value = v.objet||'';
@@ -2695,7 +2692,6 @@ const App = {
     v.refOperation = document.getElementById('vic-ref-operation').value.trim();
     v.statut = document.getElementById('vic-statut').value;
     v.dateVisite = document.getElementById('vic-date').value;
-    v.heure = document.getElementById('vic-heure').value;
     v.site = document.getElementById('vic-site').value.trim();
     v.lieu = document.getElementById('vic-lieu').value.trim();
     v.objet = document.getElementById('vic-objet').value.trim();
@@ -2752,8 +2748,8 @@ const App = {
     const c = document.getElementById('vics-list-container');
     const vics = await db.vics.orderBy('dateCreation').reverse().toArray();
     if (!vics.length) { c.innerHTML = '<p class="text-muted text-center mt-4">Aucune VIC.</p>'; return; }
-    const statutLabels = { planifiee:'Planifiée', effectuee:'Effectuée', validee:'Validée' };
-    const statutColors = { planifiee:'secondary', effectuee:'primary', validee:'success' };
+    const statutLabels = { effectuee:'Effectuée', validee:'Validée' };
+    const statutColors = { effectuee:'primary', validee:'success' };
     c.innerHTML = vics.map(v => `<div class="card pdp-card" data-site="${(v.site||'').toLowerCase()}" data-ref="${(v.refOperation||'').toLowerCase()}" onclick="App.openVIC(${v.id})">
       <div class="card-body p-2">
         <div class="d-flex justify-content-between align-items-start">
@@ -2815,12 +2811,48 @@ const App = {
 
   addVICEEManual() {
     bootstrap.Modal.getInstance(document.getElementById('modal-entreprise'))?.hide();
-    const nom = prompt('Nom de l\'entreprise :'); if (!nom) return;
-    const responsable = prompt('Représentant :')||'';
-    const tel = prompt('Téléphone :')||'';
-    this.currentVIC.entreprisesExt.push({ nom, adresse:'', responsable, fonction:'', tel, email:'', siret:'', activite:'' });
+    setTimeout(() => {
+      const html = `
+        <form id="vic-ee-manual-form" class="needs-validation" novalidate>
+          <div class="mb-2"><label class="form-label fw-semibold">Nom de l'entreprise *</label><input type="text" class="form-control" id="vic-ee-m-nom" required placeholder="Raison sociale"></div>
+          <div class="mb-2"><label class="form-label">Activité / Objet</label><input type="text" class="form-control" id="vic-ee-m-activite" placeholder="Ex: Maintenance électrique"></div>
+          <div class="row g-2 mb-2">
+            <div class="col-6"><label class="form-label">Représentant</label><input type="text" class="form-control" id="vic-ee-m-responsable" placeholder="Nom Prénom"></div>
+            <div class="col-6"><label class="form-label">Fonction</label><input type="text" class="form-control" id="vic-ee-m-fonction" placeholder="Ex: Chef de chantier"></div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6"><label class="form-label">Téléphone</label><input type="tel" class="form-control" id="vic-ee-m-tel" placeholder="06 ..."></div>
+            <div class="col-6"><label class="form-label">Email</label><input type="email" class="form-control" id="vic-ee-m-email" placeholder="contact@..."></div>
+          </div>
+          <div class="mb-2"><label class="form-label">Adresse</label><input type="text" class="form-control" id="vic-ee-m-adresse" placeholder="Adresse de l'entreprise"></div>
+          <div class="mb-2"><label class="form-label">SIRET</label><input type="text" class="form-control" id="vic-ee-m-siret" placeholder="N° SIRET"></div>
+        </form>`;
+      document.getElementById('modal-entreprise-body').innerHTML = html;
+      document.getElementById('modal-entreprise-footer').style.display = '';
+      document.getElementById('modal-entreprise-footer').innerHTML = '<button class="btn btn-primary btn-sm" onclick="App.submitVICEEManual()"><i class="bi bi-check-lg me-1"></i>Ajouter l\'EE</button>';
+      document.querySelector('#modal-entreprise .modal-title').innerHTML = '<i class="bi bi-building-add me-1"></i>Nouvelle EE';
+      new bootstrap.Modal(document.getElementById('modal-entreprise')).show();
+      setTimeout(() => document.getElementById('vic-ee-m-nom')?.focus(), 200);
+    }, 300);
+  },
+
+  submitVICEEManual() {
+    const nom = document.getElementById('vic-ee-m-nom').value.trim();
+    if (!nom) { document.getElementById('vic-ee-m-nom').classList.add('is-invalid'); return; }
+    this.currentVIC.entreprisesExt.push({
+      nom,
+      activite: document.getElementById('vic-ee-m-activite').value.trim(),
+      responsable: document.getElementById('vic-ee-m-responsable').value.trim(),
+      fonction: document.getElementById('vic-ee-m-fonction').value.trim(),
+      tel: document.getElementById('vic-ee-m-tel').value.trim(),
+      email: document.getElementById('vic-ee-m-email').value.trim(),
+      adresse: document.getElementById('vic-ee-m-adresse').value.trim(),
+      siret: document.getElementById('vic-ee-m-siret').value.trim(),
+    });
     this.currentVIC.signaturesEE = this.currentVIC.signaturesEE||[];
     this.currentVIC.signaturesEE.push({ nom:'', date:'', data:null });
+    bootstrap.Modal.getInstance(document.getElementById('modal-entreprise'))?.hide();
+    setTimeout(() => this.resetEntModal(), 300);
     this.renderVICEEList(); this.renderVICSignaturesEE(); this.toast('EE ajoutée');
   },
 
@@ -3091,7 +3123,7 @@ const App = {
     if (this.currentPDP.id) await this.savePDP();
     const p = this.currentPDP;
     const vic = {
-      numero:'', refOperation:p.numero||'', statut:'planifiee',
+      numero:'', refOperation:p.numero||'', statut:'effectuee',
       dateVisite:'', heure:'', site:p.site||'', lieu:p.lieu||'', objet:p.description||p.titre||'',
       euParticipant: { nom:(p.eu||{}).responsable||'', fonction:'', tel:(p.eu||{}).tel||'' },
       entreprisesExt: JSON.parse(JSON.stringify(p.entreprisesExt||[])),
@@ -3149,7 +3181,7 @@ const App = {
     // Infos
     addT(`Site: ${v.site||'-'} | Lieu: ${v.lieu||'-'}`,10,'bold',[0,105,62]);
     addT(`Date: ${v.dateVisite||'-'} | Heure: ${v.heure||'-'}`);
-    const statutL = {planifiee:'Planifiée',effectuee:'Effectuée',validee:'Validée'};
+    const statutL = {effectuee:'Effectuée',validee:'Validée'};
     addT(`Statut: ${statutL[v.statut]||v.statut}`); addL();
 
     // Objet
@@ -3214,7 +3246,7 @@ const App = {
     const niveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
     const niveauColors = {1:'92D050',2:'FFC000',3:'FD7E14',4:'FF0000'};
     const GREEN = '00693E';
-    const statutL = {planifiee:'Planifiée',effectuee:'Effectuée',validee:'Validée'};
+    const statutL = {effectuee:'Effectuée',validee:'Validée'};
 
     const cell = (text, opts={}) => new TableCell({
       children:[new Paragraph({children:[new TextRun({text:text||'',size:opts.size||20,bold:opts.bold||false,font:'Calibri',color:opts.color||undefined})],alignment:opts.align||AlignmentType.LEFT,spacing:{before:40,after:40}})],
