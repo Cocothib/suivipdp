@@ -1,0 +1,3258 @@
+<!DOCTYPE html>
+<html lang="fr" data-bs-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Suivi PDP - Plan de Prévention</title>
+  <link rel="manifest" href="manifest.json">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <style>
+/* =============================================================
+   style.css — Theme Agriwatt pour Suivi PDP
+   ============================================================= */
+
+/* ---- Couleurs Agriwatt ---- */
+:root {
+    --agw-green: #00693E;
+    --agw-green-light: #2E8B57;
+    --agw-green-dark: #004D2C;
+    --agw-yellow: #FFD700;
+    --agw-gray: #6c757d;
+    --agw-light: #f8f9fa;
+}
+
+/* Override Bootstrap primary */
+.bg-primary, .btn-primary {
+    background-color: var(--agw-green) !important;
+    border-color: var(--agw-green) !important;
+}
+.btn-primary:hover, .btn-primary:focus {
+    background-color: var(--agw-green-dark) !important;
+    border-color: var(--agw-green-dark) !important;
+}
+.btn-outline-primary {
+    color: var(--agw-green);
+    border-color: var(--agw-green);
+}
+.btn-outline-primary:hover, .btn-outline-primary:focus,
+.btn-outline-primary.active {
+    background-color: var(--agw-green);
+    border-color: var(--agw-green);
+    color: #fff;
+}
+.text-primary { color: var(--agw-green) !important; }
+.border-primary { border-color: var(--agw-green) !important; }
+.navbar-dark.bg-primary { background-color: var(--agw-green) !important; }
+.badge.bg-primary { background-color: var(--agw-green) !important; }
+.spinner-border.text-primary { color: var(--agw-green) !important; }
+a { color: var(--agw-green); }
+a:hover { color: var(--agw-green-dark); }
+
+/* ---- Body ---- */
+body {
+    background-color: #f5f6f8;
+    font-size: 0.9rem;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ---- KPI Cards ---- */
+.kpi-card {
+    border-top-width: 3px;
+    transition: transform 0.15s;
+}
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.kpi-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+}
+.kpi-value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+.kpi-label {
+    font-size: 0.78rem;
+    color: var(--agw-gray);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ---- Cards ---- */
+.card {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    border-radius: 8px;
+}
+.card-header { font-size: 0.88rem; }
+
+/* ---- PDP list cards ---- */
+.pdp-card {
+    transition: all 0.15s;
+    cursor: pointer;
+    margin-bottom: 0.5rem;
+}
+.pdp-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    transform: translateY(-1px);
+}
+
+/* ---- Status badges ---- */
+.badge-brouillon { background: #6c757d; }
+.badge-visite { background: #0dcaf0; color: #000; }
+.badge-analyse { background: #fd7e14; }
+.badge-signature { background: #6f42c1; }
+.badge-actif { background: #198754; }
+.badge-cloture { background: #dc3545; }
+.badge-modifie { background: #ffc107; color: #000; }
+
+/* ---- Section Tabs (pills style) ---- */
+.section-tab {
+    padding: 6px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    border: 1px solid #dee2e6;
+    background: #fff;
+    margin: 2px;
+    white-space: nowrap;
+    transition: all 0.15s;
+    display: inline-block;
+}
+.section-tab.active {
+    background: var(--agw-green);
+    color: #fff;
+    border-color: var(--agw-green);
+}
+.section-tab:hover:not(.active) {
+    border-color: var(--agw-green);
+    color: var(--agw-green);
+}
+
+/* ---- Form Sections ---- */
+.form-section {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.form-section-title {
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--agw-green);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* ---- Risk rows ---- */
+.risk-row {
+    border-left: 4px solid transparent;
+    padding: 0.65rem;
+    border-radius: 6px;
+    margin-bottom: 0.4rem;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.risk-row.risk-level-1 { border-left-color: #198754; }
+.risk-row.risk-level-2 { border-left-color: #ffc107; }
+.risk-row.risk-level-3 { border-left-color: #fd7e14; }
+.risk-row.risk-level-4 { border-left-color: #dc3545; }
+
+/* ---- Signature canvas ---- */
+.signature-pad-wrapper {
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    background-color: #fff;
+    overflow: hidden;
+}
+.signature-canvas {
+    width: 100%;
+    height: 120px;
+    display: block;
+    touch-action: none;
+}
+
+/* ---- Timeline ---- */
+.timeline-item {
+    position: relative;
+    padding-left: 28px;
+    margin-bottom: 0.75rem;
+    border-left: 2px solid #dee2e6;
+}
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: 4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--agw-green);
+}
+
+/* ---- Photo thumbnails ---- */
+.photo-thumb {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 0.15s;
+    cursor: pointer;
+}
+.photo-thumb:hover { border-color: var(--agw-green); }
+
+/* ---- Search bar ---- */
+.search-bar {
+    border-radius: 20px;
+    border: 1px solid #dee2e6;
+    padding: 6px 14px;
+    background: #fff;
+    font-size: 0.88rem;
+}
+
+/* ---- Navbar ---- */
+.navbar-brand { font-size: 1.1rem; }
+.nav-link { font-size: 0.88rem; padding: 0.5rem 0.75rem !important; }
+.navbar-logo {
+    height: 36px;
+    width: auto;
+    border-radius: 4px;
+    object-fit: contain;
+}
+
+/* New PDP button in navbar */
+#btn-nav-new-pdp, #btn-nav-new-vic {
+    font-size: 0.82rem;
+    white-space: nowrap;
+    padding: 0.3rem 0.65rem;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+#btn-nav-new-pdp {
+    color: var(--agw-green-dark) !important;
+    border: 2px solid var(--agw-yellow);
+}
+#btn-nav-new-vic {
+    color: #fff !important;
+    background: #0d6efd !important;
+    border: 2px solid #0dcaf0 !important;
+}
+#btn-nav-new-pdp:hover, #btn-nav-new-pdp:focus {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(255, 215, 0, 0.5);
+}
+#btn-nav-new-vic:hover, #btn-nav-new-vic:focus {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(13, 202, 240, 0.5);
+}
+
+/* ---- Toast ---- */
+.toast { min-width: 280px; }
+.toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; }
+
+/* ---- Tables ---- */
+.table-sm td, .table-sm th { padding: 0.35rem 0.5rem; }
+
+/* ---- Navbar tabs scrollable ---- */
+.nav-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+.nav-tabs::-webkit-scrollbar { display: none; }
+.nav-tabs .nav-item { flex-shrink: 0; }
+.nav-tabs .nav-link { white-space: nowrap; }
+
+/* ---- Mobile Bottom Navigation ---- */
+.mobile-bottom-nav { display: none; }
+
+@media (max-width: 768px) {
+    .mobile-bottom-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        background: #fff;
+        border-top: 1px solid #dee2e6;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.06);
+        z-index: 1030;
+        padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    .bottom-nav-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 0 4px;
+        text-decoration: none !important;
+        color: #6c757d;
+        font-size: 0.62rem;
+        transition: color 0.15s;
+        min-height: 52px;
+        -webkit-tap-highlight-color: transparent;
+        cursor: pointer;
+    }
+    .bottom-nav-item.active { color: var(--agw-green); }
+    .bottom-nav-icon {
+        font-size: 1.2rem;
+        line-height: 1;
+        margin-bottom: 2px;
+    }
+    .bottom-nav-label {
+        font-weight: 500;
+        letter-spacing: 0.2px;
+    }
+    /* Center FAB button */
+    .bottom-nav-fab .bottom-nav-fab-btn {
+        width: 50px; height: 50px;
+        border-radius: 50%;
+        background: var(--agw-yellow);
+        color: var(--agw-green-dark);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-top: -18px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        border: 3px solid #fff;
+        transition: transform 0.15s;
+    }
+    .bottom-nav-fab:active .bottom-nav-fab-btn { transform: scale(0.92); }
+    .bottom-nav-fab .bottom-nav-label { margin-top: -2px; }
+    /* FAB popup menu */
+    .fab-overlay {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.3); z-index: 1099;
+    }
+    .fab-menu {
+        position: fixed;
+        bottom: 72px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1100;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        animation: fabSlideUp 0.2s ease-out;
+    }
+    @keyframes fabSlideUp {
+        from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+        to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+    .fab-menu-item {
+        background: #fff;
+        border-radius: 24px;
+        padding: 10px 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        cursor: pointer;
+        white-space: nowrap;
+        text-align: center;
+        transition: transform 0.1s;
+    }
+    .fab-menu-item:active { transform: scale(0.95); }
+    .fab-menu-vic {
+        background: #0d6efd; color: #fff;
+    }
+    .fab-menu-pdp {
+        background: var(--agw-yellow); color: var(--agw-green-dark);
+    }
+    /* Hide nav new PDP button on mobile */
+    #btn-nav-new-pdp, #btn-nav-new-vic { display: none !important; }
+    /* Add bottom padding to main content */
+    #main-content { padding-bottom: 65px !important; }
+    .toast-container { bottom: 70px !important; }
+    /* Responsive adjustments */
+    .container-fluid { padding-left: 10px; padding-right: 10px; }
+    .navbar-brand { font-size: 0.95rem; }
+    .kpi-value { font-size: 1.3rem; }
+    .kpi-label { font-size: 0.7rem; }
+    .kpi-icon { font-size: 1.2rem; }
+    .kpi-card .card-body { padding: 0.5rem 0.35rem; }
+    .card { border-radius: 6px; }
+    h5 { font-size: 1.05rem; }
+}
+
+@media (max-width: 576px) {
+    .container-fluid { padding-left: 8px; padding-right: 8px; }
+    .navbar { padding: 0.35rem 0.5rem; }
+    .navbar-brand { font-size: 0.8rem; gap: 0.3rem !important; }
+    .navbar-logo { height: 26px; }
+    .kpi-value { font-size: 1.15rem; }
+    .kpi-label { font-size: 0.65rem; }
+    .kpi-icon { font-size: 1rem; }
+    .form-control, .form-select { font-size: 0.9rem; padding: 0.5rem 0.75rem; min-height: 42px; }
+    .form-label { font-size: 0.82rem; margin-bottom: 0.2rem; }
+    .btn { min-height: 40px; font-size: 0.85rem; }
+    .btn-sm { min-height: 36px; }
+    .signature-canvas { height: 130px; }
+    .modal-dialog { margin: 0; max-width: 100%; min-height: 100vh; }
+    .modal-content { border: 0; border-radius: 0; min-height: 100vh; }
+    .toast-container { bottom: 70px !important; }
+    .toast { min-width: 240px; font-size: 0.82rem; }
+    .card-body { padding: 0.75rem; }
+    .card-header { padding: 0.5rem 0.75rem; font-size: 0.85rem; }
+    .photo-thumb { width: 70px !important; height: 70px !important; }
+}
+
+/* ---- Animations ---- */
+.fade-in { animation: fadeIn 0.25s ease-in; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+@keyframes save-flash {
+    0%   { background-color: transparent; }
+    30%  { background-color: rgba(25, 135, 84, 0.4); }
+    100% { background-color: transparent; }
+}
+.btn-save-flash { animation: save-flash 0.6s ease; }
+
+/* ---- Print ---- */
+@media print {
+    .navbar, .toast-container, .btn, .mobile-bottom-nav, .no-print { display: none !important; }
+    body { background: #fff; padding: 0; }
+    .card { box-shadow: none; border: 1px solid #ddd; }
+}
+  </style>
+</head>
+<body>
+
+<!-- ===== NAVBAR ===== -->
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
+  <div class="container-fluid">
+    <a class="navbar-brand d-flex align-items-center gap-2" href="#" onclick="App.showView('dashboard')">
+      <img src="1000px Fond Blanc.jpg" alt="Générations Renouvelables" class="navbar-logo">
+      <span>Suivi PDP</span>
+    </a>
+
+    <div class="d-flex align-items-center gap-2 order-lg-last">
+      <button class="btn btn-sm btn-outline-warning" id="btn-sp-connect" title="Se connecter à SharePoint">
+        <i class="bi bi-cloud-slash"></i><span class="ms-1 d-none d-md-inline">Connexion</span>
+      </button>
+      <button class="btn btn-sm btn-outline-light" id="btn-sp-save" style="display:none" title="Sauvegarder" onclick="DataSync.save().then(()=>App.toast('Sauvegardé'))">
+        <i class="bi bi-floppy"></i><span class="badge bg-danger d-none" id="sync-badge">!</span>
+      </button>
+      <button class="btn btn-info btn-sm fw-bold" id="btn-nav-new-vic" onclick="App.newVIC()">
+        <span class="me-1">&#x1F50D;</span><span>Nouvelle VIC</span>
+      </button>
+      <button class="btn btn-warning btn-sm fw-bold" id="btn-nav-new-pdp" onclick="App.newPDP()">
+        <span class="me-1">&#x2795;</span><span>Nouveau PDP</span>
+      </button>
+    </div>
+
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="navbarMain">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link active" href="#" data-page="dashboard" onclick="App.showView('dashboard')"><i class="bi bi-speedometer2 me-1"></i>Tableau de bord</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-page="list" onclick="App.showView('list')"><i class="bi bi-list-ul me-1"></i>PDP</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-page="vics" onclick="App.showView('vics')"><i class="bi bi-clipboard-check me-1"></i>VIC</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-page="entreprises" onclick="App.showView('entreprises')"><i class="bi bi-building me-1"></i>Entreprises</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-page="settings" onclick="App.showView('settings')"><i class="bi bi-gear me-1"></i>Paramètres</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- Banners -->
+<div id="permission-bar"></div>
+<div id="presence-bar"></div>
+
+<!-- ===== MAIN CONTENT ===== -->
+<main class="container-fluid px-2 px-md-3 mt-3" id="main-content">
+
+  <!-- Loading Screen -->
+  <div id="loading-screen" class="text-center py-5">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Chargement...</span>
+    </div>
+    <p class="mt-2 text-muted">Chargement de l'application...</p>
+  </div>
+
+  <!-- ==================== DASHBOARD ==================== -->
+  <div id="view-dashboard" class="view fade-in" style="display:none">
+    <!-- Quick actions -->
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <button class="btn btn-info btn-sm fw-bold" onclick="App.newVIC()">
+        <i class="bi bi-clipboard-check me-1"></i>Nouvelle VIC
+      </button>
+      <button class="btn btn-warning btn-sm fw-bold" onclick="App.newPDP()">
+        <i class="bi bi-file-earmark-plus me-1"></i>Nouveau PDP
+      </button>
+    </div>
+    <!-- KPIs -->
+    <div class="row g-2 mb-3">
+      <div class="col-6 col-md-3">
+        <div class="card kpi-card border-top border-primary">
+          <div class="card-body text-center py-3">
+            <div class="kpi-icon text-primary">&#x1F4CB;</div>
+            <div class="kpi-value" id="kpi-total">0</div>
+            <div class="kpi-label">PDP Total</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card kpi-card border-top border-success">
+          <div class="card-body text-center py-3">
+            <div class="kpi-icon text-success">&#x2705;</div>
+            <div class="kpi-value" id="kpi-actifs">0</div>
+            <div class="kpi-label">PDP Actifs</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card kpi-card border-top border-warning">
+          <div class="card-body text-center py-3">
+            <div class="kpi-icon text-warning">&#x23F3;</div>
+            <div class="kpi-value" id="kpi-en-cours">0</div>
+            <div class="kpi-label">En cours</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card kpi-card border-top border-danger">
+          <div class="card-body text-center py-3">
+            <div class="kpi-icon text-danger">&#x26A0;&#xFE0F;</div>
+            <div class="kpi-value" id="kpi-expires">0</div>
+            <div class="kpi-label">Expirés</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent -->
+    <div class="card mb-3">
+      <div class="card-header bg-white fw-bold"><i class="bi bi-clock-history me-1"></i>PDP récents</div>
+      <div class="card-body p-2" id="dashboard-recent"></div>
+    </div>
+
+    <!-- VIC récentes -->
+    <div class="card mb-3">
+      <div class="card-header bg-white fw-bold"><i class="bi bi-clipboard-check me-1"></i>VIC récentes</div>
+      <div class="card-body p-2" id="dashboard-vics"></div>
+    </div>
+
+    <!-- Deadlines -->
+    <div class="card">
+      <div class="card-header bg-white fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>Échéances proches</div>
+      <div class="card-body p-2" id="dashboard-deadlines"></div>
+    </div>
+  </div>
+
+  <!-- ==================== PDP LIST ==================== -->
+  <div id="view-list" class="view fade-in" style="display:none">
+    <div class="d-flex justify-content-between flex-wrap align-items-center gap-2 mb-3">
+      <h5 class="mb-0"><i class="bi bi-list-ul me-1"></i>Plans de Prévention</h5>
+      <div class="d-flex gap-2 flex-wrap">
+        <input type="search" class="form-control form-control-sm search-bar" style="width:200px" placeholder="Rechercher..." id="search-pdp" oninput="App.filterPDPList()">
+        <select class="form-select form-select-sm" style="width:auto" id="filter-status" onchange="App.filterPDPList()">
+          <option value="">Tous</option>
+          <option value="brouillon">Brouillon</option>
+          <option value="visite_prealable">Visite préalable</option>
+          <option value="analyse_risque">Analyse de risque</option>
+          <option value="signature">En signature</option>
+          <option value="actif">Actif</option>
+          <option value="modifie">Modifié</option>
+          <option value="cloture">Clôturé</option>
+        </select>
+      </div>
+    </div>
+    <div id="pdp-list-container"></div>
+  </div>
+
+  <!-- ==================== PDP DETAIL ==================== -->
+  <div id="view-pdp-detail" class="view fade-in" style="display:none">
+    <div class="d-flex justify-content-between flex-wrap align-items-center gap-2 mb-3 no-print">
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-outline-secondary btn-sm" onclick="App.showView('list')"><i class="bi bi-arrow-left"></i></button>
+        <h5 class="mb-0" id="pdp-detail-title">Nouveau PDP</h5>
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-danger btn-sm" onclick="App.deletePDP()" id="btn-delete-pdp" style="display:none"><i class="bi bi-trash me-1"></i>Supprimer</button>
+        <button class="btn btn-primary btn-sm" onclick="App.savePDP()" id="btn-save-pdp"><i class="bi bi-check-lg me-1"></i>Enregistrer</button>
+      </div>
+    </div>
+
+    <!-- Section tabs -->
+    <div class="d-flex flex-wrap gap-1 mb-3 no-print" id="pdp-section-tabs" style="overflow-x:auto">
+      <span class="section-tab active" onclick="App.showPDPSection('general')"><i class="bi bi-info-circle me-1"></i>Général</span>
+      <span class="section-tab" onclick="App.showPDPSection('entreprises')"><i class="bi bi-building me-1"></i>Entreprises</span>
+      <span class="section-tab" onclick="App.showPDPSection('visite')"><i class="bi bi-eye me-1"></i>Visite</span>
+      <span class="section-tab" onclick="App.showPDPSection('risques')"><i class="bi bi-exclamation-triangle me-1"></i>Risques</span>
+      <span class="section-tab" onclick="App.showPDPSection('mesures')"><i class="bi bi-shield-check me-1"></i>Mesures</span>
+      <span class="section-tab" onclick="App.showPDPSection('exigences')"><i class="bi bi-clipboard-check me-1"></i>Exigences</span>
+      <span class="section-tab" onclick="App.showPDPSection('urgence')"><i class="bi bi-telephone me-1"></i>Urgence</span>
+      <span class="section-tab" onclick="App.showPDPSection('signatures')"><i class="bi bi-pen me-1"></i>Signatures</span>
+      <span class="section-tab" onclick="App.showPDPSection('modifications')"><i class="bi bi-clock-history me-1"></i>Modif.</span>
+      <span class="section-tab" onclick="App.showPDPSection('documents')"><i class="bi bi-paperclip me-1"></i>Export</span>
+    </div>
+
+    <!-- Section: Général -->
+    <div id="section-general" class="pdp-section">
+      <div class="form-section">
+        <div class="form-section-title"><i class="bi bi-info-circle"></i>Informations générales</div>
+        <div class="row g-2">
+          <div class="col-12">
+            <label class="form-label fw-semibold">Intitulé de l'opération *</label>
+            <input type="text" class="form-control" id="pdp-titre" placeholder="Ex: PRO MESURES – Métrologie">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">N° PDP</label>
+            <input type="text" class="form-control" id="pdp-numero" placeholder="Auto-généré si vide">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Version</label>
+            <input type="text" class="form-control" id="pdp-version" value="01">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Statut</label>
+            <select class="form-select" id="pdp-statut">
+              <option value="brouillon">Brouillon</option>
+              <option value="visite_prealable">Visite préalable</option>
+              <option value="analyse_risque">Analyse de risque</option>
+              <option value="signature">En signature</option>
+              <option value="actif">Actif</option>
+              <option value="modifie">Modifié</option>
+              <option value="cloture">Clôturé</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Site concerné</label>
+            <input type="text" class="form-control" id="pdp-site" placeholder="Ex: Bouxières-sous-Froidmont">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Lieu précis d'intervention</label>
+            <input type="text" class="form-control" id="pdp-lieu" placeholder="Ex: Hangar de stockage – Agence X">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Date d'intervention / début</label>
+            <input type="date" class="form-control" id="pdp-date-debut">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Date de fin prévue</label>
+            <input type="date" class="form-control" id="pdp-date-fin">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Nature de la prestation / Description</label>
+            <textarea class="form-control" id="pdp-description" rows="3" placeholder="Description détaillée des travaux..."></textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Matériel / Équipements concernés</label>
+            <input type="text" class="form-control" id="pdp-materiel" placeholder="Ex: Outillage électrique et mécanique...">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Nombre de salariés</label>
+            <input type="number" class="form-control" id="pdp-nb-salaries" min="0">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Horaires</label>
+            <input type="text" class="form-control" id="pdp-horaires" placeholder="Ex: 8h-17h">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section: Entreprises -->
+    <div id="section-entreprises" class="pdp-section" style="display:none">
+      <div class="form-section">
+        <div class="form-section-title"><i class="bi bi-building"></i>Entreprise Utilisatrice (EU)</div>
+        <div class="row g-2">
+          <div class="col-md-6"><label class="form-label">Raison sociale *</label><input type="text" class="form-control" id="eu-nom" placeholder="AGRIWATT / ENERSOLYS"></div>
+          <div class="col-md-6"><label class="form-label">Adresse</label><input type="text" class="form-control" id="eu-adresse"></div>
+          <div class="col-md-6"><label class="form-label">Responsable QSE / Contact EU</label><input type="text" class="form-control" id="eu-responsable"></div>
+          <div class="col-md-6"><label class="form-label">Fonction</label><input type="text" class="form-control" id="eu-fonction"></div>
+          <div class="col-md-6"><label class="form-label">Téléphone EU</label><input type="tel" class="form-control" id="eu-tel"></div>
+          <div class="col-md-6"><label class="form-label">Email</label><input type="email" class="form-control" id="eu-email"></div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-buildings me-1"></i>Entreprises Extérieures (EE)</span>
+          <button class="btn btn-sm btn-outline-primary" onclick="App.addEE()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
+        </div>
+        <div id="ee-list-container"></div>
+      </div>
+    </div>
+
+    <!-- Section: Visite préalable -->
+    <div id="section-visite" class="pdp-section" style="display:none">
+      <!-- VIC linkage banner -->
+      <div id="pdp-vic-link-banner" class="alert alert-info small d-flex align-items-center justify-content-between mb-3" style="display:none !important">
+        <span><i class="bi bi-link-45deg me-1"></i>VIC liée : <strong id="pdp-vic-link-label"></strong></span>
+        <div class="d-flex gap-1">
+          <button class="btn btn-sm btn-outline-primary" onclick="App.openLinkedVIC()"><i class="bi bi-eye me-1"></i>Ouvrir</button>
+          <button class="btn btn-sm btn-outline-warning" onclick="App.syncVICToPDP()"><i class="bi bi-arrow-repeat me-1"></i>Sync risques</button>
+        </div>
+      </div>
+      <div id="pdp-vic-no-link" class="alert alert-secondary small mb-3">
+        <i class="bi bi-info-circle me-1"></i>Aucune VIC liée.
+        <button class="btn btn-sm btn-outline-primary ms-2" onclick="App.linkPDPToVIC()"><i class="bi bi-link me-1"></i>Lier une VIC</button>
+        <button class="btn btn-sm btn-outline-primary ms-1" onclick="App.createVICFromPDP()"><i class="bi bi-plus-lg me-1"></i>Créer une VIC</button>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title"><i class="bi bi-eye"></i>Visite préalable commune</div>
+        <div class="row g-2">
+          <div class="col-md-6"><label class="form-label">Date de la visite</label><input type="date" class="form-control" id="visite-date"></div>
+          <div class="col-md-6"><label class="form-label">Heure</label><input type="time" class="form-control" id="visite-heure"></div>
+          <div class="col-12"><label class="form-label">Participants</label><textarea class="form-control" id="visite-participants" rows="2" placeholder="Noms et fonctions..."></textarea></div>
+          <div class="col-12"><label class="form-label">Observations</label><textarea class="form-control" id="visite-observations" rows="3" placeholder="Points relevés..."></textarea></div>
+          <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" id="visite-effectuee"><label class="form-check-label" for="visite-effectuee">Visite effectuée</label></div></div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title"><i class="bi bi-camera"></i>Photos</div>
+        <div class="d-flex flex-wrap gap-2 mb-2" id="visite-photos"></div>
+        <label class="btn btn-outline-primary btn-sm"><i class="bi bi-camera me-1"></i>Ajouter<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addVisitePhoto(event)"></label>
+      </div>
+    </div>
+
+    <!-- Section: Risques -->
+    <div id="section-risques" class="pdp-section" style="display:none">
+      <div class="form-section">
+        <div class="form-section-title d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-exclamation-triangle"></i>Analyse des risques</span>
+          <button class="btn btn-sm btn-outline-primary" onclick="App.addRisque()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
+        </div>
+        <div class="d-flex flex-wrap gap-1 mb-2">
+          <span class="badge bg-success">Faible</span>
+          <span class="badge bg-warning text-dark">Moyen</span>
+          <span class="badge" style="background:#fd7e14">Élevé</span>
+          <span class="badge bg-danger">Critique</span>
+        </div>
+        <div class="mb-2">
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Chute de plain-pied')">+ Chute plain-pied</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Travail en hauteur')">+ Hauteur</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Risque électrique')">+ Électrique</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Risque chimique')">+ Chimique</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Manutention mécanique')">+ Manutention</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Incendie / Explosion')">+ Incendie</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Circulation / Co-activité')">+ Co-activité</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Choc / Heurt')">+ Choc / Heurt</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Bruit')">+ Bruit</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Espace confiné')">+ Espace confiné</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedRisk('Travail isolé')">+ Travail isolé</button>
+        </div>
+        <!-- Risques personnalisés PDP -->
+        <div id="pdp-custom-risks-btns" class="d-flex flex-wrap gap-1 mb-2"></div>
+        <div class="input-group input-group-sm mb-2" style="max-width:400px">
+          <input type="text" class="form-control" id="pdp-custom-risk-input" placeholder="Nouveau type de risque...">
+          <button class="btn btn-outline-primary" onclick="App.addPDPCustomRisk()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
+        </div>
+        <div id="risques-list-container"></div>
+      </div>
+    </div>
+
+    <!-- Section: Mesures -->
+    <div id="section-mesures" class="pdp-section" style="display:none">
+      <div class="form-section">
+        <div class="form-section-title d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-shield-check"></i>Mesures de prévention</span>
+          <button class="btn btn-sm btn-outline-primary" onclick="App.addMesure()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
+        </div>
+        <div class="mb-2">
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedMesure('EPI obligatoires', 'Casque, chaussures de sécurité, gants, lunettes, gilet HV')">+ EPI</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedMesure('Balisage / Signalisation', 'Zone de travaux balisée, panneaux')">+ Balisage</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedMesure('Consignation', 'Consignation électrique / mécanique')">+ Consignation</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedMesure('Permis de feu', 'Permis de feu pour travaux par points chauds')">+ Permis de feu</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedMesure('Extincteur', 'Extincteur à proximité')">+ Extincteur</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedMesure('Premiers secours', 'Trousse de secours, SST identifié')">+ Secours</button>
+        </div>
+        <div id="mesures-list-container"></div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title"><i class="bi bi-info-circle"></i>Instructions générales de sécurité</div>
+        <textarea class="form-control" id="pdp-instructions" rows="3" placeholder="Consignes générales..."></textarea>
+      </div>
+    </div>
+
+    <!-- Section: Exigences EU -->
+    <div id="section-exigences" class="pdp-section" style="display:none">
+      <div class="form-section">
+        <div class="form-section-title d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-clipboard-check"></i>Exigences Entreprise Utilisatrice</span>
+          <button class="btn btn-sm btn-outline-primary" onclick="App.addExigence()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
+        </div>
+        <div class="mb-2">
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Respecter strictement les zones de travail désignées. Ne pas accéder aux zones non concernées par la prestation.')">+ Zones de travail</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Porter les EPI adaptés (chaussures de sécurité, tenue professionnelle).')">+ EPI</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Ne pas utiliser l\'outillage ou les équipements EU sans autorisation préalable.')">+ Outillage</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Signaler immédiatement tout incident, accident ou situation dangereuse au responsable de site.')">+ Signalement</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Respecter les consignes d\'hygiène et de sécurité affichées dans les locaux.')">+ Hygiène</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Laisser la zone de travail propre et rangée à l\'issue de l\'intervention.')">+ Propreté</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Remettre un rapport d\'intervention / certificat de vérification.')">+ Rapport</button>
+          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Tout sous-traitant éventuel devra être déclaré et fera l\'objet d\'un avenant.')">+ Sous-traitance</button>
+        </div>
+        <div id="exigences-list-container"></div>
+      </div>
+    </div>
+
+    <!-- Section: Urgence -->
+    <div id="section-urgence" class="pdp-section" style="display:none">
+      <div class="form-section">
+        <div class="form-section-title"><i class="bi bi-telephone"></i>Consignes d'urgence</div>
+        <div class="row g-2">
+          <div class="col-md-6"><label class="form-label">Responsable de site</label><input type="text" class="form-control" id="urgence-responsable"></div>
+          <div class="col-md-6"><label class="form-label">Téléphone responsable</label><input type="tel" class="form-control" id="urgence-tel-responsable"></div>
+          <div class="col-md-6"><label class="form-label">SST / Secouriste</label><input type="text" class="form-control" id="urgence-sst"></div>
+          <div class="col-md-6"><label class="form-label">Téléphone SST</label><input type="tel" class="form-control" id="urgence-tel-sst"></div>
+          <div class="col-12"><label class="form-label">Numéros d'urgence</label><textarea class="form-control" id="urgence-numeros" rows="2">Pompiers : 18  |  SAMU : 15  |  Gendarmerie : 17  |  Urgences : 112</textarea></div>
+          <div class="col-12"><label class="form-label">Consignes spécifiques</label><textarea class="form-control" id="urgence-consignes" rows="2" placeholder="Point de rassemblement, issues de secours..."></textarea></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section: Signatures -->
+    <div id="section-signatures" class="pdp-section" style="display:none">
+      <div class="form-section">
+        <div class="form-section-title"><i class="bi bi-pen"></i>Signature Entreprise Utilisatrice</div>
+        <div class="row g-2">
+          <div class="col-md-6"><label class="form-label">Signataire</label><input type="text" class="form-control" id="sig-eu-nom" placeholder="Nom et qualité"></div>
+          <div class="col-md-6"><label class="form-label">Date</label><input type="date" class="form-control" id="sig-eu-date"></div>
+          <div class="col-12">
+            <label class="form-label">Signature</label>
+            <div class="signature-pad-wrapper">
+              <canvas id="sig-eu-canvas" class="signature-canvas"></canvas>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('sig-eu-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title"><i class="bi bi-pen"></i>Signatures Entreprises Extérieures</div>
+        <div id="signatures-ee-container"></div>
+      </div>
+    </div>
+
+    <!-- Section: Modifications -->
+    <div id="section-modifications" class="pdp-section" style="display:none">
+      <div class="form-section">
+        <div class="form-section-title d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-clock-history"></i>Modifications / Avenants</span>
+          <button class="btn btn-sm btn-outline-primary" onclick="App.addModification()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
+        </div>
+        <div id="modifications-list-container"></div>
+      </div>
+      <div class="form-section">
+        <div class="form-section-title"><i class="bi bi-journal-text"></i>Historique</div>
+        <div id="historique-container"></div>
+      </div>
+    </div>
+
+    <!-- Section: Documents / Export -->
+    <div id="section-documents" class="pdp-section" style="display:none">
+      <div class="form-section">
+        <div class="form-section-title"><i class="bi bi-paperclip"></i>Documents joints</div>
+        <div id="documents-list-container" class="mb-2"></div>
+        <label class="btn btn-outline-primary btn-sm"><i class="bi bi-upload me-1"></i>Ajouter<input type="file" class="d-none" onchange="App.addDocument(event)" multiple></label>
+      </div>
+      <div class="form-section no-print">
+        <div class="form-section-title"><i class="bi bi-download"></i>Exporter le PDP</div>
+        <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-primary btn-sm" onclick="App.exportDOCX()"><i class="bi bi-file-earmark-word me-1"></i>Export Word (.docx)</button>
+          <button class="btn btn-outline-primary btn-sm" onclick="App.exportPDF()"><i class="bi bi-file-pdf me-1"></i>Export PDF</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="window.print()"><i class="bi bi-printer me-1"></i>Imprimer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== ENTREPRISES ==================== -->
+  <div id="view-entreprises" class="view fade-in" style="display:none">
+    <div class="d-flex justify-content-between flex-wrap align-items-center gap-2 mb-3">
+      <h5 class="mb-0"><i class="bi bi-building me-1"></i>Répertoire Entreprises</h5>
+      <div class="d-flex gap-2">
+        <label class="btn btn-outline-primary btn-sm mb-0"><i class="bi bi-upload me-1"></i>Import Sellsy (CSV)<input type="file" accept=".csv,.txt" class="d-none" onchange="App.importSellsyCSV(event)"></label>
+        <button class="btn btn-primary btn-sm" onclick="App.showEntrepriseForm()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
+      </div>
+    </div>
+    <input type="search" class="form-control form-control-sm search-bar mb-3" placeholder="Rechercher..." id="search-entreprise" oninput="App.filterEntreprises()">
+    <div id="entreprises-list-container"></div>
+  </div>
+
+  <!-- ==================== VIC LIST ==================== -->
+  <div id="view-vics" class="view fade-in" style="display:none">
+    <div class="d-flex justify-content-between flex-wrap align-items-center gap-2 mb-3">
+      <h5 class="mb-0"><i class="bi bi-clipboard-check me-1"></i>Visites d'Inspection Commune</h5>
+      <button class="btn btn-primary btn-sm" onclick="App.newVIC()"><i class="bi bi-plus-lg me-1"></i>Nouvelle VIC</button>
+    </div>
+    <input type="search" class="form-control form-control-sm search-bar mb-3" placeholder="Rechercher..." id="search-vic" oninput="App.filterVICs()">
+    <div id="vics-list-container"></div>
+  </div>
+
+  <!-- ==================== VIC DETAIL ==================== -->
+  <div id="view-vic-detail" class="view fade-in" style="display:none">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 no-print">
+      <h5 class="mb-0" id="vic-detail-title">Nouvelle VIC</h5>
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-danger btn-sm" id="btn-delete-vic" style="display:none" onclick="App.deleteVIC()"><i class="bi bi-trash me-1"></i>Supprimer</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="App.showView('vics')"><i class="bi bi-arrow-left me-1"></i>Retour</button>
+        <button class="btn btn-primary btn-sm" id="btn-save-vic" onclick="App.saveVIC()"><i class="bi bi-check-lg me-1"></i>Enregistrer</button>
+      </div>
+    </div>
+
+    <!-- VIC General -->
+    <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-info-circle"></i>Informations de la visite</div>
+      <div class="row g-2">
+        <div class="col-md-4"><label class="form-label">N° VIC</label><input type="text" class="form-control" id="vic-numero" placeholder="Auto-généré si vide"></div>
+        <div class="col-md-4"><label class="form-label">N° d'opération / Réf.</label><input type="text" class="form-control" id="vic-ref-operation" placeholder="Ex: OPP-2026-001"></div>
+        <div class="col-md-4">
+          <label class="form-label">Statut</label>
+          <select class="form-select" id="vic-statut">
+            <option value="planifiee">Planifiée</option>
+            <option value="effectuee">Effectuée</option>
+            <option value="validee">Validée (signée)</option>
+          </select>
+        </div>
+        <div class="col-md-6"><label class="form-label">Date de la visite *</label><input type="date" class="form-control" id="vic-date"></div>
+        <div class="col-md-6"><label class="form-label">Heure</label><input type="time" class="form-control" id="vic-heure"></div>
+        <div class="col-md-6"><label class="form-label">Site / Adresse</label><input type="text" class="form-control" id="vic-site" placeholder="Ex: Bouxières-sous-Froidmont"></div>
+        <div class="col-md-6"><label class="form-label">Lieu précis</label><input type="text" class="form-control" id="vic-lieu" placeholder="Ex: Hangar de stockage"></div>
+        <div class="col-12"><label class="form-label">Objet de l'intervention</label><textarea class="form-control" id="vic-objet" rows="2" placeholder="Nature des travaux prévus..."></textarea></div>
+      </div>
+    </div>
+
+    <!-- VIC Participants -->
+    <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-people"></i>Participants à la visite</div>
+      <div class="row g-2 mb-2">
+        <div class="col-12"><label class="form-label fw-semibold">Représentant EU</label></div>
+        <div class="col-md-4"><input type="text" class="form-control" id="vic-eu-nom" placeholder="Nom"></div>
+        <div class="col-md-4"><input type="text" class="form-control" id="vic-eu-fonction" placeholder="Fonction"></div>
+        <div class="col-md-4"><input type="tel" class="form-control" id="vic-eu-tel" placeholder="Téléphone"></div>
+      </div>
+      <div class="form-section-title d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-buildings me-1"></i>Représentants EE</span>
+        <button class="btn btn-sm btn-outline-primary" onclick="App.addVICEE()"><i class="bi bi-plus-lg me-1"></i>Ajouter EE</button>
+      </div>
+      <div id="vic-ee-list-container"></div>
+    </div>
+
+    <!-- VIC Risques identifiés -->
+    <div class="form-section">
+      <div class="form-section-title d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-exclamation-triangle"></i>Risques identifiés sur site</span>
+        <button class="btn btn-sm btn-outline-primary" onclick="App.addVICRisque()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
+      </div>
+      <div class="d-flex flex-wrap gap-1 mb-2">
+        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Chute de plain-pied')">+ Chute plain-pied</button>
+        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Travail en hauteur')">+ Hauteur</button>
+        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Risque électrique')">+ Électrique</button>
+        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Risque chimique')">+ Chimique</button>
+        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Manutention mécanique')">+ Manutention</button>
+        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Incendie / Explosion')">+ Incendie</button>
+        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Circulation / Co-activité')">+ Co-activité</button>
+        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Choc / Heurt')">+ Choc / Heurt</button>
+        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Bruit')">+ Bruit</button>
+        <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addVICPredefinedRisk('Espace confiné')">+ Espace confiné</button>
+      </div>
+      <!-- Risques personnalisés -->
+      <div id="vic-custom-risks-btns" class="d-flex flex-wrap gap-1 mb-2"></div>
+      <div class="input-group input-group-sm mb-2" style="max-width:400px">
+        <input type="text" class="form-control" id="vic-custom-risk-input" placeholder="Nouveau type de risque...">
+        <button class="btn btn-outline-primary" onclick="App.addVICCustomRisk()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
+      </div>
+      <div id="vic-risques-list-container"></div>
+    </div>
+
+    <!-- VIC Observations + Photos -->
+    <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-journal-text"></i>Observations</div>
+      <textarea class="form-control mb-2" id="vic-observations" rows="4" placeholder="Observations relevées lors de la visite d'inspection..."></textarea>
+      <div class="form-section-title"><i class="bi bi-camera"></i>Photos</div>
+      <div class="d-flex flex-wrap gap-2 mb-2" id="vic-photos"></div>
+      <label class="btn btn-outline-primary btn-sm"><i class="bi bi-camera me-1"></i>Ajouter<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addVICPhoto(event)"></label>
+    </div>
+
+    <!-- VIC Signatures -->
+    <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-pen"></i>Signature EU</div>
+      <div class="row g-2 mb-3">
+        <div class="col-md-6"><label class="form-label">Signataire EU</label><input type="text" class="form-control" id="vic-sig-eu-nom" placeholder="Nom et qualité"></div>
+        <div class="col-md-6"><label class="form-label">Date</label><input type="date" class="form-control" id="vic-sig-eu-date"></div>
+        <div class="col-12">
+          <div class="signature-pad-wrapper"><canvas id="vic-sig-eu-canvas" class="signature-canvas"></canvas></div>
+          <button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('vic-sig-eu-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button>
+        </div>
+      </div>
+      <div class="form-section-title"><i class="bi bi-pen"></i>Signatures EE</div>
+      <div id="vic-signatures-ee-container"></div>
+    </div>
+
+    <!-- VIC → PDP Link -->
+    <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-link-45deg"></i>Liaison avec un PDP</div>
+      <div id="vic-pdp-link-info" class="mb-2"></div>
+      <div class="d-flex flex-wrap gap-2">
+        <button class="btn btn-primary btn-sm" onclick="App.createPDPFromVIC()"><i class="bi bi-file-earmark-plus me-1"></i>Créer un PDP depuis cette VIC</button>
+        <button class="btn btn-outline-primary btn-sm" onclick="App.linkVICToPDP()"><i class="bi bi-link me-1"></i>Lier à un PDP existant</button>
+        <button class="btn btn-outline-warning btn-sm" id="btn-vic-push-risks" style="display:none" onclick="App.pushVICRisksToPDP()"><i class="bi bi-arrow-right-circle me-1"></i>Envoyer risques vers le PDP</button>
+        <button class="btn btn-outline-secondary btn-sm" id="btn-vic-unlink" style="display:none" onclick="App.unlinkVIC()"><i class="bi bi-x-lg me-1"></i>Délier</button>
+      </div>
+    </div>
+
+    <!-- VIC Export -->
+    <div class="form-section no-print">
+      <div class="form-section-title"><i class="bi bi-download"></i>Exporter la VIC</div>
+      <div class="d-flex flex-wrap gap-2">
+        <button class="btn btn-outline-primary btn-sm" onclick="App.exportVICPDF()"><i class="bi bi-file-pdf me-1"></i>Export PDF</button>
+        <button class="btn btn-primary btn-sm" onclick="App.exportVICDOCX()"><i class="bi bi-file-earmark-word me-1"></i>Export Word (.docx)</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="window.print()"><i class="bi bi-printer me-1"></i>Imprimer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SETTINGS ==================== -->
+  <div id="view-settings" class="view fade-in" style="display:none">
+    <h5 class="mb-3"><i class="bi bi-gear me-1"></i>Paramètres</h5>
+    <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-building"></i>Entreprise Utilisatrice par défaut</div>
+      <div class="row g-2">
+        <div class="col-md-6"><label class="form-label">Raison sociale</label><input type="text" class="form-control" id="settings-eu-nom" placeholder="Agriwatt / ENERSOLYS"></div>
+        <div class="col-md-6"><label class="form-label">Adresse</label><input type="text" class="form-control" id="settings-eu-adresse"></div>
+        <div class="col-md-6"><label class="form-label">Responsable</label><input type="text" class="form-control" id="settings-eu-responsable"></div>
+        <div class="col-md-6"><label class="form-label">Téléphone</label><input type="tel" class="form-control" id="settings-eu-tel"></div>
+        <div class="col-md-6"><label class="form-label">Email</label><input type="email" class="form-control" id="settings-eu-email"></div>
+        <div class="col-md-6"><label class="form-label">SIRET</label><input type="text" class="form-control" id="settings-eu-siret"></div>
+      </div>
+      <button class="btn btn-primary btn-sm mt-2" onclick="App.saveSettings()"><i class="bi bi-check-lg me-1"></i>Sauvegarder</button>
+    </div>
+    <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-database"></i>Données</div>
+      <div class="d-flex flex-wrap gap-2">
+        <button class="btn btn-outline-primary btn-sm" onclick="App.exportAllData()"><i class="bi bi-download me-1"></i>Exporter</button>
+        <label class="btn btn-outline-success btn-sm"><i class="bi bi-upload me-1"></i>Importer<input type="file" accept=".json" class="d-none" onchange="App.importData(event)"></label>
+        <button class="btn btn-outline-danger btn-sm" onclick="App.resetData()"><i class="bi bi-trash me-1"></i>Réinitialiser</button>
+      </div>
+    </div>
+    <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-info-circle"></i>À propos</div>
+      <p class="small text-muted mb-0">Suivi PDP v1.0 — Gestion des Plans de Prévention<br>Données stockées localement (IndexedDB)</p>
+    </div>
+  </div>
+
+</main>
+
+<!-- ===== MOBILE BOTTOM NAV ===== -->
+<nav class="mobile-bottom-nav no-print" id="mobile-nav">
+  <a class="bottom-nav-item active" data-page="dashboard" onclick="App.showView('dashboard')">
+    <span class="bottom-nav-icon">&#x1F4CA;</span>
+    <span class="bottom-nav-label">Tableau</span>
+  </a>
+  <a class="bottom-nav-item" data-page="list" onclick="App.showView('list')">
+    <span class="bottom-nav-icon">&#x1F4CB;</span>
+    <span class="bottom-nav-label">PDP</span>
+  </a>
+  <a class="bottom-nav-item bottom-nav-fab" onclick="App.showNewMenu()">
+    <div class="bottom-nav-fab-btn">&#x2795;</div>
+    <span class="bottom-nav-label">Nouveau</span>
+  </a>
+  <!-- FAB popup menu -->
+  <div id="fab-menu" class="fab-menu" style="display:none">
+    <div class="fab-menu-item fab-menu-vic" onclick="App.newVIC();App.hideFabMenu()">
+      <i class="bi bi-clipboard-check me-2"></i>Nouvelle VIC
+    </div>
+    <div class="fab-menu-item fab-menu-pdp" onclick="App.newPDP();App.hideFabMenu()">
+      <i class="bi bi-file-earmark-plus me-2"></i>Nouveau PDP
+    </div>
+  </div>
+  <div id="fab-overlay" class="fab-overlay" style="display:none" onclick="App.hideFabMenu()"></div>
+  <a class="bottom-nav-item" data-page="vics" onclick="App.showView('vics')">
+    <span class="bottom-nav-icon">&#x1F50D;</span>
+    <span class="bottom-nav-label">VIC</span>
+  </a>
+  <a class="bottom-nav-item" data-page="settings" onclick="App.showView('settings')">
+    <span class="bottom-nav-icon">&#x2699;&#xFE0F;</span>
+    <span class="bottom-nav-label">Paramètres</span>
+  </a>
+</nav>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ===== MODALS ===== -->
+<!-- Entreprise Modal -->
+<div class="modal fade" id="modal-entreprise" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h6 class="modal-title"><i class="bi bi-building me-1"></i>Entreprise</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body" id="modal-entreprise-body">
+        <input type="hidden" id="ent-edit-id">
+        <div class="row g-2">
+          <div class="col-12"><input type="text" class="form-control" id="ent-nom" placeholder="Raison sociale *"></div>
+          <div class="col-12"><input type="text" class="form-control" id="ent-adresse" placeholder="Adresse"></div>
+          <div class="col-6"><input type="text" class="form-control" id="ent-responsable" placeholder="Responsable"></div>
+          <div class="col-6"><input type="text" class="form-control" id="ent-fonction" placeholder="Fonction"></div>
+          <div class="col-6"><input type="tel" class="form-control" id="ent-tel" placeholder="Téléphone"></div>
+          <div class="col-6"><input type="email" class="form-control" id="ent-email" placeholder="Email"></div>
+          <div class="col-12"><input type="text" class="form-control" id="ent-siret" placeholder="SIRET"></div>
+          <div class="col-12"><input type="text" class="form-control" id="ent-activite" placeholder="Activité / Métier"></div>
+        </div>
+      </div>
+      <div class="modal-footer" id="modal-entreprise-footer">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuler</button>
+        <button class="btn btn-primary btn-sm" onclick="App.saveEntreprise()"><i class="bi bi-check-lg me-1"></i>Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modification Modal -->
+<div class="modal fade" id="modal-modification" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h6 class="modal-title"><i class="bi bi-pencil-square me-1"></i>Nouvelle modification</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="row g-2">
+          <div class="col-12"><label class="form-label">Date</label><input type="date" class="form-control" id="modif-date"></div>
+          <div class="col-12"><label class="form-label">Type</label>
+            <select class="form-select" id="modif-type">
+              <option value="ajout_ee">Ajout entreprise extérieure</option>
+              <option value="ajout_risque">Ajout risque</option>
+              <option value="ajout_mesure">Ajout mesure</option>
+              <option value="modif_dates">Modification dates</option>
+              <option value="modif_horaires">Modification horaires</option>
+              <option value="modif_effectif">Modification effectif</option>
+              <option value="ajout_travaux">Travaux supplémentaires</option>
+              <option value="autre">Autre</option>
+            </select>
+          </div>
+          <div class="col-12"><label class="form-label">Description *</label><textarea class="form-control" id="modif-description" rows="3"></textarea></div>
+          <div class="col-12"><label class="form-label">Auteur</label><input type="text" class="form-control" id="modif-auteur"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuler</button>
+        <button class="btn btn-primary btn-sm" onclick="App.saveModification()"><i class="bi bi-check-lg me-1"></i>Valider</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Photo Viewer -->
+<div class="modal fade" id="modal-photo" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content bg-dark">
+      <div class="modal-header border-0"><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body text-center p-0"><img id="photo-viewer-img" class="img-fluid" style="max-height:80vh"></div>
+    </div>
+  </div>
+</div>
+
+<!-- VIC/PDP Link Selection Modal -->
+<div class="modal fade" id="modal-vic-link" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h6 class="modal-title"><i class="bi bi-link-45deg me-1"></i>Sélectionner</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body" id="modal-vic-link-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal fade" id="modal-confirm" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body text-center py-4">
+        <div style="font-size:2rem">&#x26A0;&#xFE0F;</div>
+        <p class="mt-2 mb-0" id="confirm-message">Confirmer ?</p>
+      </div>
+      <div class="modal-footer justify-content-center">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuler</button>
+        <button class="btn btn-danger btn-sm" id="confirm-btn">Confirmer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.28.1/js/msal-browser.min.js"></script>
+<script src="https://unpkg.com/dexie@3.2.4/dist/dexie.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+<script>
+// ========================================
+// DATABASE
+// ========================================
+const db = new Dexie('SuiviPDP');
+db.version(1).stores({
+  pdps: '++id, numero, titre, statut, dateDebut, dateFin, dateCreation, dateModification',
+  entreprises: '++id, nom, siret',
+  settings: 'key'
+});
+db.version(2).stores({
+  pdps: '++id, numero, titre, statut, dateDebut, dateFin, dateCreation, dateModification',
+  entreprises: '++id, nom, siret',
+  vics: '++id, numero, site, dateVisite, pdpId, dateCreation',
+  settings: 'key'
+});
+
+// ========================================
+// SHAREPOINT CONFIG
+// ========================================
+const SP_CONFIG = {
+    TENANT_ID:   '6487f869-e502-42be-91ab-5c1ecde34be6',
+    CLIENT_ID:   'ae0f1f6c-aedc-4866-899c-8d128e2af81a',
+    SHAREPOINT_SITE_PATH: '/sites/QHSE',
+    // Répertoires séparés pour PDP, VIC et entreprises
+    PDP_FOLDER:       'Documents/SuiviPDP/PDP',
+    VIC_FOLDER:       'Documents/SuiviPDP/VIC',
+    SHARED_FOLDER:    'Documents/SuiviPDP/Shared',
+    PRESENCE_FOLDER:  'Documents/SuiviPDP/.presence',
+    // Fichiers de données
+    PDP_DATA_FILE:    'Documents/SuiviPDP/PDP/pdp-data.json',
+    VIC_DATA_FILE:    'Documents/SuiviPDP/VIC/vic-data.json',
+    SHARED_DATA_FILE: 'Documents/SuiviPDP/Shared/shared-data.json',
+    SCOPES: ['Files.ReadWrite.All', 'User.Read', 'Sites.ReadWrite.All'],
+    REDIRECT_URI: window.location.origin + window.location.pathname,
+    POLL_INTERVAL_MS:  15000,
+    PRESENCE_INTERVAL_MS: 30000,
+    SAVE_DEBOUNCE_MS:  2000,
+    PRESENCE_STALE_MS: 90000,
+};
+
+// ========================================
+// MSAL + GRAPH API
+// ========================================
+let _msalInstance = null;
+let _msalAccount  = null;
+const _isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent);
+
+async function _initMSAL() {
+    if (_msalInstance) return _msalInstance;
+    _msalInstance = new msal.PublicClientApplication({
+        auth: {
+            clientId:    SP_CONFIG.CLIENT_ID,
+            authority:   `https://login.microsoftonline.com/${SP_CONFIG.TENANT_ID}`,
+            redirectUri: SP_CONFIG.REDIRECT_URI,
+        },
+        cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: false }
+    });
+    await _msalInstance.initialize();
+    const resp = await _msalInstance.handleRedirectPromise();
+    if (resp) { _msalAccount = resp.account; _msalInstance._fromRedirect = true; }
+    else { const accs = _msalInstance.getAllAccounts(); if (accs.length) _msalAccount = accs[0]; }
+    return _msalInstance;
+}
+
+async function _getToken() {
+    if (!_msalInstance) await _initMSAL();
+    if (!_msalAccount) return null;
+    try {
+        return (await _msalInstance.acquireTokenSilent({ scopes: SP_CONFIG.SCOPES, account: _msalAccount })).accessToken;
+    } catch (e) {
+        if (e instanceof msal.InteractionRequiredAuthError) {
+            if (_isMobile) { await _msalInstance.acquireTokenRedirect({ scopes: SP_CONFIG.SCOPES }); return null; }
+            const resp = await _msalInstance.acquireTokenPopup({ scopes: SP_CONFIG.SCOPES });
+            _msalAccount = resp.account; return resp.accessToken;
+        }
+        console.error('MSAL token error:', e); return null;
+    }
+}
+
+async function _graphFetch(url, options = {}) {
+    const token = await _getToken();
+    if (!token) throw new Error('Non authentifié');
+    return fetch(url, { ...options, headers: { 'Authorization': `Bearer ${token}`, ...(options.headers || {}) } });
+}
+
+function _siteApiBase() { return `https://graph.microsoft.com/v1.0/sites/root:${SP_CONFIG.SHAREPOINT_SITE_PATH}:`; }
+
+let _cachedDriveId = null;
+async function _getDriveId() {
+    if (_cachedDriveId) return _cachedDriveId;
+    const resp = await _graphFetch(`${_siteApiBase()}/drive`);
+    if (!resp.ok) throw new Error('Drive SharePoint introuvable: ' + resp.status);
+    _cachedDriveId = (await resp.json()).id;
+    return _cachedDriveId;
+}
+
+async function _readJsonFile(filePath) {
+    const driveId = await _getDriveId();
+    const resp = await _graphFetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${filePath}:/content`);
+    if (resp.status === 404) return null;
+    if (!resp.ok) throw new Error('Erreur lecture: ' + resp.status);
+    return resp.json();
+}
+
+async function _writeJsonFile(filePath, data) {
+    const driveId = await _getDriveId();
+    const resp = await _graphFetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${filePath}:/content`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
+    });
+    if (!resp.ok) throw new Error('Erreur écriture: ' + resp.status);
+    return resp.json();
+}
+
+async function _deleteFile(filePath) {
+    const driveId = await _getDriveId();
+    await _graphFetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${filePath}`, { method: 'DELETE' });
+}
+
+async function _listFiles(folderPath) {
+    const driveId = await _getDriveId();
+    const resp = await _graphFetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${folderPath}:/children`);
+    if (resp.status === 404) return [];
+    if (!resp.ok) return [];
+    return (await resp.json()).value || [];
+}
+
+async function _uploadBinaryFile(filePath, blob) {
+    const driveId = await _getDriveId();
+    const resp = await _graphFetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${filePath}:/content`, {
+        method: 'PUT', headers: { 'Content-Type': blob.type || 'application/octet-stream' }, body: blob
+    });
+    if (!resp.ok) throw new Error('Erreur upload: ' + resp.status);
+    return resp.json();
+}
+
+// ========================================
+// DATASYNC – Synchronisation SharePoint
+// ========================================
+const DataSync = {
+    _connected: false,
+    _dirty: false,
+    _saveTimer: null,
+    _saving: false,
+    _loadedMeta: { pdp: null, vic: null, shared: null },
+    _pollTimer: null,
+    _presenceTimer: null,
+
+    getUserName() {
+        if (_msalAccount?.name) return _msalAccount.name;
+        return localStorage.getItem('pdp_user_name') || '';
+    },
+    setUserName(name) { localStorage.setItem('pdp_user_name', (name||'').trim()); },
+    _ensureUserName() {
+        let name = this.getUserName();
+        if (!name) { name = prompt('Votre nom (pour les sauvegardes) :'); if (name) this.setUserName(name); else { this.setUserName('Utilisateur'); name='Utilisateur'; } }
+        return name;
+    },
+
+    // ---- Collecte données par catégorie ----
+    async _collectPDPData() {
+        const pdps = await db.pdps.toArray();
+        const version = ((this._loadedMeta.pdp?.version)||0)+1;
+        return { _meta:{ version, lastSaved:new Date().toISOString(), savedBy:this.getUserName()||'inconnu' }, pdps };
+    },
+    async _collectVICData() {
+        const vics = await db.vics.toArray();
+        const version = ((this._loadedMeta.vic?.version)||0)+1;
+        return { _meta:{ version, lastSaved:new Date().toISOString(), savedBy:this.getUserName()||'inconnu' }, vics };
+    },
+    async _collectSharedData() {
+        const entreprises = await db.entreprises.toArray();
+        const settings = await db.settings.toArray();
+        const version = ((this._loadedMeta.shared?.version)||0)+1;
+        return { _meta:{ version, lastSaved:new Date().toISOString(), savedBy:this.getUserName()||'inconnu' }, entreprises, settings };
+    },
+
+    // ---- Sauvegardes séparées ----
+    async save() {
+        if (this._saving || !this._connected) return;
+        this._saving = true;
+        try {
+            const [pdpData, vicData, sharedData] = await Promise.all([
+                this._collectPDPData(), this._collectVICData(), this._collectSharedData()
+            ]);
+            await Promise.all([
+                _writeJsonFile(SP_CONFIG.PDP_DATA_FILE, pdpData),
+                _writeJsonFile(SP_CONFIG.VIC_DATA_FILE, vicData),
+                _writeJsonFile(SP_CONFIG.SHARED_DATA_FILE, sharedData),
+            ]);
+            this._loadedMeta = { pdp:pdpData._meta, vic:vicData._meta, shared:sharedData._meta };
+            this._dirty = false;
+            this._updateBadge(false);
+            console.log('DataSync: sauvegarde SharePoint OK');
+        } catch (e) {
+            console.error('DataSync: erreur sauvegarde SharePoint', e);
+            App.toast('Erreur sauvegarde SharePoint. Données conservées localement.', 'warning');
+        } finally { this._saving = false; }
+    },
+
+    markDirty() {
+        this._dirty = true;
+        this._updateBadge(true);
+        if (this._connected) {
+            clearTimeout(this._saveTimer);
+            this._saveTimer = setTimeout(() => this.save(), SP_CONFIG.SAVE_DEBOUNCE_MS);
+        }
+    },
+
+    // ---- Chargement depuis SharePoint ----
+    async _loadFromRemote() {
+        try {
+            const [pdpData, vicData, sharedData] = await Promise.all([
+                _readJsonFile(SP_CONFIG.PDP_DATA_FILE),
+                _readJsonFile(SP_CONFIG.VIC_DATA_FILE),
+                _readJsonFile(SP_CONFIG.SHARED_DATA_FILE),
+            ]);
+            let loaded = false;
+            if (pdpData?._meta) {
+                await db.pdps.clear();
+                if (pdpData.pdps?.length) await db.pdps.bulkPut(pdpData.pdps);
+                this._loadedMeta.pdp = pdpData._meta; loaded = true;
+            }
+            if (vicData?._meta) {
+                await db.vics.clear();
+                if (vicData.vics?.length) await db.vics.bulkPut(vicData.vics);
+                this._loadedMeta.vic = vicData._meta; loaded = true;
+            }
+            if (sharedData?._meta) {
+                await db.entreprises.clear();
+                if (sharedData.entreprises?.length) await db.entreprises.bulkPut(sharedData.entreprises);
+                await db.settings.clear();
+                if (sharedData.settings?.length) await db.settings.bulkPut(sharedData.settings);
+                this._loadedMeta.shared = sharedData._meta; loaded = true;
+            }
+            if (loaded) { this._dirty = false; this._updateBadge(false); }
+            return loaded;
+        } catch (e) { console.warn('DataSync: lecture SharePoint échouée', e); return false; }
+    },
+
+    // ---- Connexion / Auth ----
+    async autoConnect() {
+        try {
+            await _initMSAL();
+            if (_msalAccount) {
+                this._connected = true;
+                const loaded = await this._loadFromRemote();
+                if (loaded) console.log('DataSync: auto-connect + sync OK');
+                else if (_msalInstance._fromRedirect) { await this.save(); }
+                this._registerPresence();
+                if (_msalInstance._fromRedirect) App.toast('Connecté à SharePoint — '+(_msalAccount.name||''));
+                return 'connected';
+            }
+            return 'no-handle';
+        } catch (e) { console.warn('DataSync: auto-connect échoué', e); return 'no-handle'; }
+    },
+
+    async connectFolder() {
+        try {
+            await _initMSAL();
+            if (_isMobile) { await _msalInstance.loginRedirect({ scopes: SP_CONFIG.SCOPES }); return false; }
+            const resp = await _msalInstance.loginPopup({ scopes: SP_CONFIG.SCOPES });
+            _msalAccount = resp.account;
+            this._connected = true;
+            const loaded = await this._loadFromRemote();
+            if (!loaded) await this.save();
+            this._registerPresence();
+            App.toast('Connecté à SharePoint — '+(_msalAccount.name||''));
+            return true;
+        } catch (e) {
+            if (e.errorCode === 'user_cancelled') return false;
+            console.error('DataSync: erreur connexion', e);
+            App.toast('Erreur de connexion Microsoft', 'danger'); return false;
+        }
+    },
+
+    // ---- Polling ----
+    startPolling() {
+        if (this._pollTimer) clearInterval(this._pollTimer);
+        this._pollTimer = setInterval(async () => {
+            if (!this._connected || this._saving) return;
+            try {
+                const [pdpData, vicData, sharedData] = await Promise.all([
+                    _readJsonFile(SP_CONFIG.PDP_DATA_FILE),
+                    _readJsonFile(SP_CONFIG.VIC_DATA_FILE),
+                    _readJsonFile(SP_CONFIG.SHARED_DATA_FILE),
+                ]);
+                let updated = false; let by = '';
+                if (pdpData?._meta && (pdpData._meta.version||0) > (this._loadedMeta.pdp?.version||0)) {
+                    await db.pdps.clear(); if (pdpData.pdps?.length) await db.pdps.bulkPut(pdpData.pdps);
+                    this._loadedMeta.pdp = pdpData._meta; updated = true; by = pdpData._meta.savedBy;
+                }
+                if (vicData?._meta && (vicData._meta.version||0) > (this._loadedMeta.vic?.version||0)) {
+                    await db.vics.clear(); if (vicData.vics?.length) await db.vics.bulkPut(vicData.vics);
+                    this._loadedMeta.vic = vicData._meta; updated = true; by = by || vicData._meta.savedBy;
+                }
+                if (sharedData?._meta && (sharedData._meta.version||0) > (this._loadedMeta.shared?.version||0)) {
+                    await db.entreprises.clear(); if (sharedData.entreprises?.length) await db.entreprises.bulkPut(sharedData.entreprises);
+                    await db.settings.clear(); if (sharedData.settings?.length) await db.settings.bulkPut(sharedData.settings);
+                    this._loadedMeta.shared = sharedData._meta; updated = true;
+                }
+                if (updated) {
+                    App.toast(`Données mises à jour par ${by||'un collègue'}`, 'info');
+                    if (App.currentView === 'dashboard') App.updateDashboard();
+                    if (App.currentView === 'list') App.renderPDPList();
+                    if (App.currentView === 'vics') App.renderVICList();
+                    if (App.currentView === 'entreprises') App.renderEntreprises();
+                }
+            } catch (e) { /* offline, silencieux */ }
+        }, SP_CONFIG.POLL_INTERVAL_MS);
+    },
+
+    // ---- Presence ----
+    async _registerPresence() {
+        if (!this._connected) return;
+        const name = this.getUserName()||'anonyme';
+        const safeName = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')||'user';
+        try { await _writeJsonFile(`${SP_CONFIG.PRESENCE_FOLDER}/${safeName}.json`, { user:name, ts:new Date().toISOString() }); } catch {}
+        if (!this._presenceTimer) this._presenceTimer = setInterval(() => this._registerPresence(), SP_CONFIG.PRESENCE_INTERVAL_MS);
+    },
+
+    async getActiveUsers() {
+        if (!this._connected) return [];
+        try {
+            const files = await _listFiles(SP_CONFIG.PRESENCE_FOLDER);
+            const now = Date.now(); const myName = this.getUserName();
+            const users = [];
+            for (const f of files) {
+                if (!f.name.endsWith('.json')) continue;
+                try {
+                    const c = await _readJsonFile(`${SP_CONFIG.PRESENCE_FOLDER}/${f.name}`);
+                    if (c && (now - new Date(c.ts).getTime()) < SP_CONFIG.PRESENCE_STALE_MS && c.user !== myName) users.push(c);
+                } catch {}
+            }
+            return users;
+        } catch { return []; }
+    },
+
+    // ---- Upload PDF/DOCX sur SharePoint ----
+    async uploadExport(blob, filename, subfolder) {
+        if (!this._connected) { console.warn('DataSync: pas connecté, export non uploadé'); return null; }
+        const folder = subfolder === 'vic' ? SP_CONFIG.VIC_FOLDER : SP_CONFIG.PDP_FOLDER;
+        try {
+            const result = await _uploadBinaryFile(`${folder}/Exports/${filename}`, blob);
+            console.log(`DataSync: ${filename} uploadé sur SharePoint`);
+            return result;
+        } catch (e) { console.warn('DataSync: upload export échoué', e); return null; }
+    },
+
+    // ---- UI ----
+    _updateBadge(dirty) {
+        const el = document.getElementById('sync-badge');
+        if (el) el.style.display = dirty ? 'inline-block' : 'none';
+    },
+
+    updateConnectButton(state) {
+        const btn = document.getElementById('btn-sp-connect');
+        const btnSave = document.getElementById('btn-sp-save');
+        if (!btn) return;
+        if (state === 'connected') {
+            btn.className = 'btn btn-sm btn-outline-light';
+            btn.innerHTML = '<i class="bi bi-cloud-check"></i><span class="ms-1 d-none d-md-inline">SharePoint</span>';
+            btn.title = 'Connecté — ' + (this.getUserName()||'');
+            btn.onclick = null;
+            if (btnSave) btnSave.style.display = '';
+        } else {
+            btn.className = 'btn btn-sm btn-outline-warning';
+            btn.innerHTML = '<i class="bi bi-cloud-slash"></i><span class="ms-1 d-none d-md-inline">Connexion</span>';
+            btn.title = 'Se connecter à SharePoint';
+            btn.onclick = async () => { const ok = await this.connectFolder(); if (ok) { this.updateConnectButton('connected'); App.updateDashboard(); } };
+            if (btnSave) btnSave.style.display = 'none';
+        }
+    },
+
+    isFirstLaunch() { return !this.getUserName() && !localStorage.getItem('pdp_guide_done'); },
+
+    async showFirstLaunchGuide() {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.className = 'modal d-block'; overlay.style.cssText = 'background:rgba(0,0,0,.55);z-index:9999';
+            overlay.innerHTML = `<div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+                <div class="modal-header bg-primary text-white"><h5 class="modal-title">Bienvenue dans Suivi PDP</h5></div>
+                <div class="modal-body">
+                    <div class="mb-3"><label class="form-label fw-bold">Votre nom :</label><input type="text" class="form-control" id="guide-name" placeholder="Prénom Nom"></div>
+                    <p class="text-muted small">Connectez-vous pour synchroniser vos PDP et VIC avec SharePoint (dossiers séparés). Votre compte Microsoft sera utilisé.</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-secondary" id="guide-skip">Plus tard</button>
+                    <button class="btn btn-primary" id="guide-connect"><i class="bi bi-microsoft me-1"></i>Se connecter</button>
+                </div></div></div>`;
+            document.body.appendChild(overlay);
+            overlay.querySelector('#guide-connect').onclick = async () => {
+                const name = overlay.querySelector('#guide-name').value; if (name) this.setUserName(name);
+                const ok = await this.connectFolder(); if (ok) this.updateConnectButton('connected');
+                localStorage.setItem('pdp_guide_done','1'); overlay.remove(); resolve();
+            };
+            overlay.querySelector('#guide-skip').onclick = () => {
+                const name = overlay.querySelector('#guide-name').value; if (name) this.setUserName(name);
+                localStorage.setItem('pdp_guide_done','1'); this.updateConnectButton(this._connected?'connected':'no-handle');
+                overlay.remove(); resolve();
+            };
+        });
+    },
+};
+
+// Cleanup presence on tab close
+window.addEventListener('beforeunload', () => {
+    if (DataSync._connected) {
+        const name = DataSync.getUserName()||'anonyme';
+        const safeName = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_')||'user';
+        navigator.sendBeacon && fetch(`https://graph.microsoft.com/v1.0/drives/${_cachedDriveId}/root:/${SP_CONFIG.PRESENCE_FOLDER}/${safeName}.json`, { method:'DELETE', headers:{'Authorization':'Bearer '+localStorage.getItem('msal.token')} }).catch(()=>{});
+    }
+});
+
+// ========================================
+// APP
+// ========================================
+const App = {
+  currentPDP: null,
+  currentView: 'dashboard',
+
+  async init() {
+    try {
+      await db.open();
+      await this.loadSettings();
+      // SharePoint sync
+      await this._initSharePoint();
+      this.updateDashboard();
+      this.showView('dashboard');
+      document.getElementById('loading-screen').style.display = 'none';
+    } catch(e) {
+      console.error('Init error:', e);
+      document.getElementById('loading-screen').innerHTML = '<p class="text-danger">Erreur. Rechargez la page.</p>';
+    }
+  },
+
+  async _initSharePoint() {
+    const state = await DataSync.autoConnect();
+    DataSync.updateConnectButton(state);
+    if (state === 'connected') {
+        await this.loadSettings();
+        DataSync.startPolling();
+        const others = await DataSync.getActiveUsers();
+        if (others.length) this.toast(`${others.map(u=>u.user).join(', ')} en ligne`, 'info');
+    }
+    if (DataSync.isFirstLaunch()) await DataSync.showFirstLaunchGuide();
+    else if (state === 'no-handle') {
+        const bar = document.getElementById('permission-bar');
+        if (bar) bar.innerHTML = '<div class="alert alert-info alert-dismissible d-flex align-items-center m-2 small"><i class="bi bi-cloud-slash me-2"></i><span class="flex-grow-1">Mode hors-ligne — connectez-vous à SharePoint pour synchroniser.</span><button class="btn btn-sm btn-primary ms-2" onclick="DataSync.connectFolder().then(ok=>{if(ok){DataSync.updateConnectButton(\'connected\');App.updateDashboard();document.getElementById(\'permission-bar\').innerHTML=\'\'}})"><i class="bi bi-microsoft me-1"></i>Connexion</button><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+    }
+  },
+
+  // ---- NAVIGATION ----
+  showView(view) {
+    document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
+    const el = document.getElementById('view-' + view);
+    if (el) { el.style.display = 'block'; el.classList.remove('fade-in'); void el.offsetWidth; el.classList.add('fade-in'); }
+    // Bottom nav
+    document.querySelectorAll('.bottom-nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelector(`.bottom-nav-item[data-page="${view}"]`)?.classList.add('active');
+    // Desktop nav
+    document.querySelectorAll('.navbar-nav .nav-link').forEach(n => n.classList.remove('active'));
+    document.querySelector(`.navbar-nav .nav-link[data-page="${view}"]`)?.classList.add('active');
+    this.currentView = view;
+    if (view === 'dashboard') this.updateDashboard();
+    if (view === 'list') this.renderPDPList();
+    if (view === 'vics') this.renderVICList();
+    if (view === 'entreprises') this.renderEntreprises();
+    // Collapse mobile navbar
+    const navCollapse = document.getElementById('navbarMain');
+    if (navCollapse?.classList.contains('show')) bootstrap.Collapse.getInstance(navCollapse)?.hide();
+  },
+
+  // ---- FAB MENU ----
+  showNewMenu() {
+    document.getElementById('fab-menu').style.display = 'flex';
+    document.getElementById('fab-overlay').style.display = 'block';
+  },
+  hideFabMenu() {
+    document.getElementById('fab-menu').style.display = 'none';
+    document.getElementById('fab-overlay').style.display = 'none';
+  },
+
+  // ---- TOAST ----
+  toast(msg, type = 'success') {
+    const icons = { success: 'check-circle-fill', danger: 'x-circle-fill', warning: 'exclamation-triangle-fill', info: 'info-circle-fill' };
+    const t = document.createElement('div');
+    t.className = `toast align-items-center text-bg-${type} border-0 show`;
+    t.innerHTML = `<div class="d-flex"><div class="toast-body"><i class="bi bi-${icons[type]||'info-circle'} me-1"></i>${msg}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.closest('.toast').remove()"></button></div>`;
+    document.getElementById('toast-container').appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+  },
+
+  // ---- CONFIRM ----
+  confirm(msg) {
+    return new Promise(resolve => {
+      document.getElementById('confirm-message').textContent = msg;
+      const modal = new bootstrap.Modal(document.getElementById('modal-confirm'));
+      const btn = document.getElementById('confirm-btn');
+      const h = () => { resolve(true); modal.hide(); btn.removeEventListener('click', h); };
+      btn.addEventListener('click', h);
+      document.getElementById('modal-confirm').addEventListener('hidden.bs.modal', () => resolve(false), { once: true });
+      modal.show();
+    });
+  },
+
+  // ========================================
+  // DASHBOARD
+  // ========================================
+  async updateDashboard() {
+    const pdps = await db.pdps.toArray();
+    const now = new Date();
+    document.getElementById('kpi-total').textContent = pdps.length;
+    document.getElementById('kpi-actifs').textContent = pdps.filter(p => p.statut === 'actif').length;
+    document.getElementById('kpi-en-cours').textContent = pdps.filter(p => ['brouillon','visite_prealable','analyse_risque','signature'].includes(p.statut)).length;
+    document.getElementById('kpi-expires').textContent = pdps.filter(p => p.dateFin && new Date(p.dateFin) < now && p.statut !== 'cloture').length;
+
+    const recent = pdps.sort((a,b) => new Date(b.dateModification||b.dateCreation) - new Date(a.dateModification||a.dateCreation)).slice(0,5);
+    document.getElementById('dashboard-recent').innerHTML = recent.length === 0
+      ? '<p class="text-muted small m-2">Aucun PDP. Cliquez sur + pour commencer.</p>'
+      : recent.map(p => this.renderPDPCard(p)).join('');
+
+    // VIC dashboard
+    const vics = await db.vics.orderBy('dateCreation').reverse().toArray();
+    const recentVICs = vics.slice(0,3);
+    const statutLabelsVIC = { planifiee:'Planifiée', effectuee:'Effectuée', validee:'Validée' };
+    const statutColorsVIC = { planifiee:'secondary', effectuee:'primary', validee:'success' };
+    document.getElementById('dashboard-vics').innerHTML = recentVICs.length === 0
+      ? '<p class="text-muted small m-2">Aucune VIC. <a href="#" onclick="App.newVIC()">Créer une VIC</a></p>'
+      : recentVICs.map(v => `<div class="d-flex align-items-center gap-2 p-2 border-bottom" style="cursor:pointer" onclick="App.openVIC(${v.id})"><span class="badge bg-${statutColorsVIC[v.statut]||'secondary'}">${statutLabelsVIC[v.statut]||v.statut}</span><span class="flex-grow-1 small">${this.esc(v.numero||'')} — ${this.esc(v.site||'')}</span><span class="text-muted small">${v.dateVisite||'—'}</span></div>`).join('');
+
+    const upcoming = pdps.filter(p => p.dateFin && p.statut !== 'cloture').sort((a,b) => new Date(a.dateFin) - new Date(b.dateFin)).slice(0,5);
+    document.getElementById('dashboard-deadlines').innerHTML = upcoming.length === 0
+      ? '<p class="text-muted small m-2">Aucune échéance.</p>'
+      : upcoming.map(p => {
+          const days = Math.ceil((new Date(p.dateFin) - now) / 86400000);
+          const color = days < 0 ? 'danger' : days < 7 ? 'warning' : 'secondary';
+          const label = days < 0 ? `Expiré ${Math.abs(days)}j` : days === 0 ? "Aujourd'hui" : `${days}j`;
+          return `<div class="d-flex align-items-center gap-2 p-2 border-bottom" style="cursor:pointer" onclick="App.openPDP(${p.id})">
+            <span class="badge bg-${color}">${label}</span>
+            <span class="flex-grow-1 small">${this.esc(p.titre||'Sans titre')}</span>
+            <span class="text-muted small">${p.dateFin}</span></div>`;
+        }).join('');
+  },
+
+  // ========================================
+  // PDP LIST
+  // ========================================
+  async renderPDPList() {
+    const pdps = await db.pdps.toArray();
+    const c = document.getElementById('pdp-list-container');
+    if (!pdps.length) { c.innerHTML = '<p class="text-muted text-center mt-4">Aucun PDP.</p>'; return; }
+    c.innerHTML = pdps.sort((a,b) => new Date(b.dateModification||b.dateCreation) - new Date(a.dateModification||a.dateCreation)).map(p => this.renderPDPCard(p)).join('');
+    this.filterPDPList();
+  },
+
+  renderPDPCard(p) {
+    const labels = { brouillon:'Brouillon', visite_prealable:'Visite préalable', analyse_risque:'Analyse risque', signature:'En signature', actif:'Actif', modifie:'Modifié', cloture:'Clôturé' };
+    const cls = { brouillon:'brouillon', visite_prealable:'visite', analyse_risque:'analyse', signature:'signature', actif:'actif', modifie:'modifie', cloture:'cloture' };
+    return `<div class="card pdp-card" onclick="App.openPDP(${p.id})" data-statut="${p.statut}" data-titre="${(p.titre||'').toLowerCase()}">
+      <div class="card-body p-2">
+        <div class="d-flex align-items-start gap-2">
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <span class="badge badge-${cls[p.statut]||'brouillon'}">${labels[p.statut]||p.statut}</span>
+              ${p.numero ? `<span class="text-muted" style="font-size:0.75rem">${this.esc(p.numero)}</span>` : ''}
+            </div>
+            <div class="fw-bold" style="font-size:0.9rem">${this.esc(p.titre||'Sans titre')}</div>
+            <div class="text-muted" style="font-size:0.78rem">
+              ${p.site ? `<i class="bi bi-geo-alt me-1"></i>${this.esc(p.site)}` : ''}
+              ${p.dateDebut ? ` · ${p.dateDebut}` : ''}
+            </div>
+          </div>
+          <div class="text-end" style="font-size:0.75rem;color:var(--agw-gray)">
+            ${(p.entreprisesExt||[]).length ? `<div>${(p.entreprisesExt||[]).length} EE</div>` : ''}
+            ${(p.risques||[]).length ? `<div>${(p.risques||[]).length} risques</div>` : ''}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  filterPDPList() {
+    const s = (document.getElementById('search-pdp').value||'').toLowerCase();
+    const st = document.getElementById('filter-status').value;
+    document.querySelectorAll('#pdp-list-container .pdp-card').forEach(c => {
+      c.style.display = (!s || c.dataset.titre.includes(s)) && (!st || c.dataset.statut === st) ? '' : 'none';
+    });
+  },
+
+  // ========================================
+  // PDP CRUD
+  // ========================================
+  newPDP() {
+    const s = this._settings || {};
+    this.currentPDP = {
+      titre:'', numero:'', statut:'brouillon', version:'01',
+      dateDebut:'', dateFin:'', site:'', lieu:'', description:'',
+      materiel:'', nbSalaries:'', horaires:'',
+      eu: { nom:s.euNom||'', adresse:s.euAdresse||'', responsable:s.euResponsable||'', tel:s.euTel||'', email:s.euEmail||'', fonction:'' },
+      entreprisesExt: [], visite: { date:'', heure:'', participants:'', observations:'', effectuee:false, photos:[] },
+      risques: [], mesures: [], instructions:'', exigences: [],
+      urgence: { responsable:'', telResponsable:'', sst:'', telSst:'', numeros:'Pompiers : 18  |  SAMU : 15  |  Gendarmerie : 17  |  Urgences : 112', consignes:'' },
+      signatureEU: { nom:'', date:'', data:null }, signaturesEE: [],
+      modifications: [], historique: [], documents: [], vicId: null,
+      dateCreation: new Date().toISOString(), dateModification: new Date().toISOString()
+    };
+    this.populateForm();
+    this.showView('pdp-detail');
+    document.getElementById('pdp-detail-title').textContent = 'Nouveau PDP';
+    document.getElementById('btn-delete-pdp').style.display = 'none';
+    this.showPDPSection('general');
+    this.addHist('Création du PDP');
+  },
+
+  async openPDP(id) {
+    const p = await db.pdps.get(id);
+    if (!p) { this.toast('PDP introuvable','danger'); return; }
+    this.currentPDP = p;
+    this.populateForm();
+    this.showView('pdp-detail');
+    document.getElementById('pdp-detail-title').textContent = p.titre || 'PDP #'+p.id;
+    document.getElementById('btn-delete-pdp').style.display = '';
+    this.showPDPSection('general');
+  },
+
+  populateForm() {
+    const p = this.currentPDP;
+    document.getElementById('pdp-titre').value = p.titre||'';
+    document.getElementById('pdp-numero').value = p.numero||'';
+    document.getElementById('pdp-version').value = p.version||'01';
+    document.getElementById('pdp-statut').value = p.statut||'brouillon';
+    document.getElementById('pdp-site').value = p.site||'';
+    document.getElementById('pdp-lieu').value = p.lieu||'';
+    document.getElementById('pdp-date-debut').value = p.dateDebut||'';
+    document.getElementById('pdp-date-fin').value = p.dateFin||'';
+    document.getElementById('pdp-description').value = p.description||'';
+    document.getElementById('pdp-materiel').value = p.materiel||'';
+    document.getElementById('pdp-nb-salaries').value = p.nbSalaries||'';
+    document.getElementById('pdp-horaires').value = p.horaires||'';
+    const eu = p.eu||{};
+    document.getElementById('eu-nom').value = eu.nom||'';
+    document.getElementById('eu-adresse').value = eu.adresse||'';
+    document.getElementById('eu-responsable').value = eu.responsable||'';
+    document.getElementById('eu-fonction').value = eu.fonction||'';
+    document.getElementById('eu-tel').value = eu.tel||'';
+    document.getElementById('eu-email').value = eu.email||'';
+    const v = p.visite||{};
+    document.getElementById('visite-date').value = v.date||'';
+    document.getElementById('visite-heure').value = v.heure||'';
+    document.getElementById('visite-participants').value = v.participants||'';
+    document.getElementById('visite-observations').value = v.observations||'';
+    document.getElementById('visite-effectuee').checked = v.effectuee||false;
+    this.renderVisitePhotos();
+    this.renderPDPVICLink();
+    this.renderEEList();
+    this.renderRisquesList();
+    this.renderMesuresList();
+    document.getElementById('pdp-instructions').value = p.instructions||'';
+    this.renderExigencesList();
+    const urg = p.urgence||{};
+    document.getElementById('urgence-responsable').value = urg.responsable||'';
+    document.getElementById('urgence-tel-responsable').value = urg.telResponsable||'';
+    document.getElementById('urgence-sst').value = urg.sst||'';
+    document.getElementById('urgence-tel-sst').value = urg.telSst||'';
+    document.getElementById('urgence-numeros').value = urg.numeros||'Pompiers : 18  |  SAMU : 15  |  Gendarmerie : 17  |  Urgences : 112';
+    document.getElementById('urgence-consignes').value = urg.consignes||'';
+    const sig = p.signatureEU||{};
+    document.getElementById('sig-eu-nom').value = sig.nom||'';
+    document.getElementById('sig-eu-date').value = sig.date||'';
+    this.renderSignaturesEE();
+    this.renderModifications();
+    this.renderHistorique();
+    this.renderDocuments();
+  },
+
+  collectForm() {
+    const p = this.currentPDP;
+    const oldStatut = p.statut;
+    p.titre = document.getElementById('pdp-titre').value.trim();
+    p.numero = document.getElementById('pdp-numero').value.trim();
+    p.version = document.getElementById('pdp-version').value.trim()||'01';
+    p.statut = document.getElementById('pdp-statut').value;
+    p.site = document.getElementById('pdp-site').value.trim();
+    p.lieu = document.getElementById('pdp-lieu').value.trim();
+    p.dateDebut = document.getElementById('pdp-date-debut').value;
+    p.dateFin = document.getElementById('pdp-date-fin').value;
+    p.description = document.getElementById('pdp-description').value.trim();
+    p.materiel = document.getElementById('pdp-materiel').value.trim();
+    p.nbSalaries = document.getElementById('pdp-nb-salaries').value;
+    p.horaires = document.getElementById('pdp-horaires').value.trim();
+    p.eu = { nom: document.getElementById('eu-nom').value.trim(), adresse: document.getElementById('eu-adresse').value.trim(), responsable: document.getElementById('eu-responsable').value.trim(), fonction: document.getElementById('eu-fonction').value.trim(), tel: document.getElementById('eu-tel').value.trim(), email: document.getElementById('eu-email').value.trim() };
+    p.visite = p.visite||{};
+    p.visite.date = document.getElementById('visite-date').value;
+    p.visite.heure = document.getElementById('visite-heure').value;
+    p.visite.participants = document.getElementById('visite-participants').value.trim();
+    p.visite.observations = document.getElementById('visite-observations').value.trim();
+    p.visite.effectuee = document.getElementById('visite-effectuee').checked;
+    p.instructions = document.getElementById('pdp-instructions').value.trim();
+    p.urgence = { responsable: document.getElementById('urgence-responsable').value.trim(), telResponsable: document.getElementById('urgence-tel-responsable').value.trim(), sst: document.getElementById('urgence-sst').value.trim(), telSst: document.getElementById('urgence-tel-sst').value.trim(), numeros: document.getElementById('urgence-numeros').value.trim(), consignes: document.getElementById('urgence-consignes').value.trim() };
+    p.signatureEU = p.signatureEU||{};
+    p.signatureEU.nom = document.getElementById('sig-eu-nom').value.trim();
+    p.signatureEU.date = document.getElementById('sig-eu-date').value;
+    const canvas = document.getElementById('sig-eu-canvas');
+    if (canvas && canvas._hasDrawing) p.signatureEU.data = canvas.toDataURL();
+    p.dateModification = new Date().toISOString();
+    if (!p.numero) { const y = new Date().getFullYear(); const m = String(new Date().getMonth()+1).padStart(2,'0'); p.numero = `PDP-${y}${m}-${String(p.id||Date.now()).slice(-4)}`; }
+    if (oldStatut !== p.statut) this.addHist(`Statut: ${oldStatut} → ${p.statut}`);
+    return p;
+  },
+
+  async savePDP() {
+    const p = this.collectForm();
+    if (!p.titre) { this.toast("Intitulé requis",'warning'); return; }
+    try {
+      if (p.id) { await db.pdps.put(p); }
+      else { p.id = await db.pdps.add(p); p.numero = `PDP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(p.id).padStart(4,'0')}`; await db.pdps.put(p); }
+      document.getElementById('pdp-detail-title').textContent = p.titre;
+      document.getElementById('btn-delete-pdp').style.display = '';
+      document.getElementById('btn-save-pdp').classList.add('btn-save-flash');
+      setTimeout(() => document.getElementById('btn-save-pdp').classList.remove('btn-save-flash'), 600);
+      this.toast('PDP enregistré');
+      DataSync.markDirty();
+    } catch(e) { console.error(e); this.toast('Erreur','danger'); }
+  },
+
+  async deletePDP() {
+    if (!this.currentPDP?.id) return;
+    if (!await this.confirm('Supprimer ce PDP ?')) return;
+    await db.pdps.delete(this.currentPDP.id);
+    this.currentPDP = null;
+    this.toast('PDP supprimé');
+    DataSync.markDirty();
+    this.showView('list');
+  },
+
+  showPDPSection(section) {
+    document.querySelectorAll('.pdp-section').forEach(s => s.style.display = 'none');
+    document.getElementById('section-'+section).style.display = 'block';
+    document.querySelectorAll('#pdp-section-tabs .section-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`#pdp-section-tabs .section-tab[onclick*="${section}"]`)?.classList.add('active');
+    if (section === 'signatures') setTimeout(() => this.initSignatureCanvases(), 100);
+    if (section === 'risques') this.renderCustomRiskBtns('pdp-custom-risks-btns', 'App.addPredefinedRisk');
+  },
+
+  // ---- EE ----
+  renderEEList() {
+    const c = document.getElementById('ee-list-container');
+    const ees = this.currentPDP.entreprisesExt||[];
+    if (!ees.length) { c.innerHTML = '<p class="text-muted small">Aucune EE ajoutée.</p>'; return; }
+    c.innerHTML = ees.map((ee,i) => `<div class="risk-row risk-level-1"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><strong>${this.esc(ee.nom)}</strong>${ee.activite ? ` <span class="text-muted small">— ${this.esc(ee.activite)}</span>`:''}<div class="small text-muted">${ee.responsable?`<i class="bi bi-person me-1"></i>${this.esc(ee.responsable)} `:''} ${ee.tel?`<i class="bi bi-telephone me-1"></i>${this.esc(ee.tel)}`:''}</div></div><button class="btn btn-outline-secondary btn-sm" onclick="App.editEE(${i})"><i class="bi bi-pencil"></i></button><button class="btn btn-outline-danger btn-sm" onclick="App.removeEE(${i})"><i class="bi bi-trash"></i></button></div></div>`).join('');
+  },
+
+  async addEE() {
+    const ents = await db.entreprises.toArray();
+    if (ents.length) {
+      let html = '<p class="fw-bold small">Depuis le répertoire :</p>';
+      html += ents.map(e => `<div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.addEEFromRepo(${e.id})"><i class="bi bi-building"></i><span class="small">${this.esc(e.nom)}</span></div>`).join('');
+      html += '<hr><div class="text-center"><button class="btn btn-outline-primary btn-sm" onclick="App.addEEManual()"><i class="bi bi-plus-lg me-1"></i>Saisie manuelle</button></div>';
+      document.getElementById('modal-entreprise-body').innerHTML = html;
+      document.getElementById('modal-entreprise-footer').style.display = 'none';
+      document.querySelector('#modal-entreprise .modal-title').innerHTML = '<i class="bi bi-building me-1"></i>Ajouter une EE';
+      new bootstrap.Modal(document.getElementById('modal-entreprise')).show();
+    } else { this.addEEManual(); }
+  },
+
+  async addEEFromRepo(id) {
+    const e = await db.entreprises.get(id);
+    if (!e) return;
+    bootstrap.Modal.getInstance(document.getElementById('modal-entreprise'))?.hide();
+    setTimeout(() => this.resetEntModal(), 300);
+    this.currentPDP.entreprisesExt.push({ nom:e.nom, adresse:e.adresse, responsable:e.responsable, fonction:e.fonction, tel:e.tel, email:e.email, siret:e.siret, activite:e.activite });
+    this.renderEEList(); this.renderSignaturesEE(); this.addHist(`EE ajoutée: ${e.nom}`); this.toast('EE ajoutée');
+  },
+
+  addEEManual() {
+    bootstrap.Modal.getInstance(document.getElementById('modal-entreprise'))?.hide();
+    setTimeout(() => { this.resetEntModal(); document.getElementById('ent-edit-id').value = 'new-ee'; new bootstrap.Modal(document.getElementById('modal-entreprise')).show(); }, 350);
+  },
+
+  editEE(i) {
+    const ee = this.currentPDP.entreprisesExt[i]; if (!ee) return;
+    this.resetEntModal();
+    document.getElementById('ent-edit-id').value = 'ee-'+i;
+    document.getElementById('ent-nom').value = ee.nom||'';
+    document.getElementById('ent-adresse').value = ee.adresse||'';
+    document.getElementById('ent-responsable').value = ee.responsable||'';
+    document.getElementById('ent-fonction').value = ee.fonction||'';
+    document.getElementById('ent-tel').value = ee.tel||'';
+    document.getElementById('ent-email').value = ee.email||'';
+    document.getElementById('ent-siret').value = ee.siret||'';
+    document.getElementById('ent-activite').value = ee.activite||'';
+    new bootstrap.Modal(document.getElementById('modal-entreprise')).show();
+  },
+
+  async removeEE(i) {
+    const n = this.currentPDP.entreprisesExt[i]?.nom||'';
+    if (!await this.confirm(`Retirer ${n} ?`)) return;
+    this.currentPDP.entreprisesExt.splice(i,1);
+    this.renderEEList(); this.renderSignaturesEE(); this.addHist(`EE retirée: ${n}`);
+  },
+
+  // ---- RISQUES ----
+  renderRisquesList() {
+    const c = document.getElementById('risques-list-container');
+    const r = this.currentPDP.risques||[];
+    if (!r.length) { c.innerHTML = '<p class="text-muted small">Aucun risque identifié.</p>'; return; }
+    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong><select class="form-select form-select-sm" style="width:auto" onchange="App.currentPDP.risques[${i}].niveau=+this.value;App.renderRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentPDP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea><textarea class="form-control form-control-sm" rows="1" placeholder="Mesures de prévention..." onchange="App.currentPDP.risques[${i}].prevention=this.value">${this.esc(r.prevention||'')}</textarea></div><button class="btn btn-outline-danger btn-sm" onclick="App.currentPDP.risques.splice(${i},1);App.renderRisquesList()"><i class="bi bi-trash"></i></button></div></div>`).join('');
+  },
+
+  addRisque() {
+    this.currentPDP.risques = this.currentPDP.risques||[];
+    this.currentPDP.risques.push({ danger:'', situation:'', prevention:'', niveau:2 });
+    this.renderRisquesList();
+    const rows = document.querySelectorAll('#risques-list-container .risk-row');
+    const last = rows[rows.length-1]?.querySelector('strong');
+    if (last) { const inp = document.createElement('input'); inp.type='text'; inp.className='form-control form-control-sm'; inp.placeholder='Nom du danger...'; inp.onblur=()=>{this.currentPDP.risques[this.currentPDP.risques.length-1].danger=inp.value.trim()||'Non défini';this.renderRisquesList();}; inp.onkeydown=(e)=>{if(e.key==='Enter')inp.blur();}; last.replaceWith(inp); inp.focus(); }
+  },
+
+  addPredefinedRisk(name) {
+    this.currentPDP.risques = this.currentPDP.risques||[];
+    if (this.currentPDP.risques.some(r => r.danger===name)) { this.toast('Déjà ajouté','warning'); return; }
+    this.currentPDP.risques.push({ danger:name, situation:'', prevention:'', niveau:1 });
+    this.renderRisquesList(); this.toast('Risque ajouté');
+  },
+
+  // ---- MESURES ----
+  renderMesuresList() {
+    const c = document.getElementById('mesures-list-container');
+    const m = this.currentPDP.mesures||[];
+    if (!m.length) { c.innerHTML = '<p class="text-muted small">Aucune mesure.</p>'; return; }
+    c.innerHTML = m.map((m,i) => `<div class="risk-row risk-level-1"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><strong>${this.esc(m.titre)}</strong><div class="small">${this.esc(m.description||'')}</div><select class="form-select form-select-sm mt-1" style="width:auto" onchange="App.currentPDP.mesures[${i}].responsable_type=this.value"><option value="eu" ${m.responsable_type==='eu'?'selected':''}>EU</option><option value="ee" ${m.responsable_type==='ee'?'selected':''}>EE</option><option value="commun" ${m.responsable_type==='commun'?'selected':''}>Commune</option></select></div><button class="btn btn-outline-danger btn-sm" onclick="App.currentPDP.mesures.splice(${i},1);App.renderMesuresList()"><i class="bi bi-trash"></i></button></div></div>`).join('');
+  },
+
+  addMesure() {
+    const t = prompt('Titre :'); if (!t) return;
+    const d = prompt('Description :')||'';
+    this.currentPDP.mesures = this.currentPDP.mesures||[];
+    this.currentPDP.mesures.push({ titre:t, description:d, responsable_type:'commun' });
+    this.renderMesuresList(); this.addHist(`Mesure ajoutée: ${t}`);
+  },
+
+  addPredefinedMesure(t, d) {
+    this.currentPDP.mesures = this.currentPDP.mesures||[];
+    if (this.currentPDP.mesures.some(m => m.titre===t)) { this.toast('Déjà ajouté','warning'); return; }
+    this.currentPDP.mesures.push({ titre:t, description:d, responsable_type:'commun' });
+    this.renderMesuresList(); this.toast('Mesure ajoutée');
+  },
+
+  // ---- EXIGENCES ----
+  renderExigencesList() {
+    const c = document.getElementById('exigences-list-container');
+    const ex = this.currentPDP.exigences||[];
+    if (!ex.length) { c.innerHTML = '<p class="text-muted small">Aucune exigence.</p>'; return; }
+    c.innerHTML = ex.map((e,i) => `<div class="risk-row risk-level-1"><div class="d-flex align-items-start gap-2"><span class="badge bg-primary rounded-circle" style="min-width:24px">${i+1}</span><textarea class="form-control form-control-sm flex-grow-1" rows="2" onchange="App.currentPDP.exigences[${i}]=this.value">${this.esc(e)}</textarea><button class="btn btn-outline-danger btn-sm" onclick="App.currentPDP.exigences.splice(${i},1);App.renderExigencesList()"><i class="bi bi-trash"></i></button></div></div>`).join('');
+  },
+
+  addExigence() {
+    const t = prompt('Nouvelle exigence :'); if (!t) return;
+    this.currentPDP.exigences = this.currentPDP.exigences||[];
+    this.currentPDP.exigences.push(t.trim());
+    this.renderExigencesList();
+  },
+
+  addPredefinedExigence(t) {
+    this.currentPDP.exigences = this.currentPDP.exigences||[];
+    if (this.currentPDP.exigences.some(e => e===t)) { this.toast('Déjà ajouté','warning'); return; }
+    this.currentPDP.exigences.push(t);
+    this.renderExigencesList(); this.toast('Exigence ajoutée');
+  },
+
+  // ---- SIGNATURES ----
+  initSignatureCanvases() {
+    this.initCanvas('sig-eu-canvas');
+    (this.currentPDP.entreprisesExt||[]).forEach((_,i) => this.initCanvas(`sig-ee-canvas-${i}`));
+    if (this.currentPDP.signatureEU?.data) this.loadSigImg('sig-eu-canvas', this.currentPDP.signatureEU.data);
+    (this.currentPDP.signaturesEE||[]).forEach((s,i) => { if(s.data) this.loadSigImg(`sig-ee-canvas-${i}`, s.data); });
+  },
+
+  initCanvas(id) {
+    const c = document.getElementById(id); if (!c || c._init) return;
+    c._init = true; c._hasDrawing = false;
+    const ctx = c.getContext('2d'); c.width = c.offsetWidth; c.height = c.offsetHeight;
+    let drawing = false, lx, ly;
+    const pos = e => { const r = c.getBoundingClientRect(); const t = e.touches?e.touches[0]:e; return {x:t.clientX-r.left, y:t.clientY-r.top}; };
+    const start = e => { e.preventDefault(); drawing=true; const p=pos(e); lx=p.x; ly=p.y; };
+    const move = e => { if(!drawing)return; e.preventDefault(); const p=pos(e); ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(p.x,p.y); ctx.strokeStyle='#000'; ctx.lineWidth=2; ctx.lineCap='round'; ctx.stroke(); lx=p.x; ly=p.y; c._hasDrawing=true; };
+    const end = () => { drawing=false; };
+    c.addEventListener('mousedown',start); c.addEventListener('mousemove',move); c.addEventListener('mouseup',end); c.addEventListener('mouseleave',end);
+    c.addEventListener('touchstart',start,{passive:false}); c.addEventListener('touchmove',move,{passive:false}); c.addEventListener('touchend',end);
+  },
+
+  loadSigImg(id, url) {
+    const c = document.getElementById(id); if(!c) return;
+    const ctx = c.getContext('2d'); const img = new Image();
+    img.onload = () => { ctx.clearRect(0,0,c.width,c.height); ctx.drawImage(img,0,0,c.width,c.height); c._hasDrawing=true; };
+    img.src = url;
+  },
+
+  clearSignature(id) {
+    const c = document.getElementById(id); if(!c) return;
+    c.getContext('2d').clearRect(0,0,c.width,c.height); c._hasDrawing=false; c._init=false; this.initCanvas(id);
+  },
+
+  renderSignaturesEE() {
+    const c = document.getElementById('signatures-ee-container');
+    const ees = this.currentPDP.entreprisesExt||[];
+    this.currentPDP.signaturesEE = this.currentPDP.signaturesEE||[];
+    while (this.currentPDP.signaturesEE.length < ees.length) this.currentPDP.signaturesEE.push({nom:'',date:'',data:null});
+    if (!ees.length) { c.innerHTML = '<p class="text-muted small">Ajoutez des EE.</p>'; return; }
+    c.innerHTML = ees.map((ee,i) => {
+      const s = this.currentPDP.signaturesEE[i]||{};
+      return `<div class="border rounded p-2 mb-2"><h6 class="mb-2"><i class="bi bi-building me-1"></i>${this.esc(ee.nom||'EE '+(i+1))}</h6><div class="row g-2"><div class="col-md-6"><input type="text" class="form-control form-control-sm" placeholder="Signataire" value="${this.esc(s.nom||'')}" onchange="App.currentPDP.signaturesEE[${i}].nom=this.value"></div><div class="col-md-6"><input type="date" class="form-control form-control-sm" value="${s.date||''}" onchange="App.currentPDP.signaturesEE[${i}].date=this.value"></div><div class="col-12"><div class="signature-pad-wrapper"><canvas id="sig-ee-canvas-${i}" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('sig-ee-canvas-${i}')"><i class="bi bi-eraser me-1"></i>Effacer</button></div></div></div>`;
+    }).join('');
+  },
+
+  captureAllSigs() {
+    const c = document.getElementById('sig-eu-canvas');
+    if (c && c._hasDrawing) this.currentPDP.signatureEU.data = c.toDataURL();
+    (this.currentPDP.entreprisesExt||[]).forEach((_,i) => {
+      const cv = document.getElementById(`sig-ee-canvas-${i}`);
+      if (cv && cv._hasDrawing) this.currentPDP.signaturesEE[i].data = cv.toDataURL();
+    });
+  },
+
+  // ---- MODIFICATIONS ----
+  addModification() {
+    document.getElementById('modif-date').value = new Date().toISOString().slice(0,10);
+    document.getElementById('modif-description').value = '';
+    document.getElementById('modif-auteur').value = '';
+    new bootstrap.Modal(document.getElementById('modal-modification')).show();
+  },
+
+  saveModification() {
+    const d = document.getElementById('modif-description').value.trim();
+    if (!d) { this.toast('Description requise','warning'); return; }
+    this.currentPDP.modifications = this.currentPDP.modifications||[];
+    this.currentPDP.modifications.push({ date:document.getElementById('modif-date').value, type:document.getElementById('modif-type').value, description:d, auteur:document.getElementById('modif-auteur').value.trim(), timestamp:new Date().toISOString() });
+    if (this.currentPDP.statut === 'actif') { this.currentPDP.statut = 'modifie'; document.getElementById('pdp-statut').value = 'modifie'; }
+    this.addHist(`Modification: ${d}`);
+    bootstrap.Modal.getInstance(document.getElementById('modal-modification')).hide();
+    this.renderModifications(); this.toast('Modification enregistrée');
+  },
+
+  renderModifications() {
+    const c = document.getElementById('modifications-list-container');
+    const m = this.currentPDP.modifications||[];
+    const labels = { ajout_ee:'Ajout EE', ajout_risque:'Ajout risque', ajout_mesure:'Ajout mesure', modif_dates:'Modif. dates', modif_horaires:'Modif. horaires', modif_effectif:'Modif. effectif', ajout_travaux:'Travaux suppl.', autre:'Autre' };
+    if (!m.length) { c.innerHTML = '<p class="text-muted small">Aucune modification.</p>'; return; }
+    c.innerHTML = m.sort((a,b) => new Date(b.timestamp)-new Date(a.timestamp)).map(m => `<div class="timeline-item"><div class="d-flex align-items-center gap-2"><span class="badge bg-secondary">${labels[m.type]||m.type}</span><span class="text-muted small">${m.date||''}</span>${m.auteur?`<span class="text-muted small">— ${this.esc(m.auteur)}</span>`:''}</div><div class="small mt-1">${this.esc(m.description)}</div></div>`).join('');
+  },
+
+  addHist(action) {
+    if (!this.currentPDP) return;
+    this.currentPDP.historique = this.currentPDP.historique||[];
+    this.currentPDP.historique.push({ action, timestamp:new Date().toISOString() });
+  },
+
+  renderHistorique() {
+    const c = document.getElementById('historique-container');
+    const h = this.currentPDP.historique||[];
+    if (!h.length) { c.innerHTML = '<p class="text-muted small">Aucun historique.</p>'; return; }
+    c.innerHTML = h.sort((a,b) => new Date(b.timestamp)-new Date(a.timestamp)).map(h => `<div class="timeline-item"><div class="small">${this.esc(h.action)}</div><div class="text-muted" style="font-size:0.72rem">${new Date(h.timestamp).toLocaleString('fr-FR')}</div></div>`).join('');
+  },
+
+  // ---- PHOTOS ----
+  addVisitePhoto(ev) {
+    const f = ev.target.files[0]; if (!f) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const cv = document.createElement('canvas'); let w=img.width, h=img.height;
+        if (w>1200||h>1200) { if(w>h){h=h*1200/w;w=1200}else{w=w*1200/h;h=1200} }
+        cv.width=w; cv.height=h; cv.getContext('2d').drawImage(img,0,0,w,h);
+        this.currentPDP.visite.photos = this.currentPDP.visite.photos||[];
+        this.currentPDP.visite.photos.push({ data:cv.toDataURL('image/jpeg',0.7), date:new Date().toISOString() });
+        this.renderVisitePhotos(); this.toast('Photo ajoutée');
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(f); ev.target.value = '';
+  },
+
+  renderVisitePhotos() {
+    const c = document.getElementById('visite-photos');
+    const p = this.currentPDP?.visite?.photos||[];
+    c.innerHTML = p.map((p,i) => `<div class="position-relative d-inline-block"><img src="${p.data}" class="photo-thumb" style="width:80px;height:80px;object-fit:cover" onclick="document.getElementById('photo-viewer-img').src='${p.data.replace(/'/g,"\\'")}';new bootstrap.Modal(document.getElementById('modal-photo')).show()"><button class="btn btn-danger position-absolute" style="top:-5px;right:-5px;padding:0 4px;font-size:0.6rem;border-radius:50%;line-height:1.4" onclick="App.currentPDP.visite.photos.splice(${i},1);App.renderVisitePhotos()"><i class="bi bi-x"></i></button></div>`).join('');
+  },
+
+  // ---- DOCUMENTS ----
+  addDocument(ev) {
+    this.currentPDP.documents = this.currentPDP.documents||[];
+    Array.from(ev.target.files).forEach(f => {
+      const r = new FileReader();
+      r.onload = e => { this.currentPDP.documents.push({ nom:f.name, type:f.type, taille:f.size, data:e.target.result, date:new Date().toISOString() }); this.renderDocuments(); this.toast(`"${f.name}" ajouté`); };
+      r.readAsDataURL(f);
+    }); ev.target.value = '';
+  },
+
+  renderDocuments() {
+    const c = document.getElementById('documents-list-container');
+    const d = this.currentPDP?.documents||[];
+    if (!d.length) { c.innerHTML = '<p class="text-muted small">Aucun document.</p>'; return; }
+    c.innerHTML = d.map((d,i) => {
+      const icon = d.type?.includes('pdf')?'file-pdf':d.type?.includes('image')?'file-image':'file-earmark';
+      return `<div class="d-flex align-items-center gap-2 p-2 border rounded mb-1"><i class="bi bi-${icon} text-primary"></i><span class="flex-grow-1 small">${this.esc(d.nom)}</span><a href="${d.data}" download="${this.esc(d.nom)}" class="btn btn-outline-primary btn-sm"><i class="bi bi-download"></i></a><button class="btn btn-outline-danger btn-sm" onclick="App.currentPDP.documents.splice(${i},1);App.renderDocuments()"><i class="bi bi-trash"></i></button></div>`;
+    }).join('');
+  },
+
+  // ---- ENTREPRISES RÉPERTOIRE ----
+  showEntrepriseForm(id) {
+    this.resetEntModal();
+    if (id) db.entreprises.get(id).then(e => { if(!e)return; document.getElementById('ent-edit-id').value=e.id; document.getElementById('ent-nom').value=e.nom||''; document.getElementById('ent-adresse').value=e.adresse||''; document.getElementById('ent-responsable').value=e.responsable||''; document.getElementById('ent-fonction').value=e.fonction||''; document.getElementById('ent-tel').value=e.tel||''; document.getElementById('ent-email').value=e.email||''; document.getElementById('ent-siret').value=e.siret||''; document.getElementById('ent-activite').value=e.activite||''; });
+    document.querySelector('#modal-entreprise .modal-title').innerHTML = '<i class="bi bi-building me-1"></i>'+(id?'Modifier':'Nouvelle')+' Entreprise';
+    new bootstrap.Modal(document.getElementById('modal-entreprise')).show();
+  },
+
+  resetEntModal() {
+    const body = document.getElementById('modal-entreprise-body');
+    body.innerHTML = `<input type="hidden" id="ent-edit-id"><div class="row g-2"><div class="col-12"><input type="text" class="form-control" id="ent-nom" placeholder="Raison sociale *"></div><div class="col-12"><input type="text" class="form-control" id="ent-adresse" placeholder="Adresse"></div><div class="col-6"><input type="text" class="form-control" id="ent-responsable" placeholder="Responsable"></div><div class="col-6"><input type="text" class="form-control" id="ent-fonction" placeholder="Fonction"></div><div class="col-6"><input type="tel" class="form-control" id="ent-tel" placeholder="Téléphone"></div><div class="col-6"><input type="email" class="form-control" id="ent-email" placeholder="Email"></div><div class="col-12"><input type="text" class="form-control" id="ent-siret" placeholder="SIRET"></div><div class="col-12"><input type="text" class="form-control" id="ent-activite" placeholder="Activité / Métier"></div></div>`;
+    document.getElementById('modal-entreprise-footer').style.display = '';
+  },
+
+  async saveEntreprise() {
+    const nom = document.getElementById('ent-nom').value.trim();
+    if (!nom) { this.toast('Raison sociale requise','warning'); return; }
+    const data = { nom, adresse:document.getElementById('ent-adresse').value.trim(), responsable:document.getElementById('ent-responsable').value.trim(), fonction:document.getElementById('ent-fonction').value.trim(), tel:document.getElementById('ent-tel').value.trim(), email:document.getElementById('ent-email').value.trim(), siret:document.getElementById('ent-siret').value.trim(), activite:document.getElementById('ent-activite').value.trim() };
+    const editId = document.getElementById('ent-edit-id').value;
+    if (editId === 'new-ee') { this.currentPDP.entreprisesExt.push(data); this.renderEEList(); this.renderSignaturesEE(); this.addHist(`EE ajoutée: ${nom}`); await db.entreprises.add(data); }
+    else if (editId?.startsWith('ee-')) { this.currentPDP.entreprisesExt[parseInt(editId.replace('ee-',''))] = data; this.renderEEList(); this.renderSignaturesEE(); }
+    else if (editId && editId!=='') { data.id = parseInt(editId); await db.entreprises.put(data); }
+    else { await db.entreprises.add(data); }
+    bootstrap.Modal.getInstance(document.getElementById('modal-entreprise')).hide();
+    this.renderEntreprises(); this.toast('Enregistré');
+    DataSync.markDirty();
+  },
+
+  async renderEntreprises() {
+    const c = document.getElementById('entreprises-list-container');
+    const ents = await db.entreprises.toArray();
+    if (!ents.length) { c.innerHTML = '<p class="text-muted text-center mt-4">Aucune entreprise.</p>'; return; }
+    c.innerHTML = ents.map(e => `<div class="card pdp-card" data-nom="${(e.nom||'').toLowerCase()}" data-activite="${(e.activite||'').toLowerCase()}"><div class="card-body p-2"><div class="d-flex align-items-center gap-2"><div class="flex-grow-1"><strong>${this.esc(e.nom)}</strong>${e.activite?` <span class="text-muted small">— ${this.esc(e.activite)}</span>`:''}<div class="small text-muted">${e.responsable?`${this.esc(e.responsable)} `:''} ${e.tel?`· ${this.esc(e.tel)}`:''}</div></div><button class="btn btn-outline-primary btn-sm" onclick="event.stopPropagation();App.showEntrepriseForm(${e.id})"><i class="bi bi-pencil"></i></button><button class="btn btn-outline-danger btn-sm" onclick="event.stopPropagation();App.deleteEntreprise(${e.id})"><i class="bi bi-trash"></i></button></div></div></div>`).join('');
+  },
+
+  filterEntreprises() {
+    const s = (document.getElementById('search-entreprise').value||'').toLowerCase();
+    document.querySelectorAll('#entreprises-list-container .pdp-card').forEach(c => { c.style.display = !s||c.dataset.nom.includes(s)||c.dataset.activite.includes(s) ? '' : 'none'; });
+  },
+
+  async deleteEntreprise(id) {
+    if (!await this.confirm('Supprimer ?')) return;
+    await db.entreprises.delete(id); this.renderEntreprises(); this.toast('Supprimée'); DataSync.markDirty();
+  },
+
+  // ---- IMPORT SELLSY CSV ----
+  async importSellsyCSV(ev) {
+    const f = ev.target.files[0]; if (!f) return;
+    const text = await f.text();
+    // Parse CSV (handle ; and , separators, quoted fields)
+    const sep = (text.split('\n')[0]||'').includes(';') ? ';' : ',';
+    const parseCSVLine = (line) => {
+      const vals = []; let cur = ''; let inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (inQ) { if (ch === '"' && line[i+1] === '"') { cur += '"'; i++; } else if (ch === '"') { inQ = false; } else { cur += ch; } }
+        else { if (ch === '"') { inQ = true; } else if (ch === sep) { vals.push(cur.trim()); cur = ''; } else { cur += ch; } }
+      }
+      vals.push(cur.trim());
+      return vals;
+    };
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) { this.toast('Fichier vide ou invalide', 'danger'); ev.target.value = ''; return; }
+    const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim());
+    // Map Sellsy columns to our fields
+    const colMap = {
+      nom: ['nom','raison sociale','name','company','societe','société','nom de la societe','nom de la société','entreprise'],
+      siret: ['siret','siren','n siret','numero siret','numéro siret'],
+      adresse: ['adresse','address','adresse postale','adresse complète','adresse complete'],
+      tel: ['telephone','tel','téléphone','phone','tel standard','telephone standard'],
+      email: ['email','e-mail','mail','email principal'],
+      responsable: ['contact','contact principal','responsable','nom du contact','interlocuteur'],
+      activite: ['activite','activité','activity','secteur','domaine','naf','code naf','secteur d\'activite']
+    };
+    const findCol = (aliases) => { for (const a of aliases) { const idx = headers.indexOf(a); if (idx >= 0) return idx; } return -1; };
+    const mapping = {};
+    for (const [field, aliases] of Object.entries(colMap)) mapping[field] = findCol(aliases);
+    if (mapping.nom < 0) {
+      // Try partial match for nom
+      const idx = headers.findIndex(h => h.includes('nom') || h.includes('societe') || h.includes('name') || h.includes('entreprise'));
+      if (idx >= 0) mapping.nom = idx;
+      else { this.toast('Colonne "Nom" introuvable dans le CSV', 'danger'); ev.target.value = ''; return; }
+    }
+    let count = 0;
+    for (let i = 1; i < lines.length; i++) {
+      const vals = parseCSVLine(lines[i]);
+      const nom = (mapping.nom >= 0 ? vals[mapping.nom] : '').trim();
+      if (!nom) continue;
+      const ent = {
+        nom,
+        siret: (mapping.siret >= 0 ? vals[mapping.siret] : '')||'',
+        adresse: (mapping.adresse >= 0 ? vals[mapping.adresse] : '')||'',
+        tel: (mapping.tel >= 0 ? vals[mapping.tel] : '')||'',
+        email: (mapping.email >= 0 ? vals[mapping.email] : '')||'',
+        responsable: (mapping.responsable >= 0 ? vals[mapping.responsable] : '')||'',
+        fonction: '',
+        activite: (mapping.activite >= 0 ? vals[mapping.activite] : '')||''
+      };
+      await db.entreprises.add(ent);
+      count++;
+    }
+    this.renderEntreprises();
+    this.toast(`${count} entreprise${count>1?'s':''} importée${count>1?'s':''} depuis Sellsy`);
+    DataSync.markDirty();
+    ev.target.value = '';
+  },
+
+  // ========================================
+  // VIC (Visite d'Inspection Commune)
+  // ========================================
+  currentVIC: null,
+
+  newVIC() {
+    const s = this._settings || {};
+    this.currentVIC = {
+      numero:'', refOperation:'', statut:'planifiee',
+      dateVisite:'', heure:'', site:'', lieu:'', objet:'',
+      euParticipant: { nom:s.euResponsable||'', fonction:'Responsable QSE', tel:s.euTel||'' },
+      entreprisesExt: [],
+      risques: [],
+      observations:'', photos: [],
+      signatureEU: { nom:'', date:'', data:null }, signaturesEE: [],
+      pdpId: null,
+      dateCreation: new Date().toISOString(), dateModification: new Date().toISOString()
+    };
+    this.populateVICForm();
+    this.showView('vic-detail');
+    document.getElementById('vic-detail-title').textContent = 'Nouvelle VIC';
+    document.getElementById('btn-delete-vic').style.display = 'none';
+  },
+
+  async openVIC(id) {
+    const v = await db.vics.get(id);
+    if (!v) { this.toast('VIC introuvable','danger'); return; }
+    this.currentVIC = v;
+    this.populateVICForm();
+    this.showView('vic-detail');
+    document.getElementById('vic-detail-title').textContent = v.numero || 'VIC #'+v.id;
+    document.getElementById('btn-delete-vic').style.display = '';
+  },
+
+  populateVICForm() {
+    const v = this.currentVIC;
+    document.getElementById('vic-numero').value = v.numero||'';
+    document.getElementById('vic-ref-operation').value = v.refOperation||'';
+    document.getElementById('vic-statut').value = v.statut||'planifiee';
+    document.getElementById('vic-date').value = v.dateVisite||'';
+    document.getElementById('vic-heure').value = v.heure||'';
+    document.getElementById('vic-site').value = v.site||'';
+    document.getElementById('vic-lieu').value = v.lieu||'';
+    document.getElementById('vic-objet').value = v.objet||'';
+    const eu = v.euParticipant||{};
+    document.getElementById('vic-eu-nom').value = eu.nom||'';
+    document.getElementById('vic-eu-fonction').value = eu.fonction||'';
+    document.getElementById('vic-eu-tel').value = eu.tel||'';
+    document.getElementById('vic-observations').value = v.observations||'';
+    this.renderVICEEList();
+    this.renderVICRisquesList();
+    this.renderCustomRiskBtns('vic-custom-risks-btns', 'App.addVICPredefinedRisk');
+    this.renderVICPhotos();
+    this.renderVICSignaturesEE();
+    this.renderVICPDPLink();
+    // Init VIC EU signature
+    setTimeout(() => {
+      this.initCanvas('vic-sig-eu-canvas');
+      if (v.signatureEU?.data) this.loadSigImg('vic-sig-eu-canvas', v.signatureEU.data);
+      document.getElementById('vic-sig-eu-nom').value = (v.signatureEU||{}).nom||'';
+      document.getElementById('vic-sig-eu-date').value = (v.signatureEU||{}).date||'';
+      (v.entreprisesExt||[]).forEach((_,i) => {
+        this.initCanvas(`vic-sig-ee-canvas-${i}`);
+        if ((v.signaturesEE||[])[i]?.data) this.loadSigImg(`vic-sig-ee-canvas-${i}`, v.signaturesEE[i].data);
+      });
+    }, 200);
+  },
+
+  collectVICForm() {
+    const v = this.currentVIC;
+    v.numero = document.getElementById('vic-numero').value.trim();
+    v.refOperation = document.getElementById('vic-ref-operation').value.trim();
+    v.statut = document.getElementById('vic-statut').value;
+    v.dateVisite = document.getElementById('vic-date').value;
+    v.heure = document.getElementById('vic-heure').value;
+    v.site = document.getElementById('vic-site').value.trim();
+    v.lieu = document.getElementById('vic-lieu').value.trim();
+    v.objet = document.getElementById('vic-objet').value.trim();
+    v.euParticipant = {
+      nom: document.getElementById('vic-eu-nom').value.trim(),
+      fonction: document.getElementById('vic-eu-fonction').value.trim(),
+      tel: document.getElementById('vic-eu-tel').value.trim()
+    };
+    v.observations = document.getElementById('vic-observations').value.trim();
+    v.signatureEU = v.signatureEU||{};
+    v.signatureEU.nom = document.getElementById('vic-sig-eu-nom').value.trim();
+    v.signatureEU.date = document.getElementById('vic-sig-eu-date').value;
+    const canvas = document.getElementById('vic-sig-eu-canvas');
+    if (canvas && canvas._hasDrawing) v.signatureEU.data = canvas.toDataURL();
+    // Capture EE signatures
+    (v.entreprisesExt||[]).forEach((_,i) => {
+      const cv = document.getElementById(`vic-sig-ee-canvas-${i}`);
+      if (cv && cv._hasDrawing) { v.signaturesEE = v.signaturesEE||[]; if (!v.signaturesEE[i]) v.signaturesEE[i]={nom:'',date:'',data:null}; v.signaturesEE[i].data = cv.toDataURL(); }
+    });
+    v.dateModification = new Date().toISOString();
+    if (!v.numero) { const y = new Date().getFullYear(); const m = String(new Date().getMonth()+1).padStart(2,'0'); v.numero = `VIC-${y}${m}-${String(v.id||Date.now()).slice(-4)}`; }
+    return v;
+  },
+
+  async saveVIC() {
+    const v = this.collectVICForm();
+    if (!v.dateVisite && !v.site) { this.toast("Date ou site requis",'warning'); return; }
+    try {
+      if (v.id) { await db.vics.put(v); }
+      else { v.id = await db.vics.add(v); v.numero = `VIC-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(v.id).padStart(4,'0')}`; await db.vics.put(v); }
+      document.getElementById('vic-detail-title').textContent = v.numero||'VIC #'+v.id;
+      document.getElementById('btn-delete-vic').style.display = '';
+      this.toast('VIC enregistrée');
+      DataSync.markDirty();
+    } catch(e) { console.error(e); this.toast('Erreur','danger'); }
+  },
+
+  async deleteVIC() {
+    if (!this.currentVIC?.id) return;
+    if (!await this.confirm('Supprimer cette VIC ?')) return;
+    // Unlink from PDP if linked
+    if (this.currentVIC.pdpId) {
+      const pdp = await db.pdps.get(this.currentVIC.pdpId);
+      if (pdp) { pdp.vicId = null; await db.pdps.put(pdp); }
+    }
+    await db.vics.delete(this.currentVIC.id);
+    this.currentVIC = null;
+    this.toast('VIC supprimée');
+    DataSync.markDirty();
+    this.showView('vics');
+  },
+
+  async renderVICList() {
+    const c = document.getElementById('vics-list-container');
+    const vics = await db.vics.orderBy('dateCreation').reverse().toArray();
+    if (!vics.length) { c.innerHTML = '<p class="text-muted text-center mt-4">Aucune VIC.</p>'; return; }
+    const statutLabels = { planifiee:'Planifiée', effectuee:'Effectuée', validee:'Validée' };
+    const statutColors = { planifiee:'secondary', effectuee:'primary', validee:'success' };
+    c.innerHTML = vics.map(v => `<div class="card pdp-card" data-site="${(v.site||'').toLowerCase()}" data-ref="${(v.refOperation||'').toLowerCase()}" onclick="App.openVIC(${v.id})">
+      <div class="card-body p-2">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <span class="badge bg-${statutColors[v.statut]||'secondary'} me-1">${statutLabels[v.statut]||v.statut}</span>
+            <strong>${this.esc(v.numero||'VIC #'+v.id)}</strong>
+            ${v.refOperation ? `<span class="text-muted small ms-1">Réf: ${this.esc(v.refOperation)}</span>`:''}
+          </div>
+          <small class="text-muted">${v.dateVisite||'—'}</small>
+        </div>
+        <div class="small text-muted mt-1">
+          ${v.site ? `<i class="bi bi-geo-alt me-1"></i>${this.esc(v.site)}`:''} ${v.lieu ? `· ${this.esc(v.lieu)}`:''}
+        </div>
+        <div class="text-end" style="font-size:0.75rem;color:var(--agw-gray)">
+          ${(v.risques||[]).length ? `<span>${(v.risques||[]).length} risques</span>`:''} ${v.pdpId ? '<span class="badge bg-info ms-1">PDP lié</span>':''}
+        </div>
+      </div>
+    </div>`).join('');
+  },
+
+  filterVICs() {
+    const s = (document.getElementById('search-vic').value||'').toLowerCase();
+    document.querySelectorAll('#vics-list-container .pdp-card').forEach(c => {
+      c.style.display = !s || (c.dataset.site||'').includes(s) || (c.dataset.ref||'').includes(s) ? '' : 'none';
+    });
+  },
+
+  // ---- VIC EE ----
+  renderVICEEList() {
+    const c = document.getElementById('vic-ee-list-container');
+    const ees = this.currentVIC.entreprisesExt||[];
+    if (!ees.length) { c.innerHTML = '<p class="text-muted small">Aucune EE.</p>'; return; }
+    c.innerHTML = ees.map((ee,i) => `<div class="risk-row risk-level-1"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><strong>${this.esc(ee.nom)}</strong>${ee.activite ? ` <span class="text-muted small">— ${this.esc(ee.activite)}</span>`:''}<div class="small text-muted">${ee.responsable?`${this.esc(ee.responsable)} `:''} ${ee.tel?`· ${this.esc(ee.tel)}`:''}</div></div><button class="btn btn-outline-danger btn-sm" onclick="App.currentVIC.entreprisesExt.splice(${i},1);App.renderVICEEList();App.renderVICSignaturesEE()"><i class="bi bi-trash"></i></button></div></div>`).join('');
+  },
+
+  async addVICEE() {
+    const ents = await db.entreprises.toArray();
+    if (ents.length) {
+      let html = '<p class="fw-bold small">Depuis le répertoire :</p>';
+      html += ents.map(e => `<div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.addVICEEFromRepo(${e.id})"><i class="bi bi-building"></i><span class="small">${this.esc(e.nom)}</span></div>`).join('');
+      html += '<hr><div class="text-center"><button class="btn btn-outline-primary btn-sm" onclick="App.addVICEEManual()"><i class="bi bi-plus-lg me-1"></i>Saisie manuelle</button></div>';
+      document.getElementById('modal-entreprise-body').innerHTML = html;
+      document.getElementById('modal-entreprise-footer').style.display = 'none';
+      document.querySelector('#modal-entreprise .modal-title').innerHTML = '<i class="bi bi-building me-1"></i>Ajouter une EE à la VIC';
+      new bootstrap.Modal(document.getElementById('modal-entreprise')).show();
+    } else { this.addVICEEManual(); }
+  },
+
+  async addVICEEFromRepo(id) {
+    const e = await db.entreprises.get(id);
+    if (!e) return;
+    bootstrap.Modal.getInstance(document.getElementById('modal-entreprise'))?.hide();
+    setTimeout(() => this.resetEntModal(), 300);
+    this.currentVIC.entreprisesExt.push({ nom:e.nom, adresse:e.adresse, responsable:e.responsable, fonction:e.fonction, tel:e.tel, email:e.email, siret:e.siret, activite:e.activite });
+    this.currentVIC.signaturesEE = this.currentVIC.signaturesEE||[];
+    this.currentVIC.signaturesEE.push({ nom:'', date:'', data:null });
+    this.renderVICEEList(); this.renderVICSignaturesEE(); this.toast('EE ajoutée');
+  },
+
+  addVICEEManual() {
+    bootstrap.Modal.getInstance(document.getElementById('modal-entreprise'))?.hide();
+    const nom = prompt('Nom de l\'entreprise :'); if (!nom) return;
+    const responsable = prompt('Représentant :')||'';
+    const tel = prompt('Téléphone :')||'';
+    this.currentVIC.entreprisesExt.push({ nom, adresse:'', responsable, fonction:'', tel, email:'', siret:'', activite:'' });
+    this.currentVIC.signaturesEE = this.currentVIC.signaturesEE||[];
+    this.currentVIC.signaturesEE.push({ nom:'', date:'', data:null });
+    this.renderVICEEList(); this.renderVICSignaturesEE(); this.toast('EE ajoutée');
+  },
+
+  // ---- VIC RISQUES ----
+  renderVICRisquesList() {
+    const c = document.getElementById('vic-risques-list-container');
+    const r = this.currentVIC.risques||[];
+    if (!r.length) { c.innerHTML = '<p class="text-muted small">Aucun risque identifié.</p>'; return; }
+    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong><select class="form-select form-select-sm" style="width:auto" onchange="App.currentVIC.risques[${i}].niveau=+this.value;App.renderVICRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentVIC.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea><textarea class="form-control form-control-sm" rows="1" placeholder="Mesures de prévention..." onchange="App.currentVIC.risques[${i}].prevention=this.value">${this.esc(r.prevention||'')}</textarea><input type="text" class="form-control form-control-sm mt-1" placeholder="Localisation sur site..." onchange="App.currentVIC.risques[${i}].localisation=this.value" value="${this.esc(r.localisation||'')}"></div><button class="btn btn-outline-danger btn-sm" onclick="App.currentVIC.risques.splice(${i},1);App.renderVICRisquesList()"><i class="bi bi-trash"></i></button></div></div>`).join('');
+  },
+
+  addVICRisque() {
+    this.currentVIC.risques = this.currentVIC.risques||[];
+    this.currentVIC.risques.push({ danger:'', situation:'', prevention:'', niveau:2, localisation:'' });
+    this.renderVICRisquesList();
+    const rows = document.querySelectorAll('#vic-risques-list-container .risk-row');
+    const last = rows[rows.length-1]?.querySelector('strong');
+    if (last) { const inp = document.createElement('input'); inp.type='text'; inp.className='form-control form-control-sm'; inp.placeholder='Nom du danger...'; inp.onblur=()=>{this.currentVIC.risques[this.currentVIC.risques.length-1].danger=inp.value.trim()||'Non défini';this.renderVICRisquesList();}; inp.onkeydown=(e)=>{if(e.key==='Enter')inp.blur();}; last.replaceWith(inp); inp.focus(); }
+  },
+
+  addVICPredefinedRisk(name) {
+    this.currentVIC.risques = this.currentVIC.risques||[];
+    if (this.currentVIC.risques.some(r => r.danger===name)) { this.toast('Déjà ajouté','warning'); return; }
+    this.currentVIC.risques.push({ danger:name, situation:'', prevention:'', niveau:1, localisation:'' });
+    this.renderVICRisquesList(); this.toast('Risque ajouté');
+  },
+
+  // ---- VIC PHOTOS ----
+  async addVICPhoto(ev) {
+    const file = ev.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > 1200) { h = h * 1200 / w; w = 1200; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        this.currentVIC.photos = this.currentVIC.photos||[];
+        this.currentVIC.photos.push({ data: canvas.toDataURL('image/jpeg', 0.7), date: new Date().toISOString() });
+        this.renderVICPhotos();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file); ev.target.value = '';
+  },
+
+  renderVICPhotos() {
+    const c = document.getElementById('vic-photos');
+    const photos = this.currentVIC.photos||[];
+    if (!photos.length) { c.innerHTML = '<p class="text-muted small">Aucune photo.</p>'; return; }
+    c.innerHTML = photos.map((p,i) => `<div class="position-relative"><img src="${p.data}" class="photo-thumb rounded" style="width:80px;height:80px;object-fit:cover;cursor:pointer" onclick="window.open('${p.data}')"><button class="btn btn-sm btn-danger position-absolute top-0 end-0" style="padding:0 4px;font-size:0.6rem;line-height:1.2" onclick="App.currentVIC.photos.splice(${i},1);App.renderVICPhotos()"><i class="bi bi-x"></i></button></div>`).join('');
+  },
+
+  // ---- VIC SIGNATURES EE ----
+  renderVICSignaturesEE() {
+    const c = document.getElementById('vic-signatures-ee-container');
+    const ees = this.currentVIC.entreprisesExt||[];
+    this.currentVIC.signaturesEE = this.currentVIC.signaturesEE||[];
+    while (this.currentVIC.signaturesEE.length < ees.length) this.currentVIC.signaturesEE.push({nom:'',date:'',data:null});
+    if (!ees.length) { c.innerHTML = '<p class="text-muted small">Ajoutez des EE pour les signatures.</p>'; return; }
+    c.innerHTML = ees.map((ee,i) => `<div class="mb-3 p-2 border rounded"><strong class="small">${this.esc(ee.nom)}</strong><div class="row g-2 mt-1"><div class="col-md-6"><input type="text" class="form-control form-control-sm" placeholder="Signataire" value="${this.esc((this.currentVIC.signaturesEE[i]||{}).nom||'')}" onchange="App.currentVIC.signaturesEE[${i}].nom=this.value"></div><div class="col-md-6"><input type="date" class="form-control form-control-sm" value="${(this.currentVIC.signaturesEE[i]||{}).date||''}" onchange="App.currentVIC.signaturesEE[${i}].date=this.value"></div><div class="col-12"><div class="signature-pad-wrapper"><canvas id="vic-sig-ee-canvas-${i}" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('vic-sig-ee-canvas-${i}')"><i class="bi bi-eraser me-1"></i>Effacer</button></div></div></div>`).join('');
+    setTimeout(() => {
+      ees.forEach((_,i) => {
+        this.initCanvas(`vic-sig-ee-canvas-${i}`);
+        if ((this.currentVIC.signaturesEE[i]||{}).data) this.loadSigImg(`vic-sig-ee-canvas-${i}`, this.currentVIC.signaturesEE[i].data);
+      });
+    }, 100);
+  },
+
+  // ---- VIC ↔ PDP LINKING ----
+  renderVICPDPLink() {
+    const info = document.getElementById('vic-pdp-link-info');
+    const unlinkBtn = document.getElementById('btn-vic-unlink');
+    const pushBtn = document.getElementById('btn-vic-push-risks');
+    if (this.currentVIC.pdpId) {
+      db.pdps.get(this.currentVIC.pdpId).then(pdp => {
+        if (pdp) {
+          info.innerHTML = `<div class="alert alert-success small mb-0"><i class="bi bi-link-45deg me-1"></i>Liée au PDP : <strong>${this.esc(pdp.titre||pdp.numero||'PDP #'+pdp.id)}</strong> <button class="btn btn-sm btn-outline-primary ms-2" onclick="App.openPDP(${pdp.id})"><i class="bi bi-eye me-1"></i>Ouvrir</button></div>`;
+        } else { info.innerHTML = '<span class="text-muted small">PDP lié introuvable.</span>'; }
+      });
+      unlinkBtn.style.display = '';
+      pushBtn.style.display = '';
+    } else {
+      info.innerHTML = '<span class="text-muted small">Aucun PDP lié.</span>';
+      unlinkBtn.style.display = 'none';
+      pushBtn.style.display = 'none';
+    }
+  },
+
+  async pushVICRisksToPDP() {
+    if (!this.currentVIC?.pdpId) return;
+    this.collectVICForm();
+    const v = this.currentVIC;
+    const pdp = await db.pdps.get(v.pdpId);
+    if (!pdp) { this.toast('PDP introuvable','danger'); return; }
+    const vicRisques = v.risques||[];
+    if (!vicRisques.length) { this.toast('Aucun risque dans la VIC','warning'); return; }
+    const existing = pdp.risques||[];
+    const existingNames = new Set(existing.map(r => r.danger));
+    let added = 0;
+    for (const r of vicRisques) {
+      if (!existingNames.has(r.danger)) {
+        existing.push({ danger:r.danger, situation:r.situation, prevention:r.prevention, niveau:r.niveau });
+        added++;
+      }
+    }
+    pdp.risques = existing;
+    // Also sync visite data
+    pdp.visite = pdp.visite||{};
+    if (v.dateVisite) pdp.visite.date = v.dateVisite;
+    if (v.heure) pdp.visite.heure = v.heure;
+    if (v.observations) pdp.visite.observations = v.observations;
+    pdp.visite.effectuee = v.statut==='effectuee'||v.statut==='validee';
+    pdp.visite.participants = [v.euParticipant?.nom, ...(v.entreprisesExt||[]).map(e=>e.responsable)].filter(Boolean).join(', ');
+    pdp.dateModification = new Date().toISOString();
+    await db.pdps.put(pdp);
+    this.toast(`${added} risque(s) envoyé(s) au PDP (${vicRisques.length - added} déjà présent(s))`);
+  },
+
+  async createPDPFromVIC() {
+    if (!this.currentVIC) return;
+    this.collectVICForm();
+    if (this.currentVIC.id) await this.saveVIC();
+    const v = this.currentVIC;
+    const s = this._settings || {};
+    const pdp = {
+      titre: v.objet||'PDP issu VIC '+(v.numero||''), numero:'', statut:'visite_prealable', version:'01',
+      dateDebut:'', dateFin:'', site:v.site||'', lieu:v.lieu||'', description:v.objet||'',
+      materiel:'', nbSalaries:'', horaires:'',
+      eu: { nom:s.euNom||'', adresse:s.euAdresse||'', responsable:v.euParticipant?.nom||s.euResponsable||'', tel:v.euParticipant?.tel||s.euTel||'', email:s.euEmail||'', fonction:v.euParticipant?.fonction||'' },
+      entreprisesExt: JSON.parse(JSON.stringify(v.entreprisesExt||[])),
+      visite: { date:v.dateVisite||'', heure:v.heure||'', participants: [v.euParticipant?.nom, ...(v.entreprisesExt||[]).map(e=>e.responsable)].filter(Boolean).join(', '), observations:v.observations||'', effectuee:v.statut==='effectuee'||v.statut==='validee', photos:JSON.parse(JSON.stringify(v.photos||[])) },
+      risques: JSON.parse(JSON.stringify(v.risques||[])),
+      mesures:[], instructions:'', exigences:[],
+      urgence: { responsable:'', telResponsable:'', sst:'', telSst:'', numeros:'Pompiers : 18  |  SAMU : 15  |  Gendarmerie : 17  |  Urgences : 112', consignes:'' },
+      signatureEU:{nom:'',date:'',data:null}, signaturesEE:[],
+      modifications:[], historique:[{action:'Créé depuis VIC '+v.numero, date:new Date().toISOString()}], documents:[], vicId: v.id||null,
+      dateCreation:new Date().toISOString(), dateModification:new Date().toISOString()
+    };
+    const pdpId = await db.pdps.add(pdp);
+    pdp.id = pdpId;
+    pdp.numero = `PDP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(pdpId).padStart(4,'0')}`;
+    await db.pdps.put(pdp);
+    // Link VIC → PDP
+    if (v.id) { v.pdpId = pdpId; await db.vics.put(v); }
+    this.toast('PDP créé depuis la VIC');
+    this.currentPDP = pdp;
+    this.populateForm();
+    this.showView('pdp-detail');
+    document.getElementById('pdp-detail-title').textContent = pdp.titre;
+    document.getElementById('btn-delete-pdp').style.display = '';
+    this.showPDPSection('general');
+  },
+
+  async linkVICToPDP() {
+    if (!this.currentVIC) return;
+    this.collectVICForm();
+    const pdps = await db.pdps.orderBy('dateCreation').reverse().toArray();
+    if (!pdps.length) { this.toast('Aucun PDP existant','warning'); return; }
+    let html = '<p class="fw-bold small">Sélectionnez un PDP :</p>';
+    html += pdps.map(p => `<div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.doLinkVICToPDP(${p.id})"><i class="bi bi-file-text"></i><span class="small"><strong>${this.esc(p.numero||'')}</strong> ${this.esc(p.titre||'')}</span><span class="badge bg-secondary ms-auto">${this.esc(p.site||'')}</span></div>`).join('');
+    document.getElementById('modal-vic-link-body').innerHTML = html;
+    document.querySelector('#modal-vic-link .modal-title').innerHTML = '<i class="bi bi-link-45deg me-1"></i>Lier à un PDP';
+    new bootstrap.Modal(document.getElementById('modal-vic-link')).show();
+  },
+
+  async doLinkVICToPDP(pdpId) {
+    bootstrap.Modal.getInstance(document.getElementById('modal-vic-link'))?.hide();
+    const v = this.currentVIC;
+    v.pdpId = pdpId;
+    if (v.id) await db.vics.put(v);
+    // Also set vicId on the PDP
+    const pdp = await db.pdps.get(pdpId);
+    if (pdp) { pdp.vicId = v.id; await db.pdps.put(pdp); }
+    this.renderVICPDPLink();
+    this.toast('VIC liée au PDP');
+  },
+
+  async unlinkVIC() {
+    if (!this.currentVIC) return;
+    if (!await this.confirm('Délier cette VIC du PDP ?')) return;
+    const oldPdpId = this.currentVIC.pdpId;
+    this.currentVIC.pdpId = null;
+    if (this.currentVIC.id) await db.vics.put(this.currentVIC);
+    if (oldPdpId) { const pdp = await db.pdps.get(oldPdpId); if (pdp) { pdp.vicId = null; await db.pdps.put(pdp); } }
+    this.renderVICPDPLink();
+    this.toast('Lien supprimé');
+  },
+
+  // ---- PDP → VIC link display ----
+  async renderPDPVICLink() {
+    const banner = document.getElementById('pdp-vic-link-banner');
+    const noLink = document.getElementById('pdp-vic-no-link');
+    const vicId = this.currentPDP?.vicId;
+    if (vicId) {
+      const vic = await db.vics.get(vicId);
+      if (vic) {
+        banner.style.cssText = '';
+        banner.classList.add('d-flex');
+        document.getElementById('pdp-vic-link-label').textContent = vic.numero || 'VIC #'+vic.id;
+        noLink.style.display = 'none';
+        return;
+      }
+    }
+    banner.style.display = 'none';
+    banner.classList.remove('d-flex');
+    noLink.style.display = '';
+  },
+
+  async openLinkedVIC() {
+    if (!this.currentPDP?.vicId) return;
+    // Save current PDP first
+    await this.savePDP();
+    this.openVIC(this.currentPDP.vicId);
+  },
+
+  async syncVICToPDP() {
+    if (!this.currentPDP?.vicId) return;
+    const vic = await db.vics.get(this.currentPDP.vicId);
+    if (!vic) { this.toast('VIC introuvable','danger'); return; }
+    if (!await this.confirm(`Synchroniser ${(vic.risques||[]).length} risque(s) depuis la VIC ? Les risques existants seront conservés.`)) return;
+    // Merge risks (add new ones, don't duplicate)
+    const existing = this.currentPDP.risques||[];
+    const existingNames = new Set(existing.map(r => r.danger));
+    let added = 0;
+    for (const r of (vic.risques||[])) {
+      if (!existingNames.has(r.danger)) {
+        existing.push({ danger:r.danger, situation:r.situation, prevention:r.prevention, niveau:r.niveau });
+        added++;
+      }
+    }
+    this.currentPDP.risques = existing;
+    this.renderRisquesList();
+    // Also sync visite data
+    if (vic.dateVisite) document.getElementById('visite-date').value = vic.dateVisite;
+    if (vic.heure) document.getElementById('visite-heure').value = vic.heure;
+    if (vic.observations) document.getElementById('visite-observations').value = vic.observations;
+    document.getElementById('visite-effectuee').checked = vic.statut==='effectuee'||vic.statut==='validee';
+    this.toast(`${added} risque(s) ajouté(s) depuis la VIC`);
+  },
+
+  async linkPDPToVIC() {
+    if (!this.currentPDP) return;
+    const vics = await db.vics.orderBy('dateCreation').reverse().toArray();
+    if (!vics.length) { this.toast('Aucune VIC existante','warning'); return; }
+    let html = '<p class="fw-bold small">Sélectionnez une VIC :</p>';
+    html += vics.map(v => `<div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.doLinkPDPToVIC(${v.id})"><i class="bi bi-clipboard-check"></i><span class="small"><strong>${this.esc(v.numero||'')}</strong> ${this.esc(v.site||'')} ${v.dateVisite||''}</span>${v.pdpId?'<span class="badge bg-warning ms-auto">Déjà liée</span>':''}</div>`).join('');
+    document.getElementById('modal-vic-link-body').innerHTML = html;
+    document.querySelector('#modal-vic-link .modal-title').innerHTML = '<i class="bi bi-link-45deg me-1"></i>Lier une VIC';
+    new bootstrap.Modal(document.getElementById('modal-vic-link')).show();
+  },
+
+  async doLinkPDPToVIC(vicId) {
+    bootstrap.Modal.getInstance(document.getElementById('modal-vic-link'))?.hide();
+    this.currentPDP.vicId = vicId;
+    // Also link the VIC back
+    const vic = await db.vics.get(vicId);
+    if (vic) { vic.pdpId = this.currentPDP.id; await db.vics.put(vic); }
+    this.renderPDPVICLink();
+    this.toast('VIC liée au PDP');
+  },
+
+  async createVICFromPDP() {
+    if (!this.currentPDP) return;
+    this.collectForm();
+    if (this.currentPDP.id) await this.savePDP();
+    const p = this.currentPDP;
+    const vic = {
+      numero:'', refOperation:p.numero||'', statut:'planifiee',
+      dateVisite:'', heure:'', site:p.site||'', lieu:p.lieu||'', objet:p.description||p.titre||'',
+      euParticipant: { nom:(p.eu||{}).responsable||'', fonction:'', tel:(p.eu||{}).tel||'' },
+      entreprisesExt: JSON.parse(JSON.stringify(p.entreprisesExt||[])),
+      risques: [], observations:'', photos: [],
+      signatureEU:{nom:'',date:'',data:null}, signaturesEE:[],
+      pdpId: p.id||null,
+      dateCreation:new Date().toISOString(), dateModification:new Date().toISOString()
+    };
+    const vicId = await db.vics.add(vic);
+    vic.id = vicId;
+    vic.numero = `VIC-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(vicId).padStart(4,'0')}`;
+    await db.vics.put(vic);
+    // Link PDP → VIC
+    p.vicId = vicId;
+    if (p.id) await db.pdps.put(p);
+    this.toast('VIC créée');
+    this.currentVIC = vic;
+    this.populateVICForm();
+    this.showView('vic-detail');
+    document.getElementById('vic-detail-title').textContent = vic.numero;
+    document.getElementById('btn-delete-vic').style.display = '';
+  },
+
+  // ---- CUSTOM RISKS (répertoire persistant) ----
+  async loadCustomRisks() {
+    try { const s = await db.settings.get('customRisks'); return (s?.value)||[]; } catch(e) { return []; }
+  },
+  async saveCustomRisk(name) {
+    const list = await this.loadCustomRisks();
+    if (list.includes(name)) return;
+    list.push(name);
+    await db.settings.put({ key:'customRisks', value:list });
+  },
+  async renderCustomRiskBtns(containerId, handler) {
+    const list = await this.loadCustomRisks();
+    const c = document.getElementById(containerId);
+    if (!c) return;
+    if (!list.length) { c.innerHTML = ''; return; }
+    c.innerHTML = list.map(r => `<button class="btn btn-outline-info btn-sm me-1 mb-1" onclick="${handler}('${r.replace(/'/g,"\\'")}')">+ ${this.esc(r)}</button>`).join('');
+  },
+
+  async addVICCustomRisk() {
+    const inp = document.getElementById('vic-custom-risk-input');
+    const name = (inp.value||'').trim();
+    if (!name) { this.toast('Saisissez un nom de risque','warning'); return; }
+    await this.saveCustomRisk(name);
+    this.addVICPredefinedRisk(name);
+    inp.value = '';
+    this.renderCustomRiskBtns('vic-custom-risks-btns', 'App.addVICPredefinedRisk');
+    this.renderCustomRiskBtns('pdp-custom-risks-btns', 'App.addPredefinedRisk');
+  },
+
+  async addPDPCustomRisk() {
+    const inp = document.getElementById('pdp-custom-risk-input');
+    const name = (inp.value||'').trim();
+    if (!name) { this.toast('Saisissez un nom de risque','warning'); return; }
+    await this.saveCustomRisk(name);
+    this.addPredefinedRisk(name);
+    inp.value = '';
+    this.renderCustomRiskBtns('pdp-custom-risks-btns', 'App.addPredefinedRisk');
+    this.renderCustomRiskBtns('vic-custom-risks-btns', 'App.addVICPredefinedRisk');
+  },
+
+  // ---- VIC EXPORT PDF ----
+  async exportVICPDF() {
+    if (!this.currentVIC) return;
+    this.collectVICForm();
+    const v = this.currentVIC;
+    const {jsPDF} = window.jspdf;
+    const doc = new jsPDF('p','mm','a4');
+    let y = 15; const m = 15; const pw = 180;
+    const addT = (t,s=10,st='normal',c=[0,0,0]) => { doc.setFontSize(s); doc.setFont('helvetica',st); doc.setTextColor(...c); doc.splitTextToSize(t,pw).forEach(l=>{if(y>275){doc.addPage();y=15}doc.text(l,m,y);y+=s*0.5}); y+=2; };
+    const addL = () => { doc.setDrawColor(200); doc.line(m,y,195,y); y+=5; };
+
+    // Header
+    doc.setFillColor(0,105,62); doc.rect(0,0,210,35,'F');
+    doc.setTextColor(255,255,255); doc.setFontSize(18); doc.setFont('helvetica','bold');
+    doc.text("VISITE D'INSPECTION COMMUNE",m,15);
+    doc.setFontSize(11); doc.text(v.numero||'',m,22);
+    if (v.refOperation) { doc.setFontSize(9); doc.text('Réf: '+v.refOperation,m,28); }
+    y=42;
+
+    // Infos
+    addT(`Site: ${v.site||'-'} | Lieu: ${v.lieu||'-'}`,10,'bold',[0,105,62]);
+    addT(`Date: ${v.dateVisite||'-'} | Heure: ${v.heure||'-'}`);
+    const statutL = {planifiee:'Planifiée',effectuee:'Effectuée',validee:'Validée'};
+    addT(`Statut: ${statutL[v.statut]||v.statut}`); addL();
+
+    // Objet
+    if (v.objet) { addT("OBJET DE L'INTERVENTION",12,'bold',[0,105,62]); addT(v.objet); addL(); }
+
+    // Participants
+    addT('PARTICIPANTS',12,'bold',[0,105,62]);
+    const euP = v.euParticipant||{};
+    addT(`EU: ${euP.nom||'-'} — ${euP.fonction||''} — Tél: ${euP.tel||'-'}`,9);
+    (v.entreprisesExt||[]).forEach((ee,i) => {
+      addT(`EE${i+1}: ${ee.nom||'-'} — Resp: ${ee.responsable||'-'} — Tél: ${ee.tel||'-'}`,9);
+    }); addL();
+
+    // Risques
+    if ((v.risques||[]).length) {
+      addT('RISQUES IDENTIFIÉS',12,'bold',[0,105,62]);
+      const niveauL = {1:'Faible',2:'Moyen',3:'Élevé',4:'Critique'};
+      v.risques.forEach((r,i) => {
+        addT(`${i+1}. ${r.danger||'-'} [${niveauL[r.niveau]||'-'}]`,10,'bold');
+        if (r.localisation) addT(`   Localisation: ${r.localisation}`,9);
+        if (r.situation) addT(`   Situation: ${r.situation}`,9);
+        if (r.prevention) addT(`   Prévention: ${r.prevention}`,9);
+      }); addL();
+    }
+
+    // Observations
+    if (v.observations) { addT('OBSERVATIONS',12,'bold',[0,105,62]); addT(v.observations,9); addL(); }
+
+    // Signatures
+    addT('SIGNATURES',12,'bold',[0,105,62]);
+    y+=2;
+    const sigEU = v.signatureEU||{};
+    addT(`EU: ${sigEU.nom||'_________________'}  Date: ${sigEU.date||'____/____/________'}`,9);
+    // Insert EU signature image if present
+    if (sigEU.data) { try { doc.addImage(sigEU.data,'PNG',m,y,50,18); y+=20; } catch(e){} }
+    else { y+=20; }
+    (v.entreprisesExt||[]).forEach((ee,i) => {
+      const sig = (v.signaturesEE||[])[i]||{};
+      addT(`${ee.nom}: ${sig.nom||'_________________'}  Date: ${sig.date||'____/____/________'}`,9);
+      if (sig.data) { try { doc.addImage(sig.data,'PNG',m,y,50,18); y+=20; } catch(e){} }
+      else { y+=20; }
+    });
+
+    // PDP link info
+    if (v.pdpId) {
+      const pdp = await db.pdps.get(v.pdpId);
+      if (pdp) { addL(); addT(`PDP associé: ${pdp.numero||''} — ${pdp.titre||''}`,9,'italic',[100,100,100]); }
+    }
+
+    const vicPdfFn = `${v.numero||'VIC'}.pdf`;
+    doc.save(vicPdfFn);
+    doc.output('blob').then(blob => DataSync.uploadExport(blob, vicPdfFn, 'vic')).catch(()=>{});
+    this.toast('PDF VIC généré');
+  },
+
+  // ---- VIC EXPORT DOCX ----
+  async exportVICDOCX() {
+    if (!this.currentVIC) return;
+    this.collectVICForm();
+    const v = this.currentVIC;
+    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, VerticalAlign, ShadingType, ImageRun } = docx;
+    const niveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
+    const niveauColors = {1:'92D050',2:'FFC000',3:'FD7E14',4:'FF0000'};
+    const GREEN = '00693E';
+    const statutL = {planifiee:'Planifiée',effectuee:'Effectuée',validee:'Validée'};
+
+    const cell = (text, opts={}) => new TableCell({
+      children:[new Paragraph({children:[new TextRun({text:text||'',size:opts.size||20,bold:opts.bold||false,font:'Calibri',color:opts.color||undefined})],alignment:opts.align||AlignmentType.LEFT,spacing:{before:40,after:40}})],
+      width:opts.width?{size:opts.width,type:WidthType.PERCENTAGE}:undefined,
+      shading:opts.shading?{type:ShadingType.SOLID,color:opts.shading}:undefined,
+      verticalAlign:VerticalAlign.CENTER, columnSpan:opts.colSpan||1,
+    });
+    const hCell = (text, width, colSpan) => new TableCell({
+      children:[new Paragraph({children:[new TextRun({text,size:20,bold:true,font:'Calibri',color:'FFFFFF'})],alignment:AlignmentType.CENTER,spacing:{before:60,after:60}})],
+      width:width?{size:width,type:WidthType.PERCENTAGE}:undefined,
+      shading:{type:ShadingType.SOLID,color:GREEN},verticalAlign:VerticalAlign.CENTER,columnSpan:colSpan||1,
+    });
+    const secTitle = (n,t) => new Paragraph({children:[new TextRun({text:`${n}. ${t}`,size:24,bold:true,font:'Calibri',color:GREEN})],spacing:{before:300,after:150}});
+    const spacer = () => new Paragraph({children:[],spacing:{before:100}});
+
+    const children = [];
+
+    // Header
+    const s = this._settings||{};
+    children.push(new Paragraph({children:[new TextRun({text:s.euNom||'GÉNÉRATIONS RENOUVELABLES',size:28,bold:true,font:'Calibri',color:GREEN})],alignment:AlignmentType.CENTER,spacing:{after:50}}));
+    children.push(new Paragraph({children:[new TextRun({text:"VISITE D'INSPECTION COMMUNE",size:32,bold:true,font:'Calibri'})],alignment:AlignmentType.CENTER,spacing:{after:80}}));
+    if (v.site) children.push(new Paragraph({children:[new TextRun({text:v.site,size:22,font:'Calibri'})],alignment:AlignmentType.CENTER,spacing:{after:40}}));
+    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[new TableRow({children:[
+      cell(`Réf. : ${v.numero||''}`,{width:40,size:18}),
+      cell(`Réf. opération : ${v.refOperation||''}`,{width:30,size:18}),
+      cell(`Statut : ${statutL[v.statut]||v.statut}`,{width:30,size:18,align:AlignmentType.RIGHT})
+    ]})]}));
+    children.push(spacer());
+
+    // 1. Infos visite
+    children.push(secTitle('1','INFORMATIONS DE LA VISITE'));
+    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
+      new TableRow({children:[cell('Date',{width:35,bold:true}),cell(v.dateVisite||'')]}),
+      new TableRow({children:[cell('Heure',{width:35,bold:true}),cell(v.heure||'')]}),
+      new TableRow({children:[cell('Site / Adresse',{width:35,bold:true}),cell(v.site||'')]}),
+      new TableRow({children:[cell('Lieu précis',{width:35,bold:true}),cell(v.lieu||'')]}),
+      new TableRow({children:[cell("Objet de l'intervention",{width:35,bold:true}),cell(v.objet||'')]}),
+    ]}));
+    children.push(spacer());
+
+    // 2. Participants
+    children.push(secTitle('2','PARTICIPANTS'));
+    const euP = v.euParticipant||{};
+    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
+      new TableRow({children:[hCell('REPRÉSENTANT EU',100,3)]}),
+      new TableRow({children:[cell('Nom',{width:35,bold:true}),cell(euP.nom||'',{width:35}),cell(`Tél: ${euP.tel||''}`,{width:30})]}),
+      new TableRow({children:[cell('Fonction',{width:35,bold:true}),cell(euP.fonction||'',{colSpan:2,width:65})]}),
+    ]}));
+    children.push(spacer());
+    for (const ee of (v.entreprisesExt||[])) {
+      children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
+        new TableRow({children:[hCell('REPRÉSENTANT EE',100,3)]}),
+        new TableRow({children:[cell('Entreprise',{width:35,bold:true}),cell(ee.nom||'',{width:35}),cell(`Tél: ${ee.tel||''}`,{width:30})]}),
+        new TableRow({children:[cell('Représentant',{width:35,bold:true}),cell(ee.responsable||'',{width:35}),cell(ee.activite?`Activité: ${ee.activite}`:'',{width:30})]}),
+      ]}));
+      children.push(spacer());
+    }
+
+    // 3. Risques
+    children.push(secTitle('3','RISQUES IDENTIFIÉS SUR SITE'));
+    const rRows = [new TableRow({children:[hCell('Risque',22),hCell('Niveau',10),hCell('Localisation',18),hCell('Situation',25),hCell('Prévention',25)]})];
+    (v.risques||[]).forEach(r => {
+      rRows.push(new TableRow({children:[
+        cell(r.danger||'',{width:22}),
+        cell(niveauLabels[r.niveau]||'',{width:10,align:AlignmentType.CENTER,bold:true,shading:niveauColors[r.niveau]}),
+        cell(r.localisation||'',{width:18}),
+        cell(r.situation||'',{width:25}),
+        cell(r.prevention||'',{width:25})
+      ]}));
+    });
+    if (!(v.risques||[]).length) rRows.push(new TableRow({children:[cell('Aucun risque identifié',{colSpan:5,width:100,align:AlignmentType.CENTER})]}));
+    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
+    children.push(spacer());
+
+    // 4. Observations
+    if (v.observations) {
+      children.push(secTitle('4','OBSERVATIONS'));
+      children.push(new Paragraph({children:[new TextRun({text:v.observations,size:20,font:'Calibri'})],spacing:{after:100}}));
+    }
+
+    // 5. Signatures
+    const secSig = v.observations ? '5' : '4';
+    children.push(secTitle(secSig,'SIGNATURES'));
+    children.push(new Paragraph({children:[new TextRun({text:"Les soussignés attestent avoir participé à la visite d'inspection commune et reconnaissent les risques identifiés ci-dessus.",size:20,font:'Calibri',italics:true})],spacing:{after:150}}));
+    const sigEU = v.signatureEU||{};
+    const sigCols = [{label:'EU',nom:sigEU.nom||'',date:sigEU.date||''}];
+    (v.entreprisesExt||[]).forEach((ee,i) => { const sig=(v.signaturesEE||[])[i]||{}; sigCols.push({label:ee.nom||`EE ${i+1}`,nom:sig.nom||'',date:sig.date||''}); });
+    if (!v.entreprisesExt?.length) sigCols.push({label:'EE',nom:'',date:''});
+    const cw = Math.floor(100/sigCols.length);
+    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
+      new TableRow({children:sigCols.map(c=>hCell(c.label,cw))}),
+      new TableRow({children:sigCols.map(c=>cell(`Nom : ${c.nom}`,{width:cw}))}),
+      new TableRow({children:sigCols.map(c=>cell(`Date : ${c.date}`,{width:cw}))}),
+      new TableRow({children:sigCols.map(c=>new TableCell({children:[new Paragraph({children:[new TextRun({text:'Signature :',size:18,font:'Calibri',italics:true})],spacing:{before:40,after:300}})],width:{size:cw,type:WidthType.PERCENTAGE}}))}),
+    ]}));
+
+    // PDP link
+    if (v.pdpId) {
+      const pdp = await db.pdps.get(v.pdpId);
+      if (pdp) {
+        children.push(spacer());
+        children.push(new Paragraph({children:[new TextRun({text:`PDP associé : ${pdp.numero||''} — ${pdp.titre||''}`,size:18,font:'Calibri',italics:true,color:'888888'})]}));
+      }
+    }
+
+    const doc2 = new Document({sections:[{properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},children}]});
+    const blob = await Packer.toBlob(doc2);
+    const vicDocxFn = `${v.numero||'VIC'}.docx`;
+    saveAs(blob, vicDocxFn);
+    DataSync.uploadExport(blob, vicDocxFn, 'vic');
+    this.toast('Word VIC généré');
+  },
+
+  // ---- SETTINGS ----
+  _settings: {},
+  async loadSettings() {
+    try { const s = await db.settings.get('general'); this._settings = s?.value||{}; this.applySettings(); } catch(e) {}
+  },
+  applySettings() {
+    const s = this._settings;
+    document.getElementById('settings-eu-nom').value = s.euNom||'';
+    document.getElementById('settings-eu-adresse').value = s.euAdresse||'';
+    document.getElementById('settings-eu-responsable').value = s.euResponsable||'';
+    document.getElementById('settings-eu-tel').value = s.euTel||'';
+    document.getElementById('settings-eu-email').value = s.euEmail||'';
+    document.getElementById('settings-eu-siret').value = s.euSiret||'';
+  },
+  async saveSettings() {
+    this._settings = { euNom:document.getElementById('settings-eu-nom').value.trim(), euAdresse:document.getElementById('settings-eu-adresse').value.trim(), euResponsable:document.getElementById('settings-eu-responsable').value.trim(), euTel:document.getElementById('settings-eu-tel').value.trim(), euEmail:document.getElementById('settings-eu-email').value.trim(), euSiret:document.getElementById('settings-eu-siret').value.trim() };
+    await db.settings.put({ key:'general', value:this._settings }); this.toast('Paramètres sauvegardés'); DataSync.markDirty();
+  },
+
+  // ---- DATA EXPORT/IMPORT ----
+  async exportAllData() {
+    const data = { pdps: await db.pdps.toArray(), entreprises: await db.entreprises.toArray(), vics: await db.vics.toArray(), settings: await db.settings.toArray(), exportDate: new Date().toISOString(), version:'1.1' };
+    const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`suivi-pdp-${new Date().toISOString().slice(0,10)}.json`; a.click(); this.toast('Exporté');
+  },
+
+  async importData(ev) {
+    const f = ev.target.files[0]; if (!f) return;
+    if (!await this.confirm('Importer ?')) { ev.target.value=''; return; }
+    const reader = new FileReader();
+    reader.onload = async e => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (data.pdps) for (const p of data.pdps) { delete p.id; await db.pdps.add(p); }
+        if (data.entreprises) for (const ent of data.entreprises) { delete ent.id; await db.entreprises.add(ent); }
+        if (data.vics) for (const v of data.vics) { delete v.id; await db.vics.add(v); }
+        if (data.settings) for (const s of data.settings) await db.settings.put(s);
+        await this.loadSettings(); this.updateDashboard();
+        this.toast(`Import: ${data.pdps?.length||0} PDP, ${data.vics?.length||0} VIC, ${data.entreprises?.length||0} entreprises`);
+      } catch(err) { this.toast('Erreur import','danger'); }
+    };
+    reader.readAsText(f); ev.target.value = '';
+  },
+
+  async resetData() {
+    if (!await this.confirm('Supprimer TOUTES les données ?')) return;
+    await db.pdps.clear(); await db.entreprises.clear(); await db.vics.clear(); await db.settings.clear();
+    this._settings = {}; this.applySettings(); this.updateDashboard(); this.toast('Réinitialisé','warning');
+  },
+
+  // ========================================
+  // EXPORT DOCX
+  // ========================================
+  async exportDOCX() {
+    if (!this.currentPDP) return;
+    this.collectForm(); this.captureAllSigs();
+    const p = this.currentPDP;
+    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle, VerticalAlign, ShadingType } = docx;
+    const niveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
+    const GREEN = '00693E';
+
+    const cell = (text, opts={}) => new TableCell({
+      children: [new Paragraph({ children:[new TextRun({text:text||'',size:opts.size||20,bold:opts.bold||false,font:'Calibri'})], alignment:opts.align||AlignmentType.LEFT, spacing:{before:40,after:40} })],
+      width: opts.width?{size:opts.width,type:WidthType.PERCENTAGE}:undefined,
+      shading: opts.shading?{type:ShadingType.SOLID,color:opts.shading}:undefined,
+      verticalAlign: VerticalAlign.CENTER, columnSpan: opts.colSpan||1,
+    });
+
+    const hCell = (text, width, colSpan) => new TableCell({
+      children: [new Paragraph({ children:[new TextRun({text,size:20,bold:true,font:'Calibri',color:'FFFFFF'})], alignment:AlignmentType.CENTER, spacing:{before:60,after:60} })],
+      width: width?{size:width,type:WidthType.PERCENTAGE}:undefined,
+      shading: {type:ShadingType.SOLID,color:GREEN}, verticalAlign:VerticalAlign.CENTER, columnSpan:colSpan||1,
+    });
+
+    const secTitle = (n,t) => new Paragraph({ children:[new TextRun({text:`${n}. ${t}`,size:24,bold:true,font:'Calibri',color:GREEN})], spacing:{before:300,after:150} });
+
+    const eu = p.eu||{}; const ees = p.entreprisesExt||[];
+    const moisNoms = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    const datePDP = p.dateDebut ? new Date(p.dateDebut) : new Date();
+    const children = [];
+
+    // Header
+    children.push(new Paragraph({ children:[new TextRun({text:eu.nom||'AGRIWATT',size:28,bold:true,font:'Calibri',color:GREEN})], alignment:AlignmentType.CENTER, spacing:{after:50} }));
+    children.push(new Paragraph({ children:[new TextRun({text:'PLAN DE PRÉVENTION',size:32,bold:true,font:'Calibri'})], alignment:AlignmentType.CENTER, spacing:{after:80} }));
+    children.push(new Paragraph({ children:[new TextRun({text:p.titre||'',size:22,font:'Calibri'})], alignment:AlignmentType.CENTER, spacing:{after:40} }));
+    if (p.site) children.push(new Paragraph({ children:[new TextRun({text:p.site,size:22,font:'Calibri'})], alignment:AlignmentType.CENTER, spacing:{after:80} }));
+    children.push(new Table({ width:{size:100,type:WidthType.PERCENTAGE}, rows:[new TableRow({children:[cell(`Réf. : EN 9.1 – ${p.numero||''}`,{width:50,size:18}), cell(`Version : ${p.version||'01'}`,{width:25,size:18,align:AlignmentType.CENTER}), cell(`Date : ${moisNoms[datePDP.getMonth()]} ${datePDP.getFullYear()}`,{width:25,size:18,align:AlignmentType.RIGHT})]})] }));
+    children.push(new Paragraph({children:[],spacing:{before:100}}));
+
+    // 1. Parties
+    children.push(secTitle('1','IDENTIFICATION DES PARTIES'));
+    children.push(new Table({ width:{size:100,type:WidthType.PERCENTAGE}, rows:[
+      new TableRow({children:[hCell('ENTREPRISE UTILISATRICE (EU)',100,2)]}),
+      new TableRow({children:[cell('Raison sociale',{width:35,bold:true}),cell(eu.nom||'')]}),
+      new TableRow({children:[cell('Site concerné',{width:35,bold:true}),cell(p.site||'')]}),
+      new TableRow({children:[cell('Responsable QSE / Contact EU',{width:35,bold:true}),cell(eu.responsable||'')]}),
+      new TableRow({children:[cell('Téléphone EU',{width:35,bold:true}),cell(eu.tel||'')]}),
+    ]}));
+    children.push(new Paragraph({children:[],spacing:{before:100}}));
+
+    for (const ee of ees) {
+      children.push(new Table({ width:{size:100,type:WidthType.PERCENTAGE}, rows:[
+        new TableRow({children:[hCell('ENTREPRISE EXTÉRIEURE (EE)',100,2)]}),
+        new TableRow({children:[cell('Raison sociale',{width:35,bold:true}),cell(ee.nom||'')]}),
+        new TableRow({children:[cell('Activité',{width:35,bold:true}),cell(ee.activite||'')]}),
+        new TableRow({children:[cell('Représentant / Technicien',{width:35,bold:true}),cell(ee.responsable||'')]}),
+        new TableRow({children:[cell('Téléphone EE',{width:35,bold:true}),cell(ee.tel||'')]}),
+      ]}));
+      children.push(new Paragraph({children:[],spacing:{before:60}}));
+    }
+
+    // 2. Objet
+    children.push(secTitle('2',"OBJET DE L'INTERVENTION"));
+    const objetRows = [
+      new TableRow({children:[cell('Nature de la prestation',{width:35,bold:true}),cell(p.description||'')]}),
+      new TableRow({children:[cell("Date d'intervention",{width:35,bold:true}),cell(p.dateDebut||'')]}),
+      new TableRow({children:[cell('Lieu précis',{width:35,bold:true}),cell(p.lieu||'')]}),
+    ];
+    if (p.materiel) objetRows.push(new TableRow({children:[cell('Matériel / Équipements',{width:35,bold:true}),cell(p.materiel)]}));
+    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:objetRows}));
+
+    // 3. Risques
+    children.push(secTitle('3','RISQUES ET MESURES DE PRÉVENTION'));
+    const rRows = [new TableRow({children:[hCell('Risque',30),hCell('Niveau',15),hCell('Mesures de prévention',55)]})];
+    (p.risques||[]).forEach(r => rRows.push(new TableRow({children:[cell(r.danger||'',{width:30}),cell(niveauLabels[r.niveau]||'',{width:15,align:AlignmentType.CENTER,bold:true}),cell(r.prevention||r.situation||'',{width:55})]})));
+    if (!(p.risques||[]).length) rRows.push(new TableRow({children:[cell('',{width:30}),cell('',{width:15}),cell('',{width:55})]}));
+    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
+
+    // 4. Exigences
+    let secNum = 4;
+    if ((p.exigences||[]).length) {
+      children.push(secTitle(String(secNum),`EXIGENCES ${(eu.nom||'EU').toUpperCase()}`));
+      const eRows = [new TableRow({children:[hCell('N°',8),hCell('Exigence',92)]})];
+      p.exigences.forEach((e,i) => eRows.push(new TableRow({children:[cell(String(i+1),{width:8,align:AlignmentType.CENTER,bold:true}),cell(e,{width:92})]})));
+      children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:eRows}));
+      secNum++;
+    }
+
+    // 5. Urgence
+    const urg = p.urgence||{};
+    children.push(secTitle(String(secNum),"CONSIGNES D'URGENCE"));
+    const uRows = [];
+    if (urg.responsable) uRows.push(new TableRow({children:[cell('Responsable de site',{width:35,bold:true}),cell(`${urg.responsable}${urg.telResponsable?' – '+urg.telResponsable:''}`)]}));
+    if (urg.sst) uRows.push(new TableRow({children:[cell('SST / Secouriste',{width:35,bold:true}),cell(`${urg.sst}${urg.telSst?' – '+urg.telSst:''}`)]}));
+    uRows.push(new TableRow({children:[cell("Numéros d'urgence",{width:35,bold:true}),cell(urg.numeros||'Pompiers : 18  |  SAMU : 15  |  Gendarmerie : 17  |  Urgences : 112')]}));
+    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:uRows}));
+    secNum++;
+
+    // 6. Signatures
+    children.push(secTitle(String(secNum),'SIGNATURES'));
+    children.push(new Paragraph({children:[new TextRun({text:'Les parties soussignées attestent avoir pris connaissance des dispositions du présent plan de prévention et s\'engagent à les respecter.',size:20,font:'Calibri',italics:true})],spacing:{after:150}}));
+    const sigCols = [{label:`EU (${(eu.nom||'').toUpperCase()})`,sig:p.signatureEU||{}}];
+    ees.forEach((ee,i) => sigCols.push({label:ee.nom||`EE ${i+1}`,sig:(p.signaturesEE||[])[i]||{}}));
+    if (!ees.length) sigCols.push({label:'ENTREPRISE EXTÉRIEURE',sig:{}});
+    const cw = Math.floor(100/sigCols.length);
+    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
+      new TableRow({children:sigCols.map(c=>hCell(c.label,cw))}),
+      new TableRow({children:sigCols.map(c=>cell(`Nom / Prénom : ${c.sig.nom||''}`,{width:cw}))}),
+      new TableRow({children:sigCols.map(c=>cell('Qualité : ',{width:cw}))}),
+      new TableRow({children:sigCols.map(c=>cell(`Date et Signature : ${c.sig.date||''}`,{width:cw}))}),
+      new TableRow({children:sigCols.map(c=>new TableCell({children:[new Paragraph({children:[new TextRun({text:'',size:20})],spacing:{before:400,after:400}})],width:{size:cw,type:WidthType.PERCENTAGE}}))}),
+    ]}));
+
+    // Modifications
+    if ((p.modifications||[]).length) {
+      secNum++;
+      children.push(secTitle(String(secNum),'MODIFICATIONS / AVENANTS'));
+      const labels = {ajout_ee:'Ajout EE',ajout_risque:'Ajout risque',ajout_mesure:'Ajout mesure',modif_dates:'Modif. dates',modif_horaires:'Modif. horaires',modif_effectif:'Modif. effectif',ajout_travaux:'Travaux suppl.',autre:'Autre'};
+      const mRows = [new TableRow({children:[hCell('Date',15),hCell('Type',20),hCell('Description',50),hCell('Auteur',15)]})];
+      p.modifications.forEach(m => mRows.push(new TableRow({children:[cell(m.date||'',{width:15}),cell(labels[m.type]||m.type,{width:20}),cell(m.description||'',{width:50}),cell(m.auteur||'',{width:15})]})));
+      children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:mRows}));
+    }
+
+    const doc = new Document({ sections:[{properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},children}] });
+    const blob = await Packer.toBlob(doc);
+    const fn = `${p.numero||'PDP'}.docx`;
+    saveAs(blob, fn);
+    DataSync.uploadExport(blob, fn, 'pdp');
+    this.toast('Word généré');
+  },
+
+  // ---- PDF EXPORT ----
+  async exportPDF() {
+    if (!this.currentPDP) return;
+    this.collectForm(); this.captureAllSigs();
+    const p = this.currentPDP;
+    const {jsPDF} = window.jspdf;
+    const doc = new jsPDF('p','mm','a4');
+    let y = 15; const m = 15; const pw = 180;
+    const addT = (t,s=10,st='normal',c=[0,0,0]) => { doc.setFontSize(s); doc.setFont('helvetica',st); doc.setTextColor(...c); doc.splitTextToSize(t,pw).forEach(l=>{if(y>275){doc.addPage();y=15}doc.text(l,m,y);y+=s*0.5}); y+=2; };
+    const addL = () => { doc.setDrawColor(200); doc.line(m,y,195,y); y+=5; };
+    doc.setFillColor(0,105,62); doc.rect(0,0,210,30,'F');
+    doc.setTextColor(255,255,255); doc.setFontSize(18); doc.setFont('helvetica','bold');
+    doc.text('PLAN DE PRÉVENTION',m,15); doc.setFontSize(11); doc.text(p.numero||'',m,22); y=40;
+    addT(`${p.titre||''}`,12,'bold',[0,105,62]); addT(`Site: ${p.site||'-'} | Lieu: ${p.lieu||'-'}`); addT(`Date: ${p.dateDebut||'-'} → ${p.dateFin||'-'}`); addL();
+    addT('EU: '+(p.eu?.nom||'-'),10,'bold'); addT('Resp: '+(p.eu?.responsable||'-')+' | Tél: '+(p.eu?.tel||'-')); addL();
+    (p.entreprisesExt||[]).forEach((ee,i) => { addT(`EE${i+1}: ${ee.nom||'-'} — ${ee.activite||''}`,10,'bold'); addT(`  Resp: ${ee.responsable||'-'} | Tél: ${ee.tel||'-'}`,9); }); if((p.entreprisesExt||[]).length) addL();
+    if ((p.risques||[]).length) { addT('RISQUES ET MESURES',12,'bold',[0,105,62]); p.risques.forEach((r,i)=>{addT(`${i+1}. ${r.danger||'-'} [${({1:'Faible',2:'Moyen',3:'Élevé',4:'Critique'})[r.niveau]||'-'}]`,10,'bold');if(r.prevention)addT(`   ${r.prevention}`,9);}); addL(); }
+    if ((p.exigences||[]).length) { addT('EXIGENCES',12,'bold',[0,105,62]); p.exigences.forEach((e,i)=>addT(`${i+1}. ${e}`,9)); addL(); }
+    const pdfFn = `${p.numero||'PDP'}.pdf`;
+    doc.save(pdfFn);
+    doc.output('blob').then(blob => DataSync.uploadExport(blob, pdfFn, 'pdp')).catch(()=>{});
+    this.toast('PDF généré');
+  },
+
+  // ---- UTILS ----
+  esc(t) { if(!t)return''; const d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
+};
+
+// ========================================
+// INIT
+// ========================================
+document.addEventListener('DOMContentLoaded', () => App.init());
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+</script>
+</body>
+</html>
