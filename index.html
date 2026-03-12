@@ -1749,6 +1749,7 @@ const _isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator
 
 async function _initMSAL() {
     if (_msalInstance) return _msalInstance;
+    if (typeof msal === 'undefined') throw new Error('MSAL non disponible');
     _msalInstance = new msal.PublicClientApplication({
         auth: {
             clientId:    SP_CONFIG.CLIENT_ID,
@@ -2136,7 +2137,8 @@ const App = {
   },
 
   async _initSharePoint() {
-    const state = await DataSync.autoConnect();
+    let state;
+    try { state = await DataSync.autoConnect(); } catch(e) { console.warn('SharePoint init skipped:', e); state = 'no-handle'; }
     DataSync.updateConnectButton(state);
     if (state === 'connected') {
         await this.loadSettings();
