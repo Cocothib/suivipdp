@@ -1626,7 +1626,8 @@ textarea.form-control { min-height: 70px; }
       <div class="field-group">
         <div class="field-group-title"><i class="bi bi-geo-alt"></i> Localisation et date</div>
         <div class="row g-2">
-          <div class="col-md-6"><label class="form-label">Date de la visite *</label><div class="input-icon-wrap"><i class="bi bi-calendar input-icon"></i><input type="date" class="form-control" id="icp-date"></div></div>
+          <div class="col-md-4"><label class="form-label">Date de la visite *</label><div class="input-icon-wrap"><i class="bi bi-calendar input-icon"></i><input type="date" class="form-control" id="icp-date"></div></div>
+          <div class="col-md-2"><label class="form-label">Heure</label><div class="input-icon-wrap"><i class="bi bi-clock input-icon"></i><input type="time" class="form-control" id="icp-heure"></div></div>
           <div class="col-md-6"><label class="form-label">Site / Adresse</label><div class="input-icon-wrap"><i class="bi bi-geo-alt input-icon"></i><input type="text" class="form-control" id="icp-site" placeholder="Ex: Bouxières-sous-Froidmont"></div></div>
           <div class="col-md-6"><label class="form-label">Lieu</label><div class="input-icon-wrap"><i class="bi bi-pin-map input-icon"></i><input type="text" class="form-control" id="icp-lieu" placeholder="Ex: Hangar de stockage"></div></div>
         </div>
@@ -4383,6 +4384,7 @@ const App = {
     document.getElementById('icp-ref-operation').value = v.refOperation||'';
     document.getElementById('icp-statut').value = v.statut||'effectuee';
     document.getElementById('icp-date').value = v.dateVisite||'';
+    document.getElementById('icp-heure').value = v.heure||'';
     document.getElementById('icp-site').value = v.site||'';
     document.getElementById('icp-lieu').value = v.lieu||'';
     document.getElementById('icp-objet').value = v.objet||'';
@@ -4416,6 +4418,7 @@ const App = {
     v.refOperation = document.getElementById('icp-ref-operation').value.trim();
     v.statut = document.getElementById('icp-statut').value;
     v.dateVisite = document.getElementById('icp-date').value;
+    v.heure = document.getElementById('icp-heure').value;
     v.site = document.getElementById('icp-site').value.trim();
     v.lieu = document.getElementById('icp-lieu').value.trim();
     v.objet = document.getElementById('icp-objet').value.trim();
@@ -4963,18 +4966,33 @@ const App = {
     // Observations
     if (v.observations) { addT('OBSERVATIONS',12,'bold',[0,105,62]); addT(v.observations,9); addL(); }
 
+    // Photos
+    if ((v.photos||[]).length) {
+      addT('PHOTOS',12,'bold',[0,105,62]);
+      for (const photo of v.photos) {
+        if (!photo) continue;
+        try {
+          if (y > 200) { doc.addPage(); y = 15; }
+          const imgData = photo.data || photo;
+          doc.addImage(imgData, 'JPEG', m, y, 80, 60);
+          y += 65;
+          if (photo.label) { addT(photo.label, 8, 'italic', [100,100,100]); }
+        } catch(e) { addT('[Photo non affichable]', 8, 'italic', [150,150,150]); }
+      }
+      addL();
+    }
+
     // Signatures
     addT('SIGNATURES',12,'bold',[0,105,62]);
     y+=2;
     const sigEU = v.signatureEU||{};
     addT(`EU: ${sigEU.nom||'_________________'}  Date: ${sigEU.date||'____/____/________'}`,9);
-    // Insert EU signature image if present
-    if (sigEU.data) { try { doc.addImage(sigEU.data,'PNG',m,y,50,18); y+=20; } catch(e){} }
+    if (sigEU.data) { try { if(y>255){doc.addPage();y=15} doc.addImage(sigEU.data,'PNG',m,y,50,18); y+=20; } catch(e){} }
     else { y+=20; }
     (v.entreprisesExt||[]).forEach((ee,i) => {
       const sig = (v.signaturesEE||[])[i]||{};
       addT(`${ee.nom}: ${sig.nom||'_________________'}  Date: ${sig.date||'____/____/________'}`,9);
-      if (sig.data) { try { doc.addImage(sig.data,'PNG',m,y,50,18); y+=20; } catch(e){} }
+      if (sig.data) { try { if(y>255){doc.addPage();y=15} doc.addImage(sig.data,'PNG',m,y,50,18); y+=20; } catch(e){} }
       else { y+=20; }
     });
 
@@ -5075,25 +5093,65 @@ const App = {
     children.push(spacer());
 
     // 4. Observations
+    let secNum = 4;
     if (v.observations) {
-      children.push(secTitle('4','OBSERVATIONS'));
+      children.push(secTitle(String(secNum),'OBSERVATIONS'));
       children.push(new Paragraph({children:[new TextRun({text:v.observations,size:20,font:'Calibri'})],spacing:{after:100}}));
+      secNum++;
     }
 
-    // 5. Signatures
-    const secSig = v.observations ? '5' : '4';
-    children.push(secTitle(secSig,'SIGNATURES'));
-    children.push(new Paragraph({children:[new TextRun({text:"Les soussignés attestent avoir participé à la inspection commune préalable et reconnaissent les risques identifiés ci-dessus.",size:20,font:'Calibri',italics:true})],spacing:{after:150}}));
+    // Photos
+    if ((v.photos||[]).length) {
+      children.push(secTitle(String(secNum),'PHOTOS'));
+      for (const photo of v.photos) {
+        if (!photo) continue;
+        try {
+          const imgData = photo.data || photo;
+          const b64 = imgData.split(',')[1];
+          const raw = atob(b64);
+          const arr = new Uint8Array(raw.length);
+          for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+          children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:400,height:300},type:'png'})],spacing:{before:100,after:100}}));
+          if (photo.label) children.push(new Paragraph({children:[new TextRun({text:photo.label,size:16,font:'Calibri',italics:true,color:'888888'})]}));
+        } catch(e) {
+          children.push(new Paragraph({children:[new TextRun({text:'[Photo non intégrée]',size:18,font:'Calibri',italics:true,color:'999999'})]}));
+        }
+      }
+      children.push(spacer());
+      secNum++;
+    }
+
+    // Signatures
+    children.push(secTitle(String(secNum),'SIGNATURES'));
+    children.push(new Paragraph({children:[new TextRun({text:"Les soussignés attestent avoir participé à l'inspection commune préalable et reconnaissent les risques identifiés ci-dessus.",size:20,font:'Calibri',italics:true})],spacing:{after:150}}));
+
+    // Helper to create signature cell with image
+    const _sigCellICP = (sig, label, w) => {
+      const paras = [
+        new Paragraph({children:[new TextRun({text:label,size:20,bold:true,font:'Calibri',color:GREEN})],spacing:{before:60,after:40}}),
+        new Paragraph({children:[new TextRun({text:`Nom : ${sig?.nom||''}`,size:18,font:'Calibri'})],spacing:{after:20}}),
+        new Paragraph({children:[new TextRun({text:`Date : ${sig?.date||''}`,size:18,font:'Calibri'})],spacing:{after:40}}),
+      ];
+      if (sig?.data) {
+        try {
+          const raw = atob(sig.data.split(',')[1]);
+          const arr = new Uint8Array(raw.length);
+          for (let j = 0; j < raw.length; j++) arr[j] = raw.charCodeAt(j);
+          paras.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:150,height:55},type:'png'})]}));
+        } catch(e) {}
+      } else {
+        paras.push(new Paragraph({children:[new TextRun({text:'Signature : _______________',size:18,font:'Calibri',italics:true})],spacing:{before:40,after:200}}));
+      }
+      return new TableCell({children:paras,width:{size:w,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.TOP});
+    };
+
     const sigEU = v.signatureEU||{};
-    const sigCols = [{label:'EU',nom:sigEU.nom||'',date:sigEU.date||''}];
-    (v.entreprisesExt||[]).forEach((ee,i) => { const sig=(v.signaturesEE||[])[i]||{}; sigCols.push({label:ee.nom||`EE ${i+1}`,nom:sig.nom||'',date:sig.date||''}); });
-    if (!v.entreprisesExt?.length) sigCols.push({label:'EE',nom:'',date:''});
-    const cw = Math.floor(100/sigCols.length);
+    const sigColsData = [{label:'EU',sig:sigEU}];
+    (v.entreprisesExt||[]).forEach((ee,i) => { sigColsData.push({label:ee.nom||`EE ${i+1}`,sig:(v.signaturesEE||[])[i]||{}}); });
+    if (!v.entreprisesExt?.length) sigColsData.push({label:'EE',sig:{}});
+    const cw = Math.floor(100/sigColsData.length);
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
-      new TableRow({children:sigCols.map(c=>hCell(c.label,cw))}),
-      new TableRow({children:sigCols.map(c=>cell(`Nom : ${c.nom}`,{width:cw}))}),
-      new TableRow({children:sigCols.map(c=>cell(`Date : ${c.date}`,{width:cw}))}),
-      new TableRow({children:sigCols.map(c=>new TableCell({children:[new Paragraph({children:[new TextRun({text:'Signature :',size:18,font:'Calibri',italics:true})],spacing:{before:40,after:300}})],width:{size:cw,type:WidthType.PERCENTAGE}}))}),
+      new TableRow({children:sigColsData.map(c=>_sigCellICP(c.sig,c.label,cw))}),
     ]}));
 
     // PDP link
