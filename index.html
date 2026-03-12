@@ -1104,7 +1104,7 @@ textarea.form-control { min-height: 70px; }
 
     <!-- Section: Visite préalable -->
     <div id="section-visite" class="pdp-section" style="display:none">
-      <div class="section-helper"><i class="bi bi-lightbulb"></i>La visite préalable (ICP) est obligatoire avant le démarrage des travaux. Elle permet d'identifier les risques sur le terrain avec toutes les parties.</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i>La visite préalable (ICP) est une étape obligatoire avant le démarrage des travaux. Elle permet d'identifier les risques directement sur le terrain, en présence de toutes les parties prenantes, et de formaliser les observations dans le plan de prévention.</div>
       <!-- ICP linkage banner -->
       <div id="pdp-icp-link-banner" class="alert alert-info small d-flex align-items-center justify-content-between mb-3" style="display:none !important">
         <span><i class="bi bi-link-45deg me-1"></i>ICP liée : <strong id="pdp-icp-link-label"></strong></span>
@@ -1120,30 +1120,53 @@ textarea.form-control { min-height: 70px; }
       </div>
       <div class="form-section">
         <div class="form-section-title"><i class="bi bi-eye"></i>Visite préalable commune</div>
-        <div class="row g-2">
-          <div class="col-md-6"><label class="form-label">Date de la visite</label><input type="date" class="form-control" id="visite-date"></div>
-          <div class="col-md-6"><label class="form-label">Heure</label><input type="time" class="form-control" id="visite-heure"></div>
-          <div class="col-12"><label class="form-label">Participants</label><textarea class="form-control" id="visite-participants" rows="2" placeholder="Noms et fonctions..."></textarea></div>
-          <div class="col-12"><label class="form-label">Observations</label><textarea class="form-control" id="visite-observations" rows="3" placeholder="Points relevés..."></textarea></div>
-          <div class="col-12"><label class="form-label">Locaux / Installations visitées</label><textarea class="form-control" id="visite-locaux" rows="2" placeholder="Locaux, installations et zones inspectées..."></textarea></div>
-          <div class="col-md-6"><label class="form-label">Matériel EU sur site</label><textarea class="form-control" id="visite-materiel-eu" rows="2" placeholder="Matériel et équipements de l'EU..."></textarea></div>
-          <div class="col-md-6"><label class="form-label">Matériel EE requis</label><textarea class="form-control" id="visite-materiel-ee" rows="2" placeholder="Matériel et équipements apportés par l'EE..."></textarea></div>
-          <div class="col-12"><label class="form-label">Consignes d'accès</label><textarea class="form-control" id="visite-consignes-acces" rows="2" placeholder="Consignes d'accès au site..."></textarea></div>
-          <h6 class="mt-3 mb-2 text-primary">Documents échangés</h6>
-          <div class="row g-2 mb-3">
-            <div class="col-6 col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="doc-plan_acces"><label class="form-check-label" for="doc-plan_acces">Plan d'accès</label></div></div>
-            <div class="col-6 col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="doc-mode_operatoire"><label class="form-check-label" for="doc-mode_operatoire">Mode opératoire</label></div></div>
-            <div class="col-6 col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="doc-analyse_risques"><label class="form-check-label" for="doc-analyse_risques">Analyse des risques</label></div></div>
-            <div class="col-6 col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="doc-permis_feux"><label class="form-check-label" for="doc-permis_feux">Permis de feux</label></div></div>
-            <div class="col-6 col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="doc-habilitations"><label class="form-check-label" for="doc-habilitations">Habilitations</label></div></div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-calendar-event"></i>Planification de la visite</div>
+          <div class="row g-2">
+            <div class="col-md-6"><label class="form-label">Date de la visite</label><div class="input-icon-wrap"><i class="bi bi-calendar input-icon"></i><input type="date" class="form-control" id="visite-date"></div></div>
+            <div class="col-md-6"><label class="form-label">Heure</label><div class="input-icon-wrap"><i class="bi bi-clock input-icon"></i><input type="time" class="form-control" id="visite-heure"></div></div>
           </div>
-          <div class="col-12"><div class="form-check"><input class="form-check-input" type="checkbox" id="visite-effectuee"><label class="form-check-label" for="visite-effectuee">Visite effectuée</label></div></div>
+        </div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-people"></i>Participants</div>
+          <div class="row g-2">
+            <div class="col-12"><label class="form-label">Participants</label><textarea class="form-control" id="visite-participants" rows="2" placeholder="Noms et fonctions..."></textarea></div>
+          </div>
+        </div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-journal-text"></i>Observations terrain</div>
+          <div class="row g-2">
+            <div class="col-12"><label class="form-label">Observations</label><textarea class="form-control" id="visite-observations" rows="3" placeholder="Points relevés..."></textarea></div>
+            <div class="col-12"><label class="form-label">Locaux / Installations visitées</label><textarea class="form-control" id="visite-locaux" rows="2" placeholder="Locaux, installations et zones inspectées..."></textarea></div>
+            <div class="col-md-6"><label class="form-label">Matériel EU sur site</label><textarea class="form-control" id="visite-materiel-eu" rows="2" placeholder="Matériel et équipements de l'EU..."></textarea></div>
+            <div class="col-md-6"><label class="form-label">Matériel EE requis</label><textarea class="form-control" id="visite-materiel-ee" rows="2" placeholder="Matériel et équipements apportés par l'EE..."></textarea></div>
+          </div>
+        </div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-file-earmark-check"></i>Documents échangés</div>
+          <div class="row g-2">
+            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="doc-plan_acces"> Plan d'accès</label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="doc-mode_operatoire"> Mode opératoire</label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="doc-analyse_risques"> Analyse des risques</label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="doc-permis_feux"> Permis de feux</label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="doc-habilitations"> Habilitations</label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="visite-effectuee"> Visite effectuée</label></div>
+          </div>
+        </div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-sign-turn-right"></i>Consignes d'accès</div>
+          <div class="row g-2">
+            <div class="col-12"><label class="form-label">Consignes d'accès</label><textarea class="form-control" id="visite-consignes-acces" rows="2" placeholder="Consignes d'accès au site..."></textarea></div>
+          </div>
         </div>
       </div>
       <div class="form-section">
         <div class="form-section-title"><i class="bi bi-camera"></i>Photos</div>
-        <div class="d-flex flex-wrap gap-2 mb-2" id="visite-photos"></div>
-        <label class="btn btn-outline-primary btn-sm"><i class="bi bi-camera me-1"></i>Ajouter<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addVisitePhoto(event)"></label>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-camera"></i>Photos</div>
+          <div class="d-flex flex-wrap gap-2 mb-2" id="visite-photos"></div>
+          <label class="btn btn-outline-primary btn-sm"><i class="bi bi-camera me-1"></i>Ajouter<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addVisitePhoto(event)"></label>
+        </div>
       </div>
     </div>
 
@@ -1181,19 +1204,27 @@ textarea.form-control { min-height: 70px; }
           <span><i class="bi bi-shield-check"></i>Mesures de prévention</span>
           <button class="btn btn-sm btn-outline-primary" onclick="App.addMesure()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
         </div>
-        <div class="mb-2">
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedMesure('EPI obligatoires', 'Casque, chaussures de sécurité, gants, lunettes, gilet HV')">+ EPI</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedMesure('Balisage / Signalisation', 'Zone de travaux balisée, panneaux')">+ Balisage</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedMesure('Consignation', 'Consignation électrique / mécanique')">+ Consignation</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedMesure('Permis de feu', 'Permis de feu pour travaux par points chauds')">+ Permis de feu</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedMesure('Extincteur', 'Extincteur à proximité')">+ Extincteur</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedMesure('Premiers secours', 'Trousse de secours, SST identifié')">+ Secours</button>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-lightning"></i>Ajout rapide</div>
+          <div class="mb-2">
+            <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedMesure('EPI obligatoires', 'Casque, chaussures de sécurité, gants, lunettes, gilet HV')">+ EPI</button>
+            <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedMesure('Balisage / Signalisation', 'Zone de travaux balisée, panneaux')">+ Balisage</button>
+            <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedMesure('Consignation', 'Consignation électrique / mécanique')">+ Consignation</button>
+            <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedMesure('Permis de feu', 'Permis de feu pour travaux par points chauds')">+ Permis de feu</button>
+            <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedMesure('Extincteur', 'Extincteur à proximité')">+ Extincteur</button>
+            <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedMesure('Premiers secours', 'Trousse de secours, SST identifié')">+ Secours</button>
+          </div>
         </div>
-        <div id="mesures-list-container"></div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-list-check"></i>Liste des mesures</div>
+          <div id="mesures-list-container"></div>
+        </div>
       </div>
       <div class="form-section">
-        <div class="form-section-title"><i class="bi bi-info-circle"></i>Instructions générales de sécurité</div>
-        <textarea class="form-control" id="pdp-instructions" rows="3" placeholder="Consignes générales..."></textarea>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-info-circle"></i>Instructions générales</div>
+          <textarea class="form-control" id="pdp-instructions" rows="3" placeholder="Consignes générales..."></textarea>
+        </div>
       </div>
     </div>
 
@@ -1205,17 +1236,23 @@ textarea.form-control { min-height: 70px; }
           <span><i class="bi bi-clipboard-check"></i>Exigences Entreprise Utilisatrice</span>
           <button class="btn btn-sm btn-outline-primary" onclick="App.addExigence()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
         </div>
-        <div class="mb-2">
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Respecter strictement les zones de travail désignées. Ne pas accéder aux zones non concernées par la prestation.')">+ Zones de travail</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Porter les EPI adaptés (chaussures de sécurité, tenue professionnelle).')">+ EPI</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Ne pas utiliser l\'outillage ou les équipements EU sans autorisation préalable.')">+ Outillage</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Signaler immédiatement tout incident, accident ou situation dangereuse au responsable de site.')">+ Signalement</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Respecter les consignes d\'hygiène et de sécurité affichées dans les locaux.')">+ Hygiène</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Laisser la zone de travail propre et rangée à l\'issue de l\'intervention.')">+ Propreté</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Remettre un rapport d\'intervention / certificat de vérification.')">+ Rapport</button>
-          <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Tout sous-traitant éventuel devra être déclaré et fera l\'objet d\'un avenant.')">+ Sous-traitance</button>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-lightning"></i>Ajout rapide</div>
+          <div class="mb-2">
+            <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Respecter strictement les zones de travail désignées. Ne pas accéder aux zones non concernées par la prestation.')">+ Zones de travail</button>
+            <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Porter les EPI adaptés (chaussures de sécurité, tenue professionnelle).')">+ EPI</button>
+            <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Ne pas utiliser l\'outillage ou les équipements EU sans autorisation préalable.')">+ Outillage</button>
+            <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Signaler immédiatement tout incident, accident ou situation dangereuse au responsable de site.')">+ Signalement</button>
+            <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Respecter les consignes d\'hygiène et de sécurité affichées dans les locaux.')">+ Hygiène</button>
+            <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Laisser la zone de travail propre et rangée à l\'issue de l\'intervention.')">+ Propreté</button>
+            <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Remettre un rapport d\'intervention / certificat de vérification.')">+ Rapport</button>
+            <button class="btn btn-outline-secondary btn-sm me-1 mb-1" onclick="App.addPredefinedExigence('Tout sous-traitant éventuel devra être déclaré et fera l\'objet d\'un avenant.')">+ Sous-traitance</button>
+          </div>
         </div>
-        <div id="exigences-list-container"></div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-clipboard-check"></i>Liste des exigences</div>
+          <div id="exigences-list-container"></div>
+        </div>
       </div>
     </div>
 
@@ -1252,68 +1289,78 @@ textarea.form-control { min-height: 70px; }
 
     <!-- Section: Signatures -->
     <div id="section-signatures" class="pdp-section" style="display:none">
-      <div class="section-helper"><i class="bi bi-lightbulb"></i>La signature valide l'engagement de chaque partie. Sans signatures, le PDP n'a pas de valeur juridique.</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i>Les signatures engagent les parties prenantes sur le contenu du plan de prévention. Chaque signataire atteste avoir pris connaissance des risques identifiés et des mesures de prévention. Sans signatures, le PDP n'a pas de valeur juridique.</div>
       <div class="form-section">
-        <div class="form-section-title"><i class="bi bi-pen"></i>Signature Entreprise Utilisatrice</div>
-        <div class="row g-2">
-          <div class="col-md-4"><label class="form-label">Signataire</label><input type="text" class="form-control" id="sig-eu-nom" placeholder="Nom"></div>
-          <div class="col-md-4"><label class="form-label">Fonction</label><input type="text" class="form-control" id="sig-eu-fonction" placeholder="Fonction"></div>
-          <div class="col-md-4"><label class="form-label">Date</label><input type="date" class="form-control" id="sig-eu-date"></div>
-          <div class="col-12">
-            <label class="form-label">Signature</label>
-            <div class="signature-pad-wrapper">
-              <canvas id="sig-eu-canvas" class="signature-canvas"></canvas>
+        <div class="form-section-title"><i class="bi bi-pen"></i>Signatures</div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-pen"></i>Signature Entreprise Utilisatrice</div>
+          <div class="row g-2">
+            <div class="col-md-4"><label class="form-label">Signataire</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="sig-eu-nom" placeholder="Nom"></div></div>
+            <div class="col-md-4"><label class="form-label">Fonction</label><div class="input-icon-wrap"><i class="bi bi-briefcase input-icon"></i><input type="text" class="form-control" id="sig-eu-fonction" placeholder="Fonction"></div></div>
+            <div class="col-md-4"><label class="form-label">Date</label><div class="input-icon-wrap"><i class="bi bi-calendar input-icon"></i><input type="date" class="form-control" id="sig-eu-date"></div></div>
+            <div class="col-12">
+              <label class="form-label">Signature</label>
+              <div class="signature-pad-wrapper">
+                <canvas id="sig-eu-canvas" class="signature-canvas"></canvas>
+              </div>
+              <button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('sig-eu-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button>
             </div>
-            <button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('sig-eu-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button>
           </div>
         </div>
-      </div>
-      <div class="form-section">
-        <div class="form-section-title"><i class="bi bi-pen"></i>Signatures Entreprises Extérieures</div>
-        <div id="signatures-ee-container"></div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-people"></i>Signatures Entreprises Extérieures</div>
+          <div id="signatures-ee-container"></div>
+        </div>
       </div>
     </div>
 
     <!-- Section: Modifications -->
     <div id="section-modifications" class="pdp-section" style="display:none">
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Tracez chaque modification ou avenant au PDP. Chaque ajout incrémente automatiquement le numéro de version.</div>
       <div class="form-section">
-        <div class="form-section-title d-flex justify-content-between align-items-center">
-          <span><i class="bi bi-clock-history"></i>Modifications / Avenants</span>
-          <button class="btn btn-sm btn-outline-primary" onclick="App.addModification()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
+        <div class="form-section-title"><i class="bi bi-clock-history"></i>Modifications / Avenants</div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-pencil-square"></i> Modifications et Avenants</div>
+          <button class="btn btn-sm btn-outline-primary mb-2" onclick="App.addModification()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
+          <div id="modifications-list-container"></div>
         </div>
-        <div id="modifications-list-container"></div>
-      </div>
-      <div class="form-section">
-        <div class="form-section-title d-flex justify-content-between align-items-center"><span><i class="bi bi-journal-text"></i>Historique</span><button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="App.clearHistorique()" title="Réinitialiser l'historique"><i class="bi bi-trash me-1"></i>Réinitialiser</button></div>
-        <div id="historique-container"></div>
+        <div class="field-group">
+          <div class="field-group-title d-flex justify-content-between align-items-center"><span><i class="bi bi-clock-history"></i> Historique des actions</span><button class="btn btn-outline-danger btn-sm py-0 px-2" onclick="App.clearHistorique()" title="Réinitialiser l'historique"><i class="bi bi-trash me-1"></i>Réinitialiser</button></div>
+          <div id="historique-container"></div>
+        </div>
       </div>
     </div>
 
     <!-- Section: Pictogrammes -->
     <div id="section-pictogrammes" class="pdp-section" style="display:none">
+      <div class="section-helper"><i class="bi bi-lightbulb"></i>Les pictogrammes rappellent visuellement les obligations et interdictions sur le chantier.</div>
       <div class="form-section">
         <div class="form-section-title"><i class="bi bi-sign-stop"></i>Pictogrammes et règles de sécurité</div>
-        <h6 class="mt-3 mb-2 text-primary">Interdictions</h6>
-        <div class="row g-2 mb-3">
-          <div class="col-6 col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="picto-vapoter" onchange="App.updatePictos()"><label class="form-check-label" for="picto-vapoter">Interdiction de vapoter et fumer</label></div></div>
-          <div class="col-6 col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="picto-vitesse" onchange="App.updatePictos()"><label class="form-check-label" for="picto-vitesse">Vitesse limitée à 30 Km/h</label></div></div>
-          <div class="col-6 col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="picto-acces" onchange="App.updatePictos()"><label class="form-check-label" for="picto-acces">Accès limité aux personnes autorisées</label></div></div>
-          <div class="col-6 col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="picto-flamme" onchange="App.updatePictos()"><label class="form-check-label" for="picto-flamme">Flamme nue interdite sur toitures PV</label></div></div>
-          <div class="col-6 col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="picto-feu" onchange="App.updatePictos()"><label class="form-check-label" for="picto-feu">Feu interdit sur le site</label></div></div>
-          <div class="col-6 col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="picto-entreposage" onchange="App.updatePictos()"><label class="form-check-label" for="picto-entreposage">Ne rien entreposer hors zones balisées</label></div></div>
-          <div class="col-6 col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="picto-stimulateur" onchange="App.updatePictos()"><label class="form-check-label" for="picto-stimulateur">Accès interdit stimulateur cardiaque</label></div></div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-x-octagon"></i>Interdictions</div>
+          <div class="row g-2 mb-3">
+            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="picto-vapoter" onchange="App.updatePictos()"><span>Interdiction de vapoter et fumer</span></label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="picto-vitesse" onchange="App.updatePictos()"><span>Vitesse limitée à 30 Km/h</span></label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="picto-acces" onchange="App.updatePictos()"><span>Accès limité aux personnes autorisées</span></label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="picto-flamme" onchange="App.updatePictos()"><span>Flamme nue interdite sur toitures PV</span></label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="picto-feu" onchange="App.updatePictos()"><span>Feu interdit sur le site</span></label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="picto-entreposage" onchange="App.updatePictos()"><span>Ne rien entreposer hors zones balisées</span></label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="picto-stimulateur" onchange="App.updatePictos()"><span>Accès interdit stimulateur cardiaque</span></label></div>
+          </div>
         </div>
-        <h6 class="mt-3 mb-2 text-primary">EPI Obligatoires</h6>
-        <div class="row g-2 mb-3">
-          <div class="col-6 col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="epi-casque" onchange="App.updatePictos()"><label class="form-check-label" for="epi-casque">Casque avec jugulaire</label></div></div>
-          <div class="col-6 col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="epi-chaussures" onchange="App.updatePictos()"><label class="form-check-label" for="epi-chaussures">Chaussures de sécurité</label></div></div>
-          <div class="col-6 col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="epi-telephone" onchange="App.updatePictos()"><label class="form-check-label" for="epi-telephone">Téléphone portable obligatoire en toiture</label></div></div>
-          <div class="col-6 col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="epi-vetement" onchange="App.updatePictos()"><label class="form-check-label" for="epi-vetement">Vêtement de travail adapté</label></div></div>
-          <div class="col-6 col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="epi-gants" onchange="App.updatePictos()"><label class="form-check-label" for="epi-gants">Gants de protection mécanique</label></div></div>
-          <div class="col-6 col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" id="epi-antichute" onchange="App.updatePictos()"><label class="form-check-label" for="epi-antichute">Protection contre les chutes de hauteur</label></div></div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-shield-check"></i>EPI Obligatoires</div>
+          <div class="row g-2 mb-3">
+            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="epi-casque" onchange="App.updatePictos()"><span>Casque avec jugulaire</span></label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="epi-chaussures" onchange="App.updatePictos()"><span>Chaussures de sécurité</span></label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="epi-telephone" onchange="App.updatePictos()"><span>Téléphone portable obligatoire en toiture</span></label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="epi-vetement" onchange="App.updatePictos()"><span>Vêtement de travail adapté</span></label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="epi-gants" onchange="App.updatePictos()"><span>Gants de protection mécanique</span></label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="epi-antichute" onchange="App.updatePictos()"><span>Protection contre les chutes de hauteur</span></label></div>
+          </div>
         </div>
-        <div class="mt-3">
-          <label class="form-label">Remarques complémentaires</label>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-chat-text"></i>Remarques</div>
           <textarea class="form-control" id="picto-remarques" rows="3" placeholder="Synthèse des règles de sécurité, annexes..."></textarea>
         </div>
       </div>
@@ -1339,58 +1386,71 @@ textarea.form-control { min-height: 70px; }
           <i class="bi bi-exclamation-octagon-fill me-1"></i><strong id="pf-duree-warning-text"></strong>
         </div>
 
-        <h6 class="mt-3 mb-2 text-primary">Types de travaux par points chauds</h6>
-        <div class="row g-2 mb-3">
-          <div class="col-6 col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="pf-soudage"><label class="form-check-label" for="pf-soudage">Soudage</label></div></div>
-          <div class="col-6 col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="pf-tronconnage"><label class="form-check-label" for="pf-tronconnage">Tronçonnage</label></div></div>
-          <div class="col-6 col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="pf-meulage"><label class="form-check-label" for="pf-meulage">Découpage / Meulage</label></div></div>
-          <div class="col-6 col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="pf-thermosoudure"><label class="form-check-label" for="pf-thermosoudure">Thermosoudure au gaz</label></div></div>
-          <div class="col-6 col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="pf-miseALaTerre"><label class="form-check-label" for="pf-miseALaTerre">Soudure mise à la terre</label></div></div>
-          <div class="col-6 col-md-3"><div class="form-check"><input class="form-check-input" type="checkbox" id="pf-autre"><label class="form-check-label" for="pf-autre">Autre</label></div></div>
+        <div class="section-helper"><i class="bi bi-lightbulb"></i> Le permis de feu est obligatoire pour tout travail par point chaud. Il doit être renouvelé quotidiennement.</div>
+
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-tools"></i> Types de travaux</div>
+          <div class="row g-2">
+            <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pf-soudage"><span>Soudage</span></label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pf-tronconnage"><span>Tronçonnage</span></label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pf-meulage"><span>Découpage / Meulage</span></label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pf-thermosoudure"><span>Thermosoudure au gaz</span></label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pf-miseALaTerre"><span>Soudure mise à la terre</span></label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pf-autre"><span>Autre</span></label></div>
+          </div>
         </div>
 
-        <h6 class="mt-3 mb-2 text-primary">Description et Risques</h6>
-        <div class="row g-2 mb-3">
-          <div class="col-12"><label class="form-label">Description des travaux</label><textarea class="form-control" id="pf-description" rows="2" placeholder="Détail des travaux par points chauds..."></textarea></div>
-          <div class="col-md-4"><label class="form-label">Risques liés à la structure</label><textarea class="form-control" id="pf-risque-structure" rows="2" placeholder="Matériaux combustibles, isolation..."></textarea></div>
-          <div class="col-md-4"><label class="form-label">Risques liés à l'activité du site</label><textarea class="form-control" id="pf-risque-activite" rows="2" placeholder="Stockage, produits inflammables..."></textarea></div>
-          <div class="col-md-4"><label class="form-label">Risques liés à l'environnement</label><textarea class="form-control" id="pf-risque-environnement" rows="2" placeholder="Végétation, paille, gaz..."></textarea></div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-exclamation-triangle"></i> Évaluation des risques</div>
+          <div class="row g-2">
+            <div class="col-12"><label class="form-label">Description des travaux</label><textarea class="form-control" id="pf-description" rows="2" placeholder="Détail des travaux par points chauds..."></textarea></div>
+            <div class="col-md-4"><label class="form-label">Risques liés à la structure</label><textarea class="form-control" id="pf-risque-structure" rows="2" placeholder="Matériaux combustibles, isolation..."></textarea></div>
+            <div class="col-md-4"><label class="form-label">Risques liés à l'activité du site</label><textarea class="form-control" id="pf-risque-activite" rows="2" placeholder="Stockage, produits inflammables..."></textarea></div>
+            <div class="col-md-4"><label class="form-label">Risques liés à l'environnement</label><textarea class="form-control" id="pf-risque-environnement" rows="2" placeholder="Végétation, paille, gaz..."></textarea></div>
+          </div>
         </div>
 
-        <h6 class="mt-3 mb-2 text-primary">Dates et horaires du permis <small class="text-muted">(max. 24h)</small></h6>
-        <div class="row g-2 mb-1">
-          <div class="col-md-3"><label class="form-label">Date début</label><input type="date" class="form-control" id="pf-date-debut" onchange="App.checkPFDuree()"></div>
-          <div class="col-md-3"><label class="form-label">Heure début</label><input type="time" class="form-control" id="pf-heure-debut" onchange="App.checkPFDuree()"></div>
-          <div class="col-md-3"><label class="form-label">Date fin</label><input type="date" class="form-control" id="pf-date-fin" onchange="App.checkPFDuree()"></div>
-          <div class="col-md-3"><label class="form-label">Heure fin</label><input type="time" class="form-control" id="pf-heure-fin" onchange="App.checkPFDuree()"></div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-calendar-range"></i> Période de validité</div>
+          <div class="row g-2 mb-1">
+            <div class="col-md-3"><label class="form-label">Date début</label><div class="input-icon-wrap"><i class="bi bi-calendar-event input-icon"></i><input type="date" class="form-control" id="pf-date-debut" onchange="App.checkPFDuree()"></div></div>
+            <div class="col-md-3"><label class="form-label">Heure début</label><div class="input-icon-wrap"><i class="bi bi-clock input-icon"></i><input type="time" class="form-control" id="pf-heure-debut" onchange="App.checkPFDuree()"></div></div>
+            <div class="col-md-3"><label class="form-label">Date fin</label><div class="input-icon-wrap"><i class="bi bi-calendar-event input-icon"></i><input type="date" class="form-control" id="pf-date-fin" onchange="App.checkPFDuree()"></div></div>
+            <div class="col-md-3"><label class="form-label">Heure fin</label><div class="input-icon-wrap"><i class="bi bi-clock input-icon"></i><input type="time" class="form-control" id="pf-heure-fin" onchange="App.checkPFDuree()"></div></div>
+          </div>
+          <div id="pf-duree-info" class="small mb-1"></div>
         </div>
-        <div id="pf-duree-info" class="small mb-3"></div>
 
         <h6 class="mt-3 mb-2 text-primary">Opérateurs</h6>
         <div id="pf-operateurs-container"></div>
         <button class="btn btn-sm btn-outline-primary mb-3" onclick="App.addPFOperateur()"><i class="bi bi-plus-lg me-1"></i>Ajouter un opérateur</button>
 
-        <h6 class="mt-3 mb-2 text-primary">Consignes de sécurité</h6>
         <div class="row g-3">
           <div class="col-md-4">
-            <h6 class="small fw-bold text-uppercase">Avant les travaux</h6>
-            <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="pf-av-materiel"><label class="form-check-label small" for="pf-av-materiel">Vérifier que le matériel est en parfait état</label></div>
-            <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="pf-av-eloigner"><label class="form-check-label small" for="pf-av-eloigner">Éloigner, couvrir et protéger les installations</label></div>
-            <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="pf-av-couvrir"><label class="form-check-label small" for="pf-av-couvrir">Couvrir toutes les ouvertures, fissures et interstices</label></div>
-            <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="pf-av-inflammable"><label class="form-check-label small" for="pf-av-inflammable">Éloigner tout produit inflammable ou combustible</label></div>
-            <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="pf-av-alarme"><label class="form-check-label small" for="pf-av-alarme">Prévoir moyens d'alarme et lutte incendie à proximité</label></div>
-            <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="pf-av-detection"><label class="form-check-label small" for="pf-av-detection">Dispositions pour éviter déclenchement détection/extinction</label></div>
+            <div class="field-group">
+              <div class="field-group-title"><i class="bi bi-1-circle"></i> Avant les travaux</div>
+              <label class="check-card mb-1"><input type="checkbox" id="pf-av-materiel"><span>Vérifier que le matériel est en parfait état</span></label>
+              <label class="check-card mb-1"><input type="checkbox" id="pf-av-eloigner"><span>Éloigner, couvrir et protéger les installations</span></label>
+              <label class="check-card mb-1"><input type="checkbox" id="pf-av-couvrir"><span>Couvrir toutes les ouvertures, fissures et interstices</span></label>
+              <label class="check-card mb-1"><input type="checkbox" id="pf-av-inflammable"><span>Éloigner tout produit inflammable ou combustible</span></label>
+              <label class="check-card mb-1"><input type="checkbox" id="pf-av-alarme"><span>Prévoir moyens d'alarme et lutte incendie à proximité</span></label>
+              <label class="check-card mb-1"><input type="checkbox" id="pf-av-detection"><span>Dispositions pour éviter déclenchement détection/extinction</span></label>
+            </div>
           </div>
           <div class="col-md-4">
-            <h6 class="small fw-bold text-uppercase">Pendant les travaux</h6>
-            <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="pf-pe-projections"><label class="form-check-label small" for="pf-pe-projections">Surveiller les projections incandescentes</label></div>
-            <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="pf-pe-support"><label class="form-check-label small" for="pf-pe-support">Poser objets chauffés sur supports résistants à la chaleur</label></div>
+            <div class="field-group">
+              <div class="field-group-title"><i class="bi bi-2-circle"></i> Pendant les travaux</div>
+              <label class="check-card mb-1"><input type="checkbox" id="pf-pe-projections"><span>Surveiller les projections incandescentes</span></label>
+              <label class="check-card mb-1"><input type="checkbox" id="pf-pe-support"><span>Poser objets chauffés sur supports résistants à la chaleur</span></label>
+            </div>
           </div>
           <div class="col-md-4">
-            <h6 class="small fw-bold text-uppercase">Après les travaux</h6>
-            <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="pf-ap-detection"><label class="form-check-label small" for="pf-ap-detection">Remettre en service la détection/extinction automatique</label></div>
-            <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="pf-ap-inspecter"><label class="form-check-label small" for="pf-ap-inspecter">Inspecter le lieu de travail et les environs</label></div>
-            <div class="form-check mb-1"><input class="form-check-input" type="checkbox" id="pf-ap-surveillance"><label class="form-check-label small" for="pf-ap-surveillance">Inspections rigoureuses pendant 2h après cessation</label></div>
+            <div class="field-group">
+              <div class="field-group-title"><i class="bi bi-3-circle"></i> Après les travaux</div>
+              <label class="check-card mb-1"><input type="checkbox" id="pf-ap-detection"><span>Remettre en service la détection/extinction automatique</span></label>
+              <label class="check-card mb-1"><input type="checkbox" id="pf-ap-inspecter"><span>Inspecter le lieu de travail et les environs</span></label>
+              <label class="check-card mb-1"><input type="checkbox" id="pf-ap-surveillance"><span>Inspections rigoureuses pendant 2h après cessation</span></label>
+            </div>
           </div>
         </div>
         <div class="mt-2"><label class="form-label">Autres prescriptions</label><textarea class="form-control" id="pf-autres-prescriptions" rows="2" placeholder="Prescriptions supplémentaires..."></textarea></div>
@@ -1443,35 +1503,45 @@ textarea.form-control { min-height: 70px; }
 
     <!-- Section: Émargement -->
     <div id="section-emargement" class="pdp-section" style="display:none">
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> L'émargement permet de vérifier que chaque intervenant a bien pris connaissance du PDP avant d'accéder au chantier.</div>
       <div class="form-section">
         <div class="form-section-title"><i class="bi bi-person-check"></i>Émargement des intervenants</div>
-        <p class="small text-muted">Chaque intervenant doit émarger avant le début des travaux, attestant avoir pris connaissance du PDP.</p>
-        <div id="emargements-container"></div>
-        <button class="btn btn-sm btn-outline-primary mt-2" onclick="App.addEmargement()"><i class="bi bi-plus-lg me-1"></i>Ajouter un intervenant</button>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-person-check"></i> Liste des intervenants</div>
+          <button class="btn btn-sm btn-outline-primary mb-2" onclick="App.addEmargement()"><i class="bi bi-plus-lg me-1"></i>Ajouter un intervenant</button>
+          <div id="emargements-container"></div>
+        </div>
       </div>
     </div>
 
     <!-- Section: Documents joints (annexes) -->
     <div id="section-annexes" class="pdp-section" style="display:none">
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Joignez les documents nécessaires au PDP : plans, habilitations, fiches de données de sécurité, analyses de risques...</div>
       <div class="form-section">
         <div class="form-section-title"><i class="bi bi-paperclip"></i>Documents joints / Annexes</div>
-        <div id="documents-list-container" class="mb-2"></div>
-        <div class="d-flex flex-wrap gap-2 align-items-end">
-          <div>
-            <label class="form-label small mb-1">Catégorie</label>
-            <select class="form-select form-select-sm" id="doc-categorie" style="width:auto">
-              <option value="plan">Plan / Schéma</option>
-              <option value="mode_operatoire">Mode opératoire</option>
-              <option value="habilitations">Habilitations / Certifications</option>
-              <option value="fds">Fiche de données de sécurité (FDS)</option>
-              <option value="analyse_risques">Analyse de risques</option>
-              <option value="permis_feu">Permis de feu</option>
-              <option value="attestation">Attestation / Assurance</option>
-              <option value="photo">Photo</option>
-              <option value="autre">Autre</option>
-            </select>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-cloud-upload"></i> Ajouter un document</div>
+          <div class="d-flex flex-wrap gap-2 align-items-end">
+            <div>
+              <label class="form-label small mb-1">Catégorie</label>
+              <select class="form-select form-select-sm" id="doc-categorie" style="width:auto">
+                <option value="plan">Plan / Schéma</option>
+                <option value="mode_operatoire">Mode opératoire</option>
+                <option value="habilitations">Habilitations / Certifications</option>
+                <option value="fds">Fiche de données de sécurité (FDS)</option>
+                <option value="analyse_risques">Analyse de risques</option>
+                <option value="permis_feu">Permis de feu</option>
+                <option value="attestation">Attestation / Assurance</option>
+                <option value="photo">Photo</option>
+                <option value="autre">Autre</option>
+              </select>
+            </div>
+            <label class="btn btn-outline-primary btn-sm"><i class="bi bi-upload me-1"></i>Ajouter<input type="file" class="d-none" onchange="App.addDocument(event)" multiple></label>
           </div>
-          <label class="btn btn-outline-primary btn-sm"><i class="bi bi-upload me-1"></i>Ajouter<input type="file" class="d-none" onchange="App.addDocument(event)" multiple></label>
+        </div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-folder2-open"></i> Documents attachés</div>
+          <div id="documents-list-container" class="mb-2"></div>
         </div>
       </div>
     </div>
@@ -1539,31 +1609,44 @@ textarea.form-control { min-height: 70px; }
     <!-- ICP General -->
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-info-circle"></i>Informations de la visite</div>
-      <div class="row g-2">
-        <div class="col-md-4"><label class="form-label">N° ICP</label><input type="text" class="form-control" id="icp-numero" placeholder="Auto-généré si vide"></div>
-        <div class="col-md-4"><label class="form-label">N° d'opération / Réf.</label><input type="text" class="form-control" id="icp-ref-operation" placeholder="Ex: OPP-2026-001"></div>
-        <div class="col-md-4">
-          <label class="form-label">Statut</label>
-          <select class="form-select" id="icp-statut">
-            <option value="effectuee">Effectuée</option>
-            <option value="validee">Validée (signée)</option>
-          </select>
+      <div class="field-group">
+        <div class="field-group-title"><i class="bi bi-tag"></i> Identification</div>
+        <div class="row g-2">
+          <div class="col-md-4"><label class="form-label">N° ICP</label><div class="input-icon-wrap"><i class="bi bi-hash input-icon"></i><input type="text" class="form-control" id="icp-numero" placeholder="Auto-généré si vide"></div></div>
+          <div class="col-md-4"><label class="form-label">N° d'opération / Réf.</label><div class="input-icon-wrap"><i class="bi bi-bookmark input-icon"></i><input type="text" class="form-control" id="icp-ref-operation" placeholder="Ex: OPP-2026-001"></div></div>
+          <div class="col-md-4">
+            <label class="form-label">Statut</label>
+            <select class="form-select" id="icp-statut">
+              <option value="effectuee">Effectuée</option>
+              <option value="validee">Validée (signée)</option>
+            </select>
+          </div>
         </div>
-        <div class="col-md-6"><label class="form-label">Date de la visite *</label><input type="date" class="form-control" id="icp-date"></div>
-        <div class="col-md-6"><label class="form-label">Site / Adresse</label><input type="text" class="form-control" id="icp-site" placeholder="Ex: Bouxières-sous-Froidmont"></div>
-        <div class="col-md-6"><label class="form-label">Lieu</label><input type="text" class="form-control" id="icp-lieu" placeholder="Ex: Hangar de stockage"></div>
-        <div class="col-12"><label class="form-label">Objet de l'intervention</label><textarea class="form-control" id="icp-objet" rows="2" placeholder="Nature des travaux prévus..."></textarea></div>
+      </div>
+      <div class="field-group">
+        <div class="field-group-title"><i class="bi bi-geo-alt"></i> Localisation et date</div>
+        <div class="row g-2">
+          <div class="col-md-6"><label class="form-label">Date de la visite *</label><div class="input-icon-wrap"><i class="bi bi-calendar input-icon"></i><input type="date" class="form-control" id="icp-date"></div></div>
+          <div class="col-md-6"><label class="form-label">Site / Adresse</label><div class="input-icon-wrap"><i class="bi bi-geo-alt input-icon"></i><input type="text" class="form-control" id="icp-site" placeholder="Ex: Bouxières-sous-Froidmont"></div></div>
+          <div class="col-md-6"><label class="form-label">Lieu</label><div class="input-icon-wrap"><i class="bi bi-pin-map input-icon"></i><input type="text" class="form-control" id="icp-lieu" placeholder="Ex: Hangar de stockage"></div></div>
+        </div>
+      </div>
+      <div class="field-group">
+        <div class="field-group-title"><i class="bi bi-card-text"></i> Objet</div>
+        <textarea class="form-control" id="icp-objet" rows="2" placeholder="Nature des travaux prévus..."></textarea>
       </div>
     </div>
 
     <!-- ICP Participants -->
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-people"></i>Participants à la visite</div>
-      <div class="row g-2 mb-2">
-        <div class="col-12"><label class="form-label fw-semibold">Représentant EU</label></div>
-        <div class="col-md-4"><input type="text" class="form-control" id="icp-eu-nom" placeholder="Nom"></div>
-        <div class="col-md-4"><input type="text" class="form-control" id="icp-eu-fonction" placeholder="Fonction"></div>
-        <div class="col-md-4"><input type="tel" class="form-control" id="icp-eu-tel" placeholder="Téléphone"></div>
+      <div class="field-group">
+        <div class="field-group-title"><i class="bi bi-person-badge"></i> Représentant EU</div>
+        <div class="row g-2">
+          <div class="col-md-4"><label class="form-label">Nom</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-eu-nom" placeholder="Nom"></div></div>
+          <div class="col-md-4"><label class="form-label">Fonction</label><div class="input-icon-wrap"><i class="bi bi-briefcase input-icon"></i><input type="text" class="form-control" id="icp-eu-fonction" placeholder="Fonction"></div></div>
+          <div class="col-md-4"><label class="form-label">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="icp-eu-tel" placeholder="Téléphone"></div></div>
+        </div>
       </div>
       <div class="form-section-title d-flex justify-content-between align-items-center">
         <span><i class="bi bi-buildings me-1"></i>Représentants EE</span>
@@ -1592,21 +1675,29 @@ textarea.form-control { min-height: 70px; }
     <!-- ICP Observations + Photos -->
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-journal-text"></i>Observations</div>
-      <textarea class="form-control mb-2" id="icp-observations" rows="4" placeholder="Observations relevées lors de la visite d'inspection..."></textarea>
-      <div class="form-section-title"><i class="bi bi-camera"></i>Photos</div>
-      <div class="d-flex flex-wrap gap-2 mb-2" id="icp-photos"></div>
-      <label class="btn btn-outline-primary btn-sm"><i class="bi bi-camera me-1"></i>Ajouter<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addICPPhoto(event)"></label>
+      <div class="field-group">
+        <div class="field-group-title"><i class="bi bi-journal-text"></i> Observations</div>
+        <textarea class="form-control" id="icp-observations" rows="4" placeholder="Observations relevées lors de la visite d'inspection..."></textarea>
+      </div>
+      <div class="field-group">
+        <div class="field-group-title"><i class="bi bi-camera"></i> Photos</div>
+        <div class="d-flex flex-wrap gap-2 mb-2" id="icp-photos"></div>
+        <label class="btn btn-outline-primary btn-sm"><i class="bi bi-camera me-1"></i>Ajouter<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addICPPhoto(event)"></label>
+      </div>
     </div>
 
     <!-- ICP Signatures -->
     <div class="form-section">
-      <div class="form-section-title"><i class="bi bi-pen"></i>Signature EU</div>
-      <div class="row g-2 mb-3">
-        <div class="col-md-6"><label class="form-label">Signataire EU</label><input type="text" class="form-control" id="icp-sig-eu-nom" placeholder="Nom et qualité"></div>
-        <div class="col-md-6"><label class="form-label">Date</label><input type="date" class="form-control" id="icp-sig-eu-date"></div>
-        <div class="col-12">
-          <div class="signature-pad-wrapper"><canvas id="icp-sig-eu-canvas" class="signature-canvas"></canvas></div>
-          <button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('icp-sig-eu-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button>
+      <div class="form-section-title"><i class="bi bi-pen"></i>Signatures</div>
+      <div class="field-group">
+        <div class="field-group-title"><i class="bi bi-pen"></i> Signature EU</div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-6"><label class="form-label">Signataire EU</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-sig-eu-nom" placeholder="Nom et qualité"></div></div>
+          <div class="col-md-6"><label class="form-label">Date</label><div class="input-icon-wrap"><i class="bi bi-calendar input-icon"></i><input type="date" class="form-control" id="icp-sig-eu-date"></div></div>
+          <div class="col-12">
+            <div class="signature-pad-wrapper"><canvas id="icp-sig-eu-canvas" class="signature-canvas"></canvas></div>
+            <button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('icp-sig-eu-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button>
+          </div>
         </div>
       </div>
       <div class="form-section-title"><i class="bi bi-pen"></i>Signatures EE</div>
@@ -1639,20 +1730,30 @@ textarea.form-control { min-height: 70px; }
   <!-- ==================== SETTINGS ==================== -->
   <div id="view-settings" class="view fade-in" style="display:none">
     <h5 class="mb-3"><i class="bi bi-gear me-1"></i>Paramètres</h5>
+    <div class="section-helper"><i class="bi bi-lightbulb"></i> Configurez les paramètres par défaut de l'application.</div>
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-building"></i>Entreprise Utilisatrice par défaut</div>
-      <div class="row g-2">
-        <div class="col-md-6"><label class="form-label">Raison sociale</label><input type="text" class="form-control" id="settings-eu-nom" placeholder="Agriwatt / ENERSOLYS"></div>
-        <div class="col-md-6"><label class="form-label">Adresse</label><input type="text" class="form-control" id="settings-eu-adresse"></div>
-        <div class="col-md-6"><label class="form-label">Responsable</label><input type="text" class="form-control" id="settings-eu-responsable"></div>
-        <div class="col-md-6"><label class="form-label">Téléphone</label><input type="tel" class="form-control" id="settings-eu-tel"></div>
-        <div class="col-md-6"><label class="form-label">Email</label><input type="email" class="form-control" id="settings-eu-email"></div>
-        <div class="col-md-6"><label class="form-label">SIRET</label><input type="text" class="form-control" id="settings-eu-siret"></div>
+      <div class="field-group">
+        <div class="field-group-title"><i class="bi bi-building"></i> Identité</div>
+        <div class="row g-2">
+          <div class="col-md-6"><label class="form-label">Raison sociale</label><div class="input-icon-wrap"><i class="bi bi-building input-icon"></i><input type="text" class="form-control" id="settings-eu-nom" placeholder="Agriwatt / ENERSOLYS"></div></div>
+          <div class="col-md-6"><label class="form-label">SIRET</label><div class="input-icon-wrap"><i class="bi bi-upc-scan input-icon"></i><input type="text" class="form-control" id="settings-eu-siret"></div></div>
+        </div>
+      </div>
+      <div class="field-group">
+        <div class="field-group-title"><i class="bi bi-person"></i> Contact</div>
+        <div class="row g-2">
+          <div class="col-md-6"><label class="form-label">Responsable</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="settings-eu-responsable"></div></div>
+          <div class="col-md-6"><label class="form-label">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="settings-eu-tel"></div></div>
+          <div class="col-md-6"><label class="form-label">Email</label><div class="input-icon-wrap"><i class="bi bi-envelope input-icon"></i><input type="email" class="form-control" id="settings-eu-email"></div></div>
+          <div class="col-md-6"><label class="form-label">Adresse</label><div class="input-icon-wrap"><i class="bi bi-geo-alt input-icon"></i><input type="text" class="form-control" id="settings-eu-adresse"></div></div>
+        </div>
       </div>
       <button class="btn btn-primary btn-sm mt-2" onclick="App.saveSettings()"><i class="bi bi-check-lg me-1"></i>Sauvegarder</button>
     </div>
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-database"></i>Données</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Exportez vos données pour les transférer vers un autre appareil ou créer une sauvegarde.</div>
       <div class="d-flex flex-wrap gap-2 mb-2">
         <button class="btn btn-outline-primary btn-sm" onclick="App.exportAllData()"><i class="bi bi-download me-1"></i>Exporter toutes les données</button>
       </div>
