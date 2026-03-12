@@ -206,20 +206,128 @@ body {
 /* ---- Form Sections ---- */
 .form-section {
     background: #fff;
-    border-radius: 8px;
-    padding: 1rem;
-    margin-bottom: 0.75rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border: 1px solid #e9ecef;
+    transition: box-shadow 0.2s;
 }
+.form-section:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
 .form-section-title {
-    font-weight: 600;
-    font-size: 0.88rem;
+    font-weight: 700;
+    font-size: 0.95rem;
     color: var(--agw-green);
-    margin-bottom: 0.75rem;
+    margin-bottom: 1rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 2px solid #e8f5e9;
 }
+.form-section-title i { font-size: 1.1rem; }
+
+/* ---- Form field groups ---- */
+.field-group {
+    background: #f8faf9;
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.6rem;
+    border: 1px solid #eef2f0;
+    transition: border-color 0.2s, background 0.2s;
+}
+.field-group:focus-within {
+    border-color: var(--agw-green-light);
+    background: #f0faf5;
+    box-shadow: 0 0 0 3px rgba(0,105,62,0.06);
+}
+.field-group-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--agw-gray);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.field-group-title i { color: var(--agw-green); font-size: 0.85rem; }
+
+/* ---- Enhanced form controls ---- */
+.form-label {
+    font-weight: 500;
+    font-size: 0.82rem;
+    color: #495057;
+    margin-bottom: 0.3rem;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.form-label .required { color: #dc3545; font-weight: 700; }
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 1.5px solid #dee2e6;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-size: 0.88rem;
+}
+.form-control:focus, .form-select:focus {
+    border-color: var(--agw-green);
+    box-shadow: 0 0 0 3px rgba(0,105,62,0.1);
+}
+.form-control::placeholder { color: #b0b8c1; font-style: italic; font-size: 0.84rem; }
+textarea.form-control { min-height: 70px; }
+
+/* ---- Input with icon ---- */
+.input-icon-wrap {
+    position: relative;
+}
+.input-icon-wrap .form-control { padding-left: 2.2rem; }
+.input-icon-wrap .input-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--agw-gray);
+    font-size: 0.9rem;
+    pointer-events: none;
+}
+
+/* ---- Quick action buttons ---- */
+.quick-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 0.75rem; }
+.quick-actions .btn {
+    border-radius: 20px;
+    font-size: 0.8rem;
+    padding: 5px 14px;
+    font-weight: 500;
+    transition: all 0.15s;
+}
+.quick-actions .btn:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
+
+/* ---- Checkbox/radio cards ---- */
+.check-card {
+    background: #fff;
+    border: 1.5px solid #dee2e6;
+    border-radius: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.check-card:hover { border-color: var(--agw-green-light); background: #f0faf5; }
+.check-card.checked { border-color: var(--agw-green); background: #e8f5e9; }
+.check-card .form-check-input { margin: 0; }
+
+/* ---- Empty state ---- */
+.empty-state {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--agw-gray);
+}
+.empty-state i { font-size: 2rem; display: block; margin-bottom: 0.5rem; opacity: 0.4; }
+.empty-state p { font-size: 0.85rem; margin: 0; }
 
 /* ---- Risk rows ---- */
 .risk-row {
@@ -850,80 +958,113 @@ body {
       <div class="section-helper"><i class="bi bi-lightbulb"></i>Commencez par identifier l'intervention : qui, quoi, ou, quand. Ces informations apparaitront sur tous les documents exportés.</div>
       <div class="form-section">
         <div class="form-section-title"><i class="bi bi-info-circle"></i>Informations générales</div>
-        <div class="row g-2">
-          <div class="col-12">
-            <label class="form-label fw-semibold">Intitulé de l'opération *</label>
-            <input type="text" class="form-control" id="pdp-titre" placeholder="Ex: PRO MESURES – Métrologie">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">N° PDP</label>
-            <input type="text" class="form-control" id="pdp-numero" placeholder="Auto-généré si vide">
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">Version</label>
-            <input type="text" class="form-control" id="pdp-version" value="01">
-          </div>
-          <div class="col-md-3">
-            <label class="form-label">Statut</label>
-            <select class="form-select" id="pdp-statut">
-              <option value="brouillon">Brouillon</option>
-              <option value="visite_prealable">Visite préalable</option>
-              <option value="analyse_risque">Analyse de risque</option>
-              <option value="signature">En signature</option>
-              <option value="actif">Actif</option>
-              <option value="modifie">Modifié</option>
-              <option value="cloture">Clôturé</option>
-            </select>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Type de PDP</label>
-            <select class="form-select" id="pdp-type" onchange="App.onTypeEntiteChange()">
-              <option value="client">Intervention chez un client</option>
-              <option value="interne">Intervention interne</option>
-            </select>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Entité</label>
-            <select class="form-select" id="pdp-entite" onchange="App.onTypeEntiteChange()">
-              <option value="agriwatt">Agriwatt</option>
-              <option value="enersolys">Enersolys</option>
-            </select>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Site concerné</label>
-            <input type="text" class="form-control" id="pdp-site" placeholder="Ex: Bouxières-sous-Froidmont">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Lieu précis d'intervention</label>
-            <input type="text" class="form-control" id="pdp-lieu" placeholder="Ex: Hangar de stockage – Agence X">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Date d'intervention / début</label>
-            <input type="date" class="form-control" id="pdp-date-debut">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Date de fin prévue</label>
-            <input type="date" class="form-control" id="pdp-date-fin">
-          </div>
-          <div class="col-12">
-            <label class="form-label">Nature de la prestation / Description</label>
-            <textarea class="form-control" id="pdp-description" rows="3" placeholder="Description détaillée des travaux..."></textarea>
-          </div>
-          <div class="col-md-6"><label class="form-label">Coordonnées GPS</label><input type="text" class="form-control" id="pdp-gps" placeholder="Ex: 49.8333, 3.9167"></div>
-          <div class="col-md-6"><label class="form-label">Durée prévisionnelle</label><input type="text" class="form-control" id="pdp-duree" placeholder="Ex: 3 jours, 2 semaines..."></div>
-          <div class="col-12">
-            <label class="form-label">Matériel / Équipements concernés</label>
-            <input type="text" class="form-control" id="pdp-materiel" placeholder="Ex: Outillage électrique et mécanique...">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Nombre de salariés</label>
-            <input type="number" class="form-control" id="pdp-nb-salaries" min="0">
-          </div>
-          <div class="col-md-6">
-            <label class="form-label">Horaires</label>
-            <input type="text" class="form-control" id="pdp-horaires" placeholder="Ex: 8h-17h">
+
+        <!-- Identification -->
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-tag"></i>Identification</div>
+          <div class="row g-2">
+            <div class="col-12">
+              <label class="form-label"><span class="required">*</span> Intitulé de l'opération</label>
+              <div class="input-icon-wrap"><i class="bi bi-pencil input-icon"></i><input type="text" class="form-control" id="pdp-titre" placeholder="Ex: PRO MESURES – Métrologie"></div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">N° PDP</label>
+              <input type="text" class="form-control" id="pdp-numero" placeholder="Auto-généré">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Version</label>
+              <input type="text" class="form-control" id="pdp-version" value="01" readonly style="background:#f0f0f0">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Statut</label>
+              <select class="form-select" id="pdp-statut">
+                <option value="brouillon">Brouillon</option>
+                <option value="visite_prealable">Visite préalable</option>
+                <option value="analyse_risque">Analyse de risque</option>
+                <option value="signature">En signature</option>
+                <option value="actif">Actif</option>
+                <option value="modifie">Modifié</option>
+                <option value="cloture">Clôturé</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Type de PDP</label>
+              <select class="form-select" id="pdp-type" onchange="App.onTypeEntiteChange()">
+                <option value="client">Intervention chez un client</option>
+                <option value="interne">Intervention interne</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Entité</label>
+              <select class="form-select" id="pdp-entite" onchange="App.onTypeEntiteChange()">
+                <option value="agriwatt">Agriwatt</option>
+                <option value="enersolys">Enersolys</option>
+              </select>
+            </div>
           </div>
         </div>
+
+        <!-- Localisation -->
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-geo-alt"></i>Localisation</div>
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label">Site concerné</label>
+              <div class="input-icon-wrap"><i class="bi bi-building input-icon"></i><input type="text" class="form-control" id="pdp-site" placeholder="Ex: Bouxières-sous-Froidmont"></div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Lieu précis</label>
+              <div class="input-icon-wrap"><i class="bi bi-pin-map input-icon"></i><input type="text" class="form-control" id="pdp-lieu" placeholder="Ex: Hangar de stockage – Agence X"></div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Coordonnées GPS</label>
+              <div class="input-icon-wrap"><i class="bi bi-globe input-icon"></i><input type="text" class="form-control" id="pdp-gps" placeholder="Ex: 49.8333, 3.9167"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Planning -->
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-calendar-event"></i>Planning</div>
+          <div class="row g-2">
+            <div class="col-md-4">
+              <label class="form-label">Date début</label>
+              <input type="date" class="form-control" id="pdp-date-debut">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Date fin prévue</label>
+              <input type="date" class="form-control" id="pdp-date-fin">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Horaires</label>
+              <div class="input-icon-wrap"><i class="bi bi-clock input-icon"></i><input type="text" class="form-control" id="pdp-horaires" placeholder="Ex: 8h-17h"></div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Durée prévisionnelle</label>
+              <input type="text" class="form-control" id="pdp-duree" placeholder="Ex: 3 jours, 2 semaines...">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Nombre de salariés</label>
+              <input type="number" class="form-control" id="pdp-nb-salaries" min="0" placeholder="0">
+            </div>
+          </div>
+        </div>
+
+        <!-- Description -->
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-card-text"></i>Description de l'intervention</div>
+          <div class="row g-2">
+            <div class="col-12">
+              <label class="form-label">Nature de la prestation</label>
+              <textarea class="form-control" id="pdp-description" rows="3" placeholder="Décrivez les travaux qui seront réalisés..."></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Matériel / Équipements</label>
+              <div class="input-icon-wrap"><i class="bi bi-tools input-icon"></i><input type="text" class="form-control" id="pdp-materiel" placeholder="Ex: Outillage électrique, nacelle..."></div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -931,14 +1072,20 @@ body {
     <div id="section-entreprises" class="pdp-section" style="display:none">
       <div class="section-helper"><i class="bi bi-lightbulb"></i>Identifiez l'entreprise utilisatrice (votre client) et les entreprises qui interviennent. Le PDP est obligatoire dès qu'une entreprise extérieure travaille sur le site.</div>
       <div class="form-section">
-        <div class="form-section-title"><i class="bi bi-building"></i>Entreprise Utilisatrice (EU)</div>
-        <div class="row g-2">
-          <div class="col-md-6"><label class="form-label">Raison sociale *</label><input type="text" class="form-control" id="eu-nom" placeholder="AGRIWATT / ENERSOLYS"></div>
-          <div class="col-md-6"><label class="form-label">Adresse</label><input type="text" class="form-control" id="eu-adresse"></div>
-          <div class="col-md-6"><label class="form-label">Responsable QSE / Contact EU</label><input type="text" class="form-control" id="eu-responsable"></div>
-          <div class="col-md-6"><label class="form-label">Fonction</label><input type="text" class="form-control" id="eu-fonction"></div>
-          <div class="col-md-6"><label class="form-label">Téléphone EU</label><input type="tel" class="form-control" id="eu-tel"></div>
-          <div class="col-md-6"><label class="form-label">Email</label><input type="email" class="form-control" id="eu-email"></div>
+        <div class="form-section-title"><i class="bi bi-building"></i>Entreprise Utilisatrice (EU) — votre client</div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-person-badge"></i>Coordonnées</div>
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label"><span class="required">*</span> Raison sociale</label>
+              <div class="input-icon-wrap"><i class="bi bi-building input-icon"></i><input type="text" class="form-control" id="eu-nom" placeholder="AGRIWATT / ENERSOLYS"></div>
+            </div>
+            <div class="col-md-6"><label class="form-label">Adresse</label><div class="input-icon-wrap"><i class="bi bi-geo-alt input-icon"></i><input type="text" class="form-control" id="eu-adresse" placeholder="Adresse du siège"></div></div>
+            <div class="col-md-6"><label class="form-label">Responsable QSE / Contact</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="eu-responsable" placeholder="Nom du contact"></div></div>
+            <div class="col-md-6"><label class="form-label">Fonction</label><input type="text" class="form-control" id="eu-fonction" placeholder="Ex: Responsable QSE"></div>
+            <div class="col-md-6"><label class="form-label">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="eu-tel" placeholder="06 XX XX XX XX"></div></div>
+            <div class="col-md-6"><label class="form-label">Email</label><div class="input-icon-wrap"><i class="bi bi-envelope input-icon"></i><input type="email" class="form-control" id="eu-email" placeholder="contact@exemple.fr"></div></div>
+          </div>
         </div>
       </div>
 
@@ -1073,13 +1220,28 @@ body {
       <div class="section-helper"><i class="bi bi-lightbulb"></i>Ces informations sont essentielles en cas d'accident. Vérifiez les numéros et le nom du SST pour chaque chantier.</div>
       <div class="form-section">
         <div class="form-section-title"><i class="bi bi-telephone"></i>Consignes d'urgence</div>
-        <div class="row g-2">
-          <div class="col-md-6"><label class="form-label">Responsable de site</label><input type="text" class="form-control" id="urgence-responsable"></div>
-          <div class="col-md-6"><label class="form-label">Téléphone responsable</label><input type="tel" class="form-control" id="urgence-tel-responsable"></div>
-          <div class="col-md-6"><label class="form-label">SST / Secouriste</label><input type="text" class="form-control" id="urgence-sst"></div>
-          <div class="col-md-6"><label class="form-label">Téléphone SST</label><input type="tel" class="form-control" id="urgence-tel-sst"></div>
-          <div class="col-12"><label class="form-label">Numéros d'urgence</label><textarea class="form-control" id="urgence-numeros" rows="2">Pompiers : 18  |  SAMU : 15  |  Gendarmerie : 17  |  Urgences : 112</textarea></div>
-          <div class="col-12"><label class="form-label">Consignes spécifiques</label><textarea class="form-control" id="urgence-consignes" rows="2" placeholder="Point de rassemblement, issues de secours..."></textarea></div>
+        <div class="field-group" style="border-left: 3px solid #dc3545;">
+          <div class="field-group-title"><i class="bi bi-exclamation-triangle" style="color:#dc3545"></i>Contacts d'urgence sur site</div>
+          <div class="row g-2">
+            <div class="col-md-6"><label class="form-label">Responsable de site</label><div class="input-icon-wrap"><i class="bi bi-person-badge input-icon"></i><input type="text" class="form-control" id="urgence-responsable" placeholder="Nom du responsable"></div></div>
+            <div class="col-md-6"><label class="form-label">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="urgence-tel-responsable" placeholder="06 XX XX XX XX"></div></div>
+            <div class="col-md-6"><label class="form-label">SST / Secouriste</label><div class="input-icon-wrap"><i class="bi bi-heart-pulse input-icon"></i><input type="text" class="form-control" id="urgence-sst" placeholder="Nom du SST"></div></div>
+            <div class="col-md-6"><label class="form-label">Téléphone SST</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="urgence-tel-sst" placeholder="06 XX XX XX XX"></div></div>
+          </div>
+        </div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-phone"></i>Numéros d'urgence</div>
+          <div class="row g-3">
+            <div class="col-6 col-md-3"><div class="text-center p-2 rounded" style="background:#ffeef0"><div style="font-size:1.5rem">&#x1F6A8;</div><div class="fw-bold" style="color:#dc3545">Pompiers</div><div class="fw-bold fs-5">18</div></div></div>
+            <div class="col-6 col-md-3"><div class="text-center p-2 rounded" style="background:#fff3e0"><div style="font-size:1.5rem">&#x1F691;</div><div class="fw-bold" style="color:#e65100">SAMU</div><div class="fw-bold fs-5">15</div></div></div>
+            <div class="col-6 col-md-3"><div class="text-center p-2 rounded" style="background:#e3f2fd"><div style="font-size:1.5rem">&#x1F46E;</div><div class="fw-bold" style="color:#1565c0">Gendarmerie</div><div class="fw-bold fs-5">17</div></div></div>
+            <div class="col-6 col-md-3"><div class="text-center p-2 rounded" style="background:#e8f5e9"><div style="font-size:1.5rem">&#x260E;&#xFE0F;</div><div class="fw-bold" style="color:var(--agw-green)">Urgences</div><div class="fw-bold fs-5">112</div></div></div>
+          </div>
+          <textarea class="form-control mt-2" id="urgence-numeros" rows="1" style="font-size:0.82rem" placeholder="Numéros complémentaires...">Pompiers : 18  |  SAMU : 15  |  Gendarmerie : 17  |  Urgences : 112</textarea>
+        </div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-signpost-split"></i>Consignes spécifiques au site</div>
+          <textarea class="form-control" id="urgence-consignes" rows="3" placeholder="Point de rassemblement, issues de secours, accès pompiers, localisation trousse de secours..."></textarea>
         </div>
       </div>
     </div>
