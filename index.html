@@ -1078,6 +1078,12 @@ textarea.form-control { min-height: 70px; }
       <div class="form-section">
         <div class="form-section-title"><i class="bi bi-building"></i>Entreprise Utilisatrice (EU) — votre client</div>
         <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-geo-alt-fill"></i> Sélection rapide du site</div>
+          <select class="form-select mb-2" id="eu-site-select" onchange="App.onSiteSelect(this.value)">
+            <option value="">— Choisir un site enregistré —</option>
+          </select>
+        </div>
+        <div class="field-group">
           <div class="field-group-title"><i class="bi bi-person-badge"></i>Coordonnées</div>
           <div class="row g-2">
             <div class="col-md-6">
@@ -1642,6 +1648,12 @@ textarea.form-control { min-height: 70px; }
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-people"></i>Participants à la visite</div>
       <div class="field-group">
+        <div class="field-group-title"><i class="bi bi-geo-alt-fill"></i> Site EU</div>
+        <select class="form-select mb-2" id="icp-site-select" onchange="App.onICPSiteSelect(this.value)">
+          <option value="">— Choisir un site enregistré —</option>
+        </select>
+      </div>
+      <div class="field-group">
         <div class="field-group-title"><i class="bi bi-person-badge"></i> Représentant EU</div>
         <div class="row g-2">
           <div class="col-md-4"><label class="form-label">Nom</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-eu-nom" placeholder="Nom"></div></div>
@@ -1751,6 +1763,14 @@ textarea.form-control { min-height: 70px; }
         </div>
       </div>
       <button class="btn btn-primary btn-sm mt-2" onclick="App.saveSettings()"><i class="bi bi-check-lg me-1"></i>Sauvegarder</button>
+    </div>
+    <div class="form-section">
+      <div class="form-section-title d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-geo-alt-fill"></i>Sites Agriwatt / Enersolys</span>
+        <button class="btn btn-sm btn-outline-primary" onclick="App.showSiteForm()"><i class="bi bi-plus-lg me-1"></i>Ajouter un site</button>
+      </div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Enregistrez vos sites pour les sélectionner rapidement dans les PDP et ICP. Chaque site peut avoir son propre responsable/conducteur de travaux.</div>
+      <div id="sites-list-container"></div>
     </div>
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-database"></i>Données</div>
@@ -1930,6 +1950,41 @@ textarea.form-control { min-height: 70px; }
   </div>
 </div>
 
+<!-- Site Edit Modal -->
+<div class="modal fade" id="modal-site" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title"><i class="bi bi-geo-alt-fill me-2"></i>Site</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="site-edit-id">
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label">Entité</label>
+            <select class="form-select" id="site-entite">
+              <option value="agriwatt">Agriwatt</option>
+              <option value="enersolys">Enersolys</option>
+            </select>
+          </div>
+          <div class="col-md-6"><label class="form-label">Nom du site *</label><input type="text" class="form-control" id="site-nom" placeholder="Ex: Bouxières-sous-Froidmont"></div>
+          <div class="col-12"><label class="form-label">Adresse</label><input type="text" class="form-control" id="site-adresse" placeholder="Adresse complète"></div>
+          <div class="col-md-6"><label class="form-label">Responsable / Conducteur de travaux</label><input type="text" class="form-control" id="site-responsable" placeholder="Nom du responsable sur site"></div>
+          <div class="col-md-6"><label class="form-label">Fonction</label><input type="text" class="form-control" id="site-fonction" placeholder="Ex: Conducteur de travaux"></div>
+          <div class="col-md-6"><label class="form-label">Téléphone</label><input type="tel" class="form-control" id="site-tel" placeholder="06 XX XX XX XX"></div>
+          <div class="col-md-6"><label class="form-label">Email</label><input type="email" class="form-control" id="site-email" placeholder="contact@site.fr"></div>
+          <div class="col-md-6"><label class="form-label">SIRET</label><input type="text" class="form-control" id="site-siret"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuler</button>
+        <button class="btn btn-primary btn-sm" onclick="App.saveSite()"><i class="bi bi-check-lg me-1"></i>Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Confirm Modal -->
 <div class="modal fade" id="modal-confirm" tabindex="-1">
   <div class="modal-dialog modal-sm modal-dialog-centered">
@@ -1977,6 +2032,13 @@ db.version(30).stores({
   pdps: '++id, numero, titre, statut, dateDebut, dateFin, dateCreation, dateModification',
   entreprises: '++id, nom, siret',
   icps: '++id, numero, site, dateVisite, pdpId, dateCreation',
+  settings: 'key'
+});
+db.version(31).stores({
+  pdps: '++id, numero, titre, statut, dateDebut, dateFin, dateCreation, dateModification',
+  entreprises: '++id, nom, siret',
+  icps: '++id, numero, site, dateVisite, pdpId, dateCreation',
+  sites: '++id, nom, entite',
   settings: 'key'
 });
 
@@ -2455,6 +2517,8 @@ const App = {
       await db.open();
       _step('Chargement des paramètres...', 40);
       await this.loadSettings();
+      await this.seedDefaultSites();
+      await this.populateSiteSelects();
       _step('Synchronisation...', 60);
       await this._initSharePoint();
       _step('Préparation du tableau de bord...', 80);
@@ -2506,6 +2570,7 @@ const App = {
     if (view === 'list') this.renderPDPList();
     if (view === 'icps') this.renderICPList();
     if (view === 'entreprises') this.renderEntreprises();
+    if (view === 'settings') this.renderSitesList();
     // Collapse mobile navbar
     const navCollapse = document.getElementById('navbarMain');
     if (navCollapse?.classList.contains('show')) bootstrap.Collapse.getInstance(navCollapse)?.hide();
@@ -5190,9 +5255,160 @@ const App = {
     await db.settings.put({ key:'general', value:this._settings }); this.toast('Paramètres sauvegardés'); DataSync.markDirty();
   },
 
+  // ---- SITES MANAGEMENT ----
+  DEFAULT_SITES: [
+    { nom:'Bouxières-sous-Froidmont', entite:'agriwatt', adresse:'Bouxières-sous-Froidmont (54)', responsable:'', fonction:'Conducteur de travaux', tel:'', email:'', siret:'' },
+    { nom:'Seclin', entite:'agriwatt', adresse:'Seclin (59)', responsable:'', fonction:'Conducteur de travaux', tel:'', email:'', siret:'' },
+    { nom:'Vervins', entite:'agriwatt', adresse:'Vervins (02)', responsable:'', fonction:'Conducteur de travaux', tel:'', email:'', siret:'' },
+    { nom:'Honfleur', entite:'agriwatt', adresse:'Honfleur (14)', responsable:'', fonction:'Conducteur de travaux', tel:'', email:'', siret:'' },
+    { nom:'Bailly-Romainvilliers', entite:'enersolys', adresse:'Bailly-Romainvilliers (77)', responsable:'', fonction:'Conducteur de travaux', tel:'', email:'', siret:'' },
+  ],
+
+  async seedDefaultSites() {
+    const count = await db.sites.count();
+    if (count === 0) {
+      for (const s of this.DEFAULT_SITES) await db.sites.add({...s});
+    }
+  },
+
+  async populateSiteSelects() {
+    const sites = await db.sites.toArray();
+    const grouped = {};
+    sites.forEach(s => {
+      const ent = (s.entite||'autre').toUpperCase();
+      if (!grouped[ent]) grouped[ent] = [];
+      grouped[ent].push(s);
+    });
+    let html = '<option value="">— Choisir un site enregistré —</option>';
+    for (const [ent, list] of Object.entries(grouped).sort()) {
+      html += `<optgroup label="${this.esc(ent)}">`;
+      list.sort((a,b) => (a.nom||'').localeCompare(b.nom||'')).forEach(s => {
+        html += `<option value="${s.id}">${this.esc(s.nom)}${s.responsable ? ' ('+this.esc(s.responsable)+')' : ''}</option>`;
+      });
+      html += '</optgroup>';
+    }
+    const sel1 = document.getElementById('eu-site-select');
+    const sel2 = document.getElementById('icp-site-select');
+    if (sel1) sel1.innerHTML = html;
+    if (sel2) sel2.innerHTML = html;
+  },
+
+  async onSiteSelect(siteId) {
+    if (!siteId) return;
+    const s = await db.sites.get(parseInt(siteId));
+    if (!s) return;
+    const entiteLabel = s.entite === 'enersolys' ? 'ENERSOLYS' : 'AGRIWATT';
+    document.getElementById('eu-nom').value = entiteLabel + ' — ' + s.nom;
+    document.getElementById('eu-adresse').value = s.adresse || '';
+    document.getElementById('eu-responsable').value = s.responsable || '';
+    document.getElementById('eu-fonction').value = s.fonction || '';
+    document.getElementById('eu-tel').value = s.tel || '';
+    document.getElementById('eu-email').value = s.email || '';
+    document.getElementById('pdp-site').value = s.nom;
+    document.getElementById('pdp-entite').value = s.entite || 'agriwatt';
+    this._markEditing();
+  },
+
+  async onICPSiteSelect(siteId) {
+    if (!siteId) return;
+    const s = await db.sites.get(parseInt(siteId));
+    if (!s) return;
+    document.getElementById('icp-eu-nom').value = s.responsable || '';
+    document.getElementById('icp-eu-fonction').value = s.fonction || '';
+    document.getElementById('icp-eu-tel').value = s.tel || '';
+    document.getElementById('icp-site').value = s.nom;
+  },
+
+  async renderSitesList() {
+    const c = document.getElementById('sites-list-container');
+    if (!c) return;
+    const sites = await db.sites.toArray();
+    if (!sites.length) { c.innerHTML = '<p class="text-muted text-center small mt-2">Aucun site. Cliquez sur "Ajouter" pour commencer.</p>'; return; }
+    const grouped = {};
+    sites.forEach(s => {
+      const ent = s.entite || 'autre';
+      if (!grouped[ent]) grouped[ent] = [];
+      grouped[ent].push(s);
+    });
+    let html = '';
+    for (const [ent, list] of Object.entries(grouped).sort()) {
+      const label = ent === 'enersolys' ? 'Enersolys' : ent === 'agriwatt' ? 'Agriwatt' : ent;
+      html += `<div class="fw-bold small text-muted mt-2 mb-1"><i class="bi bi-building me-1"></i>${this.esc(label)}</div>`;
+      list.sort((a,b) => (a.nom||'').localeCompare(b.nom||'')).forEach(s => {
+        html += `<div class="d-flex align-items-center gap-2 p-2 mb-1 border rounded">
+          <div class="flex-grow-1">
+            <strong>${this.esc(s.nom)}</strong>
+            <div class="small text-muted">${s.responsable ? '<i class="bi bi-person me-1"></i>'+this.esc(s.responsable)+' ' : ''}${s.tel ? '<i class="bi bi-telephone me-1"></i>'+this.esc(s.tel) : ''}</div>
+          </div>
+          <button class="btn btn-outline-primary btn-sm" onclick="App.editSite(${s.id})"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-outline-danger btn-sm" onclick="App.deleteSite(${s.id})"><i class="bi bi-trash"></i></button>
+        </div>`;
+      });
+    }
+    c.innerHTML = html;
+  },
+
+  showSiteForm(id) {
+    document.getElementById('site-edit-id').value = id || '';
+    document.getElementById('site-entite').value = 'agriwatt';
+    document.getElementById('site-nom').value = '';
+    document.getElementById('site-adresse').value = '';
+    document.getElementById('site-responsable').value = '';
+    document.getElementById('site-fonction').value = 'Conducteur de travaux';
+    document.getElementById('site-tel').value = '';
+    document.getElementById('site-email').value = '';
+    document.getElementById('site-siret').value = '';
+    new bootstrap.Modal(document.getElementById('modal-site')).show();
+  },
+
+  async editSite(id) {
+    const s = await db.sites.get(id);
+    if (!s) return;
+    document.getElementById('site-edit-id').value = s.id;
+    document.getElementById('site-entite').value = s.entite || 'agriwatt';
+    document.getElementById('site-nom').value = s.nom || '';
+    document.getElementById('site-adresse').value = s.adresse || '';
+    document.getElementById('site-responsable').value = s.responsable || '';
+    document.getElementById('site-fonction').value = s.fonction || '';
+    document.getElementById('site-tel').value = s.tel || '';
+    document.getElementById('site-email').value = s.email || '';
+    document.getElementById('site-siret').value = s.siret || '';
+    new bootstrap.Modal(document.getElementById('modal-site')).show();
+  },
+
+  async saveSite() {
+    const nom = document.getElementById('site-nom').value.trim();
+    if (!nom) { this.toast('Nom du site requis', 'warning'); return; }
+    const data = {
+      entite: document.getElementById('site-entite').value,
+      nom,
+      adresse: document.getElementById('site-adresse').value.trim(),
+      responsable: document.getElementById('site-responsable').value.trim(),
+      fonction: document.getElementById('site-fonction').value.trim(),
+      tel: document.getElementById('site-tel').value.trim(),
+      email: document.getElementById('site-email').value.trim(),
+      siret: document.getElementById('site-siret').value.trim(),
+    };
+    const editId = document.getElementById('site-edit-id').value;
+    if (editId) { data.id = parseInt(editId); await db.sites.put(data); }
+    else { await db.sites.add(data); }
+    bootstrap.Modal.getInstance(document.getElementById('modal-site')).hide();
+    this.renderSitesList();
+    this.populateSiteSelects();
+    this.toast('Site enregistré');
+  },
+
+  async deleteSite(id) {
+    if (!await this.confirm('Supprimer ce site ?')) return;
+    await db.sites.delete(id);
+    this.renderSitesList();
+    this.populateSiteSelects();
+    this.toast('Site supprimé');
+  },
+
   // ---- DATA EXPORT/IMPORT ----
   async exportAllData() {
-    const data = { pdps: await db.pdps.toArray(), entreprises: await db.entreprises.toArray(), icps: await db.icps.toArray(), settings: await db.settings.toArray(), exportDate: new Date().toISOString(), version:'1.2' };
+    const data = { pdps: await db.pdps.toArray(), entreprises: await db.entreprises.toArray(), icps: await db.icps.toArray(), sites: await db.sites.toArray(), settings: await db.settings.toArray(), exportDate: new Date().toISOString(), version:'1.3' };
     const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
     const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`suivi-pdp-${new Date().toISOString().slice(0,10)}.json`; a.click(); this.toast('Exporté');
   },
@@ -5212,13 +5428,15 @@ const App = {
           await db.pdps.clear();
           await db.entreprises.clear();
           await db.icps.clear();
+          await db.sites.clear();
           await db.settings.clear();
         }
         if (data.pdps) for (const p of data.pdps) { delete p.id; await db.pdps.add(p); }
         if (data.entreprises) for (const ent of data.entreprises) { delete ent.id; await db.entreprises.add(ent); }
         if (data.icps) for (const v of data.icps) { delete v.id; await db.icps.add(v); }
+        if (data.sites) for (const s of data.sites) { delete s.id; await db.sites.add(s); }
         if (data.settings) for (const s of data.settings) await db.settings.put(s);
-        await this.loadSettings(); this.updateDashboard(); this.renderEntreprises();
+        await this.loadSettings(); this.updateDashboard(); this.renderEntreprises(); this.populateSiteSelects();
         const label = isReplace ? 'Remplacement' : 'Ajout';
         this.toast(`${label} : ${data.pdps?.length||0} PDP, ${data.icps?.length||0} ICP, ${data.entreprises?.length||0} entreprises`);
       } catch(err) { this.toast('Erreur import : ' + err.message,'danger'); }
@@ -5228,8 +5446,8 @@ const App = {
 
   async resetData() {
     if (!await this.confirm('Supprimer TOUTES les données ?')) return;
-    await db.pdps.clear(); await db.entreprises.clear(); await db.icps.clear(); await db.settings.clear();
-    this._settings = {}; this.applySettings(); this.updateDashboard(); this.toast('Réinitialisé','warning');
+    await db.pdps.clear(); await db.entreprises.clear(); await db.icps.clear(); await db.sites.clear(); await db.settings.clear();
+    this._settings = {}; this.applySettings(); this.updateDashboard(); await this.seedDefaultSites(); await this.populateSiteSelects(); this.renderSitesList(); this.toast('Réinitialisé','warning');
   },
 
   // ========================================
