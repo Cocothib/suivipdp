@@ -121,7 +121,10 @@ body {
     margin: 2px;
     white-space: nowrap;
     transition: all 0.15s;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    position: relative;
 }
 .section-tab.active {
     background: var(--agw-green);
@@ -132,6 +135,73 @@ body {
     border-color: var(--agw-green);
     color: var(--agw-green);
 }
+.section-tab .tab-check {
+    font-size: 0.7rem;
+    opacity: 0.8;
+}
+.section-tab.tab-done { border-color: var(--agw-green); color: var(--agw-green); }
+.section-tab.tab-done.active { background: var(--agw-green); color: #fff; }
+
+/* ---- Progress bar PDP ---- */
+.pdp-progress-bar {
+    height: 6px;
+    background: #e9ecef;
+    border-radius: 3px;
+    margin-bottom: 12px;
+    overflow: hidden;
+}
+.pdp-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--agw-green), var(--agw-green-light));
+    border-radius: 3px;
+    transition: width 0.4s ease;
+}
+.pdp-progress-text {
+    font-size: 0.75rem;
+    color: var(--agw-gray);
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+}
+
+/* ---- Section helper text ---- */
+.section-helper {
+    background: linear-gradient(135deg, #f0faf5, #e8f5e9);
+    border-left: 3px solid var(--agw-green);
+    border-radius: 0 8px 8px 0;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    font-size: 0.82rem;
+    color: #2c5e3f;
+    line-height: 1.4;
+}
+.section-helper i { color: var(--agw-green); margin-right: 6px; }
+
+/* ---- Save status ---- */
+.save-status {
+    font-size: 0.72rem;
+    color: var(--agw-gray);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.save-status .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.save-status .dot-saved { background: #198754; }
+.save-status .dot-editing { background: #ffc107; }
+
+/* ---- Navigation arrows between sections ---- */
+.section-nav {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #e9ecef;
+}
+.section-nav .btn { min-width: 140px; }
 
 /* ---- Form Sections ---- */
 .form-section {
@@ -642,7 +712,8 @@ body {
     <div class="spinner-border text-primary" role="status">
       <span class="visually-hidden">Chargement...</span>
     </div>
-    <p class="mt-2 text-muted">Chargement de l'application...</p>
+    <p class="mt-2 text-muted" id="loading-step">Initialisation...</p>
+    <div style="max-width:200px;margin:10px auto;height:4px;background:#e9ecef;border-radius:2px;overflow:hidden"><div id="loading-bar" style="width:0%;height:100%;background:var(--agw-green);transition:width 0.3s;border-radius:2px"></div></div>
   </div>
 
   <!-- ==================== DASHBOARD ==================== -->
@@ -743,10 +814,17 @@ body {
         <button class="btn btn-outline-secondary btn-sm" onclick="App.showView('list')"><i class="bi bi-arrow-left"></i></button>
         <h5 class="mb-0" id="pdp-detail-title">Nouveau PDP</h5>
       </div>
-      <div class="d-flex gap-2">
+      <div class="d-flex align-items-center gap-2">
+        <span class="save-status" id="save-status"><span class="dot dot-saved"></span>Enregistré</span>
         <button class="btn btn-outline-danger btn-sm" onclick="App.deletePDP()" id="btn-delete-pdp" style="display:none"><i class="bi bi-trash me-1"></i>Supprimer</button>
         <button class="btn btn-primary btn-sm" onclick="App.savePDP()" id="btn-save-pdp"><i class="bi bi-check-lg me-1"></i>Enregistrer</button>
       </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="no-print">
+      <div class="pdp-progress-text"><span id="progress-label">Progression du PDP</span><span id="progress-pct">0%</span></div>
+      <div class="pdp-progress-bar"><div class="pdp-progress-fill" id="progress-fill" style="width:0%"></div></div>
     </div>
 
     <!-- Section tabs -->
@@ -769,6 +847,7 @@ body {
 
     <!-- Section: Général -->
     <div id="section-general" class="pdp-section">
+      <div class="section-helper"><i class="bi bi-lightbulb"></i>Commencez par identifier l'intervention : qui, quoi, ou, quand. Ces informations apparaitront sur tous les documents exportés.</div>
       <div class="form-section">
         <div class="form-section-title"><i class="bi bi-info-circle"></i>Informations générales</div>
         <div class="row g-2">
@@ -850,6 +929,7 @@ body {
 
     <!-- Section: Entreprises -->
     <div id="section-entreprises" class="pdp-section" style="display:none">
+      <div class="section-helper"><i class="bi bi-lightbulb"></i>Identifiez l'entreprise utilisatrice (votre client) et les entreprises qui interviennent. Le PDP est obligatoire dès qu'une entreprise extérieure travaille sur le site.</div>
       <div class="form-section">
         <div class="form-section-title"><i class="bi bi-building"></i>Entreprise Utilisatrice (EU)</div>
         <div class="row g-2">
@@ -873,6 +953,7 @@ body {
 
     <!-- Section: Visite préalable -->
     <div id="section-visite" class="pdp-section" style="display:none">
+      <div class="section-helper"><i class="bi bi-lightbulb"></i>La visite préalable (ICP) est obligatoire avant le démarrage des travaux. Elle permet d'identifier les risques sur le terrain avec toutes les parties.</div>
       <!-- ICP linkage banner -->
       <div id="pdp-icp-link-banner" class="alert alert-info small d-flex align-items-center justify-content-between mb-3" style="display:none !important">
         <span><i class="bi bi-link-45deg me-1"></i>ICP liée : <strong id="pdp-icp-link-label"></strong></span>
@@ -917,6 +998,7 @@ body {
 
     <!-- Section: Risques -->
     <div id="section-risques" class="pdp-section" style="display:none">
+      <div class="section-helper"><i class="bi bi-lightbulb"></i>C'est le coeur du PDP : identifiez les dangers liés à la co-activité. Sélectionnez les risques pertinents, ils seront automatiquement intégrés aux documents.</div>
       <div class="form-section">
         <div class="form-section-title d-flex justify-content-between align-items-center">
           <span><i class="bi bi-exclamation-triangle"></i>Analyse des risques</span>
@@ -942,6 +1024,7 @@ body {
 
     <!-- Section: Mesures -->
     <div id="section-mesures" class="pdp-section" style="display:none">
+      <div class="section-helper"><i class="bi bi-lightbulb"></i>Ajoutez les mesures de prévention en un clic avec les boutons rapides. Elles apparaitront dans le document final face aux risques identifiés.</div>
       <div class="form-section">
         <div class="form-section-title d-flex justify-content-between align-items-center">
           <span><i class="bi bi-shield-check"></i>Mesures de prévention</span>
@@ -965,6 +1048,7 @@ body {
 
     <!-- Section: Exigences EU -->
     <div id="section-exigences" class="pdp-section" style="display:none">
+      <div class="section-helper"><i class="bi bi-lightbulb"></i>Les exigences sont les règles imposées par le client sur son site. Utilisez les boutons rapides pour les exigences courantes.</div>
       <div class="form-section">
         <div class="form-section-title d-flex justify-content-between align-items-center">
           <span><i class="bi bi-clipboard-check"></i>Exigences Entreprise Utilisatrice</span>
@@ -986,6 +1070,7 @@ body {
 
     <!-- Section: Urgence -->
     <div id="section-urgence" class="pdp-section" style="display:none">
+      <div class="section-helper"><i class="bi bi-lightbulb"></i>Ces informations sont essentielles en cas d'accident. Vérifiez les numéros et le nom du SST pour chaque chantier.</div>
       <div class="form-section">
         <div class="form-section-title"><i class="bi bi-telephone"></i>Consignes d'urgence</div>
         <div class="row g-2">
@@ -1001,6 +1086,7 @@ body {
 
     <!-- Section: Signatures -->
     <div id="section-signatures" class="pdp-section" style="display:none">
+      <div class="section-helper"><i class="bi bi-lightbulb"></i>La signature valide l'engagement de chaque partie. Sans signatures, le PDP n'a pas de valeur juridique.</div>
       <div class="form-section">
         <div class="form-section-title"><i class="bi bi-pen"></i>Signature Entreprise Utilisatrice</div>
         <div class="row g-2">
@@ -2123,17 +2209,27 @@ const App = {
   currentView: 'dashboard',
 
   async init() {
+    const _step = (txt, pct) => { const s=document.getElementById('loading-step'); const b=document.getElementById('loading-bar'); if(s)s.textContent=txt; if(b)b.style.width=pct+'%'; };
     try {
+      _step('Ouverture de la base de données...', 20);
       await db.open();
+      _step('Chargement des paramètres...', 40);
       await this.loadSettings();
-      // SharePoint sync
+      _step('Synchronisation...', 60);
       await this._initSharePoint();
+      _step('Préparation du tableau de bord...', 80);
       this.updateDashboard();
+      _step('Prêt !', 100);
       this.showView('dashboard');
       document.getElementById('loading-screen').style.display = 'none';
+      // Écouter les changements de formulaire pour marquer "non enregistré"
+      document.querySelectorAll('#view-pdp-detail input, #view-pdp-detail textarea, #view-pdp-detail select').forEach(el => {
+        el.addEventListener('input', () => this._markEditing());
+        el.addEventListener('change', () => this._markEditing());
+      });
     } catch(e) {
       console.error('Init error:', e);
-      document.getElementById('loading-screen').innerHTML = '<p class="text-danger">Erreur. Rechargez la page.</p>';
+      document.getElementById('loading-screen').innerHTML = '<p class="text-danger">Erreur au chargement. <button class="btn btn-sm btn-outline-primary ms-2" onclick="location.reload()">Réessayer</button></p>';
     }
   },
 
@@ -2360,6 +2456,7 @@ const App = {
     this.showView('pdp-detail');
     document.getElementById('pdp-detail-title').textContent = p.titre || 'PDP #'+p.id;
     document.getElementById('btn-delete-pdp').style.display = '';
+    this._markSaved();
     this.showPDPSection('general');
   },
 
@@ -2591,6 +2688,8 @@ const App = {
       document.getElementById('btn-save-pdp').classList.add('btn-save-flash');
       setTimeout(() => document.getElementById('btn-save-pdp').classList.remove('btn-save-flash'), 600);
       this.toast('PDP enregistré');
+      this._markSaved();
+      this.updateProgress();
       DataSync.markDirty();
     } catch(e) { console.error(e); this.toast('Erreur','danger'); }
   },
@@ -2605,6 +2704,9 @@ const App = {
     this.showView('list');
   },
 
+  // Liste ordonnée des sections pour navigation
+  _sectionOrder: ['general','entreprises','visite','risques','mesures','exigences','urgence','signatures','modifications','pictogrammes','permisfeu','emargement','annexes','documents'],
+
   showPDPSection(section) {
     document.querySelectorAll('.pdp-section').forEach(s => s.style.display = 'none');
     document.getElementById('section-'+section).style.display = 'block';
@@ -2612,9 +2714,109 @@ const App = {
     document.querySelector(`#pdp-section-tabs .section-tab[onclick*="${section}"]`)?.classList.add('active');
     if (section === 'signatures') setTimeout(() => this.initSignatureCanvases(), 100);
     if (section === 'risques') { this._riskPickerCtx = 'pdp'; this.updateRiskCounters(); }
-
     if (section === 'emargement') { this.prefillEmargements(); }
     if (section === 'permisfeu') setTimeout(() => { this.initCanvas('pf-sig-eu-canvas'); this.initCanvas('pf-sig-ee-canvas'); this.initCanvas('pf-sig-exec-canvas'); if (this.currentPDP?.permisFeu?.signatureEU?.data) this.loadSigImg('pf-sig-eu-canvas', this.currentPDP.permisFeu.signatureEU.data); if (this.currentPDP?.permisFeu?.signatureEE?.data) this.loadSigImg('pf-sig-ee-canvas', this.currentPDP.permisFeu.signatureEE.data); if (this.currentPDP?.permisFeu?.signatureExec?.data) this.loadSigImg('pf-sig-exec-canvas', this.currentPDP.permisFeu.signatureExec.data); (this.currentPDP?.permisFeu?.renouvellements||[]).forEach((r,i) => { this.initCanvas('pf-renouv-sig-'+i); if (r.signatureEU?.data) this.loadSigImg('pf-renouv-sig-'+i, r.signatureEU.data); }); }, 100);
+    this._currentSection = section;
+    this.updateProgress();
+    // Navigation arrows
+    this._renderSectionNav(section);
+    // Scroll to top of section
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  },
+
+  // Navigation précédent/suivant
+  navSection(dir) {
+    const visible = this._sectionOrder.filter(s => {
+      const tab = document.querySelector(`#pdp-section-tabs .section-tab[onclick*="${s}"]`);
+      return tab && tab.style.display !== 'none';
+    });
+    const idx = visible.indexOf(this._currentSection||'general');
+    const next = visible[idx + dir];
+    if (next) this.showPDPSection(next);
+  },
+
+  // Calcul de la progression du PDP
+  updateProgress() {
+    if (!this.currentPDP) return;
+    const p = this.currentPDP;
+    const checks = [
+      // Général : titre + site + dates
+      !!(p.titre && p.site && p.dateDebut),
+      // Entreprises : EU renseignée
+      !!(p.eu?.nom),
+      // Visite
+      !!(p.visite?.effectuee || p.visite?.date),
+      // Risques
+      (p.risques||[]).length > 0,
+      // Mesures
+      (p.mesures||[]).length > 0 || p.consignesGenerales,
+      // Exigences
+      (p.exigences||[]).length > 0,
+      // Urgence
+      !!(p.urgence?.responsable || p.urgence?.sst),
+      // Signatures
+      !!(p.signatureEU?.nom || p.signatureEU?.date),
+    ];
+    const done = checks.filter(Boolean).length;
+    const pct = Math.round((done / checks.length) * 100);
+    const fill = document.getElementById('progress-fill');
+    const label = document.getElementById('progress-label');
+    const pctEl = document.getElementById('progress-pct');
+    if (fill) fill.style.width = pct + '%';
+    if (pctEl) pctEl.textContent = pct + '%';
+    if (label) {
+      if (pct === 0) label.textContent = 'Commencez par remplir les informations générales';
+      else if (pct < 50) label.textContent = 'Bon début ! Continuez avec les sections suivantes';
+      else if (pct < 100) label.textContent = 'Presque complet, encore quelques sections';
+      else label.textContent = 'PDP complet — prêt pour signature et export';
+    }
+    // Mettre à jour les indicateurs sur les onglets
+    this._updateTabIndicators(checks);
+  },
+
+  _updateTabIndicators(checks) {
+    const sectionKeys = ['general','entreprises','visite','risques','mesures','exigences','urgence','signatures'];
+    sectionKeys.forEach((key, i) => {
+      const tab = document.querySelector(`#pdp-section-tabs .section-tab[onclick*="${key}"]`);
+      if (!tab) return;
+      const existing = tab.querySelector('.tab-check');
+      if (checks[i]) {
+        tab.classList.add('tab-done');
+        if (!existing) { const span = document.createElement('span'); span.className = 'tab-check'; span.innerHTML = '<i class="bi bi-check-circle-fill"></i>'; tab.appendChild(span); }
+      } else {
+        tab.classList.remove('tab-done');
+        if (existing) existing.remove();
+      }
+    });
+  },
+
+  _renderSectionNav(section) {
+    // Remove existing navs
+    document.querySelectorAll('.section-nav-auto').forEach(n => n.remove());
+    const visible = this._sectionOrder.filter(s => {
+      const tab = document.querySelector(`#pdp-section-tabs .section-tab[onclick*="${s}"]`);
+      return tab && tab.style.display !== 'none';
+    });
+    const idx = visible.indexOf(section);
+    const prev = visible[idx - 1];
+    const next = visible[idx + 1];
+    const sectionEl = document.getElementById('section-'+section);
+    if (!sectionEl) return;
+    const nav = document.createElement('div');
+    nav.className = 'section-nav section-nav-auto no-print';
+    const tabLabel = (s) => { const t = document.querySelector(`#pdp-section-tabs .section-tab[onclick*="${s}"]`); return t ? t.textContent.trim() : s; };
+    nav.innerHTML = `${prev ? `<button class="btn btn-outline-secondary btn-sm" onclick="App.navSection(-1)"><i class="bi bi-arrow-left me-1"></i>${tabLabel(prev)}</button>` : '<span></span>'}${next ? `<button class="btn btn-primary btn-sm" onclick="App.navSection(1)">${tabLabel(next)}<i class="bi bi-arrow-right ms-1"></i></button>` : `<button class="btn btn-primary btn-sm" onclick="App.savePDP()"><i class="bi bi-check-lg me-1"></i>Enregistrer le PDP</button>`}`;
+    sectionEl.appendChild(nav);
+  },
+
+  // Statut de sauvegarde
+  _markEditing() {
+    const el = document.getElementById('save-status');
+    if (el) el.innerHTML = '<span class="dot dot-editing"></span>Non enregistré';
+  },
+  _markSaved() {
+    const el = document.getElementById('save-status');
+    if (el) el.innerHTML = '<span class="dot dot-saved"></span>Enregistré';
   },
 
   // ---- EE ----
