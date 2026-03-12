@@ -408,7 +408,7 @@ textarea.form-control { min-height: 70px; }
 }
 
 /* New PDP button in navbar */
-#btn-nav-new-pdp, #btn-nav-new-vic {
+#btn-nav-new-pdp, #btn-nav-new-icp {
     font-size: 0.82rem;
     white-space: nowrap;
     padding: 0.3rem 0.65rem;
@@ -418,7 +418,7 @@ textarea.form-control { min-height: 70px; }
     color: var(--agw-green-dark) !important;
     border: 2px solid var(--agw-yellow);
 }
-#btn-nav-new-vic {
+#btn-nav-new-icp {
     color: #fff !important;
     background: #0d6efd !important;
     border: 2px solid #0dcaf0 !important;
@@ -427,7 +427,7 @@ textarea.form-control { min-height: 70px; }
     transform: scale(1.05);
     box-shadow: 0 2px 8px rgba(255, 215, 0, 0.5);
 }
-#btn-nav-new-vic:hover, #btn-nav-new-vic:focus {
+#btn-nav-new-icp:hover, #btn-nav-new-icp:focus {
     transform: scale(1.05);
     box-shadow: 0 2px 8px rgba(13, 202, 240, 0.5);
 }
@@ -541,14 +541,14 @@ textarea.form-control { min-height: 70px; }
         transition: transform 0.1s;
     }
     .fab-menu-item:active { transform: scale(0.95); }
-    .fab-menu-vic {
+    .fab-menu-icp {
         background: #0d6efd; color: #fff;
     }
     .fab-menu-pdp {
         background: var(--agw-yellow); color: var(--agw-green-dark);
     }
     /* Hide nav new PDP button on mobile */
-    #btn-nav-new-pdp, #btn-nav-new-vic { display: none !important; }
+    #btn-nav-new-pdp, #btn-nav-new-icp { display: none !important; }
     /* Add bottom padding to main content */
     #main-content { padding-bottom: 65px !important; }
     .toast-container { bottom: 70px !important; }
@@ -783,8 +783,8 @@ textarea.form-control { min-height: 70px; }
       <button class="btn btn-sm btn-outline-light" id="btn-sp-save" style="display:none" title="Sauvegarder" onclick="DataSync.save().then(()=>App.toast('Sauvegardé'))">
         <i class="bi bi-floppy"></i><span class="badge bg-danger d-none" id="sync-badge">!</span>
       </button>
-      <button class="btn btn-info btn-sm fw-bold" id="btn-nav-new-vic" onclick="App.newVIC()">
-        <span class="me-1">&#x1F50D;</span><span>Nouvelle VIC</span>
+      <button class="btn btn-info btn-sm fw-bold" id="btn-nav-new-icp" onclick="App.newICP()">
+        <span class="me-1">&#x1F50D;</span><span>Nouvelle ICP</span>
       </button>
       <button class="btn btn-warning btn-sm fw-bold" id="btn-nav-new-pdp" onclick="App.newPDP()">
         <span class="me-1">&#x2795;</span><span>Nouveau PDP</span>
@@ -828,8 +828,8 @@ textarea.form-control { min-height: 70px; }
   <div id="view-dashboard" class="view fade-in" style="display:none">
     <!-- Quick actions -->
     <div class="d-flex flex-wrap gap-2 mb-3">
-      <button class="btn btn-info btn-sm fw-bold" onclick="App.newVIC()">
-        <i class="bi bi-clipboard-check me-1"></i>Nouvelle VIC
+      <button class="btn btn-info btn-sm fw-bold" onclick="App.newICP()">
+        <i class="bi bi-clipboard-check me-1"></i>Nouvelle ICP
       </button>
       <button class="btn btn-warning btn-sm fw-bold" onclick="App.newPDP()">
         <i class="bi bi-file-earmark-plus me-1"></i>Nouveau PDP
@@ -1511,158 +1511,124 @@ textarea.form-control { min-height: 70px; }
     <div id="entreprises-list-container"></div>
   </div>
 
-  <!-- ==================== VIC LIST ==================== -->
-  <div id="view-vics" class="view fade-in" style="display:none">
+  <!-- ==================== ICP LIST ==================== -->
+  <div id="view-icps" class="view fade-in" style="display:none">
     <div class="d-flex justify-content-between flex-wrap align-items-center gap-2 mb-3">
-      <h5 class="mb-0"><i class="bi bi-clipboard-check me-1"></i>Visites d'Inspection Commune</h5>
-      <button class="btn btn-primary btn-sm" onclick="App.newVIC()"><i class="bi bi-plus-lg me-1"></i>Nouvelle VIC</button>
+      <h5 class="mb-0"><i class="bi bi-clipboard-check me-1"></i>Inspections Communes Préalables</h5>
+      <button class="btn btn-primary btn-sm" onclick="App.newICP()"><i class="bi bi-plus-lg me-1"></i>Nouvelle ICP</button>
     </div>
-    <input type="search" class="form-control form-control-sm search-bar mb-3" placeholder="Rechercher..." id="search-vic" oninput="App.filterVICs()">
-    <div id="vics-list-container"></div>
+    <input type="search" class="form-control form-control-sm search-bar mb-3" placeholder="Rechercher..." id="search-icp" oninput="App.filterICPs()">
+    <div id="icps-list-container"></div>
   </div>
 
-  <!-- ==================== VIC DETAIL ==================== -->
-  <div id="view-vic-detail" class="view fade-in" style="display:none">
+  <!-- ==================== ICP DETAIL ==================== -->
+  <div id="view-icp-detail" class="view fade-in" style="display:none">
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 no-print">
-      <h5 class="mb-0" id="vic-detail-title">Nouvelle VIC</h5>
+      <h5 class="mb-0" id="icp-detail-title">Nouvelle ICP</h5>
       <div class="d-flex gap-2">
-        <button class="btn btn-outline-danger btn-sm" id="btn-delete-vic" style="display:none" onclick="App.deleteVIC()"><i class="bi bi-trash me-1"></i>Supprimer</button>
-        <button class="btn btn-outline-secondary btn-sm" onclick="App.showView('vics')"><i class="bi bi-arrow-left me-1"></i>Retour</button>
-        <button class="btn btn-primary btn-sm" id="btn-save-vic" onclick="App.saveVIC()"><i class="bi bi-check-lg me-1"></i>Enregistrer</button>
+        <button class="btn btn-outline-danger btn-sm" id="btn-delete-icp" style="display:none" onclick="App.deleteICP()"><i class="bi bi-trash me-1"></i>Supprimer</button>
+        <button class="btn btn-outline-secondary btn-sm" onclick="App.showView('icps')"><i class="bi bi-arrow-left me-1"></i>Retour</button>
+        <button class="btn btn-primary btn-sm" id="btn-save-icp" onclick="App.saveICP()"><i class="bi bi-check-lg me-1"></i>Enregistrer</button>
       </div>
     </div>
 
-    <!-- VIC General -->
+    <!-- ICP General -->
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-info-circle"></i>Informations de la visite</div>
       <div class="row g-2">
-        <div class="col-md-4"><label class="form-label">N° VIC</label><input type="text" class="form-control" id="vic-numero" placeholder="Auto-généré si vide"></div>
-        <div class="col-md-4"><label class="form-label">N° d'opération / Réf.</label><input type="text" class="form-control" id="vic-ref-operation" placeholder="Ex: OPP-2026-001"></div>
+        <div class="col-md-4"><label class="form-label">N° ICP</label><input type="text" class="form-control" id="icp-numero" placeholder="Auto-généré si vide"></div>
+        <div class="col-md-4"><label class="form-label">N° d'opération / Réf.</label><input type="text" class="form-control" id="icp-ref-operation" placeholder="Ex: OPP-2026-001"></div>
         <div class="col-md-4">
           <label class="form-label">Statut</label>
-          <select class="form-select" id="vic-statut">
+          <select class="form-select" id="icp-statut">
             <option value="effectuee">Effectuée</option>
             <option value="validee">Validée (signée)</option>
           </select>
         </div>
-        <div class="col-md-6"><label class="form-label">Date de la visite *</label><input type="date" class="form-control" id="vic-date"></div>
-        <div class="col-md-6"><label class="form-label">Site / Adresse</label><input type="text" class="form-control" id="vic-site" placeholder="Ex: Bouxières-sous-Froidmont"></div>
-        <div class="col-md-6"><label class="form-label">Lieu</label><input type="text" class="form-control" id="vic-lieu" placeholder="Ex: Hangar de stockage"></div>
-        <div class="col-12"><label class="form-label">Objet de l'intervention</label><textarea class="form-control" id="vic-objet" rows="2" placeholder="Nature des travaux prévus..."></textarea></div>
+        <div class="col-md-6"><label class="form-label">Date de la visite *</label><input type="date" class="form-control" id="icp-date"></div>
+        <div class="col-md-6"><label class="form-label">Site / Adresse</label><input type="text" class="form-control" id="icp-site" placeholder="Ex: Bouxières-sous-Froidmont"></div>
+        <div class="col-md-6"><label class="form-label">Lieu</label><input type="text" class="form-control" id="icp-lieu" placeholder="Ex: Hangar de stockage"></div>
+        <div class="col-12"><label class="form-label">Objet de l'intervention</label><textarea class="form-control" id="icp-objet" rows="2" placeholder="Nature des travaux prévus..."></textarea></div>
       </div>
     </div>
 
-    <!-- VIC Participants -->
+    <!-- ICP Participants -->
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-people"></i>Participants à la visite</div>
       <div class="row g-2 mb-2">
         <div class="col-12"><label class="form-label fw-semibold">Représentant EU</label></div>
-        <div class="col-md-4"><input type="text" class="form-control" id="vic-eu-nom" placeholder="Nom"></div>
-        <div class="col-md-4"><input type="text" class="form-control" id="vic-eu-fonction" placeholder="Fonction"></div>
-        <div class="col-md-4"><input type="tel" class="form-control" id="vic-eu-tel" placeholder="Téléphone"></div>
+        <div class="col-md-4"><input type="text" class="form-control" id="icp-eu-nom" placeholder="Nom"></div>
+        <div class="col-md-4"><input type="text" class="form-control" id="icp-eu-fonction" placeholder="Fonction"></div>
+        <div class="col-md-4"><input type="tel" class="form-control" id="icp-eu-tel" placeholder="Téléphone"></div>
       </div>
       <div class="form-section-title d-flex justify-content-between align-items-center">
         <span><i class="bi bi-buildings me-1"></i>Représentants EE</span>
-        <button class="btn btn-sm btn-outline-primary" onclick="App.addVICEE()"><i class="bi bi-plus-lg me-1"></i>Ajouter EE</button>
+        <button class="btn btn-sm btn-outline-primary" onclick="App.addICPEE()"><i class="bi bi-plus-lg me-1"></i>Ajouter EE</button>
       </div>
-      <div id="vic-ee-list-container"></div>
+      <div id="icp-ee-list-container"></div>
     </div>
 
-    <!-- VIC Risques identifiés -->
+    <!-- ICP Risques identifiés -->
     <div class="form-section">
       <div class="form-section-title d-flex justify-content-between align-items-center">
         <span><i class="bi bi-exclamation-triangle"></i>Risques identifiés sur site</span>
-        <button class="btn btn-sm btn-outline-primary" onclick="App.addVICRisque()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
+        <button class="btn btn-sm btn-outline-primary" onclick="App.addICPRisque()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
       </div>
-      <div id="vic-risk-selected-summary" class="risk-selected-summary mb-2" style="display:none">
-        <span class="risk-selected-count" id="vic-risk-count">0</span>
+      <div id="icp-risk-selected-summary" class="risk-selected-summary mb-2" style="display:none">
+        <span class="risk-selected-count" id="icp-risk-count">0</span>
         <span>risque(s) identifié(s)</span>
       </div>
-      <button class="risk-picker-btn mb-2" onclick="App.openRiskPicker('vic')">
+      <button class="risk-picker-btn mb-2" onclick="App.openRiskPicker('icp')">
         <i class="bi bi-shield-plus" style="font-size:1.1rem"></i>
         Sélectionner des risques
       </button>
-      <div id="vic-risques-list-container"></div>
+      <div id="icp-risques-list-container"></div>
     </div>
 
-    <!-- VIC Observations + Photos -->
+    <!-- ICP Observations + Photos -->
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-journal-text"></i>Observations</div>
-      <textarea class="form-control mb-2" id="vic-observations" rows="4" placeholder="Observations relevées lors de la visite d'inspection..."></textarea>
+      <textarea class="form-control mb-2" id="icp-observations" rows="4" placeholder="Observations relevées lors de la visite d'inspection..."></textarea>
       <div class="form-section-title"><i class="bi bi-camera"></i>Photos</div>
-      <div class="d-flex flex-wrap gap-2 mb-2" id="vic-photos"></div>
-      <label class="btn btn-outline-primary btn-sm"><i class="bi bi-camera me-1"></i>Ajouter<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addVICPhoto(event)"></label>
+      <div class="d-flex flex-wrap gap-2 mb-2" id="icp-photos"></div>
+      <label class="btn btn-outline-primary btn-sm"><i class="bi bi-camera me-1"></i>Ajouter<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addICPPhoto(event)"></label>
     </div>
 
-    <!-- VIC Signatures -->
+    <!-- ICP Signatures -->
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-pen"></i>Signature EU</div>
       <div class="row g-2 mb-3">
-        <div class="col-md-6"><label class="form-label">Signataire EU</label><input type="text" class="form-control" id="vic-sig-eu-nom" placeholder="Nom et qualité"></div>
-        <div class="col-md-6"><label class="form-label">Date</label><input type="date" class="form-control" id="vic-sig-eu-date"></div>
+        <div class="col-md-6"><label class="form-label">Signataire EU</label><input type="text" class="form-control" id="icp-sig-eu-nom" placeholder="Nom et qualité"></div>
+        <div class="col-md-6"><label class="form-label">Date</label><input type="date" class="form-control" id="icp-sig-eu-date"></div>
         <div class="col-12">
-          <div class="signature-pad-wrapper"><canvas id="vic-sig-eu-canvas" class="signature-canvas"></canvas></div>
-          <button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('vic-sig-eu-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button>
+          <div class="signature-pad-wrapper"><canvas id="icp-sig-eu-canvas" class="signature-canvas"></canvas></div>
+          <button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('icp-sig-eu-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button>
         </div>
       </div>
       <div class="form-section-title"><i class="bi bi-pen"></i>Signatures EE</div>
-      <div id="vic-signatures-ee-container"></div>
+      <div id="icp-signatures-ee-container"></div>
     </div>
 
-    <!-- VIC → PDP Link -->
+    <!-- ICP → PDP Link -->
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-link-45deg"></i>Liaison avec un PDP</div>
-      <div id="vic-pdp-link-info" class="mb-2"></div>
+      <div id="icp-pdp-link-info" class="mb-2"></div>
       <div class="d-flex flex-wrap gap-2">
-        <button class="btn btn-primary btn-sm" onclick="App.createPDPFromVIC()"><i class="bi bi-file-earmark-plus me-1"></i>Créer un PDP depuis cette VIC</button>
-        <button class="btn btn-outline-primary btn-sm" onclick="App.linkVICToPDP()"><i class="bi bi-link me-1"></i>Lier à un PDP existant</button>
-        <button class="btn btn-outline-warning btn-sm" id="btn-vic-push-risks" style="display:none" onclick="App.pushVICRisksToPDP()"><i class="bi bi-arrow-right-circle me-1"></i>Envoyer risques vers le PDP</button>
-        <button class="btn btn-outline-secondary btn-sm" id="btn-vic-unlink" style="display:none" onclick="App.unlinkVIC()"><i class="bi bi-x-lg me-1"></i>Délier</button>
+        <button class="btn btn-primary btn-sm" onclick="App.createPDPFromICP()"><i class="bi bi-file-earmark-plus me-1"></i>Créer un PDP depuis cette ICP</button>
+        <button class="btn btn-outline-primary btn-sm" onclick="App.linkICPToPDP()"><i class="bi bi-link me-1"></i>Lier à un PDP existant</button>
+        <button class="btn btn-outline-warning btn-sm" id="btn-icp-push-risks" style="display:none" onclick="App.pushICPRisksToPDP()"><i class="bi bi-arrow-right-circle me-1"></i>Envoyer risques vers le PDP</button>
+        <button class="btn btn-outline-secondary btn-sm" id="btn-icp-unlink" style="display:none" onclick="App.unlinkICP()"><i class="bi bi-x-lg me-1"></i>Délier</button>
       </div>
     </div>
 
-    <!-- VIC Export -->
+    <!-- ICP Export -->
     <div class="form-section no-print">
-      <div class="form-section-title"><i class="bi bi-download"></i>Exporter la VIC</div>
+      <div class="form-section-title"><i class="bi bi-download"></i>Exporter l'ICP</div>
       <div class="d-flex flex-wrap gap-2">
-        <button class="btn btn-outline-primary btn-sm" onclick="App.exportVICPDF()"><i class="bi bi-file-pdf me-1"></i>Export PDF</button>
-        <button class="btn btn-primary btn-sm" onclick="App.exportVICDOCX()"><i class="bi bi-file-earmark-word me-1"></i>Export Word (.docx)</button>
+        <button class="btn btn-outline-primary btn-sm" onclick="App.exportICPPDF()"><i class="bi bi-file-pdf me-1"></i>Export PDF</button>
+        <button class="btn btn-primary btn-sm" onclick="App.exportICPDOCX()"><i class="bi bi-file-earmark-word me-1"></i>Export Word (.docx)</button>
         <button class="btn btn-outline-secondary btn-sm" onclick="window.print()"><i class="bi bi-printer me-1"></i>Imprimer</button>
       </div>
-    </div>
-  </div>
-
-  <!-- ICP List -->
-  <div id="view-icps" class="view fade-in" style="display:none">
-    <div class="d-flex justify-content-between flex-wrap align-items-center gap-2 mb-3">
-      <h5 class="mb-0"><i class="bi bi-clipboard-check me-1"></i>Inspections Communes Préalables</h5>
-      <div class="d-flex gap-2">
-        <input type="search" class="form-control form-control-sm search-bar" style="width:200px" placeholder="Rechercher..." id="search-icp" oninput="App.filterICPList()">
-        <button class="btn btn-primary btn-sm" onclick="App.newICP()"><i class="bi bi-plus-lg me-1"></i>Nouvelle ICP</button>
-      </div>
-    </div>
-    <div id="icps-list-container"></div>
-  </div>
-
-  <!-- ICP Detail -->
-  <div id="view-icp-detail" class="view fade-in" style="display:none">
-    <div class="d-flex justify-content-between flex-wrap align-items-center gap-2 mb-3">
-      <div class="d-flex align-items-center gap-2">
-        <button class="btn btn-outline-secondary btn-sm" onclick="App.showView('icps')"><i class="bi bi-arrow-left"></i></button>
-        <h5 class="mb-0" id="icp-detail-title">ICP</h5>
-        <button class="btn btn-warning btn-sm" id="btn-back-to-pdp" style="display:none" onclick="App.returnToPDP()"><i class="bi bi-file-text me-1"></i>Retour au PDP</button>
-      </div>
-      <div class="d-flex gap-2">
-        <button class="btn btn-outline-danger btn-sm" id="btn-delete-icp" style="display:none" onclick="App.deleteICP()"><i class="bi bi-trash me-1"></i>Supprimer</button>
-        <button class="btn btn-primary btn-sm" onclick="App.saveICP()"><i class="bi bi-check-lg me-1"></i>Enregistrer</button>
-      </div>
-    </div>
-    <div id="icp-form-container"></div>
-    <div id="icp-pdp-link-info" class="mt-3"></div>
-    <div class="mt-2 d-flex gap-2 flex-wrap">
-      <button class="btn btn-primary btn-sm" onclick="App.createPDPFromICP()"><i class="bi bi-file-earmark-plus me-1"></i>Créer un PDP depuis cette ICP</button>
-      <button class="btn btn-outline-primary btn-sm" onclick="App.linkICPToPDP()"><i class="bi bi-link me-1"></i>Lier à un PDP existant</button>
-      <button class="btn btn-outline-warning btn-sm" id="btn-icp-push-risks" style="display:none" onclick="App.pushICPRisksToPDP()"><i class="bi bi-arrow-right-circle me-1"></i>Envoyer risques vers le PDP</button>
     </div>
   </div>
 
@@ -1728,8 +1694,8 @@ textarea.form-control { min-height: 70px; }
   </a>
   <!-- FAB popup menu -->
   <div id="fab-menu" class="fab-menu" style="display:none">
-    <div class="fab-menu-item fab-menu-vic" onclick="App.newVIC();App.hideFabMenu()">
-      <i class="bi bi-clipboard-check me-2"></i>Nouvelle VIC
+    <div class="fab-menu-item fab-menu-icp" onclick="App.newICP();App.hideFabMenu()">
+      <i class="bi bi-clipboard-check me-2"></i>Nouvelle ICP
     </div>
     <div class="fab-menu-item fab-menu-pdp" onclick="App.newPDP();App.hideFabMenu()">
       <i class="bi bi-file-earmark-plus me-2"></i>Nouveau PDP
@@ -1818,12 +1784,12 @@ textarea.form-control { min-height: 70px; }
   </div>
 </div>
 
-<!-- VIC/PDP Link Selection Modal -->
-<div class="modal fade" id="modal-vic-link" tabindex="-1">
+<!-- ICP/PDP Link Selection Modal -->
+<div class="modal fade" id="modal-icp-link" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header"><h6 class="modal-title"><i class="bi bi-link-45deg me-1"></i>Sélectionner</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body" id="modal-vic-link-body"></div>
+      <div class="modal-body" id="modal-icp-link-body"></div>
     </div>
   </div>
 </div>
@@ -1915,14 +1881,14 @@ const SP_CONFIG = {
     TENANT_ID:   '6487f869-e502-42be-91ab-5c1ecde34be6',
     CLIENT_ID:   'ae0f1f6c-aedc-4866-899c-8d128e2af81a',
     SHAREPOINT_SITE_PATH: '/sites/QHSE',
-    // Répertoires séparés pour PDP, VIC et entreprises
+    // Répertoires séparés pour PDP, ICP et entreprises
     PDP_FOLDER:       'Documents/SuiviPDP/PDP',
-    VIC_FOLDER:       'Documents/SuiviPDP/VIC',
+    ICP_FOLDER:       'Documents/SuiviPDP/ICP',
     SHARED_FOLDER:    'Documents/SuiviPDP/Shared',
     PRESENCE_FOLDER:  'Documents/SuiviPDP/.presence',
     // Fichiers de données
     PDP_DATA_FILE:    'Documents/SuiviPDP/PDP/pdp-data.json',
-    VIC_DATA_FILE:    'Documents/SuiviPDP/VIC/vic-data.json',
+    ICP_DATA_FILE:    'Documents/SuiviPDP/ICP/icp-data.json',
     SHARED_DATA_FILE: 'Documents/SuiviPDP/Shared/shared-data.json',
     SCOPES: ['Files.ReadWrite.All', 'User.Read', 'Sites.ReadWrite.All'],
     REDIRECT_URI: window.location.origin + window.location.pathname,
@@ -4540,12 +4506,12 @@ const App = {
     const v = this.currentICP;
     const pdp = await db.pdps.get(v.pdpId);
     if (!pdp) { this.toast('PDP introuvable','danger'); return; }
-    const vicRisques = v.risques||[];
-    if (!vicRisques.length) { this.toast('Aucun risque dans l\'ICP','warning'); return; }
+    const icpRisques = v.risques||[];
+    if (!icpRisques.length) { this.toast('Aucun risque dans l\'ICP','warning'); return; }
     const existing = pdp.risques||[];
     const existingNames = new Set(existing.map(r => r.danger));
     let added = 0;
-    for (const r of vicRisques) {
+    for (const r of icpRisques) {
       if (!existingNames.has(r.danger)) {
         existing.push({ danger:r.danger, situation:r.situation, prevention:r.prevention, niveau:r.niveau });
         added++;
@@ -4561,7 +4527,7 @@ const App = {
     pdp.visite.participants = [v.euParticipant?.nom, ...(v.entreprisesExt||[]).map(e=>e.responsable)].filter(Boolean).join(', ');
     pdp.dateModification = new Date().toISOString();
     await db.pdps.put(pdp);
-    this.toast(`${added} risque(s) envoyé(s) au PDP (${vicRisques.length - added} déjà présent(s))`);
+    this.toast(`${added} risque(s) envoyé(s) au PDP (${icpRisques.length - added} déjà présent(s))`);
   },
 
   async createPDPFromICP() {
