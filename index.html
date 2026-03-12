@@ -1798,7 +1798,147 @@ textarea.form-control { min-height: 70px; }
     <h5 class="mb-3"><i class="bi bi-book me-1"></i>Aide — Guide d'utilisation</h5>
     <input type="search" class="form-control mb-3" placeholder="Rechercher dans l'aide..." oninput="App.filterTutorial(this.value)">
     <div class="accordion" id="tuto-accordion">
-      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-1">1. Présentation générale</button></h2><div id="tuto-1" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">Application de suivi des Plans de Prévention (PDP) et Inspections Communes Préalables (ICP) pour Agriwatt/Enersolys.</div></div></div>
+
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-1">1. Présentation générale</button></h2><div id="tuto-1" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+        <p><strong>Suivi PDP</strong> est une application de gestion des <strong>Plans de Prévention (PDP)</strong>, des <strong>Inspections Communes Préalables (ICP)</strong> et des <strong>Permis de Feu</strong> pour Agriwatt et Enersolys.</p>
+        <p>L'application fonctionne <strong>hors-ligne</strong> : toutes les données sont stockées localement dans votre navigateur (IndexedDB). Elle est accessible depuis un ordinateur ou un smartphone.</p>
+        <ul>
+          <li><strong>Tableau de bord</strong> : vue d'ensemble des PDP actifs, expirés, ICP récentes</li>
+          <li><strong>PDP</strong> : création, suivi, export (Word, PDF, ZIP)</li>
+          <li><strong>ICP</strong> : visite préalable avec risques, photos, signatures</li>
+          <li><strong>Entreprises</strong> : répertoire partagé d'entreprises extérieures</li>
+          <li><strong>Paramètres</strong> : configuration EU par défaut, sites, import/export</li>
+        </ul>
+      </div></div></div>
+
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-2">2. Créer un PDP</button></h2><div id="tuto-2" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+        <ol>
+          <li>Cliquez sur <strong>Nouveau PDP</strong> depuis le tableau de bord ou le menu</li>
+          <li>Remplissez les onglets dans l'ordre suggéré par la <strong>barre de progression</strong> en haut</li>
+          <li><strong>Général</strong> : titre, numéro, dates, site, description</li>
+          <li><strong>Entreprises</strong> : sélectionnez un site EU (Agriwatt/Enersolys) puis ajoutez les EE</li>
+          <li><strong>Visite</strong> : liez ou créez une ICP</li>
+          <li><strong>Risques</strong> : utilisez le sélecteur de risques par catégorie</li>
+          <li><strong>Mesures</strong> : ajoutez les mesures de prévention (boutons rapides ou manuellement)</li>
+          <li><strong>Urgence</strong> : contacts et numéros d'urgence du site</li>
+          <li><strong>Signatures</strong> : signature EU (client) et EE</li>
+          <li>Cliquez sur <strong>Enregistrer</strong> à tout moment</li>
+        </ol>
+        <p><strong>Astuce</strong> : utilisez les boutons <strong>Précédent / Suivant</strong> en bas de chaque section pour naviguer.</p>
+      </div></div></div>
+
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-3">3. Sites Agriwatt / Enersolys</button></h2><div id="tuto-3" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+        <p>L'application intègre une <strong>base de données de sites</strong> prédéfinis (Agriwatt Bouxières, Seclin, Vervins, Honfleur, Enersolys Bailly-Romainvilliers).</p>
+        <ul>
+          <li>Dans un PDP, section <strong>Entreprises</strong> : le sélecteur "Sélection rapide du site" remplit automatiquement les infos EU (raison sociale, adresse, responsable, téléphone...)</li>
+          <li>Dans une ICP, section <strong>Participants</strong> : même sélecteur pour pré-remplir le représentant EU</li>
+          <li>Chaque site peut avoir un <strong>responsable / conducteur de travaux différent</strong></li>
+          <li>Gérez vos sites dans <strong>Paramètres > Sites Agriwatt / Enersolys</strong> (ajouter, modifier, supprimer)</li>
+        </ul>
+      </div></div></div>
+
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-4">4. Entreprises Extérieures (EE)</button></h2><div id="tuto-4" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+        <p>Les entreprises extérieures sont gérées via un <strong>répertoire partagé</strong>.</p>
+        <ul>
+          <li>Quand vous ajoutez une EE manuellement dans un PDP, elle est <strong>automatiquement enregistrée</strong> dans le répertoire pour réutilisation future</li>
+          <li>Lors de l'ajout suivant, le répertoire vous propose les EE connues</li>
+          <li>Vous pouvez aussi gérer les EE depuis l'onglet <strong>Entreprises</strong> du menu principal</li>
+          <li>Import CSV Sellsy possible depuis l'onglet Entreprises</li>
+          <li>Les sous-traitants sont rattachés à leur EE principale</li>
+          <li>Modifier une EE dans un PDP met à jour le répertoire partagé</li>
+        </ul>
+      </div></div></div>
+
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-5">5. Inspections Communes Préalables (ICP)</button></h2><div id="tuto-5" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+        <p>L'ICP (ex-VIC) est la <strong>visite préalable obligatoire</strong> avant tout travail sur site.</p>
+        <ul>
+          <li>Créez une ICP depuis le menu ou directement depuis un PDP (onglet Visite)</li>
+          <li>Renseignez : date, lieu, participants EU/EE, risques identifiés, observations</li>
+          <li>Ajoutez des <strong>photos</strong> prises sur le terrain</li>
+          <li>Faites signer les participants (signature tactile)</li>
+          <li>Liez l'ICP à un PDP existant ou créez un PDP depuis l'ICP</li>
+          <li>Les risques identifiés en ICP peuvent être <strong>envoyés directement</strong> vers le PDP lié</li>
+          <li><strong>Export</strong> : PDF et Word avec toutes les données, photos et signatures</li>
+        </ul>
+      </div></div></div>
+
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-6">6. Permis de Feu</button></h2><div id="tuto-6" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+        <p>Le permis de feu est intégré directement dans le PDP (onglet <strong>Permis de Feu</strong>).</p>
+        <ul>
+          <li>Activez-le avec le bouton "Activer le Permis de Feu"</li>
+          <li>Sélectionnez les types de travaux (soudage, meulage, etc.)</li>
+          <li>Renseignez les risques, dates/horaires de validité, opérateurs</li>
+          <li>Cochez les consignes avant / pendant / après les travaux</li>
+          <li>3 signatures : EU (client), EE (entreprise), Exécutant</li>
+          <li>Le permis de feu est inclus dans l'export complet du PDP</li>
+          <li><strong>Important</strong> : le permis doit être signé par le client (EU) avant tout travail</li>
+        </ul>
+      </div></div></div>
+
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-7">7. Exports (Word, PDF, ZIP)</button></h2><div id="tuto-7" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+        <p>Chaque PDP et ICP peut être exporté en plusieurs formats :</p>
+        <ul>
+          <li><strong>Word (.docx)</strong> : document éditable avec mise en forme professionnelle, logo, tableaux</li>
+          <li><strong>PDF</strong> : document figé pour impression ou envoi</li>
+          <li><strong>ZIP complet</strong> (PDP uniquement) : le document principal + tous les fichiers joints en annexe</li>
+          <li>Les exports incluent : informations générales, entreprises, risques, mesures, signatures (images), photos, permis de feu</li>
+          <li><strong>Impression</strong> : bouton imprimer disponible pour impression directe</li>
+        </ul>
+      </div></div></div>
+
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-8">8. Versions et Modifications</button></h2><div id="tuto-8" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+        <ul>
+          <li>Le <strong>numéro de version</strong> du PDP s'incrémente automatiquement à chaque ajout de modification/avenant (pas à chaque enregistrement)</li>
+          <li>Ajoutez des modifications via l'onglet <strong>Modifications</strong> (type, description, auteur)</li>
+          <li>Chaque modification est tracée dans l'<strong>historique</strong></li>
+          <li>Supprimer une modification fait revenir le numéro de version en arrière</li>
+          <li>L'historique peut être réinitialisé si nécessaire</li>
+        </ul>
+      </div></div></div>
+
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-9">9. Clôture et Réouverture</button></h2><div id="tuto-9" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+        <ul>
+          <li>Passez le statut d'un PDP à <strong>Clôturé</strong> quand les travaux sont terminés</li>
+          <li>Un PDP clôturé passe en <strong>lecture seule</strong> : tous les champs sont verrouillés</li>
+          <li>Une bannière rouge indique le verrouillage</li>
+          <li>Le bouton <strong>Réouvrir</strong> permet de repasser le PDP en statut Actif pour le modifier à nouveau</li>
+          <li>Les exports restent disponibles même sur un PDP clôturé</li>
+          <li>Clôture et réouverture sont tracées dans l'historique</li>
+        </ul>
+      </div></div></div>
+
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-10">10. Données et Transfert</button></h2><div id="tuto-10" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+        <p>Les données sont stockées <strong>localement</strong> dans votre navigateur. Elles ne sont pas synchronisées automatiquement entre appareils.</p>
+        <ul>
+          <li><strong>Exporter</strong> : télécharge un fichier JSON contenant tous vos PDP, ICP, entreprises, sites et paramètres</li>
+          <li><strong>Importer (ajouter)</strong> : fusionne les données importées avec les données existantes</li>
+          <li><strong>Importer (remplacer tout)</strong> : efface les données existantes puis importe — idéal pour transférer d'un appareil à un autre</li>
+          <li><strong>Réinitialiser</strong> : supprime toutes les données (les sites par défaut sont recréés)</li>
+        </ul>
+        <p><strong>Pour transférer vos données</strong> (ex: du fichier local vers GitHub Pages) : Exportez sur l'ancien appareil, puis Importez (remplacer tout) sur le nouveau.</p>
+      </div></div></div>
+
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-11">11. Risques et Pictogrammes</button></h2><div id="tuto-11" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+        <ul>
+          <li>Le <strong>sélecteur de risques</strong> propose un catalogue classé par catégorie (Chutes, Électrique, Incendie, Chimique, etc.)</li>
+          <li>Chaque risque a un niveau de gravité : Faible, Moyen, Élevé, Critique</li>
+          <li>Vous pouvez ajouter des risques personnalisés</li>
+          <li>L'onglet <strong>Pictogrammes</strong> permet de cocher les interdictions (flamme, vapotage...) et EPI obligatoires (casque, gants, lunettes...)</li>
+          <li>Les pictogrammes sont inclus dans les exports</li>
+        </ul>
+      </div></div></div>
+
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-12">12. Raccourcis et Astuces</button></h2><div id="tuto-12" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+        <ul>
+          <li>La <strong>barre de progression</strong> en haut du PDP indique le taux de complétion</li>
+          <li>Les <strong>coches vertes</strong> sur les onglets indiquent les sections complétées</li>
+          <li>Le <strong>point vert/orange</strong> à côté de "Enregistré" indique si des modifications non sauvegardées existent</li>
+          <li>Sur mobile, utilisez le <strong>bouton +</strong> en bas pour créer rapidement un PDP ou une ICP</li>
+          <li>L'application fonctionne <strong>hors-ligne</strong> grâce au service worker</li>
+          <li>L'URL : <strong>https://cocothib.github.io/suivipdp/</strong></li>
+        </ul>
+      </div></div></div>
+
     </div>
   </div>
 
