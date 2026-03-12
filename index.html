@@ -925,8 +925,12 @@ textarea.form-control { min-height: 70px; }
       <div class="d-flex align-items-center gap-2">
         <span class="save-status" id="save-status"><span class="dot dot-saved"></span>Enregistré</span>
         <button class="btn btn-outline-danger btn-sm" onclick="App.deletePDP()" id="btn-delete-pdp" style="display:none"><i class="bi bi-trash me-1"></i>Supprimer</button>
+        <button class="btn btn-warning btn-sm" onclick="App.reopenPDP()" id="btn-reopen-pdp" style="display:none"><i class="bi bi-unlock me-1"></i>Réouvrir</button>
         <button class="btn btn-primary btn-sm" onclick="App.savePDP()" id="btn-save-pdp"><i class="bi bi-check-lg me-1"></i>Enregistrer</button>
       </div>
+    </div>
+    <div class="alert alert-danger small mb-2" id="pdp-locked-banner" style="display:none">
+      <i class="bi bi-lock me-1"></i><strong>PDP clôturé</strong> — Ce PDP est en lecture seule. Cliquez sur <strong>Réouvrir</strong> pour le modifier.
     </div>
 
     <!-- Progress bar -->
@@ -977,7 +981,7 @@ textarea.form-control { min-height: 70px; }
             </div>
             <div class="col-md-4">
               <label class="form-label">Statut</label>
-              <select class="form-select" id="pdp-statut">
+              <select class="form-select" id="pdp-statut" onchange="App.onStatutChange(this.value)">
                 <option value="brouillon">Brouillon</option>
                 <option value="visite_prealable">Visite préalable</option>
                 <option value="analyse_risque">Analyse de risque</option>
@@ -2578,6 +2582,7 @@ const App = {
     this.showView('pdp-detail');
     document.getElementById('pdp-detail-title').textContent = 'Nouveau PDP';
     document.getElementById('btn-delete-pdp').style.display = 'none';
+    this._unlockPDP();
     this.showPDPSection('general');
     this.addHist('Création du PDP');
   },
@@ -2590,8 +2595,71 @@ const App = {
     this.showView('pdp-detail');
     document.getElementById('pdp-detail-title').textContent = p.titre || 'PDP #'+p.id;
     document.getElementById('btn-delete-pdp').style.display = '';
+    if (p.statut === 'cloture') this._lockPDP(); else this._unlockPDP();
     this._markSaved();
     this.showPDPSection('general');
+  },
+
+  _lockPDP() {
+    document.getElementById('pdp-locked-banner').style.display = '';
+    document.getElementById('btn-reopen-pdp').style.display = '';
+    document.getElementById('btn-save-pdp').style.display = 'none';
+    // Disable all form inputs in PDP detail (sauf le select statut pour permettre la réouverture)
+    document.querySelectorAll('#view-pdp-detail input, #view-pdp-detail select, #view-pdp-detail textarea').forEach(el => {
+      if (el.id === 'pdp-statut') return;
+      el.disabled = true;
+      el._wasDisabled = true;
+    });
+    // Disable action buttons (add EE, add risk, add mesure, etc.) but not navigation/export
+    document.querySelectorAll('#view-pdp-detail .form-section button[onclick*="add"], #view-pdp-detail .form-section button[onclick*="remove"], #view-pdp-detail .form-section button[onclick*="save"], #view-pdp-detail .form-section button[onclick*="clear"], #view-pdp-detail .form-section button[onclick*="Add"]').forEach(btn => {
+      btn.disabled = true;
+      btn._wasDisabled = true;
+    });
+    // Disable file inputs (photo/document upload)
+    document.querySelectorAll('#view-pdp-detail input[type="file"]').forEach(el => { el.disabled = true; });
+    // Disable signature canvases
+    document.querySelectorAll('#view-pdp-detail canvas.signature-canvas').forEach(c => { c.style.pointerEvents = 'none'; c.style.opacity = '0.5'; });
+  },
+
+  _unlockPDP() {
+    document.getElementById('pdp-locked-banner').style.display = 'none';
+    document.getElementById('btn-reopen-pdp').style.display = 'none';
+    document.getElementById('btn-save-pdp').style.display = '';
+    document.querySelectorAll('#view-pdp-detail input, #view-pdp-detail select, #view-pdp-detail textarea').forEach(el => {
+      if (el._wasDisabled) { el.disabled = false; delete el._wasDisabled; }
+    });
+    document.querySelectorAll('#view-pdp-detail .form-section button').forEach(btn => {
+      if (btn._wasDisabled) { btn.disabled = false; delete btn._wasDisabled; }
+    });
+    document.querySelectorAll('#view-pdp-detail input[type="file"]').forEach(el => { el.disabled = false; });
+    document.querySelectorAll('#view-pdp-detail canvas.signature-canvas').forEach(c => { c.style.pointerEvents = ''; c.style.opacity = ''; });
+  },
+
+  async reopenPDP() {
+    if (!this.currentPDP) return;
+    if (!await this.confirm('Réouvrir ce PDP clôturé ?\nIl repassera en statut "Actif" et sera à nouveau modifiable.')) return;
+    this.currentPDP.statut = 'actif';
+    document.getElementById('pdp-statut').value = 'actif';
+    this._unlockPDP();
+    this.addHist('PDP réouvert (statut changé de Clôturé à Actif)');
+    await this.savePDP();
+    this.toast('PDP réouvert');
+  },
+
+  async onStatutChange(val) {
+    if (val === 'cloture') {
+      if (!await this.confirm('Clôturer ce PDP ?\nIl passera en lecture seule. Vous pourrez le réouvrir plus tard si nécessaire.')) {
+        document.getElementById('pdp-statut').value = this.currentPDP?.statut || 'actif';
+        return;
+      }
+      this.currentPDP.statut = 'cloture';
+      this.addHist('PDP clôturé');
+      await this.savePDP();
+      this._lockPDP();
+      this.toast('PDP clôturé');
+    } else if (this.currentPDP?.statut === 'cloture' && val !== 'cloture') {
+      this._unlockPDP();
+    }
   },
 
   populateForm() {
