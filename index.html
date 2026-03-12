@@ -1683,9 +1683,15 @@ textarea.form-control { min-height: 70px; }
     </div>
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-database"></i>Données</div>
+      <div class="d-flex flex-wrap gap-2 mb-2">
+        <button class="btn btn-outline-primary btn-sm" onclick="App.exportAllData()"><i class="bi bi-download me-1"></i>Exporter toutes les données</button>
+      </div>
+      <div class="d-flex flex-wrap gap-2 mb-2">
+        <label class="btn btn-outline-success btn-sm"><i class="bi bi-plus-circle me-1"></i>Importer (ajouter)<input type="file" accept=".json" class="d-none" onchange="App.importData(event,'add')"></label>
+        <label class="btn btn-success btn-sm"><i class="bi bi-arrow-repeat me-1"></i>Importer (remplacer tout)<input type="file" accept=".json" class="d-none" onchange="App.importData(event,'replace')"></label>
+      </div>
+      <p class="small text-muted mb-2"><strong>Ajouter</strong> : fusionne avec les données existantes. <strong>Remplacer</strong> : efface puis importe (transfert entre appareils).</p>
       <div class="d-flex flex-wrap gap-2">
-        <button class="btn btn-outline-primary btn-sm" onclick="App.exportAllData()"><i class="bi bi-download me-1"></i>Exporter</button>
-        <label class="btn btn-outline-success btn-sm"><i class="bi bi-upload me-1"></i>Importer<input type="file" accept=".json" class="d-none" onchange="App.importData(event)"></label>
         <button class="btn btn-outline-danger btn-sm" onclick="App.resetData()"><i class="bi bi-trash me-1"></i>Réinitialiser</button>
       </div>
     </div>
@@ -3022,7 +3028,7 @@ const App = {
     if (!e) return;
     bootstrap.Modal.getInstance(document.getElementById('modal-entreprise'))?.hide();
     setTimeout(() => this.resetEntModal(), 300);
-    this.currentPDP.entreprisesExt.push({ nom:e.nom, adresse:e.adresse, responsable:e.responsable, fonction:e.fonction, tel:e.tel, email:e.email, siret:e.siret, activite:e.activite, sousTraitantDe:'' });
+    this.currentPDP.entreprisesExt.push({ nom:e.nom, adresse:e.adresse, responsable:e.responsable, fonction:e.fonction, tel:e.tel, email:e.email, siret:e.siret, activite:e.activite, sousTraitantDe:'', _repoId:e.id });
     this.renderEEList(); this.renderSignaturesEE(); this.prefillEmargements(); this.addHist(`EE ajoutée: ${e.nom}`); this.toast('EE ajoutée');
   },
 
@@ -4111,8 +4117,8 @@ const App = {
     const stEl = document.getElementById('ent-soustraitant');
     const data = { nom, adresse:document.getElementById('ent-adresse').value.trim(), responsable:document.getElementById('ent-responsable').value.trim(), fonction:document.getElementById('ent-fonction').value.trim(), tel:document.getElementById('ent-tel').value.trim(), email:document.getElementById('ent-email').value.trim(), siret:document.getElementById('ent-siret').value.trim(), activite:document.getElementById('ent-activite').value.trim(), sousTraitantDe: stEl ? stEl.value : '' };
     const editId = document.getElementById('ent-edit-id').value;
-    if (editId === 'new-ee') { this.currentPDP.entreprisesExt.push(data); this.renderEEList(); this.renderSignaturesEE(); this.prefillEmargements(); this.addHist(`EE ajoutée: ${nom}`); await db.entreprises.add(data); }
-    else if (editId?.startsWith('ee-')) { this.currentPDP.entreprisesExt[parseInt(editId.replace('ee-',''))] = data; this.renderEEList(); this.renderSignaturesEE(); }
+    if (editId === 'new-ee') { const repoId = await db.entreprises.add(data); data._repoId = repoId; this.currentPDP.entreprisesExt.push(data); this.renderEEList(); this.renderSignaturesEE(); this.prefillEmargements(); this.addHist(`EE ajoutée: ${nom}`); }
+    else if (editId?.startsWith('ee-')) { const idx = parseInt(editId.replace('ee-','')); const repoId = this.currentPDP.entreprisesExt[idx]?._repoId; if (repoId) { data._repoId = repoId; await db.entreprises.put({...data, id:repoId}); } data._repoId = repoId||undefined; this.currentPDP.entreprisesExt[idx] = data; this.renderEEList(); this.renderSignaturesEE(); }
     else if (editId && editId!=='') { data.id = parseInt(editId); await db.entreprises.put(data); }
     else { await db.entreprises.add(data); }
     bootstrap.Modal.getInstance(document.getElementById('modal-entreprise')).hide();
@@ -4998,20 +5004,31 @@ const App = {
     const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`suivi-pdp-${new Date().toISOString().slice(0,10)}.json`; a.click(); this.toast('Exporté');
   },
 
-  async importData(ev) {
+  async importData(ev, mode) {
     const f = ev.target.files[0]; if (!f) return;
-    if (!await this.confirm('Importer ?')) { ev.target.value=''; return; }
+    const isReplace = mode === 'replace';
+    const msg = isReplace
+      ? 'REMPLACER toutes les données existantes par ce fichier ?\n\nToutes les données actuelles seront supprimées.'
+      : 'Ajouter les données du fichier aux données existantes ?';
+    if (!await this.confirm(msg)) { ev.target.value=''; return; }
     const reader = new FileReader();
     reader.onload = async e => {
       try {
         const data = JSON.parse(e.target.result);
+        if (isReplace) {
+          await db.pdps.clear();
+          await db.entreprises.clear();
+          await db.icps.clear();
+          await db.settings.clear();
+        }
         if (data.pdps) for (const p of data.pdps) { delete p.id; await db.pdps.add(p); }
         if (data.entreprises) for (const ent of data.entreprises) { delete ent.id; await db.entreprises.add(ent); }
         if (data.icps) for (const v of data.icps) { delete v.id; await db.icps.add(v); }
         if (data.settings) for (const s of data.settings) await db.settings.put(s);
-        await this.loadSettings(); this.updateDashboard();
-        this.toast(`Import: ${data.pdps?.length||0} PDP, ${data.icps?.length||0} ICP, ${data.entreprises?.length||0} entreprises`);
-      } catch(err) { this.toast('Erreur import','danger'); }
+        await this.loadSettings(); this.updateDashboard(); this.renderEntreprises();
+        const label = isReplace ? 'Remplacement' : 'Ajout';
+        this.toast(`${label} : ${data.pdps?.length||0} PDP, ${data.icps?.length||0} ICP, ${data.entreprises?.length||0} entreprises`);
+      } catch(err) { this.toast('Erreur import : ' + err.message,'danger'); }
     };
     reader.readAsText(f); ev.target.value = '';
   },
