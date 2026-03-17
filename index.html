@@ -5126,7 +5126,7 @@ const App = {
     this.collectICPForm();
     const v = this.currentICP;
     const {jsPDF} = window.jspdf;
-    const doc = new jsPDF('p','mm','a4');
+    const doc = new jsPDF({orientation:'p',unit:'mm',format:'a4',compress:true});
     let y = 15; const m = 15; const pw = 180;
     const addT = (t,s=10,st='normal',c=[0,0,0]) => { doc.setFontSize(s); doc.setFont('helvetica',st); doc.setTextColor(...c); doc.splitTextToSize(t,pw).forEach(l=>{if(y>275){doc.addPage();y=15}doc.text(l,m,y);y+=s*0.5}); y+=2; };
     const addL = () => { doc.setDrawColor(200); doc.line(m,y,195,y); y+=5; };
@@ -6106,7 +6106,7 @@ const App = {
     const pf = p.permisFeu||{};
     if (!pf.actif && !(pf.types||[]).length) { this.toast('Aucun permis de feu actif','warning'); return; }
     const {jsPDF} = window.jspdf;
-    const doc = new jsPDF('p','mm','a4');
+    const doc = new jsPDF({orientation:'p',unit:'mm',format:'a4',compress:true});
     const m = 15, pw = 180;
     const GREEN = [0,105,62];
     const entityName = (ENTITY_PRESETS[p.entite] || ENTITY_PRESETS.agriwatt).nom;
@@ -6385,7 +6385,7 @@ const App = {
     this.collectForm(); this.captureAllSigs();
     const p = this.currentPDP;
     const {jsPDF} = window.jspdf;
-    const doc = new jsPDF('p','mm','a4');
+    const doc = new jsPDF({orientation:'p',unit:'mm',format:'a4',compress:true});
     const m = 15, pw = 180;
     const GREEN = [0,105,62];
     const niveauLabels = {1:'Faible',2:'Moyen',3:'Élevé',4:'Critique'};
