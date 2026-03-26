@@ -3419,7 +3419,7 @@ const App = {
 
   RISK_CATALOG: [
     { cat: 'Chutes', icon: 'bi-arrow-down-circle-fill', color: '#dc3545',
-      risks: ['Chute de plain-pied', 'Travail en hauteur', 'Chute d\'objet', 'Glissade', 'Pente toiture > 20°'] },
+      risks: ['Chute de plain-pied', 'Travail en hauteur', 'Chute d\'objet', 'Glissade', 'Pente toiture > 20°', 'Accès toiture par crinoline'] },
     { cat: 'Électrique', icon: 'bi-lightning-charge-fill', color: '#fd7e14',
       risks: ['Risque électrique', 'Arc électrique', 'Tension continue PV', 'Contact indirect'] },
     { cat: 'Incendie / Explosion', icon: 'bi-fire', color: '#e63946',
@@ -3620,6 +3620,11 @@ const App = {
     'Pente toiture > 20°': {
       situation: 'Toiture avec pente supérieure à 20° (36%) augmentant le risque de glissade',
       prevention: 'Échafaudage (EPC) ; échelle de travail sur le toit ; harnais obligatoire ; ligne de vie',
+      niveau: 3
+    },
+    'Accès toiture par crinoline': {
+      situation: 'Accès en toiture via échelle à crinoline (échelle fixe avec cage de protection) ; risque de chute lors de la montée/descente ; fatigue musculaire ; vertige ; encombrement par le matériel transporté',
+      prevention: 'Vérification annuelle de la crinoline (fixations, corrosion, état des échelons et de la cage) ; interdiction de monter avec des charges encombrantes (utiliser un treuil ou monte-matériaux) ; montée/descente mains libres (outils dans un sac à dos ou sacoche) ; antichute sur rail ou câble si crinoline équipée ; repos intermédiaire si hauteur > 8 m (palier) ; formation à l\'utilisation ; conditions météo favorables (pas de verglas, vent fort ou orage) ; accès limité au personnel autorisé ; signalisation en pied de crinoline',
       niveau: 3
     },
     'Couverture fibro-ciment': {
