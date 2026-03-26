@@ -343,6 +343,12 @@ textarea.form-control { min-height: 70px; }
 .risk-row.risk-level-3 { border-left-color: #fd7e14; }
 .risk-row.risk-level-4 { border-left-color: #dc3545; }
 
+/* ---- Prevention checkboxes ---- */
+.prevention-items .form-check { margin-bottom: 0.15rem; }
+.prevention-items .form-check-label { font-size: 0.82rem; }
+.prevention-items .form-check-input { margin-top: 0.22rem; }
+.prevention-items .prevention-unchecked { text-decoration: line-through; opacity: 0.5; }
+
 /* ---- Signature canvas ---- */
 .signature-pad-wrapper {
     border: 1px solid #dee2e6;
@@ -3640,7 +3646,70 @@ const App = {
   },
 
   _getRiskDefaults(name) {
-    return this.RISK_DEFAULTS[name] || { situation: '', prevention: '', niveau: 2 };
+    const def = this.RISK_DEFAULTS[name] || { situation: '', prevention: '', niveau: 2 };
+    return { ...def, preventionItems: this._parsePreventionItems(def.prevention) };
+  },
+
+  _parsePreventionItems(str) {
+    if (!str) return [];
+    return str.split(' ; ').filter(s => s.trim()).map(s => ({ text: s.trim(), checked: true }));
+  },
+
+  _getPreventionString(items) {
+    if (!items || !items.length) return '';
+    return items.filter(it => it.checked).map(it => it.text).join(' ; ');
+  },
+
+  _migrateRiskPrevention(risk) {
+    if (!risk.preventionItems) {
+      risk.preventionItems = this._parsePreventionItems(risk.prevention);
+    }
+    return risk;
+  },
+
+  togglePreventionItem(riskIndex, itemIndex, ctx) {
+    const risques = ctx === 'icp' ? this.currentICP.risques : this.currentPDP.risques;
+    const r = risques[riskIndex];
+    if (!r || !r.preventionItems || !r.preventionItems[itemIndex]) return;
+    r.preventionItems[itemIndex].checked = !r.preventionItems[itemIndex].checked;
+    r.prevention = this._getPreventionString(r.preventionItems);
+    if (ctx === 'icp') this.renderICPRisquesList();
+    else this.renderRisquesList();
+  },
+
+  addPreventionItem(riskIndex, ctx) {
+    const risques = ctx === 'icp' ? this.currentICP.risques : this.currentPDP.risques;
+    const r = risques[riskIndex];
+    if (!r) return;
+    if (!r.preventionItems) r.preventionItems = [];
+    const text = prompt('Nouvelle mesure de prévention :');
+    if (!text || !text.trim()) return;
+    r.preventionItems.push({ text: text.trim(), checked: true });
+    r.prevention = this._getPreventionString(r.preventionItems);
+    if (ctx === 'icp') this.renderICPRisquesList();
+    else this.renderRisquesList();
+  },
+
+  removePreventionItem(riskIndex, itemIndex, ctx) {
+    const risques = ctx === 'icp' ? this.currentICP.risques : this.currentPDP.risques;
+    const r = risques[riskIndex];
+    if (!r || !r.preventionItems) return;
+    r.preventionItems.splice(itemIndex, 1);
+    r.prevention = this._getPreventionString(r.preventionItems);
+    if (ctx === 'icp') this.renderICPRisquesList();
+    else this.renderRisquesList();
+  },
+
+  _renderPreventionCheckboxes(riskIndex, preventionItems, ctx) {
+    if (!preventionItems || !preventionItems.length) {
+      return `<div class="prevention-items"><div class="text-muted small fst-italic">Aucune mesure</div><div class="mt-1"><button class="btn btn-outline-secondary btn-sm" onclick="App.addPreventionItem(${riskIndex},'${ctx}')" style="font-size:0.7rem;padding:0.1rem 0.4rem"><i class="bi bi-plus"></i> Ajouter</button></div></div>`;
+    }
+    let html = '<div class="prevention-items">';
+    preventionItems.forEach((item, j) => {
+      html += `<div class="form-check form-check-sm"><input class="form-check-input" type="checkbox" ${item.checked ? 'checked' : ''} onchange="App.togglePreventionItem(${riskIndex},${j},'${ctx}')"><label class="form-check-label small ${item.checked ? '' : 'prevention-unchecked'}">${this.esc(item.text)}</label></div>`;
+    });
+    html += `<div class="mt-1"><button class="btn btn-outline-secondary btn-sm" onclick="App.addPreventionItem(${riskIndex},'${ctx}')" style="font-size:0.7rem;padding:0.1rem 0.4rem"><i class="bi bi-plus"></i> Ajouter</button></div></div>`;
+    return html;
   },
 
   _getCurrentRisques() {
@@ -3709,7 +3778,7 @@ const App = {
       risques.splice(idx, 1);
     } else {
       const def = this._getRiskDefaults(name);
-      risques.push({ danger: name, situation: def.situation, prevention: def.prevention, niveau: def.niveau || 2, localisation: '' });
+      risques.push({ danger: name, situation: def.situation, prevention: def.prevention, preventionItems: def.preventionItems, niveau: def.niveau || 2, localisation: '' });
     }
     // Update chip visual
     const chips = document.querySelectorAll('#risk-picker-categories .risk-chip');
@@ -3771,12 +3840,13 @@ const App = {
     const c = document.getElementById('risques-list-container');
     const r = this.currentPDP.risques||[];
     if (!r.length) { c.innerHTML = '<p class="text-muted small">Aucun risque identifié.</p>'; return; }
-    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong><select class="form-select form-select-sm" style="width:auto" onchange="App.currentPDP.risques[${i}].niveau=+this.value;App.renderRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentPDP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea><textarea class="form-control form-control-sm" rows="1" placeholder="Mesures de prévention..." onchange="App.currentPDP.risques[${i}].prevention=this.value">${this.esc(r.prevention||'')}</textarea><div class="mt-1"><div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" onchange="App.currentPDP.risques[${i}].chargeEU=this.checked" ${r.chargeEU?'checked':''}><label class="form-check-label small">EU</label></div><div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" onchange="App.currentPDP.risques[${i}].chargeEE=this.checked" ${r.chargeEE?'checked':''}><label class="form-check-label small">EE</label></div></div></div><button class="btn btn-outline-danger btn-sm" onclick="App.currentPDP.risques.splice(${i},1);App.renderRisquesList();App._riskPickerCtx='pdp';App.updateRiskCounters()"><i class="bi bi-trash"></i></button></div></div>`).join('');
+    r.forEach(ri => this._migrateRiskPrevention(ri));
+    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong><select class="form-select form-select-sm" style="width:auto" onchange="App.currentPDP.risques[${i}].niveau=+this.value;App.renderRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentPDP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea>${this._renderPreventionCheckboxes(i, r.preventionItems, 'pdp')}<div class="mt-1"><div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" onchange="App.currentPDP.risques[${i}].chargeEU=this.checked" ${r.chargeEU?'checked':''}><label class="form-check-label small">EU</label></div><div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" onchange="App.currentPDP.risques[${i}].chargeEE=this.checked" ${r.chargeEE?'checked':''}><label class="form-check-label small">EE</label></div></div></div><button class="btn btn-outline-danger btn-sm" onclick="App.currentPDP.risques.splice(${i},1);App.renderRisquesList();App._riskPickerCtx='pdp';App.updateRiskCounters()"><i class="bi bi-trash"></i></button></div></div>`).join('');
   },
 
   addRisque() {
     this.currentPDP.risques = this.currentPDP.risques||[];
-    this.currentPDP.risques.push({ danger:'', situation:'', prevention:'', niveau:2 });
+    this.currentPDP.risques.push({ danger:'', situation:'', prevention:'', preventionItems:[], niveau:2 });
     this.renderRisquesList();
     const rows = document.querySelectorAll('#risques-list-container .risk-row');
     const last = rows[rows.length-1]?.querySelector('strong');
@@ -3787,7 +3857,7 @@ const App = {
     this.currentPDP.risques = this.currentPDP.risques||[];
     if (this.currentPDP.risques.some(r => r.danger===name)) { this.toast('Déjà ajouté','warning'); return; }
     const def = this._getRiskDefaults(name);
-    this.currentPDP.risques.push({ danger:name, situation:def.situation, prevention:def.prevention, niveau:def.niveau||2 });
+    this.currentPDP.risques.push({ danger:name, situation:def.situation, prevention:def.prevention, preventionItems:def.preventionItems, niveau:def.niveau||2 });
     this.renderRisquesList(); this.toast('Risque ajouté');
   },
 
@@ -4798,12 +4868,13 @@ const App = {
     const c = document.getElementById('icp-risques-list-container');
     const r = this.currentICP.risques||[];
     if (!r.length) { c.innerHTML = '<p class="text-muted small">Aucun risque identifié.</p>'; return; }
-    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong><select class="form-select form-select-sm" style="width:auto" onchange="App.currentICP.risques[${i}].niveau=+this.value;App.renderICPRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentICP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea><textarea class="form-control form-control-sm" rows="1" placeholder="Mesures de prévention..." onchange="App.currentICP.risques[${i}].prevention=this.value">${this.esc(r.prevention||'')}</textarea><input type="text" class="form-control form-control-sm mt-1" placeholder="Localisation sur site..." onchange="App.currentICP.risques[${i}].localisation=this.value" value="${this.esc(r.localisation||'')}"></div><button class="btn btn-outline-danger btn-sm" onclick="App.currentICP.risques.splice(${i},1);App.renderICPRisquesList();App._riskPickerCtx='icp';App.updateRiskCounters()"><i class="bi bi-trash"></i></button></div></div>`).join('');
+    r.forEach(ri => this._migrateRiskPrevention(ri));
+    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong><select class="form-select form-select-sm" style="width:auto" onchange="App.currentICP.risques[${i}].niveau=+this.value;App.renderICPRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentICP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea>${this._renderPreventionCheckboxes(i, r.preventionItems, 'icp')}<input type="text" class="form-control form-control-sm mt-1" placeholder="Localisation sur site..." onchange="App.currentICP.risques[${i}].localisation=this.value" value="${this.esc(r.localisation||'')}"></div><button class="btn btn-outline-danger btn-sm" onclick="App.currentICP.risques.splice(${i},1);App.renderICPRisquesList();App._riskPickerCtx='icp';App.updateRiskCounters()"><i class="bi bi-trash"></i></button></div></div>`).join('');
   },
 
   addICPRisque() {
     this.currentICP.risques = this.currentICP.risques||[];
-    this.currentICP.risques.push({ danger:'', situation:'', prevention:'', niveau:2, localisation:'' });
+    this.currentICP.risques.push({ danger:'', situation:'', prevention:'', preventionItems:[], niveau:2, localisation:'' });
     this.renderICPRisquesList();
     const rows = document.querySelectorAll('#icp-risques-list-container .risk-row');
     const last = rows[rows.length-1]?.querySelector('strong');
@@ -4814,7 +4885,7 @@ const App = {
     this.currentICP.risques = this.currentICP.risques||[];
     if (this.currentICP.risques.some(r => r.danger===name)) { this.toast('Déjà ajouté','warning'); return; }
     const def = this._getRiskDefaults(name);
-    this.currentICP.risques.push({ danger:name, situation:def.situation, prevention:def.prevention, niveau:def.niveau||2, localisation:'' });
+    this.currentICP.risques.push({ danger:name, situation:def.situation, prevention:def.prevention, preventionItems:def.preventionItems, niveau:def.niveau||2, localisation:'' });
     this.renderICPRisquesList(); this.toast('Risque ajouté');
   },
 
@@ -4895,7 +4966,7 @@ const App = {
     let added = 0;
     for (const r of icpRisques) {
       if (!existingNames.has(r.danger)) {
-        existing.push({ danger:r.danger, situation:r.situation, prevention:r.prevention, niveau:r.niveau });
+        existing.push({ danger:r.danger, situation:r.situation, prevention:r.prevention, preventionItems:r.preventionItems?JSON.parse(JSON.stringify(r.preventionItems)):this._parsePreventionItems(r.prevention), niveau:r.niveau });
         added++;
       }
     }
@@ -5031,7 +5102,7 @@ const App = {
         return common / Math.max(wordsNew.length, wordsEx.length) > 0.6;
       });
       if (!isDuplicate) {
-        existing.push({ danger:r.danger, situation:r.situation, prevention:r.prevention, niveau:r.niveau });
+        existing.push({ danger:r.danger, situation:r.situation, prevention:r.prevention, preventionItems:r.preventionItems?JSON.parse(JSON.stringify(r.preventionItems)):this._parsePreventionItems(r.prevention), niveau:r.niveau });
         existingNorm.push(norm);
         added++;
       }
