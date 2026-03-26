@@ -5896,6 +5896,126 @@ const App = {
       children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:emRows}));
     }
 
+    // Inspection Commune Préalable (ICP)
+    if (p.icpId) {
+      try {
+        const icp = await db.icps.get(p.icpId);
+        if (icp) {
+          secNum++;
+          children.push(secTitle(String(secNum),'INSPECTION COMMUNE PRÉALABLE (ICP)'));
+
+          // Info table
+          const icpInfoRows = [
+            new TableRow({children:[cell('Référence ICP',{width:35,bold:true}),cell(icp.numero||'')]}),
+            new TableRow({children:[cell('Date de visite',{width:35,bold:true}),cell(`${icp.dateVisite||''} ${icp.heure?'à '+icp.heure:''}`)]}),
+            new TableRow({children:[cell('Site / Adresse',{width:35,bold:true}),cell(icp.site||'')]}),
+            new TableRow({children:[cell('Lieu précis',{width:35,bold:true}),cell(icp.lieu||'')]}),
+            new TableRow({children:[cell('Objet',{width:35,bold:true}),cell(icp.objet||'')]}),
+          ];
+          children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:icpInfoRows}));
+          children.push(spacer());
+
+          // Participants
+          children.push(new Paragraph({children:[new TextRun({text:'Participants :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
+          const euP = icp.euParticipant||{};
+          const partRows = [new TableRow({children:[hCell('Rôle',20),hCell('Nom',25),hCell('Fonction',25),hCell('Téléphone',30)]})];
+          partRows.push(new TableRow({children:[
+            cell('EU',{width:20,bold:true}),
+            cell(euP.nom||'',{width:25}),
+            cell(euP.fonction||'',{width:25}),
+            cell(euP.tel||'',{width:30})
+          ]}));
+          (icp.entreprisesExt||[]).forEach(ee => {
+            partRows.push(new TableRow({children:[
+              cell('EE',{width:20,bold:true}),
+              cell(`${ee.responsable||''} (${ee.nom||''})`,{width:25}),
+              cell(ee.activite||'',{width:25}),
+              cell(ee.tel||'',{width:30})
+            ]}));
+          });
+          children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:partRows}));
+          children.push(spacer());
+
+          // Risques identifiés lors de la visite
+          if ((icp.risques||[]).length) {
+            children.push(new Paragraph({children:[new TextRun({text:'Risques identifiés lors de la visite :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
+            const niveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
+            const icpRiskRows = [new TableRow({children:[hCell('Risque',20),hCell('Niveau',10),hCell('Localisation',18),hCell('Situation',26),hCell('Prévention',26)]})];
+            icp.risques.forEach(r => {
+              const nc = {1:'92D050',2:'FFC000',3:'FD7E14',4:'FF0000'}[r.niveau]||'FFC000';
+              icpRiskRows.push(new TableRow({children:[
+                cell(r.danger||'',{width:20}),
+                cell(niveauLabels[r.niveau]||'',{width:10,align:AlignmentType.CENTER,bold:true,shading:nc}),
+                cell(r.localisation||'',{width:18}),
+                cell(r.situation||'',{width:26}),
+                cell(r.prevention||'',{width:26})
+              ]}));
+            });
+            children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:icpRiskRows}));
+            children.push(spacer());
+          }
+
+          // Observations
+          if (icp.observations) {
+            children.push(new Paragraph({children:[new TextRun({text:'Observations :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
+            children.push(new Paragraph({children:[new TextRun({text:icp.observations,size:20,font:'Calibri'})],spacing:{after:100}}));
+          }
+
+          // Photos
+          if ((icp.photos||[]).length) {
+            children.push(new Paragraph({children:[new TextRun({text:'Photos :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
+            for (const photo of icp.photos) {
+              if (!photo) continue;
+              try {
+                const imgData = photo.data || photo;
+                const b64 = imgData.split(',')[1];
+                const raw = atob(b64);
+                const arr = new Uint8Array(raw.length);
+                for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+                children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:350,height:260},type:'png'})],spacing:{before:60,after:40}}));
+                if (photo.label) children.push(new Paragraph({children:[new TextRun({text:photo.label,size:16,font:'Calibri',italics:true,color:'888888'})]}));
+              } catch(e) {
+                children.push(new Paragraph({children:[new TextRun({text:'[Photo non intégrée]',size:18,font:'Calibri',italics:true,color:'999999'})]}));
+              }
+            }
+            children.push(spacer());
+          }
+
+          // Signatures ICP
+          children.push(new Paragraph({children:[new TextRun({text:'Signatures des participants à l\'ICP :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
+          const _sigCellPdpIcp = (sig, label, w) => {
+            const paras = [
+              new Paragraph({children:[new TextRun({text:label,size:18,bold:true,font:'Calibri',color:GREEN})],spacing:{before:60,after:20}}),
+              new Paragraph({children:[new TextRun({text:`Nom : ${sig?.nom||''}`,size:16,font:'Calibri'})],spacing:{after:10}}),
+              new Paragraph({children:[new TextRun({text:`Date : ${sig?.date||''}`,size:16,font:'Calibri'})],spacing:{after:20}}),
+            ];
+            if (sig?.data) {
+              try {
+                const raw2 = atob(sig.data.split(',')[1]);
+                const arr2 = new Uint8Array(raw2.length);
+                for (let j = 0; j < raw2.length; j++) arr2[j] = raw2.charCodeAt(j);
+                paras.push(new Paragraph({children:[new ImageRun({data:arr2.buffer,transformation:{width:120,height:45},type:'png'})]}));
+              } catch(e) {}
+            } else {
+              paras.push(new Paragraph({children:[new TextRun({text:'Signature : _______________',size:16,font:'Calibri',italics:true})],spacing:{before:20,after:100}}));
+            }
+            return new TableCell({children:paras,width:{size:w,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.TOP});
+          };
+          const icpSigEU = icp.signatureEU||{};
+          const icpSigCols = [{label:'EU',sig:icpSigEU}];
+          (icp.entreprisesExt||[]).forEach((ee,i) => { icpSigCols.push({label:ee.nom||`EE ${i+1}`,sig:(icp.signaturesEE||[])[i]||{}}); });
+          if (!icp.entreprisesExt?.length) icpSigCols.push({label:'EE',sig:{}});
+          const icpCw = Math.floor(100/icpSigCols.length);
+          children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
+            new TableRow({children:icpSigCols.map(c=>_sigCellPdpIcp(c.sig,c.label,icpCw))}),
+          ]}));
+        }
+      } catch(e) {
+        // If ICP loading fails, just skip the section
+        console.error('ICP export error:', e);
+      }
+    }
+
     // Pictogrammes
     const pictos = p.pictogrammes||{};
     const pictoIntLabels = {vapoter:'Interdiction de vapoter et fumer',vitesse:'Vitesse limitée à 30 Km/h',acces:'Accès limité aux personnes autorisées',flamme:'Flamme nue interdite sur toitures PV',feu:'Feu interdit sur le site',entreposage:'Ne rien entreposer hors zones balisées',stimulateur:'Accès interdit stimulateur cardiaque'};
@@ -6683,6 +6803,103 @@ const App = {
         {columnStyles:{5:{cellWidth:30}}}
       );
       secNum++;
+    }
+
+    // Inspection Commune Préalable (ICP)
+    if (p.icpId) {
+      try {
+        const icp = await db.icps.get(p.icpId);
+        if (icp) {
+          secTitle(`${secNum}. INSPECTION COMMUNE PRÉALABLE (ICP)`);
+
+          // Info table
+          const icpInfoData = [];
+          if (icp.numero) icpInfoData.push(['Référence ICP', icp.numero]);
+          icpInfoData.push(['Date de visite', `${icp.dateVisite||''} ${icp.heure?'à '+icp.heure:''}`]);
+          if (icp.site) icpInfoData.push(['Site / Adresse', icp.site]);
+          if (icp.lieu) icpInfoData.push(['Lieu précis', icp.lieu]);
+          if (icp.objet) icpInfoData.push(['Objet', icp.objet]);
+          labelTable(icpInfoData);
+
+          // Participants
+          checkPage(20);
+          doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Participants :',m,y); y+=4;
+          const euP = icp.euParticipant||{};
+          const icpPartBody = [['EU', euP.nom||'', euP.fonction||'', euP.tel||'']];
+          (icp.entreprisesExt||[]).forEach(ee => {
+            icpPartBody.push(['EE', `${ee.responsable||''} (${ee.nom||''})`, ee.activite||'', ee.tel||'']);
+          });
+          addTable(['Rôle','Nom','Fonction','Téléphone'], icpPartBody);
+
+          // Risques identifiés lors de la visite
+          if ((icp.risques||[]).length) {
+            checkPage(20);
+            doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Risques identifiés lors de la visite :',m,y); y+=4;
+            const icpNiveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
+            const icpNiveauColors = {1:[146,208,80],2:[255,192,0],3:[253,126,20],4:[255,0,0]};
+            const icpRiskBody = icp.risques.map(r => [
+              r.danger||'',
+              {content:icpNiveauLabels[r.niveau]||'',styles:{fontStyle:'bold',fillColor:icpNiveauColors[r.niveau]||[255,192,0],halign:'center'}},
+              r.localisation||'',
+              r.situation||'',
+              r.prevention||''
+            ]);
+            addTable(['Risque','Niveau','Localisation','Situation','Prévention'], icpRiskBody);
+          }
+
+          // Observations
+          if (icp.observations) {
+            checkPage(15);
+            doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Observations :',m,y); y+=4;
+            doc.setFont('helvetica','normal'); doc.setFontSize(8);
+            const obsLines = doc.splitTextToSize(icp.observations, pw);
+            obsLines.forEach(line => { checkPage(5); doc.text(line,m,y); y+=4; });
+            y+=2;
+          }
+
+          // Photos
+          if ((icp.photos||[]).length) {
+            checkPage(20);
+            doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Photos :',m,y); y+=4;
+            for (const photo of icp.photos) {
+              if (!photo) continue;
+              try {
+                const imgData = photo.data || photo;
+                checkPage(60);
+                doc.addImage(imgData,'PNG',m,y,80,60);
+                y+=62;
+                if (photo.label) {
+                  doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(136,136,136);
+                  doc.text(photo.label,m,y); y+=4;
+                  doc.setTextColor(0,0,0);
+                }
+              } catch(e) {
+                doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(153,153,153);
+                doc.text('[Photo non intégrée]',m,y); y+=4;
+                doc.setTextColor(0,0,0);
+              }
+            }
+            y+=2;
+          }
+
+          // Signatures ICP
+          checkPage(40);
+          doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Signatures des participants à l\'ICP :',m,y); y+=4;
+          const icpSigEU = icp.signatureEU||{};
+          const icpSigColsPdf = [{label:'EU',sig:icpSigEU}];
+          (icp.entreprisesExt||[]).forEach((ee,i) => { icpSigColsPdf.push({label:ee.nom||`EE ${i+1}`,sig:(icp.signaturesEE||[])[i]||{}}); });
+          if (!icp.entreprisesExt?.length) icpSigColsPdf.push({label:'EE',sig:{}});
+          addTable(icpSigColsPdf.map(c=>c.label), [
+            icpSigColsPdf.map(c=>`Nom : ${c.sig.nom||''}`),
+            icpSigColsPdf.map(c=>`Date : ${c.sig.date||''}`),
+            icpSigColsPdf.map(c=>({content:'Signature :\n\n\n',styles:{minCellHeight:25}}))
+          ]);
+
+          secNum++;
+        }
+      } catch(e) {
+        console.error('ICP PDF export error:', e);
+      }
     }
 
     // Pictogrammes
