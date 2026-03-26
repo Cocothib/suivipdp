@@ -6015,7 +6015,6 @@ const App = {
           children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
             new TableRow({children:icpSigCols.map(c=>_sigCellPdpIcp(c.sig,c.label,icpCw))}),
           ]}));
-        }
       } catch(e) {
         // If ICP loading fails, just skip the section
         console.error('ICP export error:', e);
@@ -6908,7 +6907,6 @@ const App = {
           ]);
 
           secNum++;
-        }
       } catch(e) {
         console.error('ICP PDF export error:', e);
       }
