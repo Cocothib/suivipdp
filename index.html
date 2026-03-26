@@ -5897,10 +5897,16 @@ const App = {
     }
 
     // Inspection Commune Préalable (ICP)
+    let icpForExport = null;
     if (p.icpId) {
+      try { icpForExport = await db.icps.get(p.icpId); } catch(e) {}
+    }
+    if (!icpForExport && p.id) {
+      try { icpForExport = await db.icps.where('pdpId').equals(p.id).first(); } catch(e) {}
+    }
+    if (icpForExport) {
       try {
-        const icp = await db.icps.get(p.icpId);
-        if (icp) {
+        const icp = icpForExport;
           secNum++;
           children.push(secTitle(String(secNum),'INSPECTION COMMUNE PRÉALABLE (ICP)'));
 
@@ -6806,10 +6812,16 @@ const App = {
     }
 
     // Inspection Commune Préalable (ICP)
+    let icpForPdf = null;
     if (p.icpId) {
+      try { icpForPdf = await db.icps.get(p.icpId); } catch(e) {}
+    }
+    if (!icpForPdf && p.id) {
+      try { icpForPdf = await db.icps.where('pdpId').equals(p.id).first(); } catch(e) {}
+    }
+    if (icpForPdf) {
       try {
-        const icp = await db.icps.get(p.icpId);
-        if (icp) {
+        const icp = icpForPdf;
           secTitle(`${secNum}. INSPECTION COMMUNE PRÉALABLE (ICP)`);
 
           // Info table
