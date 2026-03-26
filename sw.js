@@ -1,4 +1,4 @@
-const CACHE_NAME = 'suivi-pdp-v6';
+const CACHE_NAME = 'suivi-pdp-v7';
 const ASSETS = [
   './',
   './index.html',
