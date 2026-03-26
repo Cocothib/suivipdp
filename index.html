@@ -5903,38 +5903,62 @@ const App = {
     if ((pictos.interdictions||[]).length || (pictos.epiObligatoires||[]).length || pictos.remarques) {
       secNum++;
       children.push(secTitle(String(secNum),'PICTOGRAMMES ET RÈGLES DE SÉCURITÉ'));
-      // Helper: build a table row of pictogram cells (image + label)
-      const docxPictoRow = async (ids, labels, cols=4) => {
-        const rows = [];
-        for (let i = 0; i < ids.length; i += cols) {
-          const chunk = ids.slice(i, i + cols);
-          const tableCells = [];
-          for (const id of chunk) {
-            const cellChildren = [];
-            try {
-              const buf = await this._getPictoPngBuffer(id, 120);
-              if (buf) {
-                cellChildren.push(new Paragraph({children:[new ImageRun({data:buf,transformation:{width:45,height:45},type:'png'})],alignment:AlignmentType.CENTER,spacing:{before:40,after:20}}));
-              }
-            } catch(e) { /* skip */ }
-            cellChildren.push(new Paragraph({children:[new TextRun({text:labels[id]||id,size:16,font:'Calibri'})],alignment:AlignmentType.CENTER,spacing:{before:0,after:40}}));
-            tableCells.push(new TableCell({children:cellChildren,width:{size:Math.floor(100/cols),type:WidthType.PERCENTAGE},borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}}}));
-          }
-          // Pad remaining cells if chunk < cols
-          for (let pad = chunk.length; pad < cols; pad++) {
-            tableCells.push(new TableCell({children:[new Paragraph({children:[]})],width:{size:Math.floor(100/cols),type:WidthType.PERCENTAGE},borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}}}));
-          }
-          rows.push(new TableRow({children:tableCells}));
+      // Helper: build pictogram grid (image + label) with text fallback
+      const docxPictoGrid = async (ids, labels, symbolPrefix) => {
+        const items = [];
+        let hasAnyImage = false;
+        // Pre-render all images
+        const buffers = {};
+        for (const id of ids) {
+          try {
+            const buf = await this._getPictoPngBuffer(id, 180);
+            if (buf && buf.byteLength > 100) { buffers[id] = buf; hasAnyImage = true; }
+          } catch(e) { /* skip */ }
         }
-        return new Table({width:{size:100,type:WidthType.PERCENTAGE},rows});
+        if (hasAnyImage) {
+          // Grid layout: 4 columns table
+          const cols = 4;
+          const rows = [];
+          for (let i = 0; i < ids.length; i += cols) {
+            const chunk = ids.slice(i, i + cols);
+            const tableCells = [];
+            for (const id of chunk) {
+              const cellChildren = [];
+              if (buffers[id]) {
+                cellChildren.push(new Paragraph({children:[new ImageRun({data:buffers[id],transformation:{width:50,height:50},type:'png'})],alignment:AlignmentType.CENTER,spacing:{before:60,after:20}}));
+              }
+              cellChildren.push(new Paragraph({children:[new TextRun({text:labels[id]||id,size:16,font:'Calibri'})],alignment:AlignmentType.CENTER,spacing:{before:0,after:60}}));
+              tableCells.push(new TableCell({children:cellChildren,width:{size:Math.floor(100/cols),type:WidthType.PERCENTAGE},borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}}}));
+            }
+            for (let pad = chunk.length; pad < cols; pad++) {
+              tableCells.push(new TableCell({children:[new Paragraph({children:[]})],width:{size:Math.floor(100/cols),type:WidthType.PERCENTAGE},borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}}}));
+            }
+            rows.push(new TableRow({children:tableCells}));
+          }
+          if (rows.length) items.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows}));
+        } else {
+          // Fallback: bullet list (text only)
+          ids.forEach(id => items.push(new Paragraph({children:[new TextRun({text: symbolPrefix + ' ' + (labels[id]||id),size:20,font:'Calibri'})],spacing:{before:20,after:20}})));
+        }
+        return items;
       };
       if ((pictos.interdictions||[]).length) {
-        children.push(new Paragraph({children:[new TextRun({text:'Interdictions :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
-        children.push(await docxPictoRow(pictos.interdictions, pictoIntLabels));
+        children.push(new Paragraph({children:[new TextRun({text:'Interdictions :',size:20,bold:true,font:'Calibri',color:'CC0000'})],spacing:{before:100,after:50}}));
+        try {
+          const items = await docxPictoGrid(pictos.interdictions, pictoIntLabels, '⛔');
+          items.forEach(it => children.push(it));
+        } catch(e) {
+          pictos.interdictions.forEach(id => children.push(new Paragraph({children:[new TextRun({text:'⛔ '+(pictoIntLabels[id]||id),size:20,font:'Calibri'})],spacing:{before:20,after:20}})));
+        }
       }
       if ((pictos.epiObligatoires||[]).length) {
-        children.push(new Paragraph({children:[new TextRun({text:'EPI Obligatoires :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
-        children.push(await docxPictoRow(pictos.epiObligatoires, epiLabels));
+        children.push(new Paragraph({children:[new TextRun({text:'EPI Obligatoires :',size:20,bold:true,font:'Calibri',color:'0055A4'})],spacing:{before:100,after:50}}));
+        try {
+          const items = await docxPictoGrid(pictos.epiObligatoires, epiLabels, '🔵');
+          items.forEach(it => children.push(it));
+        } catch(e) {
+          pictos.epiObligatoires.forEach(id => children.push(new Paragraph({children:[new TextRun({text:'🔵 '+(epiLabels[id]||id),size:20,font:'Calibri'})],spacing:{before:20,after:20}})));
+        }
       }
       if (pictos.remarques) {
         children.push(new Paragraph({children:[new TextRun({text:'Remarques :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
@@ -6667,33 +6691,57 @@ const App = {
     const epiLabels = {casque:'Casque avec jugulaire',chaussures:'Chaussures de sécurité',telephone:'Téléphone portable obligatoire en toiture',vetement:'Vêtement de travail adapté',gants:'Gants de protection mécanique',antichute:'Protection contre les chutes de hauteur'};
     if ((pictos.interdictions||[]).length || (pictos.epiObligatoires||[]).length || pictos.remarques) {
       secTitle(`${secNum}. PICTOGRAMMES ET RÈGLES DE SÉCURITÉ`);
-      // Helper to render a grid of pictograms
-      const pdfPictoGrid = async (ids, labels) => {
-        const colW = 42, imgSize = 15, cols = 4;
-        for (let i = 0; i < ids.length; i++) {
-          const col = i % cols;
-          if (col === 0 && i > 0) { y += imgSize + 8; }
-          if (col === 0) checkPage(imgSize + 10);
-          const xOff = m + col * (colW + 3);
+      // Helper to render a grid of pictograms with text fallback
+      const pdfPictoGrid = async (ids, labels, colorRGB) => {
+        // Pre-render all images
+        const pngUrls = {};
+        let hasAnyImage = false;
+        for (const id of ids) {
           try {
-            const pngUrl = await this._getPictoPngDataUrl(ids[i], 120);
-            if (pngUrl) doc.addImage(pngUrl, 'PNG', xOff + (colW - imgSize) / 2, y, imgSize, imgSize);
-          } catch(e) { /* skip image if failed */ }
-          doc.setFontSize(6.5); doc.setFont('helvetica','normal');
-          const label = labels[ids[i]] || ids[i];
-          const lblLines = doc.splitTextToSize(label, colW);
-          lblLines.forEach((line, li) => { doc.text(line, xOff + colW / 2, y + imgSize + 3 + li * 3, {align:'center'}); });
+            const pngUrl = await this._getPictoPngDataUrl(id, 180);
+            if (pngUrl && pngUrl.length > 50) { pngUrls[id] = pngUrl; hasAnyImage = true; }
+          } catch(e) { /* skip */ }
         }
-        if (ids.length > 0) y += imgSize + 10;
+        if (hasAnyImage) {
+          const colW = 42, imgSize = 15, cols = 4;
+          for (let i = 0; i < ids.length; i++) {
+            const col = i % cols;
+            if (col === 0 && i > 0) { y += imgSize + 10; }
+            if (col === 0) checkPage(imgSize + 12);
+            const xOff = m + col * (colW + 3);
+            if (pngUrls[ids[i]]) {
+              try { doc.addImage(pngUrls[ids[i]], 'PNG', xOff + (colW - imgSize) / 2, y, imgSize, imgSize); } catch(e) { /* skip */ }
+            }
+            doc.setFontSize(6.5); doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0);
+            const label = labels[ids[i]] || ids[i];
+            const lblLines = doc.splitTextToSize(label, colW);
+            lblLines.forEach((line, li) => { doc.text(line, xOff + colW / 2, y + imgSize + 3 + li * 3, {align:'center'}); });
+          }
+          if (ids.length > 0) y += imgSize + 12;
+        } else {
+          // Fallback: bullet list
+          doc.setFontSize(9); doc.setFont('helvetica','normal');
+          ids.forEach(id => {
+            checkPage(6);
+            doc.setTextColor(colorRGB[0],colorRGB[1],colorRGB[2]);
+            doc.text('●', m+1, y);
+            doc.setTextColor(0,0,0);
+            doc.text(labels[id]||id, m+6, y);
+            y += 5;
+          });
+          y += 2;
+        }
       };
       if ((pictos.interdictions||[]).length) {
-        doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Interdictions :',m,y); y+=6;
-        await pdfPictoGrid(pictos.interdictions, pictoIntLabels);
+        doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(200,0,0);
+        doc.text('Interdictions :', m, y); y+=6; doc.setTextColor(0,0,0);
+        await pdfPictoGrid(pictos.interdictions, pictoIntLabels, [200,0,0]);
       }
       if ((pictos.epiObligatoires||[]).length) {
         checkPage(30);
-        doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('EPI Obligatoires :',m,y); y+=6;
-        await pdfPictoGrid(pictos.epiObligatoires, epiLabels);
+        doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(0,85,164);
+        doc.text('EPI Obligatoires :', m, y); y+=6; doc.setTextColor(0,0,0);
+        await pdfPictoGrid(pictos.epiObligatoires, epiLabels, [0,85,164]);
       }
       if (pictos.remarques) { checkPage(15); doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Remarques :',m,y); y+=5; doc.setFont('helvetica','normal'); const lines=doc.splitTextToSize(pictos.remarques,pw-5); lines.forEach(l=>{doc.text(l,m+3,y);y+=4;}); y+=2; }
       secNum++;
