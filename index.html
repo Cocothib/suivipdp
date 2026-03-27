@@ -5824,77 +5824,7 @@ const App = {
     if (p.dateFin) objetRows.push(new TableRow({children:[cell('Date de fin prévue',{width:35,bold:true}),cell(p.dateFin)]}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:objetRows}));
 
-    // 3. Risques
-    children.push(secTitle('3','RISQUES ET MESURES DE PRÉVENTION'));
-    const rRows = [new TableRow({children:[hCell('Risque',25),hCell('Niveau',10),hCell('Mesures de prévention',40),hCell('EU',8),hCell('EE',8)]})];
-    (p.risques||[]).forEach(r => rRows.push(new TableRow({children:[cell(r.danger||'',{width:25}),cell(niveauLabels[r.niveau]||'',{width:10,align:AlignmentType.CENTER,bold:true}),cell(r.prevention||r.situation||'',{width:40}),cell(r.chargeEU?'X':'',{width:8,align:AlignmentType.CENTER}),cell(r.chargeEE?'X':'',{width:8,align:AlignmentType.CENTER})]})));
-    if (!(p.risques||[]).length) rRows.push(new TableRow({children:[cell('',{width:25}),cell('',{width:10}),cell('',{width:40}),cell('',{width:8}),cell('',{width:8})]}));
-    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
-
-    // 4. Exigences
-    let secNum = 4;
-    if ((p.exigences||[]).length) {
-      children.push(secTitle(String(secNum),`EXIGENCES ${(eu.nom||'EU').toUpperCase()}`));
-      const eRows = [new TableRow({children:[hCell('N°',8),hCell('Exigence',92)]})];
-      p.exigences.forEach((e,i) => eRows.push(new TableRow({children:[cell(String(i+1),{width:8,align:AlignmentType.CENTER,bold:true}),cell(e,{width:92})]})));
-      children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:eRows}));
-      secNum++;
-    }
-
-    // 5. Urgence
-    const urg = p.urgence||{};
-    children.push(secTitle(String(secNum),"CONSIGNES D'URGENCE"));
-    const uRows = [];
-    if (urg.responsable) uRows.push(new TableRow({children:[cell('Responsable de site',{width:35,bold:true}),cell(`${urg.responsable}${urg.telResponsable?' – '+urg.telResponsable:''}`)]}));
-    if (urg.sst) uRows.push(new TableRow({children:[cell('SST / Secouriste',{width:35,bold:true}),cell(`${urg.sst}${urg.telSst?' – '+urg.telSst:''}`)]}));
-    uRows.push(new TableRow({children:[cell("Numéros d'urgence",{width:35,bold:true}),cell(urg.numeros||'Pompiers : 18  |  SAMU : 15  |  Gendarmerie : 17  |  Urgences : 112')]}));
-    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:uRows}));
-    secNum++;
-
-    // 6. Validation & Signatures
-    children.push(secTitle(String(secNum),'VALIDATION & SIGNATURES'));
-    children.push(new Paragraph({children:[new TextRun({text:'Les parties soussignées attestent avoir pris connaissance des dispositions du présent plan de prévention et s\'engagent à les respecter.',size:20,font:'Calibri',italics:true})],spacing:{after:150}}));
-    const sigCols = [{label:`EU (${(eu.nom||'').toUpperCase()})`,sig:p.signatureEU||{}}];
-    ees.forEach((ee,i) => sigCols.push({label:ee.nom||`EE ${i+1}`,sig:(p.signaturesEE||[])[i]||{}}));
-    if (!ees.length) sigCols.push({label:'ENTREPRISE EXTÉRIEURE',sig:{}});
-    const cw = Math.floor(100/sigCols.length);
-    const _sigCellPDP = (sig, label, w) => {
-      const paras = [
-        new Paragraph({children:[new TextRun({text:'Signature :',size:18,font:'Calibri',italics:true})],spacing:{before:40,after:20}}),
-      ];
-      if (sig?.data) {
-        try {
-          const raw = atob(sig.data.split(',')[1]);
-          const arr = new Uint8Array(raw.length);
-          for (let j = 0; j < raw.length; j++) arr[j] = raw.charCodeAt(j);
-          paras.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:130,height:50},type:'png'})],spacing:{before:10,after:20}}));
-        } catch(e) {
-          paras.push(new Paragraph({children:[],spacing:{before:200,after:200}}));
-        }
-      } else {
-        paras.push(new Paragraph({children:[],spacing:{before:200,after:200}}));
-      }
-      return new TableCell({children:paras,width:{size:w,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.TOP});
-    };
-    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
-      new TableRow({children:sigCols.map(c=>hCell(c.label,cw))}),
-      new TableRow({children:sigCols.map(c=>cell(`Nom / Prénom : ${c.sig.nom||''}`,{width:cw}))}),
-      new TableRow({children:sigCols.map(c=>cell(`Fonction : ${c.sig.fonction||''}`,{width:cw}))}),
-      new TableRow({children:sigCols.map(c=>cell(`Date : ${c.sig.date||''}`,{width:cw}))}),
-      new TableRow({children:sigCols.map(c=>_sigCellPDP(c.sig,c.label,cw))}),
-    ]}));
-
-    // Émargement
-    if ((p.emargements||[]).length) {
-      secNum++;
-      children.push(secTitle(String(secNum),'ÉMARGEMENT'));
-      children.push(new Paragraph({children:[new TextRun({text:'En signant, l\'intervenant atteste avoir pris connaissance du plan de prévention et avoir mis en œuvre les mesures de prévention nécessaires.',size:20,font:'Calibri',italics:true})],spacing:{after:150}}));
-      const emRows = [new TableRow({children:[hCell('Nom',20),hCell('Prénom',15),hCell('Fonction',15),hCell('Société',20),hCell('Date',15),hCell('Signature',15)]})];
-      p.emargements.forEach(e => emRows.push(new TableRow({children:[cell(e.nom||'',{width:20}),cell(e.prenom||'',{width:15}),cell(e.fonction||'',{width:15}),cell(e.societe||'',{width:20}),cell(e.date||'',{width:15}),new TableCell({children:[new Paragraph({children:[new TextRun({text:'',size:20})],spacing:{before:200,after:200}})],width:{size:15,type:WidthType.PERCENTAGE}})]})));
-      children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:emRows}));
-    }
-
-    // ========== INSPECTION COMMUNE PRÉALABLE (ICP) — Section unifiée ==========
+    // 3. ICP (Inspection Commune Préalable)
     let icpForExport = null;
     if (p.icpId) {
       try { icpForExport = await db.icps.get(p.icpId); } catch(e) { console.warn('ICP lookup by icpId failed:', e); }
@@ -5907,8 +5837,7 @@ const App = {
     const hasVisiteData = !!(vis.date || vis.locaux || vis.materielEU || vis.materielEE || (vis.documentsEchanges||[]).length || vis.consignesAcces || vis.effectuee);
 
     if (hasIcpEntity || hasVisiteData) {
-      secNum++;
-      children.push(secTitle(String(secNum),'INSPECTION COMMUNE PRÉALABLE (ICP)'));
+      children.push(secTitle('3','INSPECTION COMMUNE PRÉALABLE (ICP)'));
       try {
         const icp = icpForExport || {};
 
@@ -6043,6 +5972,76 @@ const App = {
       } catch(e) {
         console.error('ICP DOCX export error:', e);
       }
+    }
+
+    // 4. Risques
+    children.push(secTitle('4','RISQUES ET MESURES DE PRÉVENTION'));
+    const rRows = [new TableRow({children:[hCell('Risque',25),hCell('Niveau',10),hCell('Mesures de prévention',40),hCell('EU',8),hCell('EE',8)]})];
+    (p.risques||[]).forEach(r => rRows.push(new TableRow({children:[cell(r.danger||'',{width:25}),cell(niveauLabels[r.niveau]||'',{width:10,align:AlignmentType.CENTER,bold:true}),cell(r.prevention||r.situation||'',{width:40}),cell(r.chargeEU?'X':'',{width:8,align:AlignmentType.CENTER}),cell(r.chargeEE?'X':'',{width:8,align:AlignmentType.CENTER})]})));
+    if (!(p.risques||[]).length) rRows.push(new TableRow({children:[cell('',{width:25}),cell('',{width:10}),cell('',{width:40}),cell('',{width:8}),cell('',{width:8})]}));
+    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
+
+    // 5. Exigences
+    let secNum = 5;
+    if ((p.exigences||[]).length) {
+      children.push(secTitle(String(secNum),`EXIGENCES ${(eu.nom||'EU').toUpperCase()}`));
+      const eRows = [new TableRow({children:[hCell('N°',8),hCell('Exigence',92)]})];
+      p.exigences.forEach((e,i) => eRows.push(new TableRow({children:[cell(String(i+1),{width:8,align:AlignmentType.CENTER,bold:true}),cell(e,{width:92})]})));
+      children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:eRows}));
+      secNum++;
+    }
+
+    // 5. Urgence
+    const urg = p.urgence||{};
+    children.push(secTitle(String(secNum),"CONSIGNES D'URGENCE"));
+    const uRows = [];
+    if (urg.responsable) uRows.push(new TableRow({children:[cell('Responsable de site',{width:35,bold:true}),cell(`${urg.responsable}${urg.telResponsable?' – '+urg.telResponsable:''}`)]}));
+    if (urg.sst) uRows.push(new TableRow({children:[cell('SST / Secouriste',{width:35,bold:true}),cell(`${urg.sst}${urg.telSst?' – '+urg.telSst:''}`)]}));
+    uRows.push(new TableRow({children:[cell("Numéros d'urgence",{width:35,bold:true}),cell(urg.numeros||'Pompiers : 18  |  SAMU : 15  |  Gendarmerie : 17  |  Urgences : 112')]}));
+    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:uRows}));
+    secNum++;
+
+    // 6. Validation & Signatures
+    children.push(secTitle(String(secNum),'VALIDATION & SIGNATURES'));
+    children.push(new Paragraph({children:[new TextRun({text:'Les parties soussignées attestent avoir pris connaissance des dispositions du présent plan de prévention et s\'engagent à les respecter.',size:20,font:'Calibri',italics:true})],spacing:{after:150}}));
+    const sigCols = [{label:`EU (${(eu.nom||'').toUpperCase()})`,sig:p.signatureEU||{}}];
+    ees.forEach((ee,i) => sigCols.push({label:ee.nom||`EE ${i+1}`,sig:(p.signaturesEE||[])[i]||{}}));
+    if (!ees.length) sigCols.push({label:'ENTREPRISE EXTÉRIEURE',sig:{}});
+    const cw = Math.floor(100/sigCols.length);
+    const _sigCellPDP = (sig, label, w) => {
+      const paras = [
+        new Paragraph({children:[new TextRun({text:'Signature :',size:18,font:'Calibri',italics:true})],spacing:{before:40,after:20}}),
+      ];
+      if (sig?.data) {
+        try {
+          const raw = atob(sig.data.split(',')[1]);
+          const arr = new Uint8Array(raw.length);
+          for (let j = 0; j < raw.length; j++) arr[j] = raw.charCodeAt(j);
+          paras.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:130,height:50},type:'png'})],spacing:{before:10,after:20}}));
+        } catch(e) {
+          paras.push(new Paragraph({children:[],spacing:{before:200,after:200}}));
+        }
+      } else {
+        paras.push(new Paragraph({children:[],spacing:{before:200,after:200}}));
+      }
+      return new TableCell({children:paras,width:{size:w,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.TOP});
+    };
+    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
+      new TableRow({children:sigCols.map(c=>hCell(c.label,cw))}),
+      new TableRow({children:sigCols.map(c=>cell(`Nom / Prénom : ${c.sig.nom||''}`,{width:cw}))}),
+      new TableRow({children:sigCols.map(c=>cell(`Fonction : ${c.sig.fonction||''}`,{width:cw}))}),
+      new TableRow({children:sigCols.map(c=>cell(`Date : ${c.sig.date||''}`,{width:cw}))}),
+      new TableRow({children:sigCols.map(c=>_sigCellPDP(c.sig,c.label,cw))}),
+    ]}));
+
+    // Émargement
+    if ((p.emargements||[]).length) {
+      secNum++;
+      children.push(secTitle(String(secNum),'ÉMARGEMENT'));
+      children.push(new Paragraph({children:[new TextRun({text:'En signant, l\'intervenant atteste avoir pris connaissance du plan de prévention et avoir mis en œuvre les mesures de prévention nécessaires.',size:20,font:'Calibri',italics:true})],spacing:{after:150}}));
+      const emRows = [new TableRow({children:[hCell('Nom',20),hCell('Prénom',15),hCell('Fonction',15),hCell('Société',20),hCell('Date',15),hCell('Signature',15)]})];
+      p.emargements.forEach(e => emRows.push(new TableRow({children:[cell(e.nom||'',{width:20}),cell(e.prenom||'',{width:15}),cell(e.fonction||'',{width:15}),cell(e.societe||'',{width:20}),cell(e.date||'',{width:15}),new TableCell({children:[new Paragraph({children:[new TextRun({text:'',size:20})],spacing:{before:200,after:200}})],width:{size:15,type:WidthType.PERCENTAGE}})]})));
+      children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:emRows}));
     }
 
     // Pictogrammes
@@ -6779,74 +6778,7 @@ const App = {
     if(p.dateFin) objetRows.push(['Date de fin prévue',p.dateFin]);
     labelTable(objetRows);
 
-    // 3. Risques
-    secTitle('3. RISQUES ET MESURES DE PRÉVENTION');
-    if ((p.risques||[]).length) {
-      const rBody = (p.risques||[]).map(r => {
-        const nc = niveauColors[r.niveau]||[200,200,200];
-        return [ r.danger||'', {content:niveauLabels[r.niveau]||'',styles:{halign:'center',fontStyle:'bold',fillColor:nc,textColor:r.niveau>=3?[255,255,255]:[0,0,0]}}, r.prevention||r.situation||'', {content:r.chargeEU?'X':'',styles:{halign:'center'}}, {content:r.chargeEE?'X':'',styles:{halign:'center'}} ];
-      });
-      addTable(['Risque','Niveau','Mesures de prévention','EU','EE'], rBody, {columnStyles:{0:{cellWidth:40},1:{cellWidth:20},2:{cellWidth:80},3:{cellWidth:20},4:{cellWidth:20}}});
-    } else { doc.setFontSize(9); doc.setFont('helvetica','italic'); doc.text('Aucun risque identifié.',m,y); y+=6; }
-
-    // 4. Exigences
-    let secNum = 4;
-    if ((p.exigences||[]).length) {
-      secTitle(`${secNum}. EXIGENCES ${(eu.nom||'EU').toUpperCase()}`);
-      addTable(['N°','Exigence'], p.exigences.map((e,i)=>[{content:String(i+1),styles:{halign:'center',fontStyle:'bold'}},e]), {columnStyles:{0:{cellWidth:15}}});
-      secNum++;
-    }
-
-    // Consignes d'urgence
-    const urg = p.urgence||{};
-    secTitle(`${secNum}. CONSIGNES D'URGENCE`);
-    const urgRows = [];
-    if(urg.responsable) urgRows.push(['Responsable de site',`${urg.responsable}${urg.telResponsable?' – '+urg.telResponsable:''}`]);
-    if(urg.sst) urgRows.push(['SST / Secouriste',`${urg.sst}${urg.telSst?' – '+urg.telSst:''}`]);
-    urgRows.push(["Numéros d'urgence",urg.numeros||'Pompiers : 18  |  SAMU : 15  |  Gendarmerie : 17  |  Urgences : 112']);
-    labelTable(urgRows);
-    secNum++;
-
-    // Signatures — forcer sur une seule page
-    checkPage(80);
-    secTitle(`${secNum}. VALIDATION & SIGNATURES`);
-    doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(80,80,80);
-    doc.text('Les parties soussignées attestent avoir pris connaissance des dispositions du présent plan de prévention.',m,y); y+=5;
-    doc.setTextColor(0,0,0);
-    const sigCols = [{label:`EU (${(eu.nom||'').toUpperCase()})`,sig:p.signatureEU||{}}];
-    ees.forEach((ee,i) => sigCols.push({label:ee.nom||`EE ${i+1}`,sig:(p.signaturesEE||[])[i]||{}}));
-    if(!ees.length) sigCols.push({label:'ENTREPRISE EXTÉRIEURE',sig:{}});
-    addTable(sigCols.map(c=>c.label), [
-      sigCols.map(c=>`Nom : ${c.sig.nom||''}`),
-      sigCols.map(c=>`Fonction : ${c.sig.fonction||''}`),
-      sigCols.map(c=>`Date : ${c.sig.date||''}`),
-      sigCols.map(c=>({content:'Signature :',styles:{minCellHeight:25}}))
-    ]);
-    // Insérer les images de signature PDP sous le tableau
-    const pdpSigColW = pw / sigCols.length;
-    let hasPdpSigImg = false;
-    for (let si=0; si<sigCols.length; si++) {
-      const sig = sigCols[si].sig;
-      if (sig?.data) {
-        try {
-          doc.addImage(sig.data,'PNG',m+(si*pdpSigColW)+5,y-22,40,15);
-          hasPdpSigImg = true;
-        } catch(e) { /* skip */ }
-      }
-    }
-    secNum++;
-
-    // Émargement
-    if ((p.emargements||[]).length) {
-      secTitle(`${secNum}. ÉMARGEMENT`);
-      addTable(['Nom','Prénom','Fonction','Société','Date','Signature'],
-        p.emargements.map(e=>[e.nom||'',e.prenom||'',e.fonction||'',e.societe||'',e.date||'',{content:'',styles:{minCellHeight:12}}]),
-        {columnStyles:{5:{cellWidth:30}}}
-      );
-      secNum++;
-    }
-
-    // ========== INSPECTION COMMUNE PRÉALABLE (ICP) — Section unifiée PDF ==========
+    // 3. ICP (Inspection Commune Préalable)
     let icpForPdf = null;
     if (p.icpId) {
       try { icpForPdf = await db.icps.get(p.icpId); } catch(e) { console.warn('ICP PDF lookup by icpId failed:', e); }
@@ -6861,7 +6793,7 @@ const App = {
     if (hasIcpPdf || hasVisitePdf) {
       try {
         const icp = icpForPdf || {};
-        secTitle(`${secNum}. INSPECTION COMMUNE PRÉALABLE (ICP)`);
+        secTitle('3. INSPECTION COMMUNE PRÉALABLE (ICP)');
 
         // Info table
         const icpInfoData = [];
@@ -6982,11 +6914,76 @@ const App = {
             }
           }
         }
-
-        secNum++;
       } catch(e) {
         console.error('ICP PDF export error:', e);
       }
+    }
+
+    // 4. Risques
+    secTitle('4. RISQUES ET MESURES DE PRÉVENTION');
+    if ((p.risques||[]).length) {
+      const rBody = (p.risques||[]).map(r => {
+        const nc = niveauColors[r.niveau]||[200,200,200];
+        return [ r.danger||'', {content:niveauLabels[r.niveau]||'',styles:{halign:'center',fontStyle:'bold',fillColor:nc,textColor:r.niveau>=3?[255,255,255]:[0,0,0]}}, r.prevention||r.situation||'', {content:r.chargeEU?'X':'',styles:{halign:'center'}}, {content:r.chargeEE?'X':'',styles:{halign:'center'}} ];
+      });
+      addTable(['Risque','Niveau','Mesures de prévention','EU','EE'], rBody, {columnStyles:{0:{cellWidth:40},1:{cellWidth:20},2:{cellWidth:80},3:{cellWidth:20},4:{cellWidth:20}}});
+    } else { doc.setFontSize(9); doc.setFont('helvetica','italic'); doc.text('Aucun risque identifié.',m,y); y+=6; }
+
+    // 5. Exigences
+    let secNum = 5;
+    if ((p.exigences||[]).length) {
+      secTitle(`${secNum}. EXIGENCES ${(eu.nom||'EU').toUpperCase()}`);
+      addTable(['N°','Exigence'], p.exigences.map((e,i)=>[{content:String(i+1),styles:{halign:'center',fontStyle:'bold'}},e]), {columnStyles:{0:{cellWidth:15}}});
+      secNum++;
+    }
+
+    // Consignes d'urgence
+    const urg = p.urgence||{};
+    secTitle(`${secNum}. CONSIGNES D'URGENCE`);
+    const urgRows = [];
+    if(urg.responsable) urgRows.push(['Responsable de site',`${urg.responsable}${urg.telResponsable?' – '+urg.telResponsable:''}`]);
+    if(urg.sst) urgRows.push(['SST / Secouriste',`${urg.sst}${urg.telSst?' – '+urg.telSst:''}`]);
+    urgRows.push(["Numéros d'urgence",urg.numeros||'Pompiers : 18  |  SAMU : 15  |  Gendarmerie : 17  |  Urgences : 112']);
+    labelTable(urgRows);
+    secNum++;
+
+    // Signatures — forcer sur une seule page
+    checkPage(80);
+    secTitle(`${secNum}. VALIDATION & SIGNATURES`);
+    doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(80,80,80);
+    doc.text('Les parties soussignées attestent avoir pris connaissance des dispositions du présent plan de prévention.',m,y); y+=5;
+    doc.setTextColor(0,0,0);
+    const sigCols = [{label:`EU (${(eu.nom||'').toUpperCase()})`,sig:p.signatureEU||{}}];
+    ees.forEach((ee,i) => sigCols.push({label:ee.nom||`EE ${i+1}`,sig:(p.signaturesEE||[])[i]||{}}));
+    if(!ees.length) sigCols.push({label:'ENTREPRISE EXTÉRIEURE',sig:{}});
+    addTable(sigCols.map(c=>c.label), [
+      sigCols.map(c=>`Nom : ${c.sig.nom||''}`),
+      sigCols.map(c=>`Fonction : ${c.sig.fonction||''}`),
+      sigCols.map(c=>`Date : ${c.sig.date||''}`),
+      sigCols.map(c=>({content:'Signature :',styles:{minCellHeight:25}}))
+    ]);
+    // Insérer les images de signature PDP sous le tableau
+    const pdpSigColW = pw / sigCols.length;
+    let hasPdpSigImg = false;
+    for (let si=0; si<sigCols.length; si++) {
+      const sig = sigCols[si].sig;
+      if (sig?.data) {
+        try {
+          doc.addImage(sig.data,'PNG',m+(si*pdpSigColW)+5,y-22,40,15);
+          hasPdpSigImg = true;
+        } catch(e) { /* skip */ }
+      }
+    }
+    secNum++;
+
+    // Émargement
+    if ((p.emargements||[]).length) {
+      secTitle(`${secNum}. ÉMARGEMENT`);
+      addTable(['Nom','Prénom','Fonction','Société','Date','Signature'],
+        p.emargements.map(e=>[e.nom||'',e.prenom||'',e.fonction||'',e.societe||'',e.date||'',{content:'',styles:{minCellHeight:12}}]),
+        {columnStyles:{5:{cellWidth:30}}}
+      );
+      secNum++;
     }
 
     // Pictogrammes
