@@ -592,6 +592,139 @@ textarea.form-control { min-height: 70px; }
     .photo-thumb { width: 70px !important; height: 70px !important; }
 }
 
+/* ---- Tablet breakpoint (769px-1024px) ---- */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .container-fluid { max-width: 100%; padding-left: 12px; padding-right: 12px; }
+    .section-tab { padding: 5px 10px; font-size: 0.78rem; }
+    .form-section { padding: 0.75rem; }
+    .kpi-card .card-body { padding: 0.5rem; }
+    .risk-row { padding: 0.5rem; }
+}
+
+/* ---- Enhanced mobile/tablet responsive ---- */
+@media (max-width: 768px) {
+    /* Section tabs: horizontal scroll */
+    #pdp-section-tabs, #icp-section-tabs {
+        flex-wrap: nowrap !important;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding-bottom: 4px;
+    }
+    #pdp-section-tabs::-webkit-scrollbar,
+    #icp-section-tabs::-webkit-scrollbar { display: none; }
+    .section-tab { flex-shrink: 0; padding: 5px 10px; font-size: 0.75rem; }
+
+    /* Form sections: reduce padding */
+    .form-section { padding: 0.6rem; margin-bottom: 0.5rem; }
+    .form-section-title { font-size: 0.95rem; padding: 0.4rem 0.6rem; }
+    .field-group { padding: 0.5rem; margin-bottom: 0.4rem; }
+    .field-group-title { font-size: 0.8rem; }
+
+    /* Section navigation buttons */
+    .section-nav { flex-direction: column; gap: 0.4rem; }
+    .section-nav .btn { min-width: unset; width: 100%; }
+
+    /* Risk rows: stack content */
+    .risk-row { padding: 0.5rem; }
+    .risk-row .d-flex { flex-wrap: wrap; }
+    .risk-row textarea { font-size: 0.82rem; }
+    .risk-row select { font-size: 0.8rem; }
+
+    /* Prevention checkboxes: compact */
+    .prevention-items .form-check-label { font-size: 0.78rem; }
+
+    /* Check cards (pictograms): smaller */
+    .check-card { padding: 0.4rem 0.5rem; font-size: 0.78rem; gap: 0.3rem; }
+    .check-card .picto-img { width: 28px; height: 28px; }
+
+    /* Dashboard KPIs: 2 columns */
+    #dashboard-kpis { gap: 0.4rem !important; }
+    #dashboard-kpis .col { flex: 0 0 50% !important; max-width: 50% !important; }
+
+    /* Signatures: full width */
+    .signature-pad-wrapper { margin: 0 -0.5rem; }
+
+    /* Tables in modals: scroll horizontal */
+    .table-responsive { font-size: 0.8rem; }
+
+    /* Export buttons: stack vertically */
+    #view-pdp-detail .d-flex.gap-2:has(.btn[onclick*="export"]) {
+        flex-direction: column;
+    }
+
+    /* Risk picker modal: better mobile layout */
+    .risk-chip { font-size: 0.78rem; padding: 4px 8px; }
+    .risk-picker-search { font-size: 0.9rem; }
+
+    /* Helper text: smaller */
+    .section-helper { font-size: 0.78rem; padding: 0.5rem 0.6rem; }
+}
+
+@media (max-width: 576px) {
+    /* Extra small: further reduce */
+    .section-tab { padding: 4px 8px; font-size: 0.7rem; }
+    .section-tab i { display: none; } /* Hide icons in tabs on very small screens */
+
+    /* Stack columns that are col-md-6 */
+    .row.g-2 > [class*="col-md-6"],
+    .row.g-3 > [class*="col-md-6"] { flex: 0 0 100%; max-width: 100%; }
+
+    /* PDP header: compact */
+    .pdp-header-info { font-size: 0.78rem; }
+
+    /* Risk rows: more compact */
+    .risk-row { padding: 0.4rem; font-size: 0.82rem; }
+    .risk-row strong { font-size: 0.85rem; }
+
+    /* Buttons bar at top of PDP: wrap and smaller */
+    #view-pdp-detail > .d-flex:first-child { flex-wrap: wrap; gap: 0.3rem !important; }
+    #view-pdp-detail > .d-flex:first-child .btn { font-size: 0.75rem; padding: 0.25rem 0.5rem; }
+
+    /* Emergency numbers: 2x2 grid */
+    .row.g-3 > .col-6.col-md-3 { flex: 0 0 50%; max-width: 50%; }
+
+    /* Emargement table: horizontal scroll */
+    #emargement-table-container { overflow-x: auto; }
+
+    /* Photo thumbnails: smaller grid */
+    .photo-thumb { width: 60px !important; height: 60px !important; }
+
+    /* Accordion (help): compact */
+    .accordion-button { font-size: 0.85rem; padding: 0.6rem 0.8rem; }
+    .accordion-body { padding: 0.6rem; }
+}
+
+/* Touch-friendly: larger tap targets */
+@media (pointer: coarse) {
+    .form-check-input { width: 1.2em; height: 1.2em; }
+    .btn-sm { min-height: 38px; padding: 0.35rem 0.65rem; }
+    .risk-row button.btn-outline-danger { min-width: 38px; min-height: 38px; }
+    .section-tab { min-height: 36px; }
+    .prevention-items .form-check { padding: 0.2rem 0; }
+    .prevention-items .form-check-input { width: 1.15em; height: 1.15em; }
+    .check-card { min-height: 44px; }
+    .dropdown-item { padding: 0.5rem 1rem; }
+    /* Swipe hint for section tabs */
+    #pdp-section-tabs::after {
+        content: '';
+        flex-shrink: 0;
+        width: 8px;
+    }
+}
+
+/* Safe area padding for notched phones */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .mobile-bottom-nav {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+    @media (max-width: 768px) {
+        #main-content {
+            padding-bottom: calc(65px + env(safe-area-inset-bottom)) !important;
+        }
+    }
+}
+
 /* ---- Animations ---- */
 .fade-in { animation: fadeIn 0.25s ease-in; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
