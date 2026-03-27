@@ -5905,6 +5905,11 @@ const App = {
       }
     }
     console.log('[DOCX Export] ICP lookup:', {icpId: p.icpId, pdpId: p.id, found: !!icpForExport, icpNumero: icpForExport?.numero, risques: icpForExport?.risques?.length, photos: icpForExport?.photos?.length});
+    if (!icpForExport) {
+      console.warn('[DOCX Export] ICP NON TROUVÉE. icpId=' + p.icpId + ', pdpId=' + p.id);
+      // Dernier recours : lister toutes les ICP pour debug
+      try { const all = await db.icps.toArray(); console.log('[DOCX Export] Toutes les ICP en base:', all.map(i => ({id:i.id, numero:i.numero, pdpId:i.pdpId}))); } catch(e) {}
+    }
     const vis = p.visite||{};
     const hasIcpEntity = !!icpForExport;
     const hasVisiteData = !!(vis.date || vis.locaux || vis.materielEU || vis.materielEE || (vis.documentsEchanges||[]).length || vis.consignesAcces || vis.effectuee);
