@@ -2674,13 +2674,23 @@ const App = {
           console.log('[Init] Base actuelle:', pdpCount, 'PDP,', icpCount, 'ICP');
           if (pdpCount === 0 && icpCount === 0) {
             const data = window.__EMBEDDED_DATA__;
-            if (data.settings) for (const s of data.settings) await db.settings.put(s);
-            if (data.sites) for (const s of data.sites) await db.sites.put(s);
-            if (data.entreprises) for (const ent of data.entreprises) await db.entreprises.put(ent);
-            if (data.icps) for (const v of data.icps) await db.icps.put(v);
-            if (data.pdps) for (const p of data.pdps) await db.pdps.put(p);
+            // Import avec IDs préservés via bulkPut (plus fiable que put individuel)
+            if (data.settings) for (const s of data.settings) { try { await db.settings.put(s); } catch(e) { console.warn('settings put err:', e); } }
+            if (data.sites) { try { await db.sites.bulkPut(data.sites); } catch(e) { console.warn('sites bulkPut err:', e); for (const s of data.sites) { try { await db.sites.put(s); } catch(e2) {} } } }
+            if (data.entreprises) { try { await db.entreprises.bulkPut(data.entreprises); } catch(e) { console.warn('entreprises bulkPut err:', e); for (const ent of data.entreprises) { try { await db.entreprises.put(ent); } catch(e2) {} } } }
+            if (data.icps) {
+              console.log('[Init] Import ICP:', data.icps.map(i => ({id:i.id, numero:i.numero, pdpId:i.pdpId, risques:i.risques?.length})));
+              try { await db.icps.bulkPut(data.icps); } catch(e) { console.warn('icps bulkPut err:', e); for (const v of data.icps) { try { await db.icps.put(v); } catch(e2) { console.warn('icp put err id='+v.id, e2); } } }
+            }
+            if (data.pdps) {
+              console.log('[Init] Import PDP:', data.pdps.map(p => ({id:p.id, numero:p.numero, icpId:p.icpId, statut:p.statut})));
+              try { await db.pdps.bulkPut(data.pdps); } catch(e) { console.warn('pdps bulkPut err:', e); for (const p of data.pdps) { try { await db.pdps.put(p); } catch(e2) { console.warn('pdp put err id='+p.id, e2); } } }
+            }
             await this.loadSettings();
-            console.log('[Init] Données embarquées importées:', data.pdps?.length, 'PDP,', data.icps?.length, 'ICP');
+            // Vérification post-import
+            const newPdpCount = await db.pdps.count();
+            const newIcpCount = await db.icps.count();
+            console.log('[Init] Données embarquées importées OK:', newPdpCount, 'PDP,', newIcpCount, 'ICP');
           }
         } catch(e) { console.warn('[Init] Erreur import données embarquées:', e); }
       }
