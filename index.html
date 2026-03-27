@@ -5858,33 +5858,31 @@ const App = {
     ees.forEach((ee,i) => sigCols.push({label:ee.nom||`EE ${i+1}`,sig:(p.signaturesEE||[])[i]||{}}));
     if (!ees.length) sigCols.push({label:'ENTREPRISE EXTÉRIEURE',sig:{}});
     const cw = Math.floor(100/sigCols.length);
+    const _sigCellPDP = (sig, label, w) => {
+      const paras = [
+        new Paragraph({children:[new TextRun({text:'Signature :',size:18,font:'Calibri',italics:true})],spacing:{before:40,after:20}}),
+      ];
+      if (sig?.data) {
+        try {
+          const raw = atob(sig.data.split(',')[1]);
+          const arr = new Uint8Array(raw.length);
+          for (let j = 0; j < raw.length; j++) arr[j] = raw.charCodeAt(j);
+          paras.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:130,height:50},type:'png'})],spacing:{before:10,after:20}}));
+        } catch(e) {
+          paras.push(new Paragraph({children:[],spacing:{before:200,after:200}}));
+        }
+      } else {
+        paras.push(new Paragraph({children:[],spacing:{before:200,after:200}}));
+      }
+      return new TableCell({children:paras,width:{size:w,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.TOP});
+    };
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
       new TableRow({children:sigCols.map(c=>hCell(c.label,cw))}),
       new TableRow({children:sigCols.map(c=>cell(`Nom / Prénom : ${c.sig.nom||''}`,{width:cw}))}),
       new TableRow({children:sigCols.map(c=>cell(`Fonction : ${c.sig.fonction||''}`,{width:cw}))}),
       new TableRow({children:sigCols.map(c=>cell(`Date : ${c.sig.date||''}`,{width:cw}))}),
-      new TableRow({children:sigCols.map(c=>new TableCell({children:[new Paragraph({children:[new TextRun({text:'Signature :',size:18,font:'Calibri',italics:true})],spacing:{before:40,after:350}})],width:{size:cw,type:WidthType.PERCENTAGE}}))}),
+      new TableRow({children:sigCols.map(c=>_sigCellPDP(c.sig,c.label,cw))}),
     ]}));
-
-    // ICP enriched section
-    const vis = p.visite||{};
-    if (vis.locaux || vis.materielEU || vis.materielEE || (vis.documentsEchanges||[]).length || vis.consignesAcces) {
-      secNum++;
-      children.push(secTitle(String(secNum),'INSPECTION COMMUNE PRÉALABLE (ICP)'));
-      const icpRows = [];
-      if (vis.date) icpRows.push(new TableRow({children:[cell('Date de la visite',{width:35,bold:true}),cell(`${vis.date||''}${vis.heure?' à '+vis.heure:''}`)]}));
-      if (vis.participants) icpRows.push(new TableRow({children:[cell('Participants',{width:35,bold:true}),cell(vis.participants)]}));
-      if (vis.observations) icpRows.push(new TableRow({children:[cell('Observations',{width:35,bold:true}),cell(vis.observations)]}));
-      if (vis.locaux) icpRows.push(new TableRow({children:[cell('Locaux mis à disposition',{width:35,bold:true}),cell(vis.locaux)]}));
-      if (vis.materielEU) icpRows.push(new TableRow({children:[cell('Matériels/Équipements EU',{width:35,bold:true}),cell(vis.materielEU)]}));
-      if (vis.materielEE) icpRows.push(new TableRow({children:[cell('Matériels/Équipements EE',{width:35,bold:true}),cell(vis.materielEE)]}));
-      if ((vis.documentsEchanges||[]).length) {
-        const docLabels = {plan_acces:"Plan d'accès",mode_operatoire:'Mode(s) opératoire(s)',analyse_risques:'Analyse(s) de risques',permis_feux:'Permis Feux',habilitations:'Habilitations / Compétences'};
-        icpRows.push(new TableRow({children:[cell('Documents échangés',{width:35,bold:true}),cell(vis.documentsEchanges.map(d=>docLabels[d]||d).join(', '))]}));
-      }
-      if (vis.consignesAcces) icpRows.push(new TableRow({children:[cell('Consignes d\'accès / secours',{width:35,bold:true}),cell(vis.consignesAcces)]}));
-      if (icpRows.length) children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:icpRows}));
-    }
 
     // Émargement
     if ((p.emargements||[]).length) {
@@ -5896,33 +5894,37 @@ const App = {
       children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:emRows}));
     }
 
-    // Inspection Commune Préalable (ICP)
+    // ========== INSPECTION COMMUNE PRÉALABLE (ICP) — Section unifiée ==========
     let icpForExport = null;
     if (p.icpId) {
-      try { icpForExport = await db.icps.get(p.icpId); } catch(e) {}
+      try { icpForExport = await db.icps.get(p.icpId); } catch(e) { console.warn('ICP lookup by icpId failed:', e); }
     }
     if (!icpForExport && p.id) {
-      try { icpForExport = await db.icps.where('pdpId').equals(p.id).first(); } catch(e) {}
+      try { icpForExport = await db.icps.where('pdpId').equals(p.id).first(); } catch(e) { console.warn('ICP lookup by pdpId failed:', e); }
     }
-    if (icpForExport) {
+    const vis = p.visite||{};
+    const hasIcpEntity = !!icpForExport;
+    const hasVisiteData = !!(vis.date || vis.locaux || vis.materielEU || vis.materielEE || (vis.documentsEchanges||[]).length || vis.consignesAcces || vis.effectuee);
+
+    if (hasIcpEntity || hasVisiteData) {
+      secNum++;
+      children.push(secTitle(String(secNum),'INSPECTION COMMUNE PRÉALABLE (ICP)'));
       try {
-        const icp = icpForExport;
-          secNum++;
-          children.push(secTitle(String(secNum),'INSPECTION COMMUNE PRÉALABLE (ICP)'));
+        const icp = icpForExport || {};
 
-          // Info table
-          const icpInfoRows = [
-            new TableRow({children:[cell('Référence ICP',{width:35,bold:true}),cell(icp.numero||'')]}),
-            new TableRow({children:[cell('Date de visite',{width:35,bold:true}),cell(`${icp.dateVisite||''} ${icp.heure?'à '+icp.heure:''}`)]}),
-            new TableRow({children:[cell('Site / Adresse',{width:35,bold:true}),cell(icp.site||'')]}),
-            new TableRow({children:[cell('Lieu précis',{width:35,bold:true}),cell(icp.lieu||'')]}),
-            new TableRow({children:[cell('Objet',{width:35,bold:true}),cell(icp.objet||'')]}),
-          ];
-          children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:icpInfoRows}));
-          children.push(spacer());
+        // --- Info table ---
+        const icpInfoRows = [];
+        if (icp.numero) icpInfoRows.push(new TableRow({children:[cell('Référence ICP',{width:35,bold:true}),cell(icp.numero||'')]}));
+        icpInfoRows.push(new TableRow({children:[cell('Date de visite',{width:35,bold:true}),cell(`${icp.dateVisite||vis.date||''} ${(icp.heure||vis.heure)?'à '+(icp.heure||vis.heure):''}`)]}));
+        if (icp.site||p.site) icpInfoRows.push(new TableRow({children:[cell('Site / Adresse',{width:35,bold:true}),cell(icp.site||p.site||'')]}));
+        if (icp.lieu||p.lieu) icpInfoRows.push(new TableRow({children:[cell('Lieu précis',{width:35,bold:true}),cell(icp.lieu||p.lieu||'')]}));
+        if (icp.objet||p.description) icpInfoRows.push(new TableRow({children:[cell('Objet',{width:35,bold:true}),cell(icp.objet||p.description||'')]}));
+        children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:icpInfoRows}));
+        children.push(spacer());
 
-          // Participants
-          children.push(new Paragraph({children:[new TextRun({text:'Participants :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
+        // --- Participants ICP ---
+        if (hasIcpEntity) {
+          children.push(new Paragraph({children:[new TextRun({text:'Participants à l\'ICP :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
           const euP = icp.euParticipant||{};
           const partRows = [new TableRow({children:[hCell('Rôle',20),hCell('Nom',25),hCell('Fonction',25),hCell('Téléphone',30)]})];
           partRows.push(new TableRow({children:[
@@ -5941,53 +5943,75 @@ const App = {
           });
           children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:partRows}));
           children.push(spacer());
+        } else if (vis.participants) {
+          children.push(new Paragraph({children:[new TextRun({text:`Participants : ${vis.participants}`,size:20,font:'Calibri'})],spacing:{before:50,after:100}}));
+        }
 
-          // Risques identifiés lors de la visite
-          if ((icp.risques||[]).length) {
-            children.push(new Paragraph({children:[new TextRun({text:'Risques identifiés lors de la visite :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
-            const niveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
-            const icpRiskRows = [new TableRow({children:[hCell('Risque',20),hCell('Niveau',10),hCell('Localisation',18),hCell('Situation',26),hCell('Prévention',26)]})];
-            icp.risques.forEach(r => {
-              const nc = {1:'92D050',2:'FFC000',3:'FD7E14',4:'FF0000'}[r.niveau]||'FFC000';
-              icpRiskRows.push(new TableRow({children:[
-                cell(r.danger||'',{width:20}),
-                cell(niveauLabels[r.niveau]||'',{width:10,align:AlignmentType.CENTER,bold:true,shading:nc}),
-                cell(r.localisation||'',{width:18}),
-                cell(r.situation||'',{width:26}),
-                cell(r.prevention||'',{width:26})
-              ]}));
-            });
-            children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:icpRiskRows}));
-            children.push(spacer());
-          }
+        // --- Risques identifiés lors de l'ICP ---
+        const icpRisques = icp.risques||[];
+        if (icpRisques.length) {
+          children.push(new Paragraph({children:[new TextRun({text:'Risques identifiés lors de la visite :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
+          const icpNiveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
+          const icpRiskRows = [new TableRow({children:[hCell('Risque',20),hCell('Niveau',10),hCell('Localisation',18),hCell('Situation',26),hCell('Prévention',26)]})];
+          icpRisques.forEach(r => {
+            const nc = {1:'92D050',2:'FFC000',3:'FD7E14',4:'FF0000'}[r.niveau]||'FFC000';
+            icpRiskRows.push(new TableRow({children:[
+              cell(r.danger||'',{width:20}),
+              cell(icpNiveauLabels[r.niveau]||'',{width:10,align:AlignmentType.CENTER,bold:true,shading:nc}),
+              cell(r.localisation||'',{width:18}),
+              cell(r.situation||'',{width:26}),
+              cell(r.prevention||'',{width:26})
+            ]}));
+          });
+          children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:icpRiskRows}));
+          children.push(spacer());
+        }
 
-          // Observations
-          if (icp.observations) {
-            children.push(new Paragraph({children:[new TextRun({text:'Observations :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
-            children.push(new Paragraph({children:[new TextRun({text:icp.observations,size:20,font:'Calibri'})],spacing:{after:100}}));
-          }
+        // --- Données visite complémentaires (locaux, matériels, documents échangés) ---
+        const visRows = [];
+        if (vis.locaux) visRows.push(new TableRow({children:[cell('Locaux mis à disposition',{width:35,bold:true}),cell(vis.locaux)]}));
+        if (vis.materielEU) visRows.push(new TableRow({children:[cell('Matériels/Équipements EU',{width:35,bold:true}),cell(vis.materielEU)]}));
+        if (vis.materielEE) visRows.push(new TableRow({children:[cell('Matériels/Équipements EE',{width:35,bold:true}),cell(vis.materielEE)]}));
+        if ((vis.documentsEchanges||[]).length) {
+          const docLabels = {plan_acces:"Plan d'accès",mode_operatoire:'Mode(s) opératoire(s)',analyse_risques:'Analyse(s) de risques',permis_feux:'Permis Feux',habilitations:'Habilitations / Compétences'};
+          visRows.push(new TableRow({children:[cell('Documents échangés',{width:35,bold:true}),cell(vis.documentsEchanges.map(d=>docLabels[d]||d).join(', '))]}));
+        }
+        if (vis.consignesAcces) visRows.push(new TableRow({children:[cell('Consignes d\'accès / secours',{width:35,bold:true}),cell(vis.consignesAcces)]}));
+        if (visRows.length) {
+          children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:visRows}));
+          children.push(spacer());
+        }
 
-          // Photos
-          if ((icp.photos||[]).length) {
-            children.push(new Paragraph({children:[new TextRun({text:'Photos :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
-            for (const photo of icp.photos) {
-              if (!photo) continue;
-              try {
-                const imgData = photo.data || photo;
-                const b64 = imgData.split(',')[1];
-                const raw = atob(b64);
-                const arr = new Uint8Array(raw.length);
-                for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-                children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:350,height:260},type:'png'})],spacing:{before:60,after:40}}));
-                if (photo.label) children.push(new Paragraph({children:[new TextRun({text:photo.label,size:16,font:'Calibri',italics:true,color:'888888'})]}));
-              } catch(e) {
-                children.push(new Paragraph({children:[new TextRun({text:'[Photo non intégrée]',size:18,font:'Calibri',italics:true,color:'999999'})]}));
-              }
+        // --- Observations ---
+        const icpObs = icp.observations || vis.observations;
+        if (icpObs) {
+          children.push(new Paragraph({children:[new TextRun({text:'Observations :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
+          children.push(new Paragraph({children:[new TextRun({text:icpObs,size:20,font:'Calibri'})],spacing:{after:100}}));
+        }
+
+        // --- Photos ICP ---
+        const icpPhotos = (icp.photos||[]).length ? icp.photos : (vis.photos||[]);
+        if (icpPhotos.length) {
+          children.push(new Paragraph({children:[new TextRun({text:'Photos de la visite :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
+          for (const photo of icpPhotos) {
+            if (!photo) continue;
+            try {
+              const imgData = photo.data || photo;
+              const b64 = imgData.split(',')[1];
+              const raw = atob(b64);
+              const arr = new Uint8Array(raw.length);
+              for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+              children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:350,height:260},type:'png'})],spacing:{before:60,after:40}}));
+              if (photo.label) children.push(new Paragraph({children:[new TextRun({text:photo.label,size:16,font:'Calibri',italics:true,color:'888888'})]}));
+            } catch(e) {
+              children.push(new Paragraph({children:[new TextRun({text:'[Photo non intégrée]',size:18,font:'Calibri',italics:true,color:'999999'})]}));
             }
-            children.push(spacer());
           }
+          children.push(spacer());
+        }
 
-          // Signatures ICP
+        // --- Signatures ICP (avec images) ---
+        if (hasIcpEntity) {
           children.push(new Paragraph({children:[new TextRun({text:'Signatures des participants à l\'ICP :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
           const _sigCellPdpIcp = (sig, label, w) => {
             const paras = [
@@ -6015,9 +6039,9 @@ const App = {
           children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
             new TableRow({children:icpSigCols.map(c=>_sigCellPdpIcp(c.sig,c.label,icpCw))}),
           ]}));
+        }
       } catch(e) {
-        // If ICP loading fails, just skip the section
-        console.error('ICP export error:', e);
+        console.error('ICP DOCX export error:', e);
       }
     }
 
@@ -6796,8 +6820,20 @@ const App = {
       sigCols.map(c=>`Nom : ${c.sig.nom||''}`),
       sigCols.map(c=>`Fonction : ${c.sig.fonction||''}`),
       sigCols.map(c=>`Date : ${c.sig.date||''}`),
-      sigCols.map(c=>({content:'Signature :\n\n\n',styles:{minCellHeight:25}}))
+      sigCols.map(c=>({content:'Signature :',styles:{minCellHeight:25}}))
     ]);
+    // Insérer les images de signature PDP sous le tableau
+    const pdpSigColW = pw / sigCols.length;
+    let hasPdpSigImg = false;
+    for (let si=0; si<sigCols.length; si++) {
+      const sig = sigCols[si].sig;
+      if (sig?.data) {
+        try {
+          doc.addImage(sig.data,'PNG',m+(si*pdpSigColW)+5,y-22,40,15);
+          hasPdpSigImg = true;
+        } catch(e) { /* skip */ }
+      }
+    }
     secNum++;
 
     // Émargement
@@ -6810,103 +6846,144 @@ const App = {
       secNum++;
     }
 
-    // Inspection Commune Préalable (ICP)
+    // ========== INSPECTION COMMUNE PRÉALABLE (ICP) — Section unifiée PDF ==========
     let icpForPdf = null;
     if (p.icpId) {
-      try { icpForPdf = await db.icps.get(p.icpId); } catch(e) {}
+      try { icpForPdf = await db.icps.get(p.icpId); } catch(e) { console.warn('ICP PDF lookup by icpId failed:', e); }
     }
     if (!icpForPdf && p.id) {
-      try { icpForPdf = await db.icps.where('pdpId').equals(p.id).first(); } catch(e) {}
+      try { icpForPdf = await db.icps.where('pdpId').equals(p.id).first(); } catch(e) { console.warn('ICP PDF lookup by pdpId failed:', e); }
     }
-    if (icpForPdf) {
+    const visPdf = p.visite||{};
+    const hasIcpPdf = !!icpForPdf;
+    const hasVisitePdf = !!(visPdf.date || visPdf.locaux || visPdf.materielEU || visPdf.materielEE || (visPdf.documentsEchanges||[]).length || visPdf.consignesAcces || visPdf.effectuee);
+
+    if (hasIcpPdf || hasVisitePdf) {
       try {
-        const icp = icpForPdf;
-          secTitle(`${secNum}. INSPECTION COMMUNE PRÉALABLE (ICP)`);
+        const icp = icpForPdf || {};
+        secTitle(`${secNum}. INSPECTION COMMUNE PRÉALABLE (ICP)`);
 
-          // Info table
-          const icpInfoData = [];
-          if (icp.numero) icpInfoData.push(['Référence ICP', icp.numero]);
-          icpInfoData.push(['Date de visite', `${icp.dateVisite||''} ${icp.heure?'à '+icp.heure:''}`]);
-          if (icp.site) icpInfoData.push(['Site / Adresse', icp.site]);
-          if (icp.lieu) icpInfoData.push(['Lieu précis', icp.lieu]);
-          if (icp.objet) icpInfoData.push(['Objet', icp.objet]);
-          labelTable(icpInfoData);
+        // Info table
+        const icpInfoData = [];
+        if (icp.numero) icpInfoData.push(['Référence ICP', icp.numero]);
+        icpInfoData.push(['Date de visite', `${icp.dateVisite||visPdf.date||''} ${(icp.heure||visPdf.heure)?'à '+(icp.heure||visPdf.heure):''}`]);
+        if (icp.site||p.site) icpInfoData.push(['Site / Adresse', icp.site||p.site||'']);
+        if (icp.lieu||p.lieu) icpInfoData.push(['Lieu précis', icp.lieu||p.lieu||'']);
+        if (icp.objet||p.description) icpInfoData.push(['Objet', icp.objet||p.description||'']);
+        labelTable(icpInfoData);
 
-          // Participants
+        // Participants ICP
+        if (hasIcpPdf) {
           checkPage(20);
-          doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Participants :',m,y); y+=4;
+          doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Participants à l\'ICP :',m,y); y+=4;
           const euP = icp.euParticipant||{};
           const icpPartBody = [['EU', euP.nom||'', euP.fonction||'', euP.tel||'']];
           (icp.entreprisesExt||[]).forEach(ee => {
             icpPartBody.push(['EE', `${ee.responsable||''} (${ee.nom||''})`, ee.activite||'', ee.tel||'']);
           });
           addTable(['Rôle','Nom','Fonction','Téléphone'], icpPartBody);
+        } else if (visPdf.participants) {
+          checkPage(10);
+          doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text(`Participants : ${visPdf.participants}`,m,y); y+=6;
+        }
 
-          // Risques identifiés lors de la visite
-          if ((icp.risques||[]).length) {
-            checkPage(20);
-            doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Risques identifiés lors de la visite :',m,y); y+=4;
-            const icpNiveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
-            const icpNiveauColors = {1:[146,208,80],2:[255,192,0],3:[253,126,20],4:[255,0,0]};
-            const icpRiskBody = icp.risques.map(r => [
-              r.danger||'',
-              {content:icpNiveauLabels[r.niveau]||'',styles:{fontStyle:'bold',fillColor:icpNiveauColors[r.niveau]||[255,192,0],halign:'center'}},
-              r.localisation||'',
-              r.situation||'',
-              r.prevention||''
-            ]);
-            addTable(['Risque','Niveau','Localisation','Situation','Prévention'], icpRiskBody);
-          }
+        // Risques identifiés lors de l'ICP
+        const icpRisquesPdf = icp.risques||[];
+        if (icpRisquesPdf.length) {
+          checkPage(20);
+          doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Risques identifiés lors de la visite :',m,y); y+=4;
+          const icpNiveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
+          const icpNiveauColors = {1:[146,208,80],2:[255,192,0],3:[253,126,20],4:[255,0,0]};
+          const icpRiskBody = icpRisquesPdf.map(r => [
+            r.danger||'',
+            {content:icpNiveauLabels[r.niveau]||'',styles:{fontStyle:'bold',fillColor:icpNiveauColors[r.niveau]||[255,192,0],halign:'center'}},
+            r.localisation||'',
+            r.situation||'',
+            r.prevention||''
+          ]);
+          addTable(['Risque','Niveau','Localisation','Situation','Prévention'], icpRiskBody);
+        }
 
-          // Observations
-          if (icp.observations) {
-            checkPage(15);
-            doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Observations :',m,y); y+=4;
-            doc.setFont('helvetica','normal'); doc.setFontSize(8);
-            const obsLines = doc.splitTextToSize(icp.observations, pw);
-            obsLines.forEach(line => { checkPage(5); doc.text(line,m,y); y+=4; });
-            y+=2;
-          }
+        // Données visite complémentaires
+        const visRowsPdf = [];
+        if (visPdf.locaux) visRowsPdf.push(['Locaux mis à disposition', visPdf.locaux]);
+        if (visPdf.materielEU) visRowsPdf.push(['Matériels/Équipements EU', visPdf.materielEU]);
+        if (visPdf.materielEE) visRowsPdf.push(['Matériels/Équipements EE', visPdf.materielEE]);
+        if ((visPdf.documentsEchanges||[]).length) {
+          const docLabels = {plan_acces:"Plan d'accès",mode_operatoire:'Mode(s) opératoire(s)',analyse_risques:'Analyse(s) de risques',permis_feux:'Permis Feux',habilitations:'Habilitations / Compétences'};
+          visRowsPdf.push(['Documents échangés', visPdf.documentsEchanges.map(d=>docLabels[d]||d).join(', ')]);
+        }
+        if (visPdf.consignesAcces) visRowsPdf.push(['Consignes d\'accès / secours', visPdf.consignesAcces]);
+        if (visRowsPdf.length) labelTable(visRowsPdf);
 
-          // Photos
-          if ((icp.photos||[]).length) {
-            checkPage(20);
-            doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Photos :',m,y); y+=4;
-            for (const photo of icp.photos) {
-              if (!photo) continue;
-              try {
-                const imgData = photo.data || photo;
-                checkPage(60);
-                doc.addImage(imgData,'PNG',m,y,80,60);
-                y+=62;
-                if (photo.label) {
-                  doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(136,136,136);
-                  doc.text(photo.label,m,y); y+=4;
-                  doc.setTextColor(0,0,0);
-                }
-              } catch(e) {
-                doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(153,153,153);
-                doc.text('[Photo non intégrée]',m,y); y+=4;
+        // Observations
+        const icpObsPdf = icp.observations || visPdf.observations;
+        if (icpObsPdf) {
+          checkPage(15);
+          doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Observations :',m,y); y+=4;
+          doc.setFont('helvetica','normal'); doc.setFontSize(8);
+          const obsLines = doc.splitTextToSize(icpObsPdf, pw);
+          obsLines.forEach(line => { checkPage(5); doc.text(line,m,y); y+=4; });
+          y+=2;
+        }
+
+        // Photos ICP
+        const icpPhotosPdf = (icp.photos||[]).length ? icp.photos : (visPdf.photos||[]);
+        if (icpPhotosPdf.length) {
+          checkPage(20);
+          doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Photos de la visite :',m,y); y+=4;
+          for (const photo of icpPhotosPdf) {
+            if (!photo) continue;
+            try {
+              const imgData = photo.data || photo;
+              checkPage(60);
+              doc.addImage(imgData,'PNG',m,y,80,60);
+              y+=62;
+              if (photo.label) {
+                doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(136,136,136);
+                doc.text(photo.label,m,y); y+=4;
                 doc.setTextColor(0,0,0);
               }
+            } catch(e) {
+              doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(153,153,153);
+              doc.text('[Photo non intégrée]',m,y); y+=4;
+              doc.setTextColor(0,0,0);
             }
-            y+=2;
           }
+          y+=2;
+        }
 
-          // Signatures ICP
+        // Signatures ICP (avec images de signature)
+        if (hasIcpPdf) {
           checkPage(40);
           doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Signatures des participants à l\'ICP :',m,y); y+=4;
           const icpSigEU = icp.signatureEU||{};
           const icpSigColsPdf = [{label:'EU',sig:icpSigEU}];
           (icp.entreprisesExt||[]).forEach((ee,i) => { icpSigColsPdf.push({label:ee.nom||`EE ${i+1}`,sig:(icp.signaturesEE||[])[i]||{}}); });
           if (!icp.entreprisesExt?.length) icpSigColsPdf.push({label:'EE',sig:{}});
+
+          // Table signatures avec texte
           addTable(icpSigColsPdf.map(c=>c.label), [
             icpSigColsPdf.map(c=>`Nom : ${c.sig.nom||''}`),
             icpSigColsPdf.map(c=>`Date : ${c.sig.date||''}`),
-            icpSigColsPdf.map(c=>({content:'Signature :\n\n\n',styles:{minCellHeight:25}}))
+            icpSigColsPdf.map(c=>({content:'Signature :',styles:{minCellHeight:25}}))
           ]);
 
-          secNum++;
+          // Insérer les images de signature ICP sous le tableau
+          const sigStartX = m;
+          const sigColW = pw / icpSigColsPdf.length;
+          for (let si=0; si<icpSigColsPdf.length; si++) {
+            const sig = icpSigColsPdf[si].sig;
+            if (sig?.data) {
+              try {
+                checkPage(25);
+                doc.addImage(sig.data,'PNG',sigStartX+(si*sigColW)+5,y-22,40,15);
+              } catch(e) { /* skip */ }
+            }
+          }
+        }
+
+        secNum++;
       } catch(e) {
         console.error('ICP PDF export error:', e);
       }
