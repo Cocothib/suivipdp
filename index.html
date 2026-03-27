@@ -2667,9 +2667,11 @@ const App = {
       await this.loadSettings();
       // Auto-import embedded data if present and database is empty
       if (window.__EMBEDDED_DATA__) {
+        console.log('[Init] Données embarquées détectées:', window.__EMBEDDED_DATA__.pdps?.length, 'PDP,', window.__EMBEDDED_DATA__.icps?.length, 'ICP');
         try {
           const pdpCount = await db.pdps.count();
           const icpCount = await db.icps.count();
+          console.log('[Init] Base actuelle:', pdpCount, 'PDP,', icpCount, 'ICP');
           if (pdpCount === 0 && icpCount === 0) {
             const data = window.__EMBEDDED_DATA__;
             if (data.settings) for (const s of data.settings) await db.settings.put(s);
@@ -5723,7 +5725,11 @@ const App = {
 
   async exportStandaloneApp() {
     this.toast('Préparation de l\'app autonome...');
-    const data = { pdps: await db.pdps.toArray(), entreprises: await db.entreprises.toArray(), icps: await db.icps.toArray(), sites: await db.sites.toArray(), settings: await db.settings.toArray(), exportDate: new Date().toISOString(), version: '1.3' };
+    const allPdps = await db.pdps.toArray();
+    const allIcps = await db.icps.toArray();
+    console.log('[Standalone] Export:', allPdps.length, 'PDP, IDs:', allPdps.map(p=>p.id+' icpId='+p.icpId));
+    console.log('[Standalone] Export:', allIcps.length, 'ICP, IDs:', allIcps.map(i=>i.id+' pdpId='+i.pdpId));
+    const data = { pdps: allPdps, entreprises: await db.entreprises.toArray(), icps: allIcps, sites: await db.sites.toArray(), settings: await db.settings.toArray(), exportDate: new Date().toISOString(), version: '1.3' };
     let html;
     try {
       const resp = await fetch(window.location.href);
@@ -5731,7 +5737,8 @@ const App = {
     } catch(e) {
       html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
     }
-    const dataScript = '<script id="embedded-data">window.__EMBEDDED_DATA__ = ' + JSON.stringify(data) + ';<\/script>';
+    const jsonStr = JSON.stringify(data).replace(/<\//g, '<\\/');
+    const dataScript = '<script id="embedded-data">window.__EMBEDDED_DATA__ = ' + jsonStr + ';<\/script>';
     html = html.replace('</head>', dataScript + '\n</head>');
     const blob = new Blob([html], {type: 'text/html;charset=utf-8'});
     const a = document.createElement('a');
