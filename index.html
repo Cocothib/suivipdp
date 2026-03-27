@@ -2667,11 +2667,9 @@ const App = {
       await this.loadSettings();
       // Auto-import embedded data if present and database is empty
       if (window.__EMBEDDED_DATA__) {
-        console.log('[Init] Données embarquées détectées:', window.__EMBEDDED_DATA__.pdps?.length, 'PDP,', window.__EMBEDDED_DATA__.icps?.length, 'ICP');
         try {
           const pdpCount = await db.pdps.count();
           const icpCount = await db.icps.count();
-          console.log('[Init] Base actuelle:', pdpCount, 'PDP,', icpCount, 'ICP');
           if (pdpCount === 0 && icpCount === 0) {
             const data = window.__EMBEDDED_DATA__;
             // Import avec IDs préservés via bulkPut (plus fiable que put individuel)
@@ -2679,18 +2677,15 @@ const App = {
             if (data.sites) { try { await db.sites.bulkPut(data.sites); } catch(e) { console.warn('sites bulkPut err:', e); for (const s of data.sites) { try { await db.sites.put(s); } catch(e2) {} } } }
             if (data.entreprises) { try { await db.entreprises.bulkPut(data.entreprises); } catch(e) { console.warn('entreprises bulkPut err:', e); for (const ent of data.entreprises) { try { await db.entreprises.put(ent); } catch(e2) {} } } }
             if (data.icps) {
-              console.log('[Init] Import ICP:', data.icps.map(i => ({id:i.id, numero:i.numero, pdpId:i.pdpId, risques:i.risques?.length})));
               try { await db.icps.bulkPut(data.icps); } catch(e) { console.warn('icps bulkPut err:', e); for (const v of data.icps) { try { await db.icps.put(v); } catch(e2) { console.warn('icp put err id='+v.id, e2); } } }
             }
             if (data.pdps) {
-              console.log('[Init] Import PDP:', data.pdps.map(p => ({id:p.id, numero:p.numero, icpId:p.icpId, statut:p.statut})));
               try { await db.pdps.bulkPut(data.pdps); } catch(e) { console.warn('pdps bulkPut err:', e); for (const p of data.pdps) { try { await db.pdps.put(p); } catch(e2) { console.warn('pdp put err id='+p.id, e2); } } }
             }
             await this.loadSettings();
             // Vérification post-import
             const newPdpCount = await db.pdps.count();
             const newIcpCount = await db.icps.count();
-            console.log('[Init] Données embarquées importées OK:', newPdpCount, 'PDP,', newIcpCount, 'ICP');
           }
         } catch(e) { console.warn('[Init] Erreur import données embarquées:', e); }
       }
@@ -5750,8 +5745,6 @@ const App = {
     } catch(e) { console.warn('Save ICP before export:', e); }
     const allPdps = await db.pdps.toArray();
     const allIcps = await db.icps.toArray();
-    console.log('[Standalone] Export:', allPdps.length, 'PDP, IDs:', allPdps.map(p=>p.id+' icpId='+p.icpId));
-    console.log('[Standalone] Export:', allIcps.length, 'ICP, IDs:', allIcps.map(i=>i.id+' pdpId='+i.pdpId));
     const data = { pdps: allPdps, entreprises: await db.entreprises.toArray(), icps: allIcps, sites: await db.sites.toArray(), settings: await db.settings.toArray(), exportDate: new Date().toISOString(), version: '1.3' };
     let html;
     try {
@@ -5913,12 +5906,6 @@ const App = {
           icpForExport = allIcps.find(i => i.pdpId == p.id);
         } catch(e) {}
       }
-    }
-    console.log('[DOCX Export] ICP lookup:', {icpId: p.icpId, pdpId: p.id, found: !!icpForExport, icpNumero: icpForExport?.numero, risques: icpForExport?.risques?.length, photos: icpForExport?.photos?.length});
-    if (!icpForExport) {
-      console.warn('[DOCX Export] ICP NON TROUVÉE. icpId=' + p.icpId + ', pdpId=' + p.id);
-      // Dernier recours : lister toutes les ICP pour debug
-      try { const all = await db.icps.toArray(); console.log('[DOCX Export] Toutes les ICP en base:', all.map(i => ({id:i.id, numero:i.numero, pdpId:i.pdpId}))); } catch(e) {}
     }
     const vis = p.visite||{};
     const hasIcpEntity = !!icpForExport;
@@ -6886,7 +6873,6 @@ const App = {
         } catch(e) {}
       }
     }
-    console.log('[PDF Export] ICP lookup:', {icpId: p.icpId, pdpId: p.id, found: !!icpForPdf, icpNumero: icpForPdf?.numero});
     const visPdf = p.visite||{};
     const hasIcpPdf = !!icpForPdf;
     const hasVisitePdf = !!(visPdf.date || visPdf.locaux || visPdf.materielEU || visPdf.materielEE || (visPdf.documentsEchanges||[]).length || visPdf.consignesAcces || visPdf.effectuee);
