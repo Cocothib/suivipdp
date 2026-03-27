@@ -5766,6 +5766,7 @@ const App = {
     });
 
     const secTitle = (n,t) => new Paragraph({ children:[new TextRun({text:`${n}. ${t}`,size:24,bold:true,font:'Calibri',color:GREEN})], spacing:{before:300,after:150} });
+    const spacer = () => new Paragraph({children:[],spacing:{before:100}});
 
     const eu = p.eu||{}; const ees = p.entreprisesExt||[];
     const moisNoms = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
