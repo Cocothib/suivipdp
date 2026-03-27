@@ -5828,10 +5828,23 @@ const App = {
     let icpForExport = null;
     if (p.icpId) {
       try { icpForExport = await db.icps.get(p.icpId); } catch(e) { console.warn('ICP lookup by icpId failed:', e); }
+      if (!icpForExport) {
+        try { icpForExport = await db.icps.get(Number(p.icpId)); } catch(e) {}
+      }
     }
     if (!icpForExport && p.id) {
-      try { icpForExport = await db.icps.where('pdpId').equals(p.id).first(); } catch(e) { console.warn('ICP lookup by pdpId failed:', e); }
+      try { icpForExport = await db.icps.where('pdpId').equals(p.id).first(); } catch(e) {}
+      if (!icpForExport) {
+        try { icpForExport = await db.icps.where('pdpId').equals(Number(p.id)).first(); } catch(e) {}
+      }
+      if (!icpForExport) {
+        try {
+          const allIcps = await db.icps.toArray();
+          icpForExport = allIcps.find(i => i.pdpId == p.id);
+        } catch(e) {}
+      }
     }
+    console.log('[DOCX Export] ICP lookup:', {icpId: p.icpId, pdpId: p.id, found: !!icpForExport, icpNumero: icpForExport?.numero, risques: icpForExport?.risques?.length, photos: icpForExport?.photos?.length});
     const vis = p.visite||{};
     const hasIcpEntity = !!icpForExport;
     const hasVisiteData = !!(vis.date || vis.locaux || vis.materielEU || vis.materielEE || (vis.documentsEchanges||[]).length || vis.consignesAcces || vis.effectuee);
@@ -6781,11 +6794,24 @@ const App = {
     // 3. ICP (Inspection Commune Préalable)
     let icpForPdf = null;
     if (p.icpId) {
-      try { icpForPdf = await db.icps.get(p.icpId); } catch(e) { console.warn('ICP PDF lookup by icpId failed:', e); }
+      try { icpForPdf = await db.icps.get(p.icpId); } catch(e) {}
+      if (!icpForPdf) {
+        try { icpForPdf = await db.icps.get(Number(p.icpId)); } catch(e) {}
+      }
     }
     if (!icpForPdf && p.id) {
-      try { icpForPdf = await db.icps.where('pdpId').equals(p.id).first(); } catch(e) { console.warn('ICP PDF lookup by pdpId failed:', e); }
+      try { icpForPdf = await db.icps.where('pdpId').equals(p.id).first(); } catch(e) {}
+      if (!icpForPdf) {
+        try { icpForPdf = await db.icps.where('pdpId').equals(Number(p.id)).first(); } catch(e) {}
+      }
+      if (!icpForPdf) {
+        try {
+          const allIcps = await db.icps.toArray();
+          icpForPdf = allIcps.find(i => i.pdpId == p.id);
+        } catch(e) {}
+      }
     }
+    console.log('[PDF Export] ICP lookup:', {icpId: p.icpId, pdpId: p.id, found: !!icpForPdf, icpNumero: icpForPdf?.numero});
     const visPdf = p.visite||{};
     const hasIcpPdf = !!icpForPdf;
     const hasVisitePdf = !!(visPdf.date || visPdf.locaux || visPdf.materielEU || visPdf.materielEE || (visPdf.documentsEchanges||[]).length || visPdf.consignesAcces || visPdf.effectuee);
