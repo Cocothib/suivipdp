@@ -5725,6 +5725,19 @@ const App = {
 
   async exportStandaloneApp() {
     this.toast('Préparation de l\'app autonome...');
+    // Sauvegarder le PDP/ICP en cours d'édition avant export
+    try {
+      if (this.currentPDP) {
+        this.collectForm(); this.captureAllSigs();
+        if (this.currentPDP.id) await db.pdps.put(this.currentPDP);
+      }
+    } catch(e) { console.warn('Save PDP before export:', e); }
+    try {
+      if (this.currentICP) {
+        this.collectICPForm();
+        if (this.currentICP.id) await db.icps.put(this.currentICP);
+      }
+    } catch(e) { console.warn('Save ICP before export:', e); }
     const allPdps = await db.pdps.toArray();
     const allIcps = await db.icps.toArray();
     console.log('[Standalone] Export:', allPdps.length, 'PDP, IDs:', allPdps.map(p=>p.id+' icpId='+p.icpId));
