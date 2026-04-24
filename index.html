@@ -846,6 +846,93 @@ textarea.form-control { min-height: 70px; }
 }
 .risk-chip .chip-check { display: none; font-size: 0.7rem; }
 .risk-chip.selected .chip-check { display: inline; }
+
+/* --- Grille des catégories de risques (drill-down) --- */
+.risk-cat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+    padding: 4px 0;
+}
+.risk-cat-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 10px;
+    border: 1.5px solid #dee2e6;
+    border-radius: 10px;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+    position: relative;
+    min-height: 100px;
+}
+.risk-cat-card:hover {
+    border-color: var(--agw-green);
+    background: rgba(0, 105, 62, 0.04);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+.risk-cat-card .risk-cat-icon-lg {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1.3rem;
+}
+.risk-cat-card .risk-cat-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #333;
+    line-height: 1.2;
+}
+.risk-cat-card .risk-cat-count {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background: var(--agw-green);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    border-radius: 10px;
+    padding: 2px 6px;
+    min-width: 20px;
+    text-align: center;
+}
+.risk-picker-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+}
+.risk-picker-back {
+    background: none;
+    border: none;
+    color: var(--agw-green);
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 4px 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.risk-picker-back:hover { background: rgba(0, 105, 62, 0.08); border-radius: 6px; }
+.risk-picker-current-cat {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
 .risk-selected-summary {
     display: flex;
     align-items: center;
@@ -4063,8 +4150,10 @@ const App = {
   },
 
   // ---- RISK PICKER ----
-  _riskPickerCtx: null, // 'pdp' or 'icp'
+  _riskPickerCtx: null,           // 'pdp' or 'icp'
   _riskPickerModal: null,
+  _riskPickerView: 'categories',  // 'categories' | 'risks' | 'search'
+  _riskPickerSelectedCat: null,   // nom de categorie selectionnee en vue 'risks'
 
   RISK_CATALOG: [
     { cat: 'Chutes', icon: 'bi-arrow-down-circle-fill', color: '#dc3545',
@@ -4437,50 +4526,105 @@ const App = {
 
   async openRiskPicker(ctx) {
     this._riskPickerCtx = ctx;
-    this.renderRiskPickerContent();
-    this.updateRiskCounters();
+    this._riskPickerView = 'categories';
+    this._riskPickerSelectedCat = null;
     document.getElementById('risk-picker-search').value = '';
+    await this.renderRiskPickerContent();
+    this.updateRiskCounters();
     if (!this._riskPickerModal) this._riskPickerModal = new bootstrap.Modal(document.getElementById('modal-risk-picker'));
     this._riskPickerModal.show();
   },
 
-  async renderRiskPickerContent() {
+  async _getAllRiskCategories() {
+    const cats = [...this.RISK_CATALOG];
     const customList = await this.loadCustomRisks();
-    const container = document.getElementById('risk-picker-categories');
-    let html = '';
-    // Standard categories
-    for (const cat of this.RISK_CATALOG) {
-      html += `<div class="risk-cat-section" data-cat="${cat.cat}">`;
-      html += `<div class="risk-cat-header">`;
-      html += `<span class="risk-cat-icon" style="background:${cat.color}"><i class="bi ${cat.icon}"></i></span>`;
-      html += `<span>${cat.cat}</span>`;
-      html += `</div>`;
-      html += `<div class="risk-cat-chips">`;
-      for (const r of cat.risks) {
-        const sel = this._isRiskSelected(r) ? ' selected' : '';
-        html += `<div class="risk-chip${sel}" onclick="App.toggleRiskInPicker('${r.replace(/'/g,"\\'")}')" data-risk="${this.esc(r)}">`;
-        html += `<i class="bi bi-check2 chip-check"></i>${this.esc(r)}`;
-        html += `</div>`;
-      }
-      html += `</div></div>`;
-    }
-    // Custom risks category
     if (customList.length) {
-      html += `<div class="risk-cat-section" data-cat="Personnalisés">`;
-      html += `<div class="risk-cat-header">`;
-      html += `<span class="risk-cat-icon" style="background:#0dcaf0"><i class="bi bi-star-fill"></i></span>`;
-      html += `<span>Mes risques personnalisés</span>`;
-      html += `</div>`;
-      html += `<div class="risk-cat-chips">`;
-      for (const r of customList) {
-        const sel = this._isRiskSelected(r) ? ' selected' : '';
-        html += `<div class="risk-chip${sel}" onclick="App.toggleRiskInPicker('${r.replace(/'/g,"\\'")}')" data-risk="${this.esc(r)}">`;
-        html += `<i class="bi bi-check2 chip-check"></i>${this.esc(r)}`;
-        html += `</div>`;
-      }
-      html += `</div></div>`;
+      cats.push({ cat: 'Personnalisés', icon: 'bi-star-fill', color: '#0dcaf0', risks: customList });
     }
+    return cats;
+  },
+
+  _countSelectedInCategory(cat) {
+    return (cat.risks || []).filter(r => this._isRiskSelected(r)).length;
+  },
+
+  _renderRiskChip(r) {
+    const sel = this._isRiskSelected(r) ? ' selected' : '';
+    return `<div class="risk-chip${sel}" onclick="App.toggleRiskInPicker('${r.replace(/'/g,"\\'")}')" data-risk="${this.esc(r)}">
+        <i class="bi bi-check2 chip-check"></i>${this.esc(r)}
+    </div>`;
+  },
+
+  async renderRiskPickerContent() {
+    const container = document.getElementById('risk-picker-categories');
+    const cats = await this._getAllRiskCategories();
+
+    // Vue RECHERCHE : liste plate des risques matchant
+    if (this._riskPickerView === 'search') {
+      const q = (document.getElementById('risk-picker-search').value || '')
+          .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      const matches = [];
+      for (const c of cats) {
+        for (const r of c.risks) {
+          const normR = r.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+          if (normR.includes(q)) matches.push({ r, cat: c });
+        }
+      }
+      if (!matches.length) {
+        container.innerHTML = `<p class="text-muted small py-3 text-center">Aucun risque ne correspond à "${this.esc(q)}"</p>`;
+        return;
+      }
+      let html = '<div class="risk-cat-chips">';
+      for (const m of matches) html += this._renderRiskChip(m.r);
+      html += '</div>';
+      container.innerHTML = html;
+      return;
+    }
+
+    // Vue RISQUES : sous-risques d'une categorie
+    if (this._riskPickerView === 'risks' && this._riskPickerSelectedCat) {
+      const cat = cats.find(c => c.cat === this._riskPickerSelectedCat);
+      if (!cat) { this._riskPickerView = 'categories'; return this.renderRiskPickerContent(); }
+      let html = `<div class="risk-picker-breadcrumb">
+          <button class="risk-picker-back" onclick="App.backToRiskCategories()"><i class="bi bi-arrow-left"></i>Catégories</button>
+          <div class="risk-picker-current-cat">
+              <span class="risk-cat-icon" style="background:${cat.color}"><i class="bi ${cat.icon}"></i></span>
+              <span>${this.esc(cat.cat)}</span>
+          </div>
+      </div>
+      <div class="risk-cat-chips">`;
+      for (const r of cat.risks) html += this._renderRiskChip(r);
+      html += '</div>';
+      container.innerHTML = html;
+      return;
+    }
+
+    // Vue CATEGORIES : cartes en grille
+    let html = '<div class="risk-cat-grid">';
+    for (const cat of cats) {
+      const count = this._countSelectedInCategory(cat);
+      const badge = count > 0 ? `<span class="risk-cat-count">${count}</span>` : '';
+      html += `<div class="risk-cat-card" onclick="App.selectRiskCategory('${cat.cat.replace(/'/g,"\\'")}')">
+          ${badge}
+          <span class="risk-cat-icon-lg" style="background:${cat.color}"><i class="bi ${cat.icon}"></i></span>
+          <span class="risk-cat-name">${this.esc(cat.cat)}</span>
+      </div>`;
+    }
+    html += '</div>';
     container.innerHTML = html;
+  },
+
+  async selectRiskCategory(catName) {
+    this._riskPickerView = 'risks';
+    this._riskPickerSelectedCat = catName;
+    await this.renderRiskPickerContent();
+  },
+
+  async backToRiskCategories() {
+    this._riskPickerView = 'categories';
+    this._riskPickerSelectedCat = null;
+    document.getElementById('risk-picker-search').value = '';
+    await this.renderRiskPickerContent();
   },
 
   toggleRiskInPicker(name) {
@@ -4520,7 +4664,18 @@ const App = {
   },
 
   filterRiskPicker(query) {
-    const q = (query || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (query && query.trim()) this._riskPickerView = 'search';
+    else if (this._riskPickerSelectedCat) this._riskPickerView = 'risks';
+    else this._riskPickerView = 'categories';
+    this.renderRiskPickerContent();
+    // Le code ci-dessous n'est jamais execute (ancien filtrage DOM, conserve pour trace)
+    if (false) { const q = (query || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    if (query && query.trim()) this._riskPickerView = 'search';
+    else if (this._riskPickerSelectedCat) this._riskPickerView = 'risks';
+    else this._riskPickerView = 'categories';
+    this.renderRiskPickerContent();
+    return;
+    // legacy unused
     document.querySelectorAll('#risk-picker-categories .risk-cat-section').forEach(sec => {
       let anyVisible = false;
       sec.querySelectorAll('.risk-chip').forEach(chip => {
@@ -4531,6 +4686,7 @@ const App = {
       });
       sec.style.display = anyVisible ? '' : 'none';
     });
+    }
   },
 
   async addCustomRiskFromPicker() {
