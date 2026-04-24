@@ -938,8 +938,8 @@ textarea.form-control { min-height: 70px; }
     <div class="collapse navbar-collapse" id="navbarMain">
       <ul class="navbar-nav ms-auto">
         <li class="nav-item"><a class="nav-link active" href="#" data-page="dashboard" onclick="App.showView('dashboard')"><i class="bi bi-speedometer2 me-1"></i>Tableau de bord</a></li>
-        <li class="nav-item"><a class="nav-link" href="#" data-page="list" onclick="App.showView('list')"><i class="bi bi-list-ul me-1"></i>PDP</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-page="icps" onclick="App.showView('icps')"><i class="bi bi-clipboard-check me-1"></i>ICP</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-page="list" onclick="App.showView('list')"><i class="bi bi-list-ul me-1"></i>PDP</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-page="entreprises" onclick="App.showView('entreprises')"><i class="bi bi-building me-1"></i>Entreprises</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-page="settings" onclick="App.showView('settings')"><i class="bi bi-gear me-1"></i>Paramètres</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-page="tutoriel" onclick="App.showView('tutoriel')"><i class="bi bi-book me-1"></i>Aide</a></li>
@@ -2114,9 +2114,9 @@ textarea.form-control { min-height: 70px; }
     <span class="bottom-nav-icon">&#x1F4CA;</span>
     <span class="bottom-nav-label">Tableau</span>
   </a>
-  <a class="bottom-nav-item" data-page="list" onclick="App.showView('list')">
-    <span class="bottom-nav-icon">&#x1F4CB;</span>
-    <span class="bottom-nav-label">PDP</span>
+  <a class="bottom-nav-item" data-page="icps" onclick="App.showView('icps')">
+    <span class="bottom-nav-icon">&#x1F50D;</span>
+    <span class="bottom-nav-label">ICP</span>
   </a>
   <a class="bottom-nav-item bottom-nav-fab" onclick="App.showNewMenu()">
     <div class="bottom-nav-fab-btn">&#x2795;</div>
@@ -2132,9 +2132,9 @@ textarea.form-control { min-height: 70px; }
     </div>
   </div>
   <div id="fab-overlay" class="fab-overlay" style="display:none" onclick="App.hideFabMenu()"></div>
-  <a class="bottom-nav-item" data-page="icps" onclick="App.showView('icps')">
-    <span class="bottom-nav-icon">&#x1F50D;</span>
-    <span class="bottom-nav-label">ICP</span>
+  <a class="bottom-nav-item" data-page="list" onclick="App.showView('list')">
+    <span class="bottom-nav-icon">&#x1F4CB;</span>
+    <span class="bottom-nav-label">PDP</span>
   </a>
   <a class="bottom-nav-item" data-page="settings" onclick="App.showView('settings')">
     <span class="bottom-nav-icon">&#x2699;&#xFE0F;</span>
