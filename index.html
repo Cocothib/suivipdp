@@ -1935,6 +1935,12 @@ textarea.form-control { min-height: 70px; }
     </div>
 
     <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-journal-text"></i>Journal d'activité</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Historique des connexions, sauvegardes et modifications faites par les utilisateurs (5000 derniers événements).</div>
+      <div id="activity-log-container"></div>
+    </div>
+
+    <div class="form-section">
       <div class="form-section-title"><i class="bi bi-database"></i>Données</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Exportez vos données pour les transférer vers un autre appareil ou créer une sauvegarde.</div>
       <div class="d-flex flex-wrap gap-2 mb-2">
@@ -2384,6 +2390,7 @@ const SP_CONFIG = {
     PDP_DATA_FILE:    'Documents/SuiviPDP/PDP/pdp-data.json',
     ICP_DATA_FILE:    'Documents/SuiviPDP/ICP/icp-data.json',
     SHARED_DATA_FILE: 'Documents/SuiviPDP/Shared/shared-data.json',
+    ACTIVITY_LOG_FILE:'Documents/SuiviPDP/activity-log.json',
     SCOPES: ['Files.ReadWrite.All', 'User.Read', 'Sites.ReadWrite.All'],
     REDIRECT_URI: window.location.origin + window.location.pathname,
     POLL_INTERVAL_MS:  15000,
@@ -2768,6 +2775,9 @@ const DataSync = {
             this._dirty = false;
             this._updateBadge(false);
             await this._captureSnapshot();
+            if (typeof ActivityLog !== 'undefined') ActivityLog.log('sauvegarde', {
+                vPdp: pdpData._meta.version, vIcp: icpData._meta.version, vShared: sharedData._meta.version, merged: conflict
+            });
             console.log('DataSync: sauvegarde SharePoint OK');
         } catch (e) {
             console.error('DataSync: erreur sauvegarde SharePoint', e);
@@ -2843,6 +2853,7 @@ const DataSync = {
             if (!loaded) await this.save();
             this._registerPresence();
             App.toast('Connecté à SharePoint — '+(_msalAccount.name||''));
+            if (typeof ActivityLog !== 'undefined') ActivityLog.log('connexion', { compte: _msalAccount.name || '' });
             return true;
         } catch (e) {
             if (e.errorCode === 'user_cancelled') return false;
@@ -3082,6 +3093,134 @@ const DataSync = {
         });
     },
 };
+
+// ========================================
+// ACTIVITY LOG — Journal des connexions, sauvegardes et modifications
+// ========================================
+const ActivityLog = {
+    MAX_EVENTS: 5000,
+    _queue: [],
+    _flushTimer: null,
+    _flushing: false,
+
+    log(action, details = {}) {
+        if (!DataSync._connected) return; // non connecte → pas de log distant
+        this._queue.push({
+            ts: new Date().toISOString(),
+            user: DataSync.getUserName() || 'inconnu',
+            action,
+            details
+        });
+        clearTimeout(this._flushTimer);
+        this._flushTimer = setTimeout(() => this._flush(), 2000);
+    },
+
+    async _flush() {
+        if (this._flushing || !this._queue.length || !DataSync._connected) return;
+        this._flushing = true;
+        const batch = this._queue.splice(0);
+        try {
+            let current;
+            try { current = await _readJsonFile(SP_CONFIG.ACTIVITY_LOG_FILE); } catch { current = null; }
+            if (!current || !Array.isArray(current.events)) current = { events: [] };
+            current.events = current.events.concat(batch);
+            if (current.events.length > this.MAX_EVENTS) {
+                current.events = current.events.slice(-this.MAX_EVENTS);
+            }
+            await _writeJsonFile(SP_CONFIG.ACTIVITY_LOG_FILE, current);
+        } catch (e) {
+            // Rollback : remettre dans la queue pour reessayer plus tard
+            this._queue.unshift(...batch);
+            console.warn('ActivityLog: flush echoue', e);
+        } finally {
+            this._flushing = false;
+        }
+    },
+
+    async fetchRecent(limit = 200) {
+        try {
+            const data = await _readJsonFile(SP_CONFIG.ACTIVITY_LOG_FILE);
+            const events = (data?.events || []).slice(-limit).reverse();
+            return events;
+        } catch { return []; }
+    },
+
+    async exportCSV() {
+        try {
+            const data = await _readJsonFile(SP_CONFIG.ACTIVITY_LOG_FILE);
+            const events = data?.events || [];
+            const escCsv = s => `"${String(s).replace(/"/g,'""')}"`;
+            const lines = ['date;utilisateur;action;details'];
+            for (const e of events) {
+                const details = e.details ? JSON.stringify(e.details) : '';
+                lines.push([escCsv(e.ts), escCsv(e.user), escCsv(e.action), escCsv(details)].join(';'));
+            }
+            const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `activity-log-suivipdp-${new Date().toISOString().slice(0,10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (e) {
+            App.toast('Erreur export CSV', 'danger');
+        }
+    },
+
+    _fmtDetails(d) {
+        if (!d || typeof d !== 'object') return '';
+        const pairs = Object.entries(d).filter(([,v]) => v != null && v !== '');
+        if (!pairs.length) return '';
+        return pairs.map(([k,v]) => `${k}=${typeof v === 'object' ? JSON.stringify(v) : v}`).join(', ');
+    },
+
+    async render(container) {
+        if (!container) return;
+        if (!DataSync._connected) {
+            container.innerHTML = '<p class="text-muted small mb-0"><i class="bi bi-cloud-slash me-1"></i>Connectez-vous à SharePoint pour consulter le journal.</p>';
+            return;
+        }
+        container.innerHTML = '<p class="text-muted small mb-0"><i class="bi bi-hourglass-split me-1"></i>Chargement du journal…</p>';
+        const events = await this.fetchRecent(200);
+        if (!events.length) {
+            container.innerHTML = '<p class="text-muted small mb-0">Aucun événement dans le journal.</p>';
+            return;
+        }
+        const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const rows = events.map(e => {
+            const dt = new Date(e.ts).toLocaleString('fr-FR');
+            return `<tr>
+                <td class="small text-nowrap">${esc(dt)}</td>
+                <td class="small">${esc(e.user)}</td>
+                <td><span class="badge bg-secondary text-nowrap">${esc(e.action)}</span></td>
+                <td class="small text-muted">${esc(this._fmtDetails(e.details))}</td>
+            </tr>`;
+        }).join('');
+        container.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="small text-muted">${events.length} derniers événements</span>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="ActivityLog.render(document.getElementById('activity-log-container'))"><i class="bi bi-arrow-clockwise"></i></button>
+                    <button class="btn btn-sm btn-outline-primary" onclick="ActivityLog.exportCSV()"><i class="bi bi-download me-1"></i>CSV</button>
+                </div>
+            </div>
+            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                <table class="table table-sm table-hover small mb-0">
+                    <thead class="table-light sticky-top"><tr><th>Date</th><th>Utilisateur</th><th>Action</th><th>Détails</th></tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+        `;
+    }
+};
+
+// Flush du journal avant fermeture (best-effort)
+window.addEventListener('beforeunload', () => {
+    if (ActivityLog._queue.length) {
+        // Best effort : on ne peut pas attendre une requete async ici
+        ActivityLog._flush();
+    }
+});
 
 // Cleanup presence on tab close
 window.addEventListener('beforeunload', () => {
@@ -3425,6 +3564,7 @@ const App = {
     document.getElementById('pdp-statut').value = 'actif';
     this._unlockPDP();
     this.addHist('PDP réouvert (statut changé de Clôturé à Actif)');
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('pdp.reopen', { id: this.currentPDP.id, numero: this.currentPDP.numero, titre: this.currentPDP.titre });
     await this.savePDP();
     this.toast('PDP réouvert');
   },
@@ -3666,6 +3806,7 @@ const App = {
       this.toast("Attention : ce PDP n'a pas de Inspection Commune Préalable effectuée", 'warning');
     }
     try {
+      const wasNew = !p.id;
       if (p.id) { await db.pdps.put(p); }
       else { p.id = await db.pdps.add(p); p.numero = `PDP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(p.id).padStart(4,'0')}`; await db.pdps.put(p); }
       document.getElementById('pdp-detail-title').textContent = p.titre;
@@ -3676,13 +3817,16 @@ const App = {
       this._markSaved();
       this.updateProgress();
       DataSync.markDirty();
+      if (typeof ActivityLog !== 'undefined') ActivityLog.log(wasNew ? 'pdp.create' : 'pdp.update', { id: p.id, numero: p.numero, titre: p.titre, statut: p.statut });
     } catch(e) { console.error(e); this.toast('Erreur','danger'); }
   },
 
   async deletePDP() {
     if (!this.currentPDP?.id) return;
     if (!await this.confirm('Supprimer ce PDP ?')) return;
+    const _deleted = { id: this.currentPDP.id, numero: this.currentPDP.numero, titre: this.currentPDP.titre };
     await db.pdps.delete(this.currentPDP.id);
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('pdp.delete', _deleted);
     this.currentPDP = null;
     this.toast('PDP supprimé');
     DataSync.markDirty();
@@ -5268,18 +5412,21 @@ const App = {
     const v = this.collectICPForm();
     if (!v.dateVisite && !v.site) { this.toast("Date ou site requis",'warning'); return; }
     try {
+      const wasNew = !v.id;
       if (v.id) { await db.icps.put(v); }
       else { v.id = await db.icps.add(v); v.numero = `ICP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(v.id).padStart(4,'0')}`; await db.icps.put(v); }
       document.getElementById('icp-detail-title').textContent = v.numero||'ICP #'+v.id;
       document.getElementById('btn-delete-icp').style.display = '';
       this.toast('ICP enregistrée');
       DataSync.markDirty();
+      if (typeof ActivityLog !== 'undefined') ActivityLog.log(wasNew ? 'icp.create' : 'icp.update', { id: v.id, numero: v.numero, site: v.site, pdpId: v.pdpId || null });
     } catch(e) { console.error(e); this.toast('Erreur','danger'); }
   },
 
   async deleteICP() {
     if (!this.currentICP?.id) return;
     if (!await this.confirm('Supprimer cette ICP ?')) return;
+    const _deleted = { id: this.currentICP.id, numero: this.currentICP.numero, site: this.currentICP.site };
     // Unlink from PDP if linked
     if (this.currentICP.pdpId) {
       const pdp = await db.pdps.get(this.currentICP.pdpId);
@@ -5289,6 +5436,7 @@ const App = {
     this.currentICP = null;
     this.toast('ICP supprimée');
     DataSync.markDirty();
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('icp.delete', _deleted);
     this.showView('icps');
   },
 
@@ -6079,6 +6227,7 @@ const App = {
   async renderSettingsView() {
     await this.renderSitesList();
     try { await DataSync.renderSettingsStatus(); } catch (e) { console.warn('renderSettingsStatus:', e); }
+    try { await ActivityLog.render(document.getElementById('activity-log-container')); } catch (e) { console.warn('ActivityLog.render:', e); }
   },
 
   async renderSitesList() {
