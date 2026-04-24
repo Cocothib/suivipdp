@@ -2425,6 +2425,70 @@ textarea.form-control { min-height: 70px; }
 </div>
 
 <!-- Site Edit Modal -->
+<!-- Modal : cotation et validation d'un nouveau risque -->
+<div class="modal fade" id="modal-validate-risk" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title"><i class="bi bi-shield-check me-2"></i>Valider et coter le risque</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="validate-risk-info" class="mb-3"></div>
+        <div class="alert alert-light border small mb-3">
+          <strong>Méthode d'évaluation : Fréquence × Gravité × Maîtrise</strong><br>
+          Chaque critère est noté de 1 (le plus favorable) à 5 (le plus défavorable). Le score final varie de 1 à 125.
+        </div>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label fw-bold"><i class="bi bi-clock me-1"></i>Fréquence</label>
+            <select class="form-select" id="validate-frequence" onchange="App.updateValidateRiskScore()">
+              <option value="1">1 - Exceptionnel (&lt; 1/an)</option>
+              <option value="2">2 - Rare (quelques fois/an)</option>
+              <option value="3" selected>3 - Occasionnel (mensuel)</option>
+              <option value="4">4 - Fréquent (hebdomadaire)</option>
+              <option value="5">5 - Permanent (quotidien)</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>Gravité</label>
+            <select class="form-select" id="validate-gravite" onchange="App.updateValidateRiskScore()">
+              <option value="1">1 - Léger (sans arrêt)</option>
+              <option value="2">2 - Modéré (arrêt court)</option>
+              <option value="3" selected>3 - Sérieux (arrêt long)</option>
+              <option value="4">4 - Grave (invalidité)</option>
+              <option value="5">5 - Très grave (décès)</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-bold"><i class="bi bi-shield me-1"></i>Maîtrise</label>
+            <select class="form-select" id="validate-maitrise" onchange="App.updateValidateRiskScore()">
+              <option value="1">1 - Totalement maîtrisé</option>
+              <option value="2">2 - Bien maîtrisé</option>
+              <option value="3" selected>3 - Moyennement maîtrisé</option>
+              <option value="4">4 - Peu maîtrisé</option>
+              <option value="5">5 - Non maîtrisé</option>
+            </select>
+          </div>
+        </div>
+        <div class="mt-3 p-3 rounded text-center" id="validate-score-box" style="background:#f8f9fa;border:2px solid #dee2e6">
+          <div class="small text-muted mb-1">Score calculé</div>
+          <div style="font-size:2.2rem;font-weight:700" id="validate-score-value">27</div>
+          <div id="validate-score-label" class="fw-bold">Modéré</div>
+        </div>
+        <div class="mt-3">
+          <label class="form-label small"><i class="bi bi-chat me-1"></i>Commentaire (optionnel)</label>
+          <textarea class="form-control" id="validate-comment" rows="2" placeholder="Ex: validé en réunion CSSCT du 12/04..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+        <button class="btn btn-success" onclick="App.confirmValidateRisk()"><i class="bi bi-check-lg me-1"></i>Valider le risque</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal fade" id="modal-site" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -6275,7 +6339,7 @@ const App = {
     await this.proposeCustomRisk({ nom: name });
   },
 
-  async approveCustomRisk(id, comment) {
+  async approveCustomRisk(id, comment, cotation) {
     if (!await this.isAdmin()) { this.toast('Seul un administrateur peut valider', 'warning'); return false; }
     const list = await this._loadCustomRisksRaw();
     const entry = list.find(r => r.id === id);
@@ -6284,9 +6348,31 @@ const App = {
     entry.reviewedBy = DataSync.getUserName() || 'inconnu';
     entry.reviewedAt = new Date().toISOString();
     entry.reviewComment = comment || '';
+    if (cotation && typeof cotation === 'object') {
+      const f = Number(cotation.frequence) || 0;
+      const g = Number(cotation.gravite)   || 0;
+      const m = Number(cotation.maitrise)  || 0;
+      entry.frequence = f;
+      entry.gravite = g;
+      entry.maitrise = m;
+      entry.score = f * g * m;
+      entry.criticite = this._scoreCriticite(entry.score);
+      // Aligner le niveau (1-4) sur la criticite pour compat avec l'affichage existant
+      if (entry.score <= 15) entry.niveau = 1;
+      else if (entry.score <= 40) entry.niveau = 2;
+      else if (entry.score <= 75) entry.niveau = 3;
+      else entry.niveau = 4;
+    }
     await this._saveCustomRisksRaw(list);
-    if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.approve', { nom: entry.nom });
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.approve', { nom: entry.nom, score: entry.score, criticite: entry.criticite });
     return true;
+  },
+
+  _scoreCriticite(score) {
+    if (score <= 15) return 'Acceptable';
+    if (score <= 40) return 'Modéré';
+    if (score <= 75) return 'Élevé';
+    return 'Critique';
   },
 
   async rejectCustomRisk(id, comment) {
@@ -6769,10 +6855,66 @@ const App = {
     el.innerHTML = rows;
   },
 
+  _validatingRiskId: null,
+
   async doApproveRisk(id) {
-    const comment = prompt('Commentaire (optionnel) :') || '';
-    const ok = await this.approveCustomRisk(id, comment);
-    if (ok) { this.toast('Risque validé'); await this.renderPendingRisksSection(); }
+    this._validatingRiskId = id;
+    const pending = await this.loadPendingRisks();
+    const r = pending.find(x => x.id === id);
+    if (!r) return;
+    document.getElementById('validate-risk-info').innerHTML = `
+        <div class="card">
+          <div class="card-body p-2">
+            <div><strong>${this.esc(r.nom)}</strong> <span class="badge bg-secondary">${this.esc(r.categorie)}</span></div>
+            ${r.situation ? `<div class="small text-muted mt-1"><strong>Situation :</strong> ${this.esc(r.situation)}</div>` : ''}
+            ${r.prevention ? `<div class="small text-muted"><strong>Prévention :</strong> ${this.esc(r.prevention)}</div>` : ''}
+            <div class="small text-muted mt-1"><i class="bi bi-person me-1"></i>Proposé par ${this.esc(r.proposedBy)}</div>
+          </div>
+        </div>`;
+    document.getElementById('validate-frequence').value = '3';
+    document.getElementById('validate-gravite').value = '3';
+    document.getElementById('validate-maitrise').value = '3';
+    document.getElementById('validate-comment').value = '';
+    this.updateValidateRiskScore();
+    if (!this._validateRiskModal) this._validateRiskModal = new bootstrap.Modal(document.getElementById('modal-validate-risk'));
+    this._validateRiskModal.show();
+  },
+
+  updateValidateRiskScore() {
+    const f = Number(document.getElementById('validate-frequence').value) || 3;
+    const g = Number(document.getElementById('validate-gravite').value) || 3;
+    const m = Number(document.getElementById('validate-maitrise').value) || 3;
+    const score = f * g * m;
+    const vEl = document.getElementById('validate-score-value');
+    const lEl = document.getElementById('validate-score-label');
+    const box = document.getElementById('validate-score-box');
+    vEl.textContent = score;
+    let label, color, fg;
+    if (score <= 15)      { label = 'Acceptable'; color = '#D4EDDA'; fg = '#155724'; }
+    else if (score <= 40) { label = 'Modéré';     color = '#FFF3CD'; fg = '#856404'; }
+    else if (score <= 75) { label = 'Élevé';      color = '#FFE5D0'; fg = '#A94B00'; }
+    else                  { label = 'Critique';   color = '#F8D7DA'; fg = '#721C24'; }
+    lEl.textContent = label;
+    lEl.style.color = fg;
+    vEl.style.color = fg;
+    box.style.background = color;
+    box.style.borderColor = fg;
+  },
+
+  async confirmValidateRisk() {
+    const id = this._validatingRiskId;
+    if (!id) return;
+    const f = Number(document.getElementById('validate-frequence').value) || 3;
+    const g = Number(document.getElementById('validate-gravite').value) || 3;
+    const m = Number(document.getElementById('validate-maitrise').value) || 3;
+    const comment = (document.getElementById('validate-comment').value || '').trim();
+    const ok = await this.approveCustomRisk(id, comment, { frequence: f, gravite: g, maitrise: m });
+    if (ok) {
+      this._validateRiskModal?.hide();
+      this.toast('Risque validé et coté');
+      await this.renderPendingRisksSection();
+    }
+    this._validatingRiskId = null;
   },
 
   async doRejectRisk(id) {
@@ -6805,7 +6947,10 @@ const App = {
         // Ajouter les customs approuves qui ont choisi cette categorie
         for (const c of approvedCustom) {
           if (c.categorie === cat.cat) {
-            risks.push({ nom: c.nom, situation: c.situation, prevention: c.prevention, niveau: c.niveau });
+            risks.push({
+              nom: c.nom, situation: c.situation, prevention: c.prevention, niveau: c.niveau,
+              frequence: c.frequence, gravite: c.gravite, maitrise: c.maitrise, score: c.score, criticite: c.criticite
+            });
           }
         }
         catsData.push({ nom: cat.cat, color: cat.color, risks });
@@ -6816,7 +6961,10 @@ const App = {
         catsData.push({
           nom: 'Personnalisés',
           color: '#0dcaf0',
-          risks: orphans.map(c => ({ nom: c.nom, situation: c.situation, prevention: c.prevention, niveau: c.niveau }))
+          risks: orphans.map(c => ({
+            nom: c.nom, situation: c.situation, prevention: c.prevention, niveau: c.niveau,
+            frequence: c.frequence, gravite: c.gravite, maitrise: c.maitrise, score: c.score, criticite: c.criticite
+          }))
         });
       }
 
@@ -6864,6 +7012,14 @@ const App = {
       }));
       children.push(new Paragraph({
         children: [new TextRun({ text: "Le présent document recense l'ensemble des risques professionnels identifiés au sein de l'entreprise, classés par catégorie, avec les situations dangereuses associées, les mesures de prévention et le niveau de criticité évalué. Il constitue le support de l'évaluation des risques prévue par l'article R. 4121-1 du Code du travail.", size: 20 })],
+        spacing: { after: 200 }
+      }));
+      children.push(new Paragraph({
+        children: [new TextRun({ text: 'Méthode de cotation', bold: true, size: 22, color: '00693E' })],
+        spacing: { after: 80 }
+      }));
+      children.push(new Paragraph({
+        children: [new TextRun({ text: "Les risques issus du répertoire interne validé sont cotés selon la formule Fréquence × Gravité × Maîtrise (F × G × M), chaque critère noté de 1 (le plus favorable) à 5 (le plus défavorable). Le score varie de 1 à 125 et est catégorisé en Acceptable (≤15), Modéré (16-40), Élevé (41-75), Critique (≥76).", size: 18, italics: true })],
         spacing: { after: 300 }
       }));
 
@@ -6875,24 +7031,36 @@ const App = {
           spacing: { before: 300, after: 150 }
         }));
         // Table
-        const headerCells = ['Risque / Danger', 'Situation dangereuse', 'Mesures de prévention', 'Niveau'].map(label =>
+        const headerCells = ['Risque / Danger', 'Situation dangereuse', 'Mesures de prévention', 'F × G × M', 'Cotation'].map(label =>
           new TableCell({
             shading: { type: ShadingType.CLEAR, color: 'auto', fill: '00693E' },
             children: [new Paragraph({ children: [new TextRun({ text: label, bold: true, color: 'FFFFFF', size: 18 })] })]
           })
         );
-        const bodyRows = cat.risks.map(r => new TableRow({
-          children: [
-            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r.nom, bold: true, size: 18 })] })], width: { size: 20, type: WidthType.PERCENTAGE } }),
-            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r.situation, size: 18 })] })], width: { size: 35, type: WidthType.PERCENTAGE } }),
-            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r.prevention, size: 18 })] })], width: { size: 35, type: WidthType.PERCENTAGE } }),
-            new TableCell({
-              shading: { type: ShadingType.CLEAR, color: 'auto', fill: niveauColor(r.niveau) },
-              children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: niveauLabel(r.niveau), size: 18, bold: true })] })],
-              width: { size: 10, type: WidthType.PERCENTAGE }
-            })
-          ]
-        }));
+        const bodyRows = cat.risks.map(r => {
+          const isCote = r.score && r.frequence;
+          const cotationText = isCote ? `${r.frequence} × ${r.gravite} × ${r.maitrise} = ${r.score}` : '—';
+          const criticiteText = isCote ? r.criticite : niveauLabel(r.niveau);
+          const critColor = isCote
+            ? (r.score <= 15 ? 'D4EDDA' : r.score <= 40 ? 'FFF3CD' : r.score <= 75 ? 'FFE5D0' : 'F8D7DA')
+            : niveauColor(r.niveau);
+          return new TableRow({
+            children: [
+              new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r.nom, bold: true, size: 18 })] })], width: { size: 18, type: WidthType.PERCENTAGE } }),
+              new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r.situation, size: 18 })] })], width: { size: 30, type: WidthType.PERCENTAGE } }),
+              new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r.prevention, size: 18 })] })], width: { size: 30, type: WidthType.PERCENTAGE } }),
+              new TableCell({
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: cotationText, size: 16 })] })],
+                width: { size: 12, type: WidthType.PERCENTAGE }
+              }),
+              new TableCell({
+                shading: { type: ShadingType.CLEAR, color: 'auto', fill: critColor },
+                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: criticiteText, size: 16, bold: true })] })],
+                width: { size: 10, type: WidthType.PERCENTAGE }
+              })
+            ]
+          });
+        });
         const table = new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
           rows: [new TableRow({ tableHeader: true, children: headerCells }), ...bodyRows]
