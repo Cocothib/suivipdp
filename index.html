@@ -1929,6 +1929,12 @@ textarea.form-control { min-height: 70px; }
       <div id="sites-list-container"></div>
     </div>
     <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-cloud"></i>Synchronisation SharePoint</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Synchronise vos PDP, ICP et entreprises avec SharePoint pour les partager entre appareils et collègues.</div>
+      <div id="settings-sync-status"></div>
+    </div>
+
+    <div class="form-section">
       <div class="form-section-title"><i class="bi bi-database"></i>Données</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Exportez vos données pour les transférer vers un autre appareil ou créer une sauvegarde.</div>
       <div class="d-flex flex-wrap gap-2 mb-2">
@@ -3003,6 +3009,49 @@ const DataSync = {
         } catch { /* silencieux */ }
     },
 
+    /* ---- Panneau de statut dans Paramètres ---- */
+    async renderSettingsStatus() {
+        const el = document.getElementById('settings-sync-status');
+        if (!el) return;
+        const connected = this._connected;
+        const userName  = this.getUserName() || '(non défini)';
+        const dirty     = this._dirty;
+        const vers = this._loadedMeta;
+        const lastSaved = [vers.pdp?.lastSaved, vers.icp?.lastSaved, vers.shared?.lastSaved]
+            .filter(Boolean).sort().pop();
+        const fmt = lastSaved ? new Date(lastSaved).toLocaleString('fr-FR') : '—';
+        const savedBy = vers.pdp?.savedBy || vers.icp?.savedBy || vers.shared?.savedBy || '—';
+        let others = [];
+        if (connected) { try { others = await this.getActiveUsers(); } catch {} }
+
+        const stateBadge = connected
+            ? `<span class="badge bg-success"><i class="bi bi-cloud-check me-1"></i>Connecté</span>`
+            : `<span class="badge bg-warning text-dark"><i class="bi bi-cloud-slash me-1"></i>Déconnecté</span>`;
+
+        const dirtyBadge = dirty
+            ? `<span class="badge bg-danger ms-2"><i class="bi bi-exclamation-circle me-1"></i>Modifications non sauvegardées</span>`
+            : (connected ? `<span class="badge bg-light text-success border ms-2"><i class="bi bi-check2 me-1"></i>À jour</span>` : '');
+
+        const othersHtml = others.length
+            ? `<div class="small mb-2"><i class="bi bi-people-fill text-success me-1"></i>Également connecté(s) : <strong>${others.map(u=>u.user).join(', ')}</strong></div>`
+            : (connected ? `<div class="small text-muted mb-2"><i class="bi bi-person me-1"></i>Aucun autre utilisateur en ligne</div>` : '');
+
+        const actionsHtml = connected
+            ? `<button class="btn btn-outline-primary btn-sm" onclick="DataSync.save().then(()=>{App.toast('Sauvegardé');App.renderSettingsView();})"><i class="bi bi-cloud-arrow-up me-1"></i>Synchroniser maintenant</button>
+               <button class="btn btn-outline-warning btn-sm" onclick="DataSync.connectFolder().then(ok=>{if(ok)App.renderSettingsView()})"><i class="bi bi-arrow-repeat me-1"></i>Se reconnecter</button>`
+            : `<button class="btn btn-primary btn-sm" onclick="DataSync.connectFolder().then(ok=>{if(ok){DataSync.updateConnectButton('connected');App.renderSettingsView();}})"><i class="bi bi-microsoft me-1"></i>Se connecter à SharePoint</button>`;
+
+        el.innerHTML = `
+            <div class="mb-2">${stateBadge}${dirtyBadge}</div>
+            <div class="small mb-1"><strong>Compte :</strong> ${this._escapeHtml(userName)}</div>
+            <div class="small mb-1"><strong>Dernière synchro :</strong> ${fmt} ${savedBy!=='—'?`<span class="text-muted">(par ${this._escapeHtml(savedBy)})</span>`:''}</div>
+            ${othersHtml}
+            <div class="d-flex flex-wrap gap-2 mt-2">${actionsHtml}</div>
+        `;
+    },
+
+    _escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); },
+
     isFirstLaunch() { return !this.getUserName() && !localStorage.getItem('pdp_guide_done'); },
 
     async showFirstLaunchGuide() {
@@ -3137,7 +3186,7 @@ const App = {
     if (view === 'list') this.renderPDPList();
     if (view === 'icps') this.renderICPList();
     if (view === 'entreprises') this.renderEntreprises();
-    if (view === 'settings') this.renderSitesList();
+    if (view === 'settings') this.renderSettingsView();
     // Collapse mobile navbar
     const navCollapse = document.getElementById('navbarMain');
     if (navCollapse?.classList.contains('show')) bootstrap.Collapse.getInstance(navCollapse)?.hide();
@@ -6025,6 +6074,11 @@ const App = {
     document.getElementById('icp-eu-fonction').value = s.fonction || '';
     document.getElementById('icp-eu-tel').value = s.tel || '';
     document.getElementById('icp-site').value = s.nom;
+  },
+
+  async renderSettingsView() {
+    await this.renderSitesList();
+    try { await DataSync.renderSettingsStatus(); } catch (e) { console.warn('renderSettingsStatus:', e); }
   },
 
   async renderSitesList() {
