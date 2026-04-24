@@ -193,6 +193,22 @@ body {
 .save-status .dot-saved { background: #198754; }
 .save-status .dot-editing { background: #ffc107; }
 
+/* ---- Bandeaux sync SharePoint (connexion / presence) ---- */
+#permission-bar .alert,
+#presence-bar .alert {
+    border-left: 4px solid #ffc107;
+    font-size: 0.85rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    margin-bottom: 0.5rem;
+}
+#presence-bar .alert { border-left-color: #198754; }
+#permission-bar .btn { font-size: 0.78rem; padding: 0.25rem 0.65rem; }
+@media (max-width: 576px) {
+    #permission-bar .alert,
+    #presence-bar .alert { font-size: 0.78rem; padding: 0.5rem; }
+    #permission-bar .btn { width: 100%; margin-top: 0.3rem; margin-left: 0 !important; }
+}
+
 /* ---- Navigation arrows between sections ---- */
 .section-nav {
     display: flex;
@@ -2758,6 +2774,12 @@ const DataSync = {
             btn.title = 'Connecté — ' + (this.getUserName()||'');
             btn.onclick = null;
             if (btnSave) btnSave.style.display = '';
+        } else if (state === 'need-permission') {
+            btn.className = 'btn btn-sm btn-warning';
+            btn.innerHTML = '<i class="bi bi-shield-lock"></i><span class="ms-1 d-none d-md-inline">Autoriser</span>';
+            btn.title = 'Session expirée — reconnectez-vous';
+            btn.onclick = async () => { const ok = await this.connectFolder(); if (ok) { this.updateConnectButton('connected'); App.updateDashboard(); } };
+            if (btnSave) btnSave.style.display = 'none';
         } else {
             btn.className = 'btn btn-sm btn-outline-warning';
             btn.innerHTML = '<i class="bi bi-cloud-slash"></i><span class="ms-1 d-none d-md-inline">Connexion</span>';
@@ -2765,6 +2787,59 @@ const DataSync = {
             btn.onclick = async () => { const ok = await this.connectFolder(); if (ok) { this.updateConnectButton('connected'); App.updateDashboard(); } };
             if (btnSave) btnSave.style.display = 'none';
         }
+    },
+
+    /* ---- Bandeaux visuels ---- */
+    showPermissionBanner() {
+        const bar = document.getElementById('permission-bar');
+        if (!bar) return;
+        bar.innerHTML = `
+            <div class="alert alert-warning alert-dismissible d-flex align-items-center m-2" role="alert">
+                <i class="bi bi-shield-lock me-2 fs-5"></i>
+                <div class="flex-grow-1">Session expirée — cliquez pour vous reconnecter à SharePoint.</div>
+                <button class="btn btn-sm btn-warning ms-2" id="btn-reauth">Se reconnecter</button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+        bar.querySelector('#btn-reauth').onclick = async () => {
+            const ok = await this.connectFolder();
+            if (ok) { bar.innerHTML = ''; this.updateConnectButton('connected'); App.updateDashboard(); }
+        };
+    },
+
+    showConnectReminder() {
+        const bar = document.getElementById('permission-bar');
+        if (!bar) return;
+        bar.innerHTML = `
+            <div class="alert alert-info alert-dismissible d-flex align-items-center m-2" role="alert">
+                <i class="bi bi-cloud-slash me-2 fs-5"></i>
+                <div class="flex-grow-1">Mode hors-ligne — connectez-vous à SharePoint pour synchroniser les données.</div>
+                <button class="btn btn-sm btn-primary ms-2" id="btn-connect-reminder"><i class="bi bi-microsoft me-1"></i>Connexion</button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+        bar.querySelector('#btn-connect-reminder').onclick = async () => {
+            const ok = await this.connectFolder();
+            if (ok) { bar.innerHTML = ''; this.updateConnectButton('connected'); App.updateDashboard(); }
+        };
+    },
+
+    _updatePresenceBanner(others) {
+        const bar = document.getElementById('presence-bar');
+        if (!bar) return;
+        if (!others || others.length === 0) { bar.innerHTML = ''; return; }
+        const names = others.map(u => u.user).join(', ');
+        bar.innerHTML = `
+            <div class="alert alert-light d-flex align-items-center m-2 py-1" role="alert">
+                <i class="bi bi-people-fill me-2 text-success"></i>
+                <span class="small">Également connecté(s) : <strong>${names}</strong></span>
+            </div>`;
+    },
+
+    async refreshPresenceBanner() {
+        if (!this._connected) { this._updatePresenceBanner([]); return; }
+        try {
+            const others = await this.getActiveUsers();
+            this._updatePresenceBanner(others);
+        } catch { /* silencieux */ }
     },
 
     isFirstLaunch() { return !this.getUserName() && !localStorage.getItem('pdp_guide_done'); },
@@ -2874,14 +2949,13 @@ const App = {
     if (state === 'connected') {
         await this.loadSettings();
         DataSync.startPolling();
-        const others = await DataSync.getActiveUsers();
-        if (others.length) this.toast(`${others.map(u=>u.user).join(', ')} en ligne`, 'info');
+        await DataSync.refreshPresenceBanner();
+        // Rafraichir le bandeau de presence toutes les 30s
+        setInterval(() => DataSync.refreshPresenceBanner(), SP_CONFIG.PRESENCE_INTERVAL_MS);
     }
     if (DataSync.isFirstLaunch()) await DataSync.showFirstLaunchGuide();
-    else if (state === 'no-handle') {
-        const bar = document.getElementById('permission-bar');
-        if (bar) bar.innerHTML = '<div class="alert alert-info alert-dismissible d-flex align-items-center m-2 small"><i class="bi bi-cloud-slash me-2"></i><span class="flex-grow-1">Mode hors-ligne — connectez-vous à SharePoint pour synchroniser.</span><button class="btn btn-sm btn-primary ms-2" onclick="DataSync.connectFolder().then(ok=>{if(ok){DataSync.updateConnectButton(\'connected\');App.updateDashboard();document.getElementById(\'permission-bar\').innerHTML=\'\'}})"><i class="bi bi-microsoft me-1"></i>Connexion</button><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
-    }
+    else if (state === 'need-permission') DataSync.showPermissionBanner();
+    else if (state === 'no-handle') DataSync.showConnectReminder();
   },
 
   // ---- NAVIGATION ----
