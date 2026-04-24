@@ -3032,6 +3032,7 @@ const DataSync = {
                 if (updated) {
                     await this._captureSnapshot();
                     App.toast(`Données mises à jour par ${by||'un collègue'}`, 'info');
+                    if (typeof App._refreshCustomRisksCache === 'function') await App._refreshCustomRisksCache();
                     if (App.currentView === 'dashboard') App.updateDashboard();
                     if (App.currentView === 'list') App.renderPDPList();
                     if (App.currentView === 'icps') App.renderICPList();
@@ -3416,6 +3417,7 @@ const App = {
       await db.open();
       _step('Chargement des paramètres...', 40);
       await this.loadSettings();
+      await this._refreshCustomRisksCache();
       // Auto-import embedded data if present and database is empty
       if (window.__EMBEDDED_DATA__) {
         try {
@@ -4503,8 +4505,23 @@ const App = {
     },
   },
 
+  _customRisksByName: {}, // cache synchrone { nom: {situation, prevention, niveau} }
+
+  async _refreshCustomRisksCache() {
+    try {
+      const all = await this._loadCustomRisksRaw();
+      const map = {};
+      for (const c of all) {
+        if (c.statut === 'rejected') continue;
+        map[c.nom] = { situation: c.situation || '', prevention: c.prevention || '', niveau: c.niveau || 2 };
+      }
+      this._customRisksByName = map;
+    } catch { /* silencieux */ }
+  },
+
   _getRiskDefaults(name) {
-    const def = this.RISK_DEFAULTS[name] || { situation: '', prevention: '', niveau: 2 };
+    const custom = this._customRisksByName && this._customRisksByName[name];
+    const def = this.RISK_DEFAULTS[name] || custom || { situation: '', prevention: '', niveau: 2 };
     return { ...def, preventionItems: this._parsePreventionItems(def.prevention) };
   },
 
@@ -6195,6 +6212,13 @@ const App = {
   async _saveCustomRisksRaw(list) {
     await db.settings.put({ key: 'customRisks', value: list });
     DataSync.markDirty();
+    // Rafraichir le cache synchrone utilise par _getRiskDefaults
+    const map = {};
+    for (const c of list) {
+      if (c.statut === 'rejected') continue;
+      map[c.nom] = { situation: c.situation || '', prevention: c.prevention || '', niveau: c.niveau || 2 };
+    }
+    this._customRisksByName = map;
   },
 
   // Liste des noms de risques approuves (pour le RISK_CATALOG drill-down).
