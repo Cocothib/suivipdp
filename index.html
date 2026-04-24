@@ -2022,6 +2022,26 @@ textarea.form-control { min-height: 70px; }
     </div>
 
     <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-person-gear"></i>Administrateurs</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Les administrateurs peuvent valider ou rejeter les nouveaux risques proposés par les utilisateurs.</div>
+      <div id="settings-admins"></div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-shield-check"></i>Risques en attente de validation</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Nouveaux risques proposés par les utilisateurs. Un administrateur doit les valider pour qu'ils intègrent le Document Unique (DUERP).</div>
+      <div id="settings-pending-risks"></div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-file-earmark-text"></i>Document Unique d'Évaluation des Risques (DUERP)</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Exporte un document Word regroupant tous les risques validés par catégorie (standard + risques personnalisés approuvés).</div>
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-outline-primary btn-sm" onclick="App.exportDUERP()"><i class="bi bi-file-earmark-word me-1"></i>Exporter le DUERP (Word)</button>
+      </div>
+    </div>
+
+    <div class="form-section">
       <div class="form-section-title"><i class="bi bi-journal-text"></i>Journal d'activité</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Historique des connexions, sauvegardes et modifications faites par les utilisateurs (5000 derniers événements).</div>
       <div id="activity-log-container"></div>
@@ -2353,9 +2373,44 @@ textarea.form-control { min-height: 70px; }
           <input type="text" class="risk-picker-search" id="risk-picker-search" placeholder="Rechercher un risque..." oninput="App.filterRiskPicker(this.value)">
         </div>
         <div id="risk-picker-categories"></div>
-        <div class="risk-picker-custom-input">
-          <input type="text" id="risk-picker-custom-input" placeholder="Risque personnalisé...">
-          <button class="btn btn-outline-primary btn-sm" onclick="App.addCustomRiskFromPicker()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
+        <div class="risk-picker-custom-form mt-3 p-3 border rounded bg-light">
+          <div class="d-flex align-items-center justify-content-between mb-2" style="cursor:pointer" onclick="document.getElementById('risk-picker-custom-body').classList.toggle('d-none');this.querySelector('.toggle-icon').classList.toggle('bi-chevron-down');this.querySelector('.toggle-icon').classList.toggle('bi-chevron-up')">
+            <strong class="small"><i class="bi bi-plus-circle me-1"></i>Proposer un nouveau risque</strong>
+            <i class="bi bi-chevron-down toggle-icon small"></i>
+          </div>
+          <div id="risk-picker-custom-body" class="d-none">
+            <p class="small text-muted mb-2">Les nouveaux risques sont utilisables immédiatement mais restent en <strong>attente de validation</strong> par un administrateur avant d'être intégrés au Document Unique (DUERP).</p>
+            <div class="row g-2">
+              <div class="col-md-7">
+                <label class="form-label small mb-0">Nom du risque *</label>
+                <input type="text" class="form-control form-control-sm" id="risk-picker-custom-input" placeholder="Ex: Exposition au CO2">
+              </div>
+              <div class="col-md-5">
+                <label class="form-label small mb-0">Catégorie</label>
+                <select class="form-select form-select-sm" id="risk-picker-custom-cat"></select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small mb-0">Niveau</label>
+                <select class="form-select form-select-sm" id="risk-picker-custom-niveau">
+                  <option value="1">1 - Faible</option>
+                  <option value="2" selected>2 - Moyen</option>
+                  <option value="3">3 - Élevé</option>
+                  <option value="4">4 - Critique</option>
+                </select>
+              </div>
+              <div class="col-md-9">
+                <label class="form-label small mb-0">Situation dangereuse</label>
+                <input type="text" class="form-control form-control-sm" id="risk-picker-custom-situation" placeholder="Quand/où ce risque se présente...">
+              </div>
+              <div class="col-12">
+                <label class="form-label small mb-0">Mesures de prévention</label>
+                <input type="text" class="form-control form-control-sm" id="risk-picker-custom-prevention" placeholder="EPI, formation, procédure...">
+              </div>
+              <div class="col-12 d-flex justify-content-end">
+                <button class="btn btn-primary btn-sm" onclick="App.addCustomRiskFromPicker()"><i class="bi bi-send me-1"></i>Proposer le risque</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="modal-footer justify-content-between">
@@ -4529,6 +4584,7 @@ const App = {
     this._riskPickerView = 'categories';
     this._riskPickerSelectedCat = null;
     document.getElementById('risk-picker-search').value = '';
+    this._populateCustomCategorySelect();
     await this.renderRiskPickerContent();
     this.updateRiskCounters();
     if (!this._riskPickerModal) this._riskPickerModal = new bootstrap.Modal(document.getElementById('modal-risk-picker'));
@@ -4550,14 +4606,18 @@ const App = {
 
   _renderRiskChip(r) {
     const sel = this._isRiskSelected(r) ? ' selected' : '';
+    const pending = this._pendingRiskNames && this._pendingRiskNames.has(r)
+      ? ' <span class="badge bg-warning text-dark" style="font-size:0.6rem;padding:1px 5px">En attente</span>' : '';
     return `<div class="risk-chip${sel}" onclick="App.toggleRiskInPicker('${r.replace(/'/g,"\\'")}')" data-risk="${this.esc(r)}">
-        <i class="bi bi-check2 chip-check"></i>${this.esc(r)}
+        <i class="bi bi-check2 chip-check"></i>${this.esc(r)}${pending}
     </div>`;
   },
 
   async renderRiskPickerContent() {
     const container = document.getElementById('risk-picker-categories');
     const cats = await this._getAllRiskCategories();
+    const pendingList = await this.loadPendingRisks();
+    this._pendingRiskNames = new Set(pendingList.map(p => p.nom));
 
     // Vue RECHERCHE : liste plate des risques matchant
     if (this._riskPickerView === 'search') {
@@ -4691,27 +4751,47 @@ const App = {
 
   async addCustomRiskFromPicker() {
     const inp = document.getElementById('risk-picker-custom-input');
-    const name = (inp.value || '').trim();
-    if (!name) { this.toast('Saisissez un nom de risque', 'warning'); return; }
-    await this.saveCustomRisk(name);
-    inp.value = '';
-    // Add the risk directly
-    this.toggleRiskInPicker(name);
-    // Re-render to show the new custom risk in the list
+    const catSel = document.getElementById('risk-picker-custom-cat');
+    const nivSel = document.getElementById('risk-picker-custom-niveau');
+    const sitInp = document.getElementById('risk-picker-custom-situation');
+    const prevInp = document.getElementById('risk-picker-custom-prevention');
+    const nom = (inp.value || '').trim();
+    if (!nom) { this.toast('Saisissez un nom de risque', 'warning'); return; }
+    const entry = await this.proposeCustomRisk({
+      nom,
+      categorie: catSel?.value || 'Personnalisés',
+      niveau: Number(nivSel?.value) || 2,
+      situation: (sitInp?.value || '').trim(),
+      prevention: (prevInp?.value || '').trim()
+    });
+    if (!entry) return;
+    // Vider le formulaire
+    inp.value = ''; if (sitInp) sitInp.value = ''; if (prevInp) prevInp.value = '';
+    // Ajouter le risque directement au PDP/ICP courant (option A : utilisable immediatement)
+    this.toggleRiskInPicker(nom);
     await this.renderRiskPickerContent();
-    // Re-apply search filter if any
     const search = document.getElementById('risk-picker-search').value;
     if (search) this.filterRiskPicker(search);
-    this.toast('Risque personnalisé ajouté');
+    this.toast('Risque proposé — en attente de validation');
+  },
+
+  _populateCustomCategorySelect() {
+    const sel = document.getElementById('risk-picker-custom-cat');
+    if (!sel) return;
+    const opts = this.RISK_CATALOG.map(c => `<option value="${this.esc(c.cat)}">${this.esc(c.cat)}</option>`).join('');
+    sel.innerHTML = opts + '<option value="Personnalisés">Personnalisés</option>';
   },
 
   // ---- RISQUES ----
-  renderRisquesList() {
+  async renderRisquesList() {
     const c = document.getElementById('risques-list-container');
     const r = this.currentPDP.risques||[];
     if (!r.length) { c.innerHTML = '<p class="text-muted small">Aucun risque identifié.</p>'; return; }
     r.forEach(ri => this._migrateRiskPrevention(ri));
-    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong><select class="form-select form-select-sm" style="width:auto" onchange="App.currentPDP.risques[${i}].niveau=+this.value;App.renderRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentPDP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea>${this._renderPreventionCheckboxes(i, r.preventionItems, 'pdp')}<div class="mt-1"><div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" onchange="App.currentPDP.risques[${i}].chargeEU=this.checked" ${r.chargeEU?'checked':''}><label class="form-check-label small">EU</label></div><div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" onchange="App.currentPDP.risques[${i}].chargeEE=this.checked" ${r.chargeEE?'checked':''}><label class="form-check-label small">EE</label></div></div></div><button class="btn btn-outline-danger btn-sm" onclick="App.currentPDP.risques.splice(${i},1);App.renderRisquesList();App._riskPickerCtx='pdp';App.updateRiskCounters()"><i class="bi bi-trash"></i></button></div></div>`).join('');
+    const pendingList = await this.loadPendingRisks();
+    const pendingNames = new Set(pendingList.map(p => p.nom));
+    const pendingBadge = nom => pendingNames.has(nom) ? '<span class="badge bg-warning text-dark ms-1" title="En attente de validation"><i class="bi bi-hourglass-split me-1"></i>En attente</span>' : '';
+    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong>${pendingBadge(r.danger)}<select class="form-select form-select-sm" style="width:auto" onchange="App.currentPDP.risques[${i}].niveau=+this.value;App.renderRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentPDP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea>${this._renderPreventionCheckboxes(i, r.preventionItems, 'pdp')}<div class="mt-1"><div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" onchange="App.currentPDP.risques[${i}].chargeEU=this.checked" ${r.chargeEU?'checked':''}><label class="form-check-label small">EU</label></div><div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" onchange="App.currentPDP.risques[${i}].chargeEE=this.checked" ${r.chargeEE?'checked':''}><label class="form-check-label small">EE</label></div></div></div><button class="btn btn-outline-danger btn-sm" onclick="App.currentPDP.risques.splice(${i},1);App.renderRisquesList();App._riskPickerCtx='pdp';App.updateRiskCounters()"><i class="bi bi-trash"></i></button></div></div>`).join('');
   },
 
   addRisque() {
@@ -6058,15 +6138,137 @@ const App = {
     else { this.showView('icps'); }
   },
 
-  // ---- CUSTOM RISKS (répertoire persistant) ----
-  async loadCustomRisks() {
-    try { const s = await db.settings.get('customRisks'); return (s?.value)||[]; } catch(e) { return []; }
+  // ---- CUSTOM RISKS (répertoire persistant avec workflow de validation) ----
+  // Structure interne : array d'objets enrichis.
+  //   { id, nom, categorie, situation, prevention, niveau, statut: 'pending'|'approved'|'rejected',
+  //     proposedBy, proposedAt, reviewedBy, reviewedAt, reviewComment }
+  // Retrocompatibilite : si value = array de strings (ancien format), on les convertit en 'approved'.
+  async _loadCustomRisksRaw() {
+    try {
+      const s = await db.settings.get('customRisks');
+      const raw = s?.value || [];
+      return raw.map(item => typeof item === 'string'
+        ? { id: 's:' + item, nom: item, categorie: 'Personnalisés', situation: '', prevention: '', niveau: 2, statut: 'approved', proposedBy: '', proposedAt: '', reviewedBy: '', reviewedAt: '', reviewComment: '' }
+        : item);
+    } catch(e) { return []; }
   },
+  async _saveCustomRisksRaw(list) {
+    await db.settings.put({ key: 'customRisks', value: list });
+    DataSync.markDirty();
+  },
+
+  // Liste des noms de risques approuves (pour le RISK_CATALOG drill-down).
+  // Conserve aussi les 'pending' pour qu'ils soient utilisables dans le PDP courant
+  // (option A : utilisable immediatement, avec badge "En attente").
+  async loadCustomRisks() {
+    const all = await this._loadCustomRisksRaw();
+    return all.filter(r => r.statut !== 'rejected').map(r => r.nom);
+  },
+  async loadPendingRisks() {
+    const all = await this._loadCustomRisksRaw();
+    return all.filter(r => r.statut === 'pending');
+  },
+  async loadRejectedRisks() {
+    const all = await this._loadCustomRisksRaw();
+    return all.filter(r => r.statut === 'rejected');
+  },
+  async loadApprovedRisks() {
+    const all = await this._loadCustomRisksRaw();
+    return all.filter(r => r.statut === 'approved');
+  },
+
+  async isCustomRiskPending(nom) {
+    const pending = await this.loadPendingRisks();
+    return pending.some(r => r.nom === nom);
+  },
+
+  // Propose un nouveau risque (statut = pending)
+  async proposeCustomRisk(data) {
+    const list = await this._loadCustomRisksRaw();
+    if (list.some(r => r.nom.toLowerCase() === (data.nom||'').toLowerCase().trim())) {
+      this.toast('Ce risque existe déjà', 'warning'); return null;
+    }
+    const entry = {
+      id: 'cr-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),
+      nom: (data.nom||'').trim(),
+      categorie: data.categorie || 'Personnalisés',
+      situation: data.situation || '',
+      prevention: data.prevention || '',
+      niveau: Number(data.niveau) || 2,
+      statut: 'pending',
+      proposedBy: DataSync.getUserName() || 'inconnu',
+      proposedAt: new Date().toISOString(),
+      reviewedBy: '', reviewedAt: '', reviewComment: ''
+    };
+    list.push(entry);
+    await this._saveCustomRisksRaw(list);
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.propose', { nom: entry.nom, categorie: entry.categorie });
+    return entry;
+  },
+
+  // Backward-compat : l'ancien code appelle saveCustomRisk(name). On redirige vers proposeCustomRisk.
   async saveCustomRisk(name) {
-    const list = await this.loadCustomRisks();
-    if (list.includes(name)) return;
+    await this.proposeCustomRisk({ nom: name });
+  },
+
+  async approveCustomRisk(id, comment) {
+    if (!await this.isAdmin()) { this.toast('Seul un administrateur peut valider', 'warning'); return false; }
+    const list = await this._loadCustomRisksRaw();
+    const entry = list.find(r => r.id === id);
+    if (!entry) return false;
+    entry.statut = 'approved';
+    entry.reviewedBy = DataSync.getUserName() || 'inconnu';
+    entry.reviewedAt = new Date().toISOString();
+    entry.reviewComment = comment || '';
+    await this._saveCustomRisksRaw(list);
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.approve', { nom: entry.nom });
+    return true;
+  },
+
+  async rejectCustomRisk(id, comment) {
+    if (!await this.isAdmin()) { this.toast('Seul un administrateur peut rejeter', 'warning'); return false; }
+    const list = await this._loadCustomRisksRaw();
+    const entry = list.find(r => r.id === id);
+    if (!entry) return false;
+    entry.statut = 'rejected';
+    entry.reviewedBy = DataSync.getUserName() || 'inconnu';
+    entry.reviewedAt = new Date().toISOString();
+    entry.reviewComment = comment || '';
+    await this._saveCustomRisksRaw(list);
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.reject', { nom: entry.nom, comment });
+    return true;
+  },
+
+  // ---- ADMIN management ----
+  async loadAdmins() {
+    try { const s = await db.settings.get('admins'); return (s?.value)||[]; } catch(e) { return []; }
+  },
+  async saveAdmins(list) {
+    await db.settings.put({ key:'admins', value: list });
+    DataSync.markDirty();
+  },
+  async isAdmin() {
+    const admins = await this.loadAdmins();
+    // Premier lancement : si pas d'admin, l'utilisateur courant est considere admin
+    // pour pouvoir ajouter le premier admin officiel.
+    if (admins.length === 0) return true;
+    const me = DataSync.getUserName() || '';
+    return admins.some(a => a.toLowerCase() === me.toLowerCase());
+  },
+  async addAdmin(name) {
+    name = (name||'').trim();
+    if (!name) return;
+    const list = await this.loadAdmins();
+    if (list.some(a => a.toLowerCase() === name.toLowerCase())) { this.toast('Déjà administrateur', 'warning'); return; }
     list.push(name);
-    await db.settings.put({ key:'customRisks', value:list });
+    await this.saveAdmins(list);
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('admin.add', { name });
+  },
+  async removeAdmin(name) {
+    const list = await this.loadAdmins();
+    const filtered = list.filter(a => a.toLowerCase() !== name.toLowerCase());
+    await this.saveAdmins(filtered);
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('admin.remove', { name });
   },
   // renderCustomRiskBtns, addICPCustomRisk, addPDPCustomRisk replaced by risk picker
 
@@ -6412,7 +6614,250 @@ const App = {
   async renderSettingsView() {
     await this.renderSitesList();
     try { await DataSync.renderSettingsStatus(); } catch (e) { console.warn('renderSettingsStatus:', e); }
+    try { await this.renderAdminsSection(); } catch (e) { console.warn('renderAdminsSection:', e); }
+    try { await this.renderPendingRisksSection(); } catch (e) { console.warn('renderPendingRisksSection:', e); }
     try { await ActivityLog.render(document.getElementById('activity-log-container')); } catch (e) { console.warn('ActivityLog.render:', e); }
+  },
+
+  async renderAdminsSection() {
+    const el = document.getElementById('settings-admins');
+    if (!el) return;
+    const admins = await this.loadAdmins();
+    const isAdmin = await this.isAdmin();
+    const me = DataSync.getUserName() || '';
+
+    let info = '';
+    if (admins.length === 0) {
+      info = '<div class="alert alert-info small mb-2"><i class="bi bi-info-circle me-1"></i>Aucun administrateur défini. Le premier utilisateur à en ajouter un deviendra administrateur.</div>';
+    } else if (!isAdmin) {
+      info = `<div class="alert alert-light small mb-2"><i class="bi bi-info-circle me-1"></i>Vous n'êtes pas administrateur (connecté en tant que <strong>${this.esc(me)}</strong>). Seul un administrateur peut modifier la liste.</div>`;
+    }
+
+    const rows = admins.map(a => `
+      <li class="list-group-item d-flex justify-content-between align-items-center py-1 px-2">
+        <span class="small"><i class="bi bi-person-check me-1 text-success"></i>${this.esc(a)}</span>
+        ${isAdmin ? `<button class="btn btn-sm btn-outline-danger" onclick="App.doRemoveAdmin('${a.replace(/'/g,"\\'")}')"><i class="bi bi-x"></i></button>` : ''}
+      </li>`).join('') || '<li class="list-group-item small text-muted">Aucun administrateur</li>';
+
+    const form = isAdmin ? `
+      <div class="input-group input-group-sm mt-2">
+        <input type="text" class="form-control" id="new-admin-name" placeholder="Nom Microsoft exact (ex: Thibault HOCEDEZ)">
+        <button class="btn btn-outline-primary" onclick="App.doAddAdmin()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
+      </div>
+      <p class="small text-muted mt-1 mb-0">Le nom doit correspondre exactement au nom affiché sur le compte Microsoft de la personne.</p>` : '';
+
+    el.innerHTML = info + '<ul class="list-group list-group-flush">' + rows + '</ul>' + form;
+  },
+
+  async doAddAdmin() {
+    const inp = document.getElementById('new-admin-name');
+    const name = (inp?.value || '').trim();
+    if (!name) { this.toast('Saisissez un nom', 'warning'); return; }
+    await this.addAdmin(name);
+    this.toast('Administrateur ajouté');
+    await this.renderAdminsSection();
+    await this.renderPendingRisksSection();
+  },
+
+  async doRemoveAdmin(name) {
+    if (!await this.confirm(`Retirer ${name} de la liste des administrateurs ?`)) return;
+    await this.removeAdmin(name);
+    this.toast('Administrateur retiré');
+    await this.renderAdminsSection();
+    await this.renderPendingRisksSection();
+  },
+
+  async renderPendingRisksSection() {
+    const el = document.getElementById('settings-pending-risks');
+    if (!el) return;
+    const pending = await this.loadPendingRisks();
+    const isAdmin = await this.isAdmin();
+
+    if (!pending.length) {
+      el.innerHTML = '<p class="text-muted small mb-0"><i class="bi bi-check-circle me-1 text-success"></i>Aucun risque en attente de validation.</p>';
+      return;
+    }
+    const rows = pending.map(r => {
+      const dt = new Date(r.proposedAt).toLocaleString('fr-FR');
+      const actions = isAdmin ? `
+        <div class="d-flex gap-2 mt-2">
+          <button class="btn btn-sm btn-success" onclick="App.doApproveRisk('${r.id}')"><i class="bi bi-check-lg me-1"></i>Valider</button>
+          <button class="btn btn-sm btn-outline-danger" onclick="App.doRejectRisk('${r.id}')"><i class="bi bi-x-lg me-1"></i>Rejeter</button>
+        </div>` : '<p class="small text-muted mb-0 mt-1"><i class="bi bi-info-circle me-1"></i>En attente d\'un administrateur</p>';
+      return `
+        <div class="card mb-2">
+          <div class="card-body p-2">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <strong class="small">${this.esc(r.nom)}</strong>
+                <span class="badge bg-secondary ms-1">${this.esc(r.categorie)}</span>
+                <span class="badge bg-${r.niveau>=3?'danger':r.niveau==2?'warning text-dark':'success'} ms-1">Niveau ${r.niveau}</span>
+              </div>
+              <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>En attente</span>
+            </div>
+            ${r.situation ? `<div class="small text-muted mt-1"><strong>Situation :</strong> ${this.esc(r.situation)}</div>` : ''}
+            ${r.prevention ? `<div class="small text-muted"><strong>Prévention :</strong> ${this.esc(r.prevention)}</div>` : ''}
+            <div class="small text-muted mt-1"><i class="bi bi-person me-1"></i>${this.esc(r.proposedBy)} · ${dt}</div>
+            ${actions}
+          </div>
+        </div>`;
+    }).join('');
+    el.innerHTML = rows;
+  },
+
+  async doApproveRisk(id) {
+    const comment = prompt('Commentaire (optionnel) :') || '';
+    const ok = await this.approveCustomRisk(id, comment);
+    if (ok) { this.toast('Risque validé'); await this.renderPendingRisksSection(); }
+  },
+
+  async doRejectRisk(id) {
+    const comment = prompt('Motif du rejet (obligatoire) :') || '';
+    if (!comment.trim()) { this.toast('Un motif est requis pour rejeter', 'warning'); return; }
+    const ok = await this.rejectCustomRisk(id, comment);
+    if (ok) { this.toast('Risque rejeté'); await this.renderPendingRisksSection(); }
+  },
+
+  // ---- Export DUERP (Document Unique d'Evaluation des Risques) ----
+  async exportDUERP() {
+    try {
+      const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, HeadingLevel, BorderStyle, ShadingType } = docx;
+
+      // 1. Rassembler les risques par categorie.
+      //    Standard : RISK_CATALOG + RISK_DEFAULTS. Custom : seulement les 'approved'.
+      const approvedCustom = await this.loadApprovedRisks();
+      const approvedByName = new Map(approvedCustom.map(c => [c.nom, c]));
+      const catsData = []; // [{ nom, color, risks: [{nom, situation, prevention, niveau}] }]
+      for (const cat of this.RISK_CATALOG) {
+        const risks = cat.risks.map(name => {
+          const def = this.RISK_DEFAULTS[name] || {};
+          return {
+            nom: name,
+            situation: def.situation || '',
+            prevention: def.prevention || '',
+            niveau: def.niveau || 2
+          };
+        });
+        // Ajouter les customs approuves qui ont choisi cette categorie
+        for (const c of approvedCustom) {
+          if (c.categorie === cat.cat) {
+            risks.push({ nom: c.nom, situation: c.situation, prevention: c.prevention, niveau: c.niveau });
+          }
+        }
+        catsData.push({ nom: cat.cat, color: cat.color, risks });
+      }
+      // Personnalises sans categorie existante
+      const orphans = approvedCustom.filter(c => !this.RISK_CATALOG.some(cat => cat.cat === c.categorie));
+      if (orphans.length) {
+        catsData.push({
+          nom: 'Personnalisés',
+          color: '#0dcaf0',
+          risks: orphans.map(c => ({ nom: c.nom, situation: c.situation, prevention: c.prevention, niveau: c.niveau }))
+        });
+      }
+
+      // 2. Construire le document
+      const entrepriseSetting = await db.settings.get('general').catch(() => null);
+      const entrepriseNom = entrepriseSetting?.value?.euNom || 'Agriwatt / Enersolys';
+      const siret = entrepriseSetting?.value?.euSiret || '';
+      const generatedBy = DataSync.getUserName() || 'inconnu';
+      const today = new Date().toLocaleDateString('fr-FR');
+
+      const niveauLabel = n => ({1:'Faible', 2:'Moyen', 3:'Élevé', 4:'Critique'}[n] || 'Moyen');
+      const niveauColor = n => ({1:'D4EDDA', 2:'FFF3CD', 3:'F8D7DA', 4:'F5C6CB'}[n] || 'FFF3CD');
+
+      const children = [];
+      // Titre
+      children.push(new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: 'DOCUMENT UNIQUE', bold: true, size: 36 })]
+      }));
+      children.push(new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: "D'ÉVALUATION DES RISQUES PROFESSIONNELS", bold: true, size: 28 })]
+      }));
+      children.push(new Paragraph({ text: '', spacing: { after: 200 } }));
+      children.push(new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: entrepriseNom, bold: true, size: 24 })]
+      }));
+      if (siret) {
+        children.push(new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text: 'SIRET : ' + siret, size: 20 })]
+        }));
+      }
+      children.push(new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: `Document généré le ${today} par ${generatedBy}`, italics: true, size: 18, color: '666666' })]
+      }));
+      children.push(new Paragraph({ text: '', spacing: { after: 400 } }));
+
+      // Introduction
+      children.push(new Paragraph({
+        children: [new TextRun({ text: 'Préambule', bold: true, size: 26, color: '00693E' })],
+        spacing: { after: 200 }
+      }));
+      children.push(new Paragraph({
+        children: [new TextRun({ text: "Le présent document recense l'ensemble des risques professionnels identifiés au sein de l'entreprise, classés par catégorie, avec les situations dangereuses associées, les mesures de prévention et le niveau de criticité évalué. Il constitue le support de l'évaluation des risques prévue par l'article R. 4121-1 du Code du travail.", size: 20 })],
+        spacing: { after: 300 }
+      }));
+
+      // Par categorie
+      for (const cat of catsData) {
+        if (!cat.risks.length) continue;
+        children.push(new Paragraph({
+          children: [new TextRun({ text: cat.nom, bold: true, size: 28, color: (cat.color||'00693E').replace('#','') })],
+          spacing: { before: 300, after: 150 }
+        }));
+        // Table
+        const headerCells = ['Risque / Danger', 'Situation dangereuse', 'Mesures de prévention', 'Niveau'].map(label =>
+          new TableCell({
+            shading: { type: ShadingType.CLEAR, color: 'auto', fill: '00693E' },
+            children: [new Paragraph({ children: [new TextRun({ text: label, bold: true, color: 'FFFFFF', size: 18 })] })]
+          })
+        );
+        const bodyRows = cat.risks.map(r => new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r.nom, bold: true, size: 18 })] })], width: { size: 20, type: WidthType.PERCENTAGE } }),
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r.situation, size: 18 })] })], width: { size: 35, type: WidthType.PERCENTAGE } }),
+            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r.prevention, size: 18 })] })], width: { size: 35, type: WidthType.PERCENTAGE } }),
+            new TableCell({
+              shading: { type: ShadingType.CLEAR, color: 'auto', fill: niveauColor(r.niveau) },
+              children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: niveauLabel(r.niveau), size: 18, bold: true })] })],
+              width: { size: 10, type: WidthType.PERCENTAGE }
+            })
+          ]
+        }));
+        const table = new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          rows: [new TableRow({ tableHeader: true, children: headerCells }), ...bodyRows]
+        });
+        children.push(table);
+      }
+
+      // Footer legal
+      children.push(new Paragraph({ text: '', spacing: { before: 400 } }));
+      children.push(new Paragraph({
+        children: [new TextRun({ text: 'Mise à jour', bold: true, size: 22, color: '00693E' })],
+        spacing: { after: 100 }
+      }));
+      children.push(new Paragraph({
+        children: [new TextRun({ text: "Ce document doit être mis à jour au moins une fois par an, lors de toute décision d'aménagement important modifiant les conditions de santé et de sécurité, ou lorsqu'une information supplémentaire intéressant l'évaluation d'un risque est recueillie.", size: 18, italics: true })]
+      }));
+
+      const doc = new Document({
+        sections: [{ properties: { page: { margin: { top: 720, bottom: 720, left: 720, right: 720 } } }, children }]
+      });
+      const blob = await Packer.toBlob(doc);
+      const filename = `DUERP_${(entrepriseNom||'entreprise').replace(/\s+/g,'_')}_${new Date().toISOString().slice(0,10)}.docx`;
+      saveAs(blob, filename);
+      this.toast('DUERP exporté');
+      if (typeof ActivityLog !== 'undefined') ActivityLog.log('duerp.export', { fichier: filename, nbCategories: catsData.length });
+    } catch (e) {
+      console.error('exportDUERP:', e);
+      this.toast('Erreur lors de l\'export DUERP', 'danger');
+    }
   },
 
   async renderSitesList() {
