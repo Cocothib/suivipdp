@@ -4794,13 +4794,42 @@ const App = {
     c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong>${pendingBadge(r.danger)}<select class="form-select form-select-sm" style="width:auto" onchange="App.currentPDP.risques[${i}].niveau=+this.value;App.renderRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentPDP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea>${this._renderPreventionCheckboxes(i, r.preventionItems, 'pdp')}<div class="mt-1"><div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" onchange="App.currentPDP.risques[${i}].chargeEU=this.checked" ${r.chargeEU?'checked':''}><label class="form-check-label small">EU</label></div><div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" onchange="App.currentPDP.risques[${i}].chargeEE=this.checked" ${r.chargeEE?'checked':''}><label class="form-check-label small">EE</label></div></div></div><button class="btn btn-outline-danger btn-sm" onclick="App.currentPDP.risques.splice(${i},1);App.renderRisquesList();App._riskPickerCtx='pdp';App.updateRiskCounters()"><i class="bi bi-trash"></i></button></div></div>`).join('');
   },
 
+  _isInStandardCatalog(name) {
+    const n = (name||'').trim().toLowerCase();
+    if (!n) return false;
+    return this.RISK_CATALOG.some(cat => cat.risks.some(r => r.toLowerCase() === n));
+  },
+
+  async _autoProposeIfNew(name) {
+    // Si le nom n'est ni dans le catalogue standard ni dans les customs existants,
+    // le proposer automatiquement pour validation (alimente la base des risques a valider).
+    const n = (name||'').trim();
+    if (!n || n === 'Non défini') return;
+    if (this._isInStandardCatalog(n)) return;
+    const existing = await this._loadCustomRisksRaw();
+    if (existing.some(r => r.nom.toLowerCase() === n.toLowerCase())) return;
+    await this.proposeCustomRisk({ nom: n, categorie: 'Personnalisés', niveau: 2 });
+    this.toast('Risque proposé — en attente de validation', 'info');
+  },
+
   addRisque() {
     this.currentPDP.risques = this.currentPDP.risques||[];
     this.currentPDP.risques.push({ danger:'', situation:'', prevention:'', preventionItems:[], niveau:2 });
     this.renderRisquesList();
     const rows = document.querySelectorAll('#risques-list-container .risk-row');
     const last = rows[rows.length-1]?.querySelector('strong');
-    if (last) { const inp = document.createElement('input'); inp.type='text'; inp.className='form-control form-control-sm'; inp.placeholder='Nom du danger...'; inp.onblur=()=>{this.currentPDP.risques[this.currentPDP.risques.length-1].danger=inp.value.trim()||'Non défini';this.renderRisquesList();}; inp.onkeydown=(e)=>{if(e.key==='Enter')inp.blur();}; last.replaceWith(inp); inp.focus(); }
+    if (last) {
+      const inp = document.createElement('input');
+      inp.type='text'; inp.className='form-control form-control-sm'; inp.placeholder='Nom du danger...';
+      inp.onblur = async () => {
+        const name = inp.value.trim() || 'Non défini';
+        this.currentPDP.risques[this.currentPDP.risques.length-1].danger = name;
+        await this._autoProposeIfNew(name);
+        this.renderRisquesList();
+      };
+      inp.onkeydown = (e) => { if (e.key==='Enter') inp.blur(); };
+      last.replaceWith(inp); inp.focus();
+    }
   },
 
   addPredefinedRisk(name) {
@@ -5832,7 +5861,18 @@ const App = {
     this.renderICPRisquesList();
     const rows = document.querySelectorAll('#icp-risques-list-container .risk-row');
     const last = rows[rows.length-1]?.querySelector('strong');
-    if (last) { const inp = document.createElement('input'); inp.type='text'; inp.className='form-control form-control-sm'; inp.placeholder='Nom du danger...'; inp.onblur=()=>{this.currentICP.risques[this.currentICP.risques.length-1].danger=inp.value.trim()||'Non défini';this.renderICPRisquesList();}; inp.onkeydown=(e)=>{if(e.key==='Enter')inp.blur();}; last.replaceWith(inp); inp.focus(); }
+    if (last) {
+      const inp = document.createElement('input');
+      inp.type='text'; inp.className='form-control form-control-sm'; inp.placeholder='Nom du danger...';
+      inp.onblur = async () => {
+        const name = inp.value.trim() || 'Non défini';
+        this.currentICP.risques[this.currentICP.risques.length-1].danger = name;
+        await this._autoProposeIfNew(name);
+        this.renderICPRisquesList();
+      };
+      inp.onkeydown = (e) => { if (e.key==='Enter') inp.blur(); };
+      last.replaceWith(inp); inp.focus();
+    }
   },
 
   addICPPredefinedRisk(name) {
