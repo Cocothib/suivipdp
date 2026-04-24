@@ -2556,6 +2556,7 @@ const DataSync = {
     _loadedMeta: { pdp: null, icp: null, shared: null },
     _pollTimer: null,
     _presenceTimer: null,
+    _loadedSnapshot: null,      // JSON snapshot des donnees au dernier sync (pour merge)
 
     getUserName() {
         if (_msalAccount?.name) return _msalAccount.name;
@@ -2586,14 +2587,172 @@ const DataSync = {
         return { _meta:{ version, lastSaved:new Date().toISOString(), savedBy:this.getUserName()||'inconnu' }, entreprises, settings };
     },
 
-    // ---- Sauvegardes séparées ----
+    /* ---- Snapshot & merge : evite les pertes en saisie concurrente ---- */
+    async _collectRawData() {
+        return {
+            pdps:        await db.pdps.toArray(),
+            icps:        await db.icps.toArray(),
+            entreprises: await db.entreprises.toArray(),
+            settings:    await db.settings.toArray(),
+        };
+    },
+
+    async _captureSnapshot() {
+        try {
+            const raw = await this._collectRawData();
+            this._loadedSnapshot = JSON.stringify(raw);
+        } catch (e) {
+            console.warn('DataSync: snapshot KO', e);
+            this._loadedSnapshot = null;
+        }
+    },
+
+    /**
+     * Fusionne les donnees d'un store (par ex. pdps) avec son equivalent distant,
+     * en se basant sur le snapshot local du dernier sync pour identifier les
+     * modifications locales. Retourne { merged: [...], remap: {oldId:newId} }.
+     */
+    _mergeStore(currentArr, snapshotArr, remoteArr, { autoId }) {
+        const remoteById = new Map((remoteArr||[]).map(e => [e.id, e]));
+        const snapById   = new Map((snapshotArr||[]).map(e => [e.id, e]));
+        const curById    = new Map((currentArr||[]).map(e => [e.id, e]));
+        const localAdded = [];
+        const localUpdated = [];
+        const localDeletedIds = [];
+        const remap = {};
+
+        for (const [id, entry] of curById) {
+            const snap = snapById.get(id);
+            if (!snap) localAdded.push(entry);
+            else if (JSON.stringify(snap) !== JSON.stringify(entry)) localUpdated.push(entry);
+        }
+        for (const id of snapById.keys()) {
+            if (!curById.has(id)) localDeletedIds.push(id);
+        }
+        for (const id of localDeletedIds) remoteById.delete(id);
+        for (const entry of localUpdated) {
+            if (remoteById.has(entry.id)) remoteById.set(entry.id, entry);
+            else localAdded.push(entry);
+        }
+        let nextId = 1;
+        for (const id of remoteById.keys()) {
+            if (typeof id === 'number' && id >= nextId) nextId = id + 1;
+        }
+        for (const entry of localAdded) {
+            const newEntry = { ...entry };
+            if (autoId && remoteById.has(newEntry.id)) {
+                const oldId = newEntry.id;
+                while (remoteById.has(nextId)) nextId++;
+                newEntry.id = nextId++;
+                remap[oldId] = newEntry.id;
+            }
+            remoteById.set(newEntry.id, newEntry);
+        }
+        return { merged: Array.from(remoteById.values()), remap };
+    },
+
+    /**
+     * Fusionne les 3 fichiers distants avec l'etat local. Retourne les 3 objets
+     * a ecrire. Propage les remappings d'ids entre fichiers (icps.pdpId,
+     * pdps.entreprisesExt[]._repoId).
+     */
+    async _mergeAllWithRemote(remotes) {
+        const current = await this._collectRawData();
+        let snapshot;
+        try {
+            snapshot = this._loadedSnapshot ? JSON.parse(this._loadedSnapshot)
+                : { pdps:[], icps:[], entreprises:[], settings:[] };
+        } catch { snapshot = { pdps:[], icps:[], entreprises:[], settings:[] }; }
+
+        const pdpRes  = this._mergeStore(current.pdps,        snapshot.pdps,        remotes.pdp?.pdps         || [], { autoId:true });
+        const icpRes  = this._mergeStore(current.icps,        snapshot.icps,        remotes.icp?.icps         || [], { autoId:true });
+        const entRes  = this._mergeStore(current.entreprises, snapshot.entreprises, remotes.shared?.entreprises || [], { autoId:true });
+        const setRes  = this._mergeStore(current.settings,    snapshot.settings,    remotes.shared?.settings    || [], { autoId:false });
+
+        // Propager remappings : icps.pdpId suit les pdps remappes
+        if (Object.keys(pdpRes.remap).length) {
+            for (const icp of icpRes.merged) {
+                if (icp.pdpId != null && pdpRes.remap[icp.pdpId] != null) {
+                    icp.pdpId = pdpRes.remap[icp.pdpId];
+                }
+            }
+        }
+        // Propager remappings : pdps.entreprisesExt[]._repoId suit les entreprises remappees
+        if (Object.keys(entRes.remap).length) {
+            for (const pdp of pdpRes.merged) {
+                if (Array.isArray(pdp.entreprisesExt)) {
+                    for (const ee of pdp.entreprisesExt) {
+                        if (ee._repoId != null && entRes.remap[ee._repoId] != null) {
+                            ee._repoId = entRes.remap[ee._repoId];
+                        }
+                    }
+                }
+            }
+        }
+
+        return {
+            pdp:    { _meta: remotes.pdp?._meta    || null, pdps:        pdpRes.merged },
+            icp:    { _meta: remotes.icp?._meta    || null, icps:        icpRes.merged },
+            shared: { _meta: remotes.shared?._meta || null, entreprises: entRes.merged, settings: setRes.merged },
+        };
+    },
+
+    async _writeLocalData({ pdp, icp, shared }) {
+        await db.transaction('rw', db.pdps, db.icps, db.entreprises, db.settings, async () => {
+            await db.pdps.clear();
+            if (pdp?.pdps?.length) await db.pdps.bulkPut(pdp.pdps);
+            await db.icps.clear();
+            if (icp?.icps?.length) await db.icps.bulkPut(icp.icps);
+            await db.entreprises.clear();
+            if (shared?.entreprises?.length) await db.entreprises.bulkPut(shared.entreprises);
+            await db.settings.clear();
+            if (shared?.settings?.length) await db.settings.bulkPut(shared.settings);
+        });
+    },
+
+    // ---- Sauvegardes séparées (avec merge anti-conflit) ----
     async save() {
         if (this._saving || !this._connected) return;
         this._saving = true;
         try {
+            // 1. Relire les fichiers distants pour detecter des versions concurrentes
+            const [remotePdp, remoteIcp, remoteShared] = await Promise.all([
+                _readJsonFile(SP_CONFIG.PDP_DATA_FILE).catch(() => null),
+                _readJsonFile(SP_CONFIG.ICP_DATA_FILE).catch(() => null),
+                _readJsonFile(SP_CONFIG.SHARED_DATA_FILE).catch(() => null),
+            ]);
+
+            const remoteVers = {
+                pdp:    remotePdp?._meta?.version    || 0,
+                icp:    remoteIcp?._meta?.version    || 0,
+                shared: remoteShared?._meta?.version || 0,
+            };
+            const lastSyncedVers = {
+                pdp:    this._loadedMeta.pdp?.version    || 0,
+                icp:    this._loadedMeta.icp?.version    || 0,
+                shared: this._loadedMeta.shared?.version || 0,
+            };
+            const conflict = remoteVers.pdp    > lastSyncedVers.pdp
+                          || remoteVers.icp    > lastSyncedVers.icp
+                          || remoteVers.shared > lastSyncedVers.shared;
+
+            // 2. Si un autre utilisateur a sauvegarde entre-temps : fusionner
+            if (conflict) {
+                console.log('DataSync: fusion (conflit detecte)', { remoteVers, lastSyncedVers });
+                const merged = await this._mergeAllWithRemote({ pdp: remotePdp, icp: remoteIcp, shared: remoteShared });
+                await this._writeLocalData(merged);
+                const savedBy = remotePdp?._meta?.savedBy || remoteIcp?._meta?.savedBy || remoteShared?._meta?.savedBy || 'un collegue';
+                App.toast(`Fusion avec les données de ${savedBy}`, 'info');
+            }
+
+            // 3. Collecter les donnees locales (post-merge) et forcer version > remote
             const [pdpData, icpData, sharedData] = await Promise.all([
                 this._collectPDPData(), this._collectICPData(), this._collectSharedData()
             ]);
+            pdpData._meta.version    = Math.max(remoteVers.pdp,    lastSyncedVers.pdp)    + 1;
+            icpData._meta.version    = Math.max(remoteVers.icp,    lastSyncedVers.icp)    + 1;
+            sharedData._meta.version = Math.max(remoteVers.shared, lastSyncedVers.shared) + 1;
+
             await Promise.all([
                 _writeJsonFile(SP_CONFIG.PDP_DATA_FILE, pdpData),
                 _writeJsonFile(SP_CONFIG.ICP_DATA_FILE, icpData),
@@ -2602,6 +2761,7 @@ const DataSync = {
             this._loadedMeta = { pdp:pdpData._meta, icp:icpData._meta, shared:sharedData._meta };
             this._dirty = false;
             this._updateBadge(false);
+            await this._captureSnapshot();
             console.log('DataSync: sauvegarde SharePoint OK');
         } catch (e) {
             console.error('DataSync: erreur sauvegarde SharePoint', e);
@@ -2644,7 +2804,7 @@ const DataSync = {
                 if (sharedData.settings?.length) await db.settings.bulkPut(sharedData.settings);
                 this._loadedMeta.shared = sharedData._meta; loaded = true;
             }
-            if (loaded) { this._dirty = false; this._updateBadge(false); }
+            if (loaded) { this._dirty = false; this._updateBadge(false); await this._captureSnapshot(); }
             return loaded;
         } catch (e) { console.warn('DataSync: lecture SharePoint échouée', e); return false; }
     },
@@ -2711,6 +2871,7 @@ const DataSync = {
                     this._loadedMeta.shared = sharedData._meta; updated = true;
                 }
                 if (updated) {
+                    await this._captureSnapshot();
                     App.toast(`Données mises à jour par ${by||'un collègue'}`, 'info');
                     if (App.currentView === 'dashboard') App.updateDashboard();
                     if (App.currentView === 'list') App.renderPDPList();
@@ -2953,6 +3114,8 @@ const App = {
         // Rafraichir le bandeau de presence toutes les 30s
         setInterval(() => DataSync.refreshPresenceBanner(), SP_CONFIG.PRESENCE_INTERVAL_MS);
     }
+    // Capturer le snapshot initial si pas encore fait (mode offline, premier run)
+    if (!DataSync._loadedSnapshot) await DataSync._captureSnapshot();
     if (DataSync.isFirstLaunch()) await DataSync.showFirstLaunchGuide();
     else if (state === 'need-permission') DataSync.showPermissionBanner();
     else if (state === 'no-handle') DataSync.showConnectReminder();
