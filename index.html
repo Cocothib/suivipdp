@@ -6365,35 +6365,53 @@ const App = {
     const statusEl = document.getElementById('sellsy-opp-status');
     if (statusEl) statusEl.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Récupération de l\'opportunité…';
     try {
-      const o = await SellsyAPI.getOpportunity(oppId);
+      // Récupère le payload brut + le mapping
+      const raw = await SellsyAPI._call({ action: 'opportunity', id: oppId });
+      const o = SellsyAPI._mapOpportunity(raw);
+      console.log('[Sellsy] opp brute:', raw);
+      console.log('[Sellsy] opp mappée:', o);
       const setIfEmpty = (id, v) => { const el = document.getElementById(id); if (el && !el.value.trim()) el.value = v||''; };
       const setForce = (id, v) => { const el = document.getElementById(id); if (el) el.value = v||''; };
-      // N° opération : on écrase systématiquement (c'est l'objet de la recherche)
       setForce('icp-ref-operation', o.ref);
-      // Objet : pré-remplit si vide
       setIfEmpty('icp-objet', o.nom);
-      // Si une company est liée, tenter de pré-remplir le représentant EU et le site
-      if (o.companyId) {
+
+      // Tenter de récupérer la company liée par tous les moyens disponibles
+      let companyId = o.companyId;
+      // Fallback : chercher dans la liste cachée (qui a peut-être plus d'infos)
+      if (!companyId && this._sellsyOppCache) {
+        const cached = this._sellsyOppCache.find(x => x.id == oppId);
+        if (cached && cached.companyId) companyId = cached.companyId;
+      }
+      // Fallback : champ third_id ou customer_id direct dans le payload brut
+      if (!companyId) {
+        companyId = raw.third_id || raw.customer_id || raw.company_id || (raw.third && raw.third.id) || null;
+      }
+
+      if (companyId) {
         try {
-          const c = await SellsyAPI.getCompany(o.companyId);
+          const c = await SellsyAPI.getCompany(companyId);
+          console.log('[Sellsy] company:', c);
           if (c) {
-            // Représentant EU (le nom de l'entreprise va dans le site)
             setIfEmpty('icp-eu-nom', c.responsable);
             setIfEmpty('icp-eu-fonction', c.fonction);
             setIfEmpty('icp-eu-tel', c.tel);
-            // Site = nom de la société Sellsy ; Lieu = adresse
             setIfEmpty('icp-site', c.nom);
             setIfEmpty('icp-lieu', c.adresse);
           }
-        } catch {}
+        } catch (err) {
+          console.error('[Sellsy] erreur getCompany', err);
+        }
       } else if (o.companyName) {
         setIfEmpty('icp-site', o.companyName);
       }
+
       bootstrap.Modal.getInstance(document.getElementById('modal-entreprise'))?.hide();
       this._markEditing && this._markEditing();
       this.toast(`Opportunité Sellsy appliquée : ${o.ref}`);
     } catch (e) {
-      if (statusEl) statusEl.innerHTML = `<span class="text-danger">${this.esc(e.message||e)}</span>`;
+      console.error('[Sellsy applyOpp] échec', e);
+      const msg = (e && e.message) ? e.message : (typeof e === 'string' ? e : JSON.stringify(e));
+      if (statusEl) statusEl.innerHTML = `<span class="text-danger">${this.esc(msg)}</span>`;
     }
   },
 
