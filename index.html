@@ -6309,15 +6309,18 @@ const App = {
     if (statusEl) statusEl.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Chargement des opportunités…';
     if (resEl) resEl.innerHTML = '';
     try {
-      // Pagination : on récupère jusqu'à 200 opps (2 pages × 100)
+      // Pagination : on récupère TOUTES les opportunités (cap de sécurité 10 000)
       let all = [];
       let offset = 0;
-      while (offset < 200) {
-        const { items } = await SellsyAPI.listOpportunities(100, offset);
+      const PAGE = 100;
+      const HARD_CAP = 10000;
+      while (offset < HARD_CAP) {
+        if (statusEl) statusEl.innerHTML = `<i class="bi bi-hourglass-split me-1"></i>Chargement… ${all.length} opps récupérées`;
+        const { items } = await SellsyAPI.listOpportunities(PAGE, offset);
         if (!items.length) break;
         all = all.concat(items);
-        if (items.length < 100) break;
-        offset += 100;
+        if (items.length < PAGE) break;
+        offset += PAGE;
       }
       this._sellsyOppCache = all;
       if (statusEl) statusEl.innerHTML = `<span class="text-muted">${all.length} opportunité(s) chargée(s)</span>`;
