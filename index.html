@@ -1420,6 +1420,7 @@ textarea.form-control { min-height: 70px; }
           <select class="form-select mb-2" id="eu-site-select" onchange="App.onSiteSelect(this.value)">
             <option value="">— Choisir un site enregistré —</option>
           </select>
+          <button class="btn btn-outline-success btn-sm" onclick="App.openSellsySearchModal('eu')"><i class="bi bi-search me-1"></i>Rechercher dans Sellsy</button>
         </div>
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-person-badge"></i>Coordonnées</div>
@@ -2158,6 +2159,32 @@ textarea.form-control { min-height: 70px; }
         <button class="btn btn-outline-danger btn-sm" onclick="App.resetData()"><i class="bi bi-trash me-1"></i>Réinitialiser</button>
       </div>
     </div>
+    <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-plug"></i>Intégration Sellsy</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Connecte l'app à votre compte Sellsy via un proxy PHP hébergé sur OVH. Permet la recherche live et la synchronisation du répertoire entreprises depuis Sellsy.</div>
+      <div class="field-group">
+        <div class="field-group-title"><i class="bi bi-link-45deg"></i> URL du proxy PHP</div>
+        <div class="row g-2">
+          <div class="col-md-9"><input type="text" class="form-control" id="sellsy-proxy-url" placeholder="sellsy-proxy.php (relatif) ou https://votre-site.fr/sellsy-proxy.php"></div>
+          <div class="col-md-3 d-flex gap-1"><button class="btn btn-primary btn-sm w-100" onclick="App.saveSellsyProxyUrl()"><i class="bi bi-check-lg me-1"></i>Enregistrer</button></div>
+        </div>
+        <div class="form-text">Si vide, l'app utilise <code>sellsy-proxy.php</code> à la racine du site.</div>
+      </div>
+      <div class="field-group">
+        <div class="field-group-title"><i class="bi bi-activity"></i> Test de connexion</div>
+        <button class="btn btn-outline-primary btn-sm" onclick="App.testSellsyConnection()"><i class="bi bi-wifi me-1"></i>Tester</button>
+        <div id="sellsy-test-output" class="mt-2 small"></div>
+      </div>
+      <div class="field-group">
+        <div class="field-group-title"><i class="bi bi-arrow-repeat"></i> Synchroniser le répertoire entreprises</div>
+        <p class="small text-muted mb-2">Importe ou met à jour toutes les sociétés Sellsy dans votre répertoire local (mise à jour par SIRET).</p>
+        <button class="btn btn-outline-success btn-sm" onclick="App.syncEntreprisesFromSellsy()"><i class="bi bi-cloud-download me-1"></i>Synchroniser depuis Sellsy</button>
+      </div>
+      <div class="alert alert-info small mb-0">
+        <i class="bi bi-info-circle me-1"></i><strong>Configuration côté serveur</strong> : copier <code>sellsy-config.example.php</code> en <code>sellsy-config.php</code> sur OVH (via FTP) et y renseigner <code>client_id</code> + <code>client_secret</code>. Les credentials ne sont jamais envoyés au navigateur.
+      </div>
+    </div>
+
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-info-circle"></i>À propos</div>
       <p class="small text-muted mb-0">Suivi PDP v1.0 — Gestion des Plans de Prévention<br>Données stockées localement (IndexedDB)</p>
@@ -3564,6 +3591,75 @@ window.addEventListener('beforeunload', () => {
 });
 
 // ========================================
+// SELLSY API (via PHP proxy)
+// ========================================
+const SellsyAPI = {
+  getProxyUrl() {
+    return localStorage.getItem('sellsyProxyUrl') || 'sellsy-proxy.php';
+  },
+  setProxyUrl(url) {
+    if (url) localStorage.setItem('sellsyProxyUrl', url);
+    else localStorage.removeItem('sellsyProxyUrl');
+  },
+  isConfigured() {
+    return !!this.getProxyUrl();
+  },
+  async _call(params) {
+    const url = this.getProxyUrl() + '?' + new URLSearchParams(params).toString();
+    const res = await fetch(url, { method: 'GET', credentials: 'omit' });
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { throw new Error('Réponse non-JSON du proxy : ' + text.slice(0,120)); }
+    if (!res.ok) throw new Error(data.error || ('HTTP '+res.status));
+    return data;
+  },
+  async healthcheck() { return this._call({ action: 'healthcheck' }); },
+  async search(q) {
+    const data = await this._call({ action: 'search', q });
+    return (data.data || []).map(c => this._mapCompany(c));
+  },
+  async listCompanies(limit = 50, offset = 0) {
+    const data = await this._call({ action: 'list', limit, offset });
+    return {
+      items: (data.data || []).map(c => this._mapCompany(c)),
+      total: (data.pagination && data.pagination.total) || (data.data || []).length,
+    };
+  },
+  async getCompany(id) {
+    const data = await this._call({ action: 'company', id });
+    return this._mapCompany(data);
+  },
+  async getContacts(id) {
+    const data = await this._call({ action: 'contacts', id });
+    return (data.data || []).map(c => ({
+      id: c.id,
+      nom: [c.last_name, c.first_name].filter(Boolean).join(' ').trim(),
+      fonction: c.position || c.job_title || '',
+      email: c.email || (c.email_address && c.email_address.email) || '',
+      tel: (c.phone_number && c.phone_number.number) || c.mobile_number || c.phone || '',
+    }));
+  },
+  _mapCompany(c) {
+    if (!c) return null;
+    const addr = c.address || (c.invoicing_address) || {};
+    const phone = (c.phone_number && c.phone_number.number) || c.phone || '';
+    const email = c.email || (c.email_address && c.email_address.email) || '';
+    const contact = c.contact || c.main_contact || {};
+    return {
+      id: c.id,
+      nom: c.name || c.corporate_name || '',
+      siret: c.siret || c.siren || '',
+      adresse: [addr.line_1, addr.line_2, addr.zip || addr.postal_code, addr.city, addr.country].filter(Boolean).join(' ').trim(),
+      tel: phone,
+      email,
+      responsable: [contact.last_name, contact.first_name].filter(Boolean).join(' ').trim(),
+      fonction: contact.position || contact.job_title || '',
+      activite: c.activity || c.naf_code || c.business_activity || '',
+    };
+  },
+};
+
+// ========================================
 // APP
 // ========================================
 const App = {
@@ -4309,7 +4405,7 @@ const App = {
     if (ents.length) {
       let html = '<p class="fw-bold small">Depuis le répertoire :</p>';
       html += ents.map(e => `<div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.addEEFromRepo(${e.id})"><i class="bi bi-building"></i><span class="small">${this.esc(e.nom)}</span></div>`).join('');
-      html += '<hr><div class="text-center"><button class="btn btn-outline-primary btn-sm" onclick="App.addEEManual()"><i class="bi bi-plus-lg me-1"></i>Saisie manuelle</button></div>';
+      html += '<hr><div class="text-center d-flex gap-2 justify-content-center flex-wrap"><button class="btn btn-outline-success btn-sm" onclick="App.openSellsySearchModal(\'ee\')"><i class="bi bi-search me-1"></i>Chercher dans Sellsy</button><button class="btn btn-outline-primary btn-sm" onclick="App.addEEManual()"><i class="bi bi-plus-lg me-1"></i>Saisie manuelle</button></div>';
       document.getElementById('modal-entreprise-body').innerHTML = html;
       document.getElementById('modal-entreprise-footer').style.display = 'none';
       document.querySelector('#modal-entreprise .modal-title').innerHTML = '<i class="bi bi-building me-1"></i>Ajouter une EE';
@@ -5838,6 +5934,152 @@ const App = {
     await db.entreprises.delete(id); this.renderEntreprises(); this.toast('Supprimée'); DataSync.markDirty();
   },
 
+  // ---- SELLSY API (live search via PHP proxy) ----
+  openSellsySearchModal(target) {
+    const body = document.getElementById('modal-entreprise-body');
+    const footer = document.getElementById('modal-entreprise-footer');
+    const title = document.querySelector('#modal-entreprise .modal-title');
+    title.innerHTML = `<i class="bi bi-search me-1"></i>Rechercher dans Sellsy`;
+    body.innerHTML = `
+      <div class="mb-2">
+        <input type="search" id="sellsy-search-q" class="form-control" placeholder="Nom de société, SIRET..." autocomplete="off">
+        <div class="form-text">Tapez ≥ 2 caractères puis Entrée — la recherche utilise l'API Sellsy.</div>
+      </div>
+      <div id="sellsy-search-status" class="small text-muted"></div>
+      <div id="sellsy-search-results" class="mt-2"></div>`;
+    footer.style.display = 'none';
+    const m = bootstrap.Modal.getOrCreateInstance(document.getElementById('modal-entreprise'));
+    m.show();
+    setTimeout(() => {
+      const inp = document.getElementById('sellsy-search-q');
+      if (inp) {
+        inp.focus();
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); App.runSellsySearch(target); } });
+      }
+    }, 200);
+  },
+
+  async runSellsySearch(target) {
+    const q = (document.getElementById('sellsy-search-q')?.value || '').trim();
+    const statusEl = document.getElementById('sellsy-search-status');
+    const resEl = document.getElementById('sellsy-search-results');
+    if (q.length < 2) { statusEl.textContent = 'Entrez au moins 2 caractères.'; return; }
+    statusEl.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Recherche…';
+    resEl.innerHTML = '';
+    try {
+      const items = await SellsyAPI.search(q);
+      if (!items.length) { statusEl.textContent = 'Aucun résultat.'; return; }
+      statusEl.textContent = `${items.length} résultat(s)`;
+      resEl.innerHTML = items.map(c => `
+        <div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.applySellsyCompany('${target}', ${c.id})">
+          <i class="bi bi-buildings"></i>
+          <div class="flex-grow-1">
+            <strong>${this.esc(c.nom||'')}</strong>
+            <div class="small text-muted">${c.siret?`SIRET ${this.esc(c.siret)} · `:''}${this.esc(c.adresse||'')}</div>
+          </div>
+        </div>`).join('');
+    } catch (e) {
+      statusEl.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>${this.esc(e.message || String(e))}</span>`;
+    }
+  },
+
+  async applySellsyCompany(target, companyId) {
+    const statusEl = document.getElementById('sellsy-search-status');
+    if (statusEl) statusEl.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Récupération des détails…';
+    try {
+      const c = await SellsyAPI.getCompany(companyId);
+      // Si pas de contact embeddé, tenter contacts
+      if (!c.responsable) {
+        try {
+          const cts = await SellsyAPI.getContacts(companyId);
+          if (cts.length) {
+            c.responsable = cts[0].nom || c.responsable;
+            c.fonction = cts[0].fonction || c.fonction;
+            c.email = c.email || cts[0].email;
+            c.tel = c.tel || cts[0].tel;
+          }
+        } catch {}
+      }
+      bootstrap.Modal.getInstance(document.getElementById('modal-entreprise'))?.hide();
+      setTimeout(() => this.resetEntModal && this.resetEntModal(), 300);
+      if (target === 'eu') {
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v||''; };
+        set('eu-nom', c.nom); set('eu-adresse', c.adresse); set('eu-tel', c.tel);
+        set('eu-email', c.email); set('eu-responsable', c.responsable); set('eu-fonction', c.fonction);
+        this._markEditing && this._markEditing();
+        this.toast(`EU pré-remplie : ${c.nom}`);
+      } else if (target === 'ee') {
+        this.currentPDP.entreprisesExt = this.currentPDP.entreprisesExt || [];
+        this.currentPDP.entreprisesExt.push({
+          nom: c.nom, adresse: c.adresse, tel: c.tel, email: c.email,
+          responsable: c.responsable, fonction: c.fonction, siret: c.siret, activite: c.activite, sousTraitantDe: ''
+        });
+        // Persister dans le répertoire local pour réutilisation future
+        try {
+          const existing = (await db.entreprises.toArray()).find(e => e.siret && c.siret && e.siret === c.siret);
+          if (!existing) await db.entreprises.add({ nom:c.nom, siret:c.siret, adresse:c.adresse, tel:c.tel, email:c.email, responsable:c.responsable, fonction:c.fonction, activite:c.activite });
+        } catch {}
+        this.renderEEList(); this.renderSignaturesEE && this.renderSignaturesEE(); this.prefillEmargements && this.prefillEmargements();
+        this.addHist && this.addHist(`EE ajoutée depuis Sellsy: ${c.nom}`);
+        this.toast(`EE ajoutée : ${c.nom}`);
+      }
+    } catch (e) {
+      if (statusEl) statusEl.innerHTML = `<span class="text-danger">${this.esc(e.message)}</span>`;
+    }
+  },
+
+  async syncEntreprisesFromSellsy() {
+    if (!await this.confirm('Synchroniser le répertoire entreprises depuis Sellsy ? Les entreprises existantes (par SIRET) seront mises à jour.')) return;
+    this.toast('Synchronisation Sellsy…', 'info');
+    let offset = 0, total = 0, added = 0, updated = 0;
+    try {
+      while (true) {
+        const { items } = await SellsyAPI.listCompanies(100, offset);
+        if (!items.length) break;
+        total += items.length;
+        const all = await db.entreprises.toArray();
+        for (const c of items) {
+          const existing = all.find(e => (c.siret && e.siret === c.siret) || (e.nom && e.nom.toLowerCase() === (c.nom||'').toLowerCase()));
+          const data = { nom:c.nom, siret:c.siret, adresse:c.adresse, tel:c.tel, email:c.email, responsable:c.responsable, fonction:c.fonction, activite:c.activite };
+          if (existing) { await db.entreprises.put({ ...existing, ...data }); updated++; }
+          else { await db.entreprises.add(data); added++; }
+        }
+        if (items.length < 100) break;
+        offset += 100;
+        if (offset > 5000) break; // safety cap
+      }
+      this.renderEntreprises(); DataSync.markDirty && DataSync.markDirty();
+      this.toast(`Sellsy : ${added} ajoutées, ${updated} mises à jour (${total} parcourues)`);
+    } catch (e) {
+      this.toast('Erreur Sellsy : ' + (e.message||e), 'danger');
+    }
+  },
+
+  async testSellsyConnection() {
+    const out = document.getElementById('sellsy-test-output');
+    if (out) out.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Test en cours…';
+    try {
+      const h = await SellsyAPI.healthcheck();
+      if (!h.has_credentials) {
+        if (out) out.innerHTML = '<span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Le proxy répond mais sellsy-config.php est manquant ou incomplet sur le serveur.</span>';
+        return;
+      }
+      if (h.token_ok) {
+        if (out) out.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Connexion Sellsy OK (token obtenu).</span>';
+      } else {
+        if (out) out.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle me-1"></i>Credentials refusés par Sellsy : ${this.esc(h.error||'')}</span>`;
+      }
+    } catch (e) {
+      if (out) out.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle me-1"></i>Proxy inaccessible : ${this.esc(e.message||e)}</span>`;
+    }
+  },
+
+  saveSellsyProxyUrl() {
+    const url = (document.getElementById('sellsy-proxy-url')?.value || '').trim();
+    SellsyAPI.setProxyUrl(url);
+    this.toast('URL proxy enregistrée');
+  },
+
   // ---- IMPORT SELLSY CSV ----
   async importSellsyCSV(ev) {
     const f = ev.target.files[0]; if (!f) return;
@@ -6987,6 +7229,8 @@ const App = {
     try { await this.renderAdminsSection(); } catch (e) { console.warn('renderAdminsSection:', e); }
     try { await this.renderPendingRisksSection(); } catch (e) { console.warn('renderPendingRisksSection:', e); }
     try { await ActivityLog.render(document.getElementById('activity-log-container')); } catch (e) { console.warn('ActivityLog.render:', e); }
+    const proxyInput = document.getElementById('sellsy-proxy-url');
+    if (proxyInput) proxyInput.value = SellsyAPI.getProxyUrl() === 'sellsy-proxy.php' ? '' : SellsyAPI.getProxyUrl();
   },
 
   async renderAdminsSection() {
