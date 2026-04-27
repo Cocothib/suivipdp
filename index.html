@@ -1510,7 +1510,8 @@ textarea.form-control { min-height: 70px; }
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-camera"></i>Photos</div>
           <div class="d-flex flex-wrap gap-2 mb-2" id="visite-photos"></div>
-          <label class="btn btn-outline-primary btn-sm"><i class="bi bi-camera me-1"></i>Ajouter<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addVisitePhoto(event)"></label>
+          <label class="btn btn-outline-primary btn-sm"><i class="bi bi-camera me-1"></i>Photo<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addVisitePhoto(event)"></label>
+          <label class="btn btn-outline-secondary btn-sm"><i class="bi bi-images me-1"></i>Galerie<input type="file" accept="image/*" multiple class="d-none" onchange="App.addVisitePhoto(event)"></label>
         </div>
       </div>
     </div>
@@ -2034,7 +2035,8 @@ textarea.form-control { min-height: 70px; }
       <div class="field-group">
         <div class="field-group-title"><i class="bi bi-camera"></i> Photos</div>
         <div class="d-flex flex-wrap gap-2 mb-2" id="icp-photos"></div>
-        <label class="btn btn-outline-primary btn-sm"><i class="bi bi-camera me-1"></i>Ajouter<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addICPPhoto(event)"></label>
+        <label class="btn btn-outline-primary btn-sm"><i class="bi bi-camera me-1"></i>Photo<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addICPPhoto(event)"></label>
+        <label class="btn btn-outline-secondary btn-sm ms-1"><i class="bi bi-images me-1"></i>Galerie<input type="file" accept="image/*" multiple class="d-none" onchange="App.addICPPhoto(event)"></label>
       </div>
     </div>
 
@@ -5831,22 +5833,54 @@ const App = {
   },
 
   // ---- PHOTOS ----
-  addVisitePhoto(ev) {
-    const f = ev.target.files[0]; if (!f) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        const cv = document.createElement('canvas'); let w=img.width, h=img.height;
-        const MAX=1024; if(w>MAX||h>MAX){if(w>h){h=Math.round(h*MAX/w);w=MAX}else{w=Math.round(w*MAX/h);h=MAX}}
-        cv.width=w; cv.height=h; cv.getContext('2d').drawImage(img,0,0,w,h);
-        this.currentPDP.visite.photos = this.currentPDP.visite.photos||[];
-        this.currentPDP.visite.photos.push({ data:cv.toDataURL('image/jpeg',0.6), date:new Date().toISOString() });
-        this.renderVisitePhotos(); this.toast('Photo ajoutée');
+  // Helper Promise-based : redimensionne (max 1024px) et compresse (JPEG 60%)
+  PHOTO_MAX_SIZE: 1024,
+  PHOTO_QUALITY: 0.6,
+  compressImage(file) {
+    return new Promise((resolve, reject) => {
+      if (!file || !file.type || !file.type.startsWith('image/')) {
+        return reject(new Error('Fichier non image'));
+      }
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Lecture du fichier impossible'));
+      reader.onload = e => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('Image illisible'));
+        img.onload = () => {
+          let w = img.width, h = img.height;
+          const MAX = this.PHOTO_MAX_SIZE;
+          if (w > MAX || h > MAX) {
+            if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+            else { w = Math.round(w * MAX / h); h = MAX; }
+          }
+          const cv = document.createElement('canvas');
+          cv.width = w; cv.height = h;
+          cv.getContext('2d').drawImage(img, 0, 0, w, h);
+          resolve({
+            data: cv.toDataURL('image/jpeg', this.PHOTO_QUALITY),
+            date: new Date().toISOString(),
+            filename: file.name || '',
+          });
+        };
+        img.src = e.target.result;
       };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(f); ev.target.value = '';
+      reader.readAsDataURL(file);
+    });
+  },
+
+  async addVisitePhoto(ev) {
+    const files = Array.from(ev.target.files || []);
+    if (!files.length) return;
+    this.currentPDP.visite.photos = this.currentPDP.visite.photos || [];
+    let added = 0, errors = 0;
+    for (const f of files) {
+      try { this.currentPDP.visite.photos.push(await this.compressImage(f)); added++; }
+      catch (e) { console.warn('photo:', e); errors++; }
+    }
+    this.renderVisitePhotos();
+    if (added) this.toast(`${added} photo${added>1?'s':''} ajoutée${added>1?'s':''}` + (errors?` (${errors} erreur${errors>1?'s':''})`:''));
+    else if (errors) this.toast(`Échec import (${errors})`, 'danger');
+    ev.target.value = '';
   },
 
   renderVisitePhotos() {
@@ -6427,23 +6461,18 @@ const App = {
 
   // ---- ICP PHOTOS ----
   async addICPPhoto(ev) {
-    const file = ev.target.files[0]; if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let w = img.width, h = img.height;
-        const MAX=1024; if(w>MAX||h>MAX){if(w>h){h=Math.round(h*MAX/w);w=MAX}else{w=Math.round(w*MAX/h);h=MAX}}
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        this.currentICP.photos = this.currentICP.photos||[];
-        this.currentICP.photos.push({ data: canvas.toDataURL('image/jpeg', 0.6), date: new Date().toISOString() });
-        this.renderICPPhotos();
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file); ev.target.value = '';
+    const files = Array.from(ev.target.files || []);
+    if (!files.length) return;
+    this.currentICP.photos = this.currentICP.photos || [];
+    let added = 0, errors = 0;
+    for (const f of files) {
+      try { this.currentICP.photos.push(await this.compressImage(f)); added++; }
+      catch (e) { console.warn('photo ICP:', e); errors++; }
+    }
+    this.renderICPPhotos();
+    if (added) this.toast(`${added} photo${added>1?'s':''} ajoutée${added>1?'s':''}` + (errors?` (${errors} erreur${errors>1?'s':''})`:''));
+    else if (errors) this.toast(`Échec import (${errors})`, 'danger');
+    ev.target.value = '';
   },
 
   renderICPPhotos() {
