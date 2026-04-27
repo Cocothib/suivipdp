@@ -9,6 +9,8 @@
  *   GET ?action=company&id=...       -> Sellsy /companies/{id}
  *   GET ?action=contacts&id=...      -> Sellsy /companies/{id}/contacts
  *   GET ?action=list&limit=100&offset=0 -> Sellsy /companies (paginated)
+ *   GET ?action=opp_search&q=...     -> Sellsy /opportunities/search
+ *   GET ?action=opportunity&id=...   -> Sellsy /opportunities/{id}
  *
  * Credentials are read from sellsy-config.php (NOT committed).
  */
@@ -73,6 +75,18 @@ try {
             $id = (int)($_GET['id'] ?? 0);
             if (!$id) { http_response_code(400); echo json_encode(['error' => 'id manquant']); exit; }
             $res = sellsy_call('GET', "/companies/$id/contacts?limit=20", $token);
+            break;
+        case 'opp_search':
+            $q = trim($_GET['q'] ?? '');
+            if ($q === '') { http_response_code(400); echo json_encode(['error' => 'q manquant']); exit; }
+            // Sellsy v2 : POST /opportunities/search — filtre sur le nom (subject)
+            $body = ['filters' => ['subject' => $q]];
+            $res = sellsy_call('POST', '/opportunities/search?limit=20&embed[]=related&embed[]=step', $token, $body);
+            break;
+        case 'opportunity':
+            $id = (int)($_GET['id'] ?? 0);
+            if (!$id) { http_response_code(400); echo json_encode(['error' => 'id manquant']); exit; }
+            $res = sellsy_call('GET', "/opportunities/$id?embed[]=related&embed[]=step&embed[]=owner", $token);
             break;
         default:
             http_response_code(404);

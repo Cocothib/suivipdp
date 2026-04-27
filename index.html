@@ -1964,7 +1964,14 @@ textarea.form-control { min-height: 70px; }
         <div class="field-group-title"><i class="bi bi-tag"></i> Identification</div>
         <div class="row g-2">
           <div class="col-md-4"><label class="form-label">N° ICP</label><div class="input-icon-wrap"><i class="bi bi-hash input-icon"></i><input type="text" class="form-control" id="icp-numero" placeholder="Auto-généré si vide"></div></div>
-          <div class="col-md-4"><label class="form-label">N° d'opération / Réf.</label><div class="input-icon-wrap"><i class="bi bi-bookmark input-icon"></i><input type="text" class="form-control" id="icp-ref-operation" placeholder="Ex: OPP-2026-001"></div></div>
+          <div class="col-md-4">
+            <label class="form-label">N° d'opération / Réf.</label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text"><i class="bi bi-bookmark"></i></span>
+              <input type="text" class="form-control" id="icp-ref-operation" placeholder="Ex: OPP-2026-001">
+              <button class="btn btn-outline-success" type="button" onclick="App.openSellsyOppSearchModal()" title="Rechercher une opportunité dans Sellsy"><i class="bi bi-search"></i></button>
+            </div>
+          </div>
           <div class="col-md-4">
             <label class="form-label">Statut</label>
             <select class="form-select" id="icp-statut">
@@ -3666,6 +3673,36 @@ const SellsyAPI = {
       fonction: contact.position || contact.job_title || '',
       activite: c.activity || c.naf_code || c.business_activity || '',
       gps: (lat != null && lng != null) ? `${(+lat).toFixed(5)}, ${(+lng).toFixed(5)}` : '',
+    };
+  },
+  async searchOpportunities(q) {
+    const data = await this._call({ action: 'opp_search', q });
+    return (data.data || []).map(o => this._mapOpportunity(o));
+  },
+  async getOpportunity(id) {
+    const data = await this._call({ action: 'opportunity', id });
+    return this._mapOpportunity(data);
+  },
+  _mapOpportunity(o) {
+    if (!o) return null;
+    // Sellsy v2 : related[] contient l'entité liée (company/individual)
+    const related = Array.isArray(o.related) ? o.related : [];
+    const companyRel = related.find(r => (r.type === 'company' || r.related_type === 'company')) || {};
+    const companyId = companyRel.id || companyRel.related_id || (o.company && o.company.id) || null;
+    const companyName = companyRel.name || (o.company && (o.company.name || o.company.corporate_name)) || '';
+    // Étape (statut)
+    const step = o.step || {};
+    return {
+      id: o.id,
+      ref: o.reference || o.number || ('OPP-' + o.id),
+      nom: o.subject || o.name || '',
+      montant: o.amount || (o.estimated_amount && o.estimated_amount.value) || null,
+      devise: (o.estimated_amount && o.estimated_amount.currency) || o.currency || 'EUR',
+      etape: step.label || step.name || o.step_label || '',
+      probabilite: o.probability != null ? o.probability : (step.probability != null ? step.probability : null),
+      dateCloture: o.estimated_closing_date || o.due_date || '',
+      companyId,
+      companyName,
     };
   },
 };
@@ -6206,6 +6243,95 @@ const App = {
     const url = (document.getElementById('sellsy-proxy-url')?.value || '').trim();
     SellsyAPI.setProxyUrl(url);
     this.toast('URL proxy enregistrée');
+  },
+
+  // ---- SELLSY OPPORTUNITIES (live search via PHP proxy) ----
+  openSellsyOppSearchModal() {
+    const body = document.getElementById('modal-entreprise-body');
+    const footer = document.getElementById('modal-entreprise-footer');
+    const title = document.querySelector('#modal-entreprise .modal-title');
+    title.innerHTML = `<i class="bi bi-search me-1"></i>Rechercher une opportunité Sellsy`;
+    body.innerHTML = `
+      <div class="mb-2">
+        <input type="search" id="sellsy-opp-q" class="form-control" placeholder="Intitulé de l'opportunité, mot-clé..." autocomplete="off">
+        <div class="form-text">Tapez ≥ 2 caractères puis Entrée — recherche dans les opportunités Sellsy.</div>
+      </div>
+      <div id="sellsy-opp-status" class="small text-muted"></div>
+      <div id="sellsy-opp-results" class="mt-2"></div>`;
+    footer.style.display = 'none';
+    const modalEl = document.getElementById('modal-entreprise');
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    setTimeout(() => {
+      const inp = document.getElementById('sellsy-opp-q');
+      if (inp) {
+        inp.focus();
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); App.runSellsyOppSearch(); } });
+      }
+    }, 250);
+  },
+
+  async runSellsyOppSearch() {
+    const q = (document.getElementById('sellsy-opp-q')?.value || '').trim();
+    const statusEl = document.getElementById('sellsy-opp-status');
+    const resEl = document.getElementById('sellsy-opp-results');
+    if (q.length < 2) { if (statusEl) statusEl.innerHTML = '<span class="text-warning">Saisis au moins 2 caractères.</span>'; return; }
+    if (statusEl) statusEl.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Recherche…';
+    if (resEl) resEl.innerHTML = '';
+    try {
+      const items = await SellsyAPI.searchOpportunities(q);
+      if (statusEl) statusEl.innerHTML = items.length ? `<span class="text-muted">${items.length} résultat(s)</span>` : '<span class="text-muted">Aucun résultat.</span>';
+      if (resEl) resEl.innerHTML = items.map(o => {
+        const montant = (o.montant != null) ? `${(+o.montant).toLocaleString('fr-FR')} ${o.devise||''}` : '';
+        const meta = [o.etape, montant, o.dateCloture ? `clôture ${o.dateCloture}` : ''].filter(Boolean).join(' · ');
+        return `
+        <div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.applySellsyOpp(${o.id})">
+          <i class="bi bi-bookmark-star text-success"></i>
+          <div class="flex-grow-1">
+            <strong>${this.esc(o.ref)}</strong> — ${this.esc(o.nom)}
+            <div class="small text-muted">${this.esc(o.companyName||'')}${meta ? ` · ${this.esc(meta)}` : ''}</div>
+          </div>
+          <i class="bi bi-chevron-right text-muted"></i>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      if (statusEl) statusEl.innerHTML = `<span class="text-danger">${this.esc(e.message||e)}</span>`;
+    }
+  },
+
+  async applySellsyOpp(oppId) {
+    const statusEl = document.getElementById('sellsy-opp-status');
+    if (statusEl) statusEl.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Récupération de l\'opportunité…';
+    try {
+      const o = await SellsyAPI.getOpportunity(oppId);
+      const setIfEmpty = (id, v) => { const el = document.getElementById(id); if (el && !el.value.trim()) el.value = v||''; };
+      const setForce = (id, v) => { const el = document.getElementById(id); if (el) el.value = v||''; };
+      // N° opération : on écrase systématiquement (c'est l'objet de la recherche)
+      setForce('icp-ref-operation', o.ref);
+      // Objet : pré-remplit si vide
+      setIfEmpty('icp-objet', o.nom);
+      // Si une company est liée, tenter de pré-remplir le représentant EU et le site
+      if (o.companyId) {
+        try {
+          const c = await SellsyAPI.getCompany(o.companyId);
+          if (c) {
+            // Représentant EU (le nom de l'entreprise va dans le site)
+            setIfEmpty('icp-eu-nom', c.responsable);
+            setIfEmpty('icp-eu-fonction', c.fonction);
+            setIfEmpty('icp-eu-tel', c.tel);
+            // Site = nom de la société Sellsy ; Lieu = adresse
+            setIfEmpty('icp-site', c.nom);
+            setIfEmpty('icp-lieu', c.adresse);
+          }
+        } catch {}
+      } else if (o.companyName) {
+        setIfEmpty('icp-site', o.companyName);
+      }
+      bootstrap.Modal.getInstance(document.getElementById('modal-entreprise'))?.hide();
+      this._markEditing && this._markEditing();
+      this.toast(`Opportunité Sellsy appliquée : ${o.ref}`);
+    } catch (e) {
+      if (statusEl) statusEl.innerHTML = `<span class="text-danger">${this.esc(e.message||e)}</span>`;
+    }
   },
 
   // ---- IMPORT SELLSY CSV ----
