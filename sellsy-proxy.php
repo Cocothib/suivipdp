@@ -85,6 +85,13 @@ try {
             $body = ['filters' => ['subject' => $q]];
             $res = sellsy_call('POST', '/opportunities/search?limit=20&embed[]=related&embed[]=step', $token, $body);
             break;
+        case 'opp_list':
+            $limit = max(1, min(100, (int)($_GET['limit'] ?? 50)));
+            $offset = max(0, (int)($_GET['offset'] ?? 0));
+            // Liste de toutes les opportunités (filters obligatoire mais vide)
+            $body = ['filters' => new stdClass()];
+            $res = sellsy_call('POST', "/opportunities/search?limit=$limit&offset=$offset", $token, $body);
+            break;
         case 'opportunity':
             $id = (int)($_GET['id'] ?? 0);
             if (!$id) { http_response_code(400); echo json_encode(['error' => 'id manquant']); exit; }

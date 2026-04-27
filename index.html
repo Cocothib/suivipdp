@@ -3696,6 +3696,13 @@ const SellsyAPI = {
     const data = await this._call({ action: 'opp_search', q });
     return (data.data || []).map(o => this._mapOpportunity(o));
   },
+  async listOpportunities(limit = 50, offset = 0) {
+    const data = await this._call({ action: 'opp_list', limit, offset });
+    return {
+      items: (data.data || []).map(o => this._mapOpportunity(o)),
+      total: (data.pagination && data.pagination.total) || (data.data || []).length,
+    };
+  },
   async getOpportunity(id) {
     const data = await this._call({ action: 'opportunity', id });
     return this._mapOpportunity(data);
@@ -6266,6 +6273,8 @@ const App = {
   },
 
   // ---- SELLSY OPPORTUNITIES (live search via PHP proxy) ----
+  _sellsyOppCache: [],
+
   openSellsyOppSearchModal() {
     const body = document.getElementById('modal-entreprise-body');
     const footer = document.getElementById('modal-entreprise-footer');
@@ -6273,50 +6282,80 @@ const App = {
     title.innerHTML = `<i class="bi bi-search me-1"></i>Rechercher une opportunité Sellsy`;
     body.innerHTML = `
       <div class="mb-2">
-        <label for="sellsy-opp-q" class="visually-hidden">Recherche opportunité Sellsy</label>
-        <input type="search" id="sellsy-opp-q" name="sellsy-opp-q" class="form-control" placeholder="Intitulé de l'opportunité, mot-clé..." autocomplete="off">
-        <div class="form-text">Tapez ≥ 2 caractères puis Entrée — recherche dans les opportunités Sellsy.</div>
+        <label for="sellsy-opp-q" class="visually-hidden">Filtrer les opportunités</label>
+        <div class="input-group input-group-sm">
+          <span class="input-group-text"><i class="bi bi-funnel"></i></span>
+          <input type="search" id="sellsy-opp-q" name="sellsy-opp-q" class="form-control" placeholder="Filtrer par intitulé, référence ou société..." autocomplete="off" oninput="App.filterSellsyOppCache()">
+          <button class="btn btn-outline-secondary" type="button" onclick="App.loadSellsyOppList()" title="Rafraîchir la liste"><i class="bi bi-arrow-clockwise"></i></button>
+        </div>
+        <div class="form-text">La liste se filtre automatiquement à mesure que vous tapez.</div>
       </div>
       <div id="sellsy-opp-status" class="small text-muted"></div>
-      <div id="sellsy-opp-results" class="mt-2"></div>`;
+      <div id="sellsy-opp-results" class="mt-2" style="max-height: 50vh; overflow-y: auto;"></div>`;
     footer.style.display = 'none';
     const modalEl = document.getElementById('modal-entreprise');
     bootstrap.Modal.getOrCreateInstance(modalEl).show();
     setTimeout(() => {
       const inp = document.getElementById('sellsy-opp-q');
-      if (inp) {
-        inp.focus();
-        inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); App.runSellsyOppSearch(); } });
-      }
+      if (inp) inp.focus();
+      // Chargement automatique de la liste à l'ouverture
+      this.loadSellsyOppList();
     }, 250);
   },
 
-  async runSellsyOppSearch() {
-    const q = (document.getElementById('sellsy-opp-q')?.value || '').trim();
+  async loadSellsyOppList() {
     const statusEl = document.getElementById('sellsy-opp-status');
     const resEl = document.getElementById('sellsy-opp-results');
-    if (q.length < 2) { if (statusEl) statusEl.innerHTML = '<span class="text-warning">Saisis au moins 2 caractères.</span>'; return; }
-    if (statusEl) statusEl.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Recherche…';
+    if (statusEl) statusEl.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Chargement des opportunités…';
     if (resEl) resEl.innerHTML = '';
     try {
-      const items = await SellsyAPI.searchOpportunities(q);
-      if (statusEl) statusEl.innerHTML = items.length ? `<span class="text-muted">${items.length} résultat(s)</span>` : '<span class="text-muted">Aucun résultat.</span>';
-      if (resEl) resEl.innerHTML = items.map(o => {
-        const montant = (o.montant != null) ? `${(+o.montant).toLocaleString('fr-FR')} ${o.devise||''}` : '';
-        const meta = [o.etape, montant, o.dateCloture ? `clôture ${o.dateCloture}` : ''].filter(Boolean).join(' · ');
-        return `
-        <div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.applySellsyOpp(${o.id})">
-          <i class="bi bi-bookmark-star text-success"></i>
-          <div class="flex-grow-1">
-            <strong>${this.esc(o.ref)}</strong> — ${this.esc(o.nom)}
-            <div class="small text-muted">${this.esc(o.companyName||'')}${meta ? ` · ${this.esc(meta)}` : ''}</div>
-          </div>
-          <i class="bi bi-chevron-right text-muted"></i>
-        </div>`;
-      }).join('');
+      // Pagination : on récupère jusqu'à 200 opps (2 pages × 100)
+      let all = [];
+      let offset = 0;
+      while (offset < 200) {
+        const { items } = await SellsyAPI.listOpportunities(100, offset);
+        if (!items.length) break;
+        all = all.concat(items);
+        if (items.length < 100) break;
+        offset += 100;
+      }
+      this._sellsyOppCache = all;
+      if (statusEl) statusEl.innerHTML = `<span class="text-muted">${all.length} opportunité(s) chargée(s)</span>`;
+      this.filterSellsyOppCache();
     } catch (e) {
-      if (statusEl) statusEl.innerHTML = `<span class="text-danger">${this.esc(e.message||e)}</span>`;
+      console.error('[Sellsy opp_list] échec', e);
+      const msg = (e && e.message) ? e.message : (typeof e === 'string' ? e : JSON.stringify(e));
+      if (statusEl) statusEl.innerHTML = `<span class="text-danger">${this.esc(msg)}</span>`;
     }
+  },
+
+  filterSellsyOppCache() {
+    const q = (document.getElementById('sellsy-opp-q')?.value || '').trim().toLowerCase();
+    const resEl = document.getElementById('sellsy-opp-results');
+    if (!resEl) return;
+    const items = q
+      ? this._sellsyOppCache.filter(o =>
+          (o.nom||'').toLowerCase().includes(q) ||
+          (o.ref||'').toLowerCase().includes(q) ||
+          (o.companyName||'').toLowerCase().includes(q))
+      : this._sellsyOppCache;
+    if (!items.length) {
+      resEl.innerHTML = '<p class="text-muted text-center small mt-3">Aucune opportunité correspondante.</p>';
+      return;
+    }
+    resEl.innerHTML = items.map(o => {
+      const montant = (o.montant != null) ? `${(+o.montant).toLocaleString('fr-FR')} ${o.devise||''}` : '';
+      const meta = [o.etape, montant, o.dateCloture ? `clôture ${o.dateCloture}` : ''].filter(Boolean).join(' · ');
+      return `
+      <div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.applySellsyOpp(${o.id})">
+        <i class="bi bi-bookmark-star text-success"></i>
+        <div class="flex-grow-1">
+          <strong>${this.esc(o.ref)}</strong> — ${this.esc(o.nom)}
+          <div class="small text-muted">${this.esc(o.companyName||'')}${meta ? ` · ${this.esc(meta)}` : ''}</div>
+        </div>
+        <i class="bi bi-chevron-right text-muted"></i>
+      </div>`;
+    }).join('');
   },
 
   async applySellsyOpp(oppId) {
