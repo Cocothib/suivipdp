@@ -5874,7 +5874,7 @@ const App = {
       document.getElementById('pdp-site').value = r.label;
     }
     this._markEditing && this._markEditing();
-    this.toast('GPS récupéré');
+    this.toast(`GPS récupéré : ${gps}`);
   },
 
   updateMapsLink() {
@@ -5895,17 +5895,24 @@ const App = {
     this.toast('Recherche…', 'info');
     const r = await this.geocodeFR(adresse);
     if (!r) { this.toast('Adresse introuvable', 'warning'); return; }
+    const gps = `${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}`;
+    // Toujours alimenter le GPS du PDP : vide -> on remplit ; rempli et different -> on propose
+    const gpsEl = document.getElementById('pdp-gps');
+    if (gpsEl) {
+      const cur = gpsEl.value.trim();
+      if (!cur) {
+        gpsEl.value = gps;
+      } else if (cur !== gps && (await this.confirm(`Coordonnées trouvées : <strong>${this.esc(gps)}</strong><br>Remplacer le GPS actuel (${this.esc(cur)}) ?`))) {
+        gpsEl.value = gps;
+      }
+      this.updateMapsLink();
+    }
+    // Proposer la correction du libelle d'adresse si different
     if (r.label && r.label.toLowerCase() !== adresse.toLowerCase() && (await this.confirm(`Adresse normalisée : <strong>${this.esc(r.label)}</strong><br>Remplacer ?`))) {
       document.getElementById('eu-adresse').value = r.label;
     }
-    // Si pas de GPS encore, le pre-remplir aussi
-    const gpsEl = document.getElementById('pdp-gps');
-    if (gpsEl && !gpsEl.value.trim()) {
-      gpsEl.value = `${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}`;
-      this.updateMapsLink();
-    }
     this._markEditing && this._markEditing();
-    this.toast('Adresse géolocalisée');
+    this.toast(`Géolocalisée : ${gps}`);
   },
 
   // ---- PHOTOS ----
