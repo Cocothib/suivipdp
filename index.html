@@ -1650,9 +1650,9 @@ textarea.form-control { min-height: 70px; }
             <div class="col-md-4"><label class="form-label" for="sig-eu-fonction">Fonction</label><div class="input-icon-wrap"><i class="bi bi-briefcase input-icon"></i><input type="text" class="form-control" id="sig-eu-fonction" placeholder="Fonction"></div></div>
             <div class="col-md-4"><label class="form-label" for="sig-eu-date">Date</label><div class="input-icon-wrap"><i class="bi bi-calendar input-icon"></i><input type="date" class="form-control" id="sig-eu-date"></div></div>
             <div class="col-12">
-              <label class="form-label">Signature</label>
+              <span class="form-label d-block">Signature</span>
               <div class="signature-pad-wrapper">
-                <canvas id="sig-eu-canvas" class="signature-canvas"></canvas>
+                <canvas id="sig-eu-canvas" class="signature-canvas" aria-label="Signature représentant EU"></canvas>
               </div>
               <button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('sig-eu-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button>
             </div>
