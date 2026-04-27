@@ -64,10 +64,10 @@ try {
         case 'list':
             $limit = max(1, min(100, (int)($_GET['limit'] ?? 50)));
             $offset = max(0, (int)($_GET['offset'] ?? 0));
-            // Sellsy v2 : POST /companies/search sans filtre = liste toutes les sociétés
-            // (le GET /companies refuse les paramètres de pagination/embed)
-            $body = ['filters' => new stdClass()];
-            $res = sellsy_call('POST', "/companies/search?limit=$limit&offset=$offset&embed[]=address&embed[]=contact&embed[]=phone_number", $token, $body);
+            // Sellsy v2 : POST /companies/search ; on simplifie sans embed[]
+            // (les embed[] semblent refusés sur cet endpoint en POST)
+            $body = (object)[];
+            $res = sellsy_call('POST', "/companies/search?limit=$limit&offset=$offset", $token, $body);
             break;
         case 'company':
             $id = (int)($_GET['id'] ?? 0);
