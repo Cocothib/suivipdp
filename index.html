@@ -1001,6 +1001,87 @@ textarea.form-control { min-height: 70px; }
     }
 }
 
+/* ---- Type de chantier (radio cards) ---- */
+.type-chantier-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+.type-chantier-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 1rem 0.75rem;
+    background: #fff;
+    border: 2px solid #dee2e6;
+    border-radius: 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    color: #495057;
+    min-height: 110px;
+}
+.type-chantier-card:hover {
+    border-color: #adb5bd;
+    background: #f8f9fa;
+    transform: translateY(-1px);
+}
+.type-chantier-card.active {
+    border-color: #0d6efd;
+    background: #e7f1ff;
+    color: #0d6efd;
+    box-shadow: 0 2px 6px rgba(13,110,253,0.2);
+}
+.type-chantier-icon {
+    font-size: 1.75rem;
+    margin-bottom: 0.4rem;
+}
+.type-chantier-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    letter-spacing: 0.02em;
+}
+.type-chantier-desc {
+    font-size: 0.8rem;
+    line-height: 1.25;
+    margin-top: 0.2rem;
+    opacity: 0.85;
+}
+.type-chantier-desc small { font-size: 0.72rem; }
+
+.entite-chantier-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+}
+.entite-chantier-card {
+    padding: 0.55rem 0.75rem;
+    background: #fff;
+    border: 2px solid #dee2e6;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    color: #495057;
+    font-weight: 500;
+}
+.entite-chantier-card:hover {
+    border-color: #adb5bd;
+    background: #f8f9fa;
+}
+.entite-chantier-card.active {
+    border-color: #198754;
+    background: #d1e7dd;
+    color: #0a3622;
+}
+
+@media (max-width: 480px) {
+    .type-chantier-card { min-height: 95px; padding: 0.75rem 0.5rem; }
+    .type-chantier-icon { font-size: 1.4rem; }
+    .type-chantier-title { font-size: 0.85rem; }
+    .type-chantier-desc { font-size: 0.72rem; }
+}
+
 /* ---- Print ---- */
 @media print {
     .navbar, .toast-container, .btn, .mobile-bottom-nav, .no-print { display: none !important; }
@@ -1234,19 +1315,33 @@ textarea.form-control { min-height: 70px; }
                 <option value="cloture">Clôturé</option>
               </select>
             </div>
-            <div class="col-md-6">
-              <label class="form-label">Type de PDP</label>
-              <select class="form-select" id="pdp-type" onchange="App.onTypeEntiteChange()">
-                <option value="client">Intervention chez un client</option>
-                <option value="interne">Intervention interne</option>
-              </select>
+            <div class="col-12">
+              <label class="form-label">Type de chantier</label>
+              <input type="hidden" id="pdp-type" value="client">
+              <div class="type-chantier-group" role="radiogroup" aria-label="Type de chantier">
+                <button type="button" class="type-chantier-card" data-type="interne" role="radio" aria-checked="false" onclick="App.selectTypeChantier('interne')">
+                  <i class="bi bi-house-door type-chantier-icon"></i>
+                  <div class="type-chantier-title">Chantier INTERNE</div>
+                  <div class="type-chantier-desc">Dans nos locaux<br><small>(Agriwatt / Enersolys = EU)</small></div>
+                </button>
+                <button type="button" class="type-chantier-card active" data-type="client" role="radio" aria-checked="true" onclick="App.selectTypeChantier('client')">
+                  <i class="bi bi-truck type-chantier-icon"></i>
+                  <div class="type-chantier-title">Chantier EXTERNE</div>
+                  <div class="type-chantier-desc">Chez un client<br><small>(client = EU, nous = EE)</small></div>
+                </button>
+              </div>
             </div>
-            <div class="col-md-6">
-              <label class="form-label">Entité</label>
-              <select class="form-select" id="pdp-entite" onchange="App.onTypeEntiteChange()">
-                <option value="agriwatt">Agriwatt</option>
-                <option value="enersolys">Enersolys</option>
-              </select>
+            <div class="col-12">
+              <label class="form-label">Entité concernée</label>
+              <input type="hidden" id="pdp-entite" value="agriwatt">
+              <div class="entite-chantier-group" role="radiogroup" aria-label="Entité">
+                <button type="button" class="entite-chantier-card active" data-entite="agriwatt" role="radio" aria-checked="true" onclick="App.selectEntite('agriwatt')">
+                  <i class="bi bi-buildings"></i> Agriwatt
+                </button>
+                <button type="button" class="entite-chantier-card" data-entite="enersolys" role="radio" aria-checked="false" onclick="App.selectEntite('enersolys')">
+                  <i class="bi bi-buildings"></i> Enersolys
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -5021,10 +5116,48 @@ const App = {
   },
 
   // ---- TYPE/ENTITE AUTO-FILL ----
+  selectTypeChantier(type) {
+    const input = document.getElementById('pdp-type');
+    if (input) input.value = type;
+    document.querySelectorAll('.type-chantier-card').forEach(c => {
+      const isActive = c.dataset.type === type;
+      c.classList.toggle('active', isActive);
+      c.setAttribute('aria-checked', isActive ? 'true' : 'false');
+    });
+    this.onTypeEntiteChange();
+  },
+
+  selectEntite(entite) {
+    const input = document.getElementById('pdp-entite');
+    if (input) input.value = entite;
+    document.querySelectorAll('.entite-chantier-card').forEach(c => {
+      const isActive = c.dataset.entite === entite;
+      c.classList.toggle('active', isActive);
+      c.setAttribute('aria-checked', isActive ? 'true' : 'false');
+    });
+    this.onTypeEntiteChange();
+  },
+
+  syncTypeEntiteUI() {
+    const type = (document.getElementById('pdp-type')||{}).value || 'client';
+    const entite = (document.getElementById('pdp-entite')||{}).value || 'agriwatt';
+    document.querySelectorAll('.type-chantier-card').forEach(c => {
+      const isActive = c.dataset.type === type;
+      c.classList.toggle('active', isActive);
+      c.setAttribute('aria-checked', isActive ? 'true' : 'false');
+    });
+    document.querySelectorAll('.entite-chantier-card').forEach(c => {
+      const isActive = c.dataset.entite === entite;
+      c.classList.toggle('active', isActive);
+      c.setAttribute('aria-checked', isActive ? 'true' : 'false');
+    });
+  },
+
   onTypeEntiteChange() {
     const type = document.getElementById('pdp-type').value;
     const entite = document.getElementById('pdp-entite').value;
     const preset = ENTITY_PRESETS[entite] || ENTITY_PRESETS.agriwatt;
+    this.syncTypeEntiteUI();
     // Adapter les labels selon le type
     const siteLabel = document.getElementById('pdp-site-label');
     const lieuLabel = document.getElementById('pdp-lieu-label');
@@ -6748,6 +6881,7 @@ const App = {
     document.getElementById('eu-email').value = s.email || '';
     document.getElementById('pdp-site').value = s.nom;
     document.getElementById('pdp-entite').value = s.entite || 'agriwatt';
+    this.syncTypeEntiteUI();
     this._markEditing();
   },
 
