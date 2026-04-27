@@ -95,7 +95,8 @@ try {
         case 'opportunity':
             $id = (int)($_GET['id'] ?? 0);
             if (!$id) { http_response_code(400); echo json_encode(['error' => 'id manquant']); exit; }
-            $res = sellsy_call('GET', "/opportunities/$id?embed[]=related&embed[]=step&embed[]=owner", $token);
+            // Sans embed[] (refusés sur cet endpoint en v2)
+            $res = sellsy_call('GET', "/opportunities/$id", $token);
             break;
         default:
             http_response_code(404);
