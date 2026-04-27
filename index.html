@@ -1360,7 +1360,12 @@ textarea.form-control { min-height: 70px; }
             </div>
             <div class="col-md-6">
               <label class="form-label">Coordonnées GPS</label>
-              <div class="input-icon-wrap"><i class="bi bi-globe input-icon"></i><input type="text" class="form-control" id="pdp-gps" placeholder="Ex: 49.8333, 3.9167"></div>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-globe"></i></span>
+                <input type="text" class="form-control" id="pdp-gps" placeholder="Ex: 49.8333, 3.9167" oninput="App.updateMapsLink()">
+                <button class="btn btn-outline-success" type="button" onclick="App.geocodePDPSite()" title="Géolocaliser depuis le site/lieu"><i class="bi bi-geo-alt-fill"></i></button>
+                <a id="pdp-gps-maps-link" href="#" target="_blank" rel="noopener" class="btn btn-outline-secondary" style="display:none" title="Ouvrir dans Google Maps"><i class="bi bi-map"></i></a>
+              </div>
             </div>
           </div>
         </div>
@@ -1429,7 +1434,7 @@ textarea.form-control { min-height: 70px; }
               <label class="form-label"><span class="required">*</span> Raison sociale</label>
               <div class="input-icon-wrap"><i class="bi bi-building input-icon"></i><input type="text" class="form-control" id="eu-nom" placeholder="AGRIWATT / ENERSOLYS"></div>
             </div>
-            <div class="col-md-6"><label class="form-label">Adresse</label><div class="input-icon-wrap"><i class="bi bi-geo-alt input-icon"></i><input type="text" class="form-control" id="eu-adresse" placeholder="Adresse du siège"></div></div>
+            <div class="col-md-6"><label class="form-label">Adresse</label><div class="input-group"><span class="input-group-text"><i class="bi bi-geo-alt"></i></span><input type="text" class="form-control" id="eu-adresse" placeholder="Adresse du siège"><button class="btn btn-outline-success" type="button" onclick="App.geocodeEUAddress()" title="Géolocaliser et normaliser"><i class="bi bi-geo-alt-fill"></i></button></div></div>
             <div class="col-md-6"><label class="form-label">Responsable QSE / Contact</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="eu-responsable" placeholder="Nom du contact"></div></div>
             <div class="col-md-6"><label class="form-label">Fonction</label><input type="text" class="form-control" id="eu-fonction" placeholder="Ex: Responsable QSE"></div>
             <div class="col-md-6"><label class="form-label">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="eu-tel" placeholder="06 XX XX XX XX"></div></div>
@@ -3647,6 +3652,9 @@ const SellsyAPI = {
     const phone = (c.phone_number && c.phone_number.number) || c.phone || '';
     const email = c.email || (c.email_address && c.email_address.email) || '';
     const contact = c.contact || c.main_contact || {};
+    const geo = addr.geo || addr.coordinates || {};
+    const lat = geo.lat || geo.latitude || addr.latitude || null;
+    const lng = geo.lng || geo.lon || geo.longitude || addr.longitude || null;
     return {
       id: c.id,
       nom: c.name || c.corporate_name || '',
@@ -3657,6 +3665,7 @@ const SellsyAPI = {
       responsable: [contact.last_name, contact.first_name].filter(Boolean).join(' ').trim(),
       fonction: contact.position || contact.job_title || '',
       activite: c.activity || c.naf_code || c.business_activity || '',
+      gps: (lat != null && lng != null) ? `${(+lat).toFixed(5)}, ${(+lng).toFixed(5)}` : '',
     };
   },
 };
@@ -4027,6 +4036,7 @@ const App = {
     document.getElementById('pdp-type').value = p.typePdp || 'client';
     document.getElementById('pdp-entite').value = p.entite;
     document.getElementById('pdp-gps').value = p.gps || '';
+    this.updateMapsLink();
     document.getElementById('pdp-duree').value = p.duree || '';
     // Adapter les labels site/lieu au type (sans prompt d'ajout EE)
     this._populatingForm = true;
@@ -5832,6 +5842,72 @@ const App = {
     c.innerHTML = h.sort((a,b) => new Date(b.timestamp)-new Date(a.timestamp)).map(h => `<div class="timeline-item"><div class="small">${this.esc(h.action)}</div><div class="text-muted" style="font-size:0.72rem">${new Date(h.timestamp).toLocaleString('fr-FR')}</div></div>`).join('');
   },
 
+  // ---- GEOCODAGE (api-adresse.data.gouv.fr, gratuit, sans cle, FR) ----
+  async geocodeFR(query) {
+    const q = (query||'').trim();
+    if (q.length < 3) return null;
+    try {
+      const url = 'https://api-adresse.data.gouv.fr/search/?limit=1&q=' + encodeURIComponent(q);
+      const res = await fetch(url, { method: 'GET' });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const f = data.features && data.features[0];
+      if (!f) return null;
+      const [lng, lat] = f.geometry.coordinates;
+      return { lat, lng, label: f.properties.label || '', score: f.properties.score || 0 };
+    } catch { return null; }
+  },
+
+  async geocodePDPSite() {
+    const site = (document.getElementById('pdp-site')?.value||'').trim();
+    const lieu = (document.getElementById('pdp-lieu')?.value||'').trim();
+    const q = [site, lieu].filter(Boolean).join(' ');
+    if (q.length < 3) { this.toast('Saisissez d\'abord un site/lieu', 'warning'); return; }
+    this.toast('Recherche…', 'info');
+    const r = await this.geocodeFR(q);
+    if (!r) { this.toast('Adresse introuvable', 'warning'); return; }
+    const gps = `${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}`;
+    document.getElementById('pdp-gps').value = gps;
+    this.updateMapsLink();
+    // Proposer correction du libelle si different
+    if (r.label && r.label.toLowerCase() !== site.toLowerCase() && (await this.confirm(`Adresse normalisée : <strong>${this.esc(r.label)}</strong><br>Remplacer le champ "Site" ?`))) {
+      document.getElementById('pdp-site').value = r.label;
+    }
+    this._markEditing && this._markEditing();
+    this.toast('GPS récupéré');
+  },
+
+  updateMapsLink() {
+    const gps = (document.getElementById('pdp-gps')?.value||'').trim();
+    const link = document.getElementById('pdp-gps-maps-link');
+    if (!link) return;
+    if (gps && /-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?/.test(gps)) {
+      link.style.display = 'inline-block';
+      link.href = 'https://www.google.com/maps?q=' + encodeURIComponent(gps);
+    } else {
+      link.style.display = 'none';
+    }
+  },
+
+  async geocodeEUAddress() {
+    const adresse = (document.getElementById('eu-adresse')?.value||'').trim();
+    if (!adresse) { this.toast('Saisissez d\'abord une adresse', 'warning'); return; }
+    this.toast('Recherche…', 'info');
+    const r = await this.geocodeFR(adresse);
+    if (!r) { this.toast('Adresse introuvable', 'warning'); return; }
+    if (r.label && r.label.toLowerCase() !== adresse.toLowerCase() && (await this.confirm(`Adresse normalisée : <strong>${this.esc(r.label)}</strong><br>Remplacer ?`))) {
+      document.getElementById('eu-adresse').value = r.label;
+    }
+    // Si pas de GPS encore, le pre-remplir aussi
+    const gpsEl = document.getElementById('pdp-gps');
+    if (gpsEl && !gpsEl.value.trim()) {
+      gpsEl.value = `${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}`;
+      this.updateMapsLink();
+    }
+    this._markEditing && this._markEditing();
+    this.toast('Adresse géolocalisée');
+  },
+
   // ---- PHOTOS ----
   // Helper Promise-based : redimensionne (max 1024px) et compresse (JPEG 60%)
   PHOTO_MAX_SIZE: 1024,
@@ -6040,6 +6116,17 @@ const App = {
         const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v||''; };
         set('eu-nom', c.nom); set('eu-adresse', c.adresse); set('eu-tel', c.tel);
         set('eu-email', c.email); set('eu-responsable', c.responsable); set('eu-fonction', c.fonction);
+        // GPS : Sellsy en priorite, sinon fallback geocodage
+        const gpsEl = document.getElementById('pdp-gps');
+        if (gpsEl && !gpsEl.value.trim()) {
+          if (c.gps) {
+            gpsEl.value = c.gps;
+            this.updateMapsLink();
+          } else if (c.adresse) {
+            const r = await this.geocodeFR(c.adresse);
+            if (r) { gpsEl.value = `${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}`; this.updateMapsLink(); }
+          }
+        }
         this._markEditing && this._markEditing();
         this.toast(`EU pré-remplie : ${c.nom}`);
       } else if (target === 'ee') {
