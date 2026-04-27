@@ -1817,25 +1817,25 @@ textarea.form-control { min-height: 70px; }
           <div class="col-md-4">
             <h6 class="small fw-bold" data-type-label="pf-sig-eu">Représentant EU</h6>
             <div class="row g-2">
-              <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-eu-nom" placeholder="Nom"></div>
-              <div class="col-12"><input type="date" class="form-control form-control-sm" id="pf-sig-eu-date"></div>
+              <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-eu-nom" name="pf-sig-eu-nom" aria-label="Nom du représentant EU" placeholder="Nom"></div>
+              <div class="col-12"><input type="date" class="form-control form-control-sm" id="pf-sig-eu-date" name="pf-sig-eu-date" aria-label="Date signature EU"></div>
               <div class="col-12"><div class="signature-pad-wrapper"><canvas id="pf-sig-eu-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-eu-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
             </div>
           </div>
           <div class="col-md-4">
             <h6 class="small fw-bold" data-type-label="pf-sig-ee">Représentant Entreprise Intervenante</h6>
             <div class="row g-2">
-              <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-ee-nom" placeholder="Nom"></div>
-              <div class="col-12"><input type="date" class="form-control form-control-sm" id="pf-sig-ee-date"></div>
+              <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-ee-nom" name="pf-sig-ee-nom" aria-label="Nom du représentant EE" placeholder="Nom"></div>
+              <div class="col-12"><input type="date" class="form-control form-control-sm" id="pf-sig-ee-date" name="pf-sig-ee-date" aria-label="Date signature EE"></div>
               <div class="col-12"><div class="signature-pad-wrapper"><canvas id="pf-sig-ee-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-ee-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
             </div>
           </div>
           <div class="col-md-4">
             <h6 class="small fw-bold">Exécutant travaux par point chaud</h6>
             <div class="row g-2">
-              <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-exec-nom" placeholder="Nom"></div>
-              <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-exec-societe" placeholder="Société (si sous-traitant)"></div>
-              <div class="col-12"><input type="date" class="form-control form-control-sm" id="pf-sig-exec-date"></div>
+              <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-exec-nom" name="pf-sig-exec-nom" aria-label="Nom de l'exécutant" placeholder="Nom"></div>
+              <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-exec-societe" name="pf-sig-exec-societe" aria-label="Société de l'exécutant" placeholder="Société (si sous-traitant)"></div>
+              <div class="col-12"><input type="date" class="form-control form-control-sm" id="pf-sig-exec-date" name="pf-sig-exec-date" aria-label="Date signature exécutant"></div>
               <div class="col-12"><div class="signature-pad-wrapper"><canvas id="pf-sig-exec-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-exec-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
             </div>
           </div>
@@ -2426,14 +2426,14 @@ textarea.form-control { min-height: 70px; }
       <div class="modal-body" id="modal-entreprise-body">
         <input type="hidden" id="ent-edit-id">
         <div class="row g-2">
-          <div class="col-12"><input type="text" class="form-control" id="ent-nom" placeholder="Raison sociale *"></div>
-          <div class="col-12"><input type="text" class="form-control" id="ent-adresse" placeholder="Adresse"></div>
-          <div class="col-6"><input type="text" class="form-control" id="ent-responsable" placeholder="Responsable"></div>
-          <div class="col-6"><input type="text" class="form-control" id="ent-fonction" placeholder="Fonction"></div>
-          <div class="col-6"><input type="tel" class="form-control" id="ent-tel" placeholder="Téléphone"></div>
-          <div class="col-6"><input type="email" class="form-control" id="ent-email" placeholder="Email"></div>
-          <div class="col-12"><input type="text" class="form-control" id="ent-siret" placeholder="SIRET"></div>
-          <div class="col-12"><input type="text" class="form-control" id="ent-activite" placeholder="Activité / Métier"></div>
+          <div class="col-12"><input type="text" class="form-control" id="ent-nom" name="ent-nom" aria-label="Raison sociale" placeholder="Raison sociale *"></div>
+          <div class="col-12"><input type="text" class="form-control" id="ent-adresse" name="ent-adresse" aria-label="Adresse" placeholder="Adresse"></div>
+          <div class="col-6"><input type="text" class="form-control" id="ent-responsable" name="ent-responsable" aria-label="Responsable" placeholder="Responsable"></div>
+          <div class="col-6"><input type="text" class="form-control" id="ent-fonction" name="ent-fonction" aria-label="Fonction" placeholder="Fonction"></div>
+          <div class="col-6"><input type="tel" class="form-control" id="ent-tel" name="ent-tel" aria-label="Téléphone" placeholder="Téléphone"></div>
+          <div class="col-6"><input type="email" class="form-control" id="ent-email" name="ent-email" aria-label="Email" placeholder="Email"></div>
+          <div class="col-12"><input type="text" class="form-control" id="ent-siret" name="ent-siret" aria-label="SIRET" placeholder="SIRET"></div>
+          <div class="col-12"><input type="text" class="form-control" id="ent-activite" name="ent-activite" aria-label="Activité ou métier" placeholder="Activité / Métier"></div>
         </div>
       </div>
       <div class="modal-footer" id="modal-entreprise-footer">
@@ -5787,15 +5787,15 @@ const App = {
       <div class="card-body p-2">
         <!-- Validation EU -->
         <div class="row g-2 align-items-end mb-2">
-          <div class="col-md-5"><label class="form-label small fw-bold"><i class="bi bi-pen me-1"></i>Représentant EU — Nom</label><input type="text" class="form-control form-control-sm" placeholder="Nom du représentant EU" value="${this.esc(r.signatureEU?.nom||'')}" onchange="App.currentPDP.permisFeu.renouvellements[${i}].signatureEU=App.currentPDP.permisFeu.renouvellements[${i}].signatureEU||{};App.currentPDP.permisFeu.renouvellements[${i}].signatureEU.nom=this.value;App.renderPFRenouvellements()"></div>
-          <div class="col-md-3"><label class="form-label small fw-bold">Date</label><input type="date" class="form-control form-control-sm" value="${this.esc(r.signatureEU?.date||'')}" onchange="App.currentPDP.permisFeu.renouvellements[${i}].signatureEU=App.currentPDP.permisFeu.renouvellements[${i}].signatureEU||{};App.currentPDP.permisFeu.renouvellements[${i}].signatureEU.date=this.value;App.renderPFRenouvellements()"></div>
-          <div class="col-md-4"><label class="form-label small fw-bold">Signature</label><div class="signature-pad-wrapper"><canvas id="pf-renouv-sig-eu-${i}" class="signature-canvas" style="height:60px"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-renouv-sig-eu-${i}')"><i class="bi bi-eraser"></i></button></div>
+          <div class="col-md-5"><label class="form-label small fw-bold" for="pf-renouv-eu-nom-${i}"><i class="bi bi-pen me-1"></i>Représentant EU — Nom</label><input type="text" class="form-control form-control-sm" id="pf-renouv-eu-nom-${i}" name="pf-renouv-eu-nom-${i}" placeholder="Nom du représentant EU" value="${this.esc(r.signatureEU?.nom||'')}" onchange="App.currentPDP.permisFeu.renouvellements[${i}].signatureEU=App.currentPDP.permisFeu.renouvellements[${i}].signatureEU||{};App.currentPDP.permisFeu.renouvellements[${i}].signatureEU.nom=this.value;App.renderPFRenouvellements()"></div>
+          <div class="col-md-3"><label class="form-label small fw-bold" for="pf-renouv-eu-date-${i}">Date</label><input type="date" class="form-control form-control-sm" id="pf-renouv-eu-date-${i}" name="pf-renouv-eu-date-${i}" value="${this.esc(r.signatureEU?.date||'')}" onchange="App.currentPDP.permisFeu.renouvellements[${i}].signatureEU=App.currentPDP.permisFeu.renouvellements[${i}].signatureEU||{};App.currentPDP.permisFeu.renouvellements[${i}].signatureEU.date=this.value;App.renderPFRenouvellements()"></div>
+          <div class="col-md-4"><span class="form-label small fw-bold d-block">Signature</span><div class="signature-pad-wrapper"><canvas id="pf-renouv-sig-eu-${i}" class="signature-canvas" style="height:60px" aria-label="Signature représentant EU"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-renouv-sig-eu-${i}')"><i class="bi bi-eraser"></i></button></div>
         </div>
         <!-- Validation Exécutant -->
         <div class="row g-2 align-items-end mb-3">
-          <div class="col-md-5"><label class="form-label small fw-bold"><i class="bi bi-person-badge me-1"></i>Exécutant travaux — Nom</label><input type="text" class="form-control form-control-sm" placeholder="Nom de l'exécutant" value="${this.esc(r.signatureExec?.nom||'')}" onchange="App.currentPDP.permisFeu.renouvellements[${i}].signatureExec=App.currentPDP.permisFeu.renouvellements[${i}].signatureExec||{};App.currentPDP.permisFeu.renouvellements[${i}].signatureExec.nom=this.value"></div>
-          <div class="col-md-3"><label class="form-label small fw-bold">Date</label><input type="date" class="form-control form-control-sm" value="${this.esc(r.signatureExec?.date||'')}" onchange="App.currentPDP.permisFeu.renouvellements[${i}].signatureExec=App.currentPDP.permisFeu.renouvellements[${i}].signatureExec||{};App.currentPDP.permisFeu.renouvellements[${i}].signatureExec.date=this.value"></div>
-          <div class="col-md-4"><label class="form-label small fw-bold">Signature</label><div class="signature-pad-wrapper"><canvas id="pf-renouv-sig-exec-${i}" class="signature-canvas" style="height:60px"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-renouv-sig-exec-${i}')"><i class="bi bi-eraser"></i></button></div>
+          <div class="col-md-5"><label class="form-label small fw-bold" for="pf-renouv-exec-nom-${i}"><i class="bi bi-person-badge me-1"></i>Exécutant travaux — Nom</label><input type="text" class="form-control form-control-sm" id="pf-renouv-exec-nom-${i}" name="pf-renouv-exec-nom-${i}" placeholder="Nom de l'exécutant" value="${this.esc(r.signatureExec?.nom||'')}" onchange="App.currentPDP.permisFeu.renouvellements[${i}].signatureExec=App.currentPDP.permisFeu.renouvellements[${i}].signatureExec||{};App.currentPDP.permisFeu.renouvellements[${i}].signatureExec.nom=this.value"></div>
+          <div class="col-md-3"><label class="form-label small fw-bold" for="pf-renouv-exec-date-${i}">Date</label><input type="date" class="form-control form-control-sm" id="pf-renouv-exec-date-${i}" name="pf-renouv-exec-date-${i}" value="${this.esc(r.signatureExec?.date||'')}" onchange="App.currentPDP.permisFeu.renouvellements[${i}].signatureExec=App.currentPDP.permisFeu.renouvellements[${i}].signatureExec||{};App.currentPDP.permisFeu.renouvellements[${i}].signatureExec.date=this.value"></div>
+          <div class="col-md-4"><span class="form-label small fw-bold d-block">Signature</span><div class="signature-pad-wrapper"><canvas id="pf-renouv-sig-exec-${i}" class="signature-canvas" style="height:60px" aria-label="Signature exécutant travaux"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-renouv-sig-exec-${i}')"><i class="bi bi-eraser"></i></button></div>
         </div>
         <!-- Rondes de cette période -->
         <div class="border-top pt-2">
