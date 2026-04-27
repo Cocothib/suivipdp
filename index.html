@@ -6113,7 +6113,8 @@ const App = {
     title.innerHTML = `<i class="bi bi-search me-1"></i>Rechercher dans Sellsy`;
     body.innerHTML = `
       <div class="mb-2">
-        <input type="search" id="sellsy-search-q" class="form-control" placeholder="Nom de société, SIRET..." autocomplete="off">
+        <label for="sellsy-search-q" class="visually-hidden">Recherche société Sellsy</label>
+        <input type="search" id="sellsy-search-q" name="sellsy-search-q" class="form-control" placeholder="Nom de société, SIRET..." autocomplete="off">
         <div class="form-text">Tapez ≥ 2 caractères puis Entrée — la recherche utilise l'API Sellsy.</div>
       </div>
       <div id="sellsy-search-status" class="small text-muted"></div>
@@ -6272,7 +6273,8 @@ const App = {
     title.innerHTML = `<i class="bi bi-search me-1"></i>Rechercher une opportunité Sellsy`;
     body.innerHTML = `
       <div class="mb-2">
-        <input type="search" id="sellsy-opp-q" class="form-control" placeholder="Intitulé de l'opportunité, mot-clé..." autocomplete="off">
+        <label for="sellsy-opp-q" class="visually-hidden">Recherche opportunité Sellsy</label>
+        <input type="search" id="sellsy-opp-q" name="sellsy-opp-q" class="form-control" placeholder="Intitulé de l'opportunité, mot-clé..." autocomplete="off">
         <div class="form-text">Tapez ≥ 2 caractères puis Entrée — recherche dans les opportunités Sellsy.</div>
       </div>
       <div id="sellsy-opp-status" class="small text-muted"></div>
