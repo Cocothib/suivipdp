@@ -1412,9 +1412,9 @@ textarea.form-control { min-height: 70px; }
 
     <!-- Section: Entreprises -->
     <div id="section-entreprises" class="pdp-section" style="display:none">
-      <div class="section-helper"><i class="bi bi-lightbulb"></i>Identifiez l'entreprise utilisatrice (votre client) et les entreprises qui interviennent. Le PDP est obligatoire dès qu'une entreprise extérieure travaille sur le site.</div>
+      <div class="section-helper" data-type-label="ent-helper"><i class="bi bi-lightbulb"></i>Identifiez l'entreprise utilisatrice (votre client) et les entreprises qui interviennent. Le PDP est obligatoire dès qu'une entreprise extérieure travaille sur le site.</div>
       <div class="form-section">
-        <div class="form-section-title"><i class="bi bi-building"></i>Entreprise Utilisatrice (EU) — votre client</div>
+        <div class="form-section-title"><i class="bi bi-building"></i><span data-type-label="ent-eu-title">Entreprise Utilisatrice (EU) — votre client</span></div>
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-geo-alt-fill"></i> Sélection rapide du site</div>
           <select class="form-select mb-2" id="eu-site-select" onchange="App.onSiteSelect(this.value)">
@@ -1439,7 +1439,7 @@ textarea.form-control { min-height: 70px; }
 
       <div class="form-section">
         <div class="form-section-title d-flex justify-content-between align-items-center">
-          <span><i class="bi bi-buildings me-1"></i>Entreprises Extérieures (EE)</span>
+          <span data-type-label="ent-ee-title"><i class="bi bi-buildings me-1"></i>Entreprises Extérieures (EE)</span>
           <button class="btn btn-sm btn-outline-primary" onclick="App.addEE()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
         </div>
         <div id="ee-list-container"></div>
@@ -1574,10 +1574,10 @@ textarea.form-control { min-height: 70px; }
 
     <!-- Section: Exigences EU -->
     <div id="section-exigences" class="pdp-section" style="display:none">
-      <div class="section-helper"><i class="bi bi-lightbulb"></i>Les exigences sont les règles imposées par le client sur son site. Utilisez les boutons rapides pour les exigences courantes.</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i><span data-type-label="exigences-helper">Les exigences sont les règles imposées par le client sur son site. Utilisez les boutons rapides pour les exigences courantes.</span></div>
       <div class="form-section">
         <div class="form-section-title d-flex justify-content-between align-items-center">
-          <span><i class="bi bi-clipboard-check"></i>Exigences Entreprise Utilisatrice</span>
+          <span><i class="bi bi-clipboard-check"></i><span data-type-label="exigences-title">Exigences Entreprise Utilisatrice</span></span>
           <button class="btn btn-sm btn-outline-primary" onclick="App.addExigence()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
         </div>
         <div class="field-group">
@@ -1637,7 +1637,7 @@ textarea.form-control { min-height: 70px; }
       <div class="form-section">
         <div class="form-section-title"><i class="bi bi-pen"></i>Signatures</div>
         <div class="field-group">
-          <div class="field-group-title"><i class="bi bi-pen"></i>Signature Entreprise Utilisatrice</div>
+          <div class="field-group-title"><i class="bi bi-pen"></i><span data-type-label="sig-eu-title">Signature Entreprise Utilisatrice</span></div>
           <div class="row g-2">
             <div class="col-md-4"><label class="form-label">Signataire</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="sig-eu-nom" placeholder="Nom"></div></div>
             <div class="col-md-4"><label class="form-label">Fonction</label><div class="input-icon-wrap"><i class="bi bi-briefcase input-icon"></i><input type="text" class="form-control" id="sig-eu-fonction" placeholder="Fonction"></div></div>
@@ -1652,7 +1652,7 @@ textarea.form-control { min-height: 70px; }
           </div>
         </div>
         <div class="field-group">
-          <div class="field-group-title"><i class="bi bi-people"></i>Signatures Entreprises Extérieures</div>
+          <div class="field-group-title"><i class="bi bi-people"></i><span data-type-label="sig-ee-title">Signatures Entreprises Extérieures</span></div>
           <div id="signatures-ee-container"></div>
         </div>
       </div>
@@ -1720,10 +1720,10 @@ textarea.form-control { min-height: 70px; }
         <div class="alert alert-danger small">
           <i class="bi bi-clock-fill me-1"></i><strong>INTERDICTION :</strong> Les travaux par points chauds sont strictement interdits après <strong>12h00 (midi)</strong>. Tout travail par point chaud doit être terminé avant midi afin de permettre les rondes de surveillance post-intervention.
         </div>
-        <div class="alert alert-danger small">
+        <div class="alert alert-danger small" data-type-label="pf-oblig">
           <i class="bi bi-shield-check me-1"></i><strong>OBLIGATION :</strong> Ce permis de feu doit être <strong>obligatoirement signé et validé par le client (Entreprise Utilisatrice)</strong> avant le début de toute réalisation de travaux par points chauds. Aucun travail ne peut débuter sans cette validation.
         </div>
-        <div class="alert alert-danger small">
+        <div class="alert alert-danger small" data-type-label="pf-renouv">
           <i class="bi bi-hourglass-split me-1"></i><strong>DURÉE MAXIMALE :</strong> Le permis de feu ne peut pas excéder <strong>24 heures</strong>. Au-delà de cette durée, un renouvellement avec <strong>nouvelle validation de l'EU</strong> est obligatoire pour chaque période de 24h.
         </div>
         <div id="pf-duree-warning" class="alert alert-danger small" style="display:none">
@@ -1799,8 +1799,8 @@ textarea.form-control { min-height: 70px; }
         </div>
         <div class="mt-2"><label class="form-label">Autres prescriptions</label><textarea class="form-control" id="pf-autres-prescriptions" rows="2" placeholder="Prescriptions supplémentaires..."></textarea></div>
 
-        <h6 class="mt-4 mb-2 text-primary"><i class="bi bi-arrow-repeat me-1"></i>Périodes de validation EU &amp; Rondes de surveillance</h6>
-        <div class="alert alert-info small mb-2">
+        <h6 class="mt-4 mb-2 text-primary" data-type-label="pf-validations-title"><i class="bi bi-arrow-repeat me-1"></i>Périodes de validation EU &amp; Rondes de surveillance</h6>
+        <div class="alert alert-info small mb-2" data-type-label="pf-validations-info">
           <i class="bi bi-info-circle me-1"></i>Les périodes de validation sont <strong>générées automatiquement</strong> en fonction de la durée du permis. Chaque période de 24h nécessite une <strong>signature de l'EU</strong>.
         </div>
         <div id="pf-renouvellements-container"></div>
@@ -1808,7 +1808,7 @@ textarea.form-control { min-height: 70px; }
         <h6 class="mt-4 mb-2 text-primary">Signatures du permis de feu</h6>
         <div class="row g-3">
           <div class="col-md-4">
-            <h6 class="small fw-bold">Représentant EU</h6>
+            <h6 class="small fw-bold" data-type-label="pf-sig-eu">Représentant EU</h6>
             <div class="row g-2">
               <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-eu-nom" placeholder="Nom"></div>
               <div class="col-12"><input type="date" class="form-control form-control-sm" id="pf-sig-eu-date"></div>
@@ -1816,7 +1816,7 @@ textarea.form-control { min-height: 70px; }
             </div>
           </div>
           <div class="col-md-4">
-            <h6 class="small fw-bold">Représentant Entreprise Intervenante</h6>
+            <h6 class="small fw-bold" data-type-label="pf-sig-ee">Représentant Entreprise Intervenante</h6>
             <div class="row g-2">
               <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-ee-nom" placeholder="Nom"></div>
               <div class="col-12"><input type="date" class="form-control form-control-sm" id="pf-sig-ee-date"></div>
@@ -2187,12 +2187,13 @@ textarea.form-control { min-height: 70px; }
           <li>Cliquez sur <strong>Nouveau PDP</strong> depuis le tableau de bord ou le menu</li>
           <li>Remplissez les onglets dans l'ordre suggéré par la <strong>barre de progression</strong> en haut</li>
           <li><strong>Général</strong> : titre, numéro, dates, site, description</li>
-          <li><strong>Entreprises</strong> : sélectionnez un site EU (Agriwatt/Enersolys) puis ajoutez les EE</li>
+          <li><strong>Type de chantier</strong> : choisissez "Chantier INTERNE" (dans nos locaux, EU = Agriwatt/Enersolys) ou "Chantier EXTERNE" (chez un client, le client devient l'EU)</li>
+          <li><strong>Entreprises</strong> : renseignez l'EU et ajoutez les EE intervenantes</li>
           <li><strong>Visite</strong> : liez ou créez une ICP</li>
           <li><strong>Risques</strong> : utilisez le sélecteur de risques par catégorie</li>
           <li><strong>Mesures</strong> : ajoutez les mesures de prévention (boutons rapides ou manuellement)</li>
           <li><strong>Urgence</strong> : contacts et numéros d'urgence du site</li>
-          <li><strong>Signatures</strong> : signature EU (client) et EE</li>
+          <li><strong>Signatures</strong> : signature de l'EU et de chaque EE</li>
           <li>Cliquez sur <strong>Enregistrer</strong> à tout moment</li>
         </ol>
         <p><strong>Astuce</strong> : utilisez les boutons <strong>Précédent / Suivant</strong> en bas de chaque section pour naviguer.</p>
@@ -2241,9 +2242,9 @@ textarea.form-control { min-height: 70px; }
           <li>Sélectionnez les types de travaux (soudage, meulage, etc.)</li>
           <li>Renseignez les risques, dates/horaires de validité, opérateurs</li>
           <li>Cochez les consignes avant / pendant / après les travaux</li>
-          <li>3 signatures : EU (client), EE (entreprise), Exécutant</li>
+          <li>3 signatures : EU, EE intervenante, Exécutant</li>
           <li>Le permis de feu est inclus dans l'export complet du PDP</li>
-          <li><strong>Important</strong> : le permis doit être signé par le client (EU) avant tout travail</li>
+          <li><strong>Important</strong> : le permis doit être signé par l'EU (notre représentant en interne, ou le client en externe) avant tout travail</li>
         </ul>
       </div></div></div>
 
@@ -5116,6 +5117,89 @@ const App = {
   },
 
   // ---- TYPE/ENTITE AUTO-FILL ----
+  getTypeLabels(type) {
+    const t = type || (document.getElementById('pdp-type')||{}).value || 'client';
+    if (t === 'interne') {
+      return {
+        type: 'interne',
+        eu_long: 'Notre entité (EU)',
+        eu_short: 'Notre entité',
+        ee_long: 'Entreprise(s) intervenante(s)',
+        ee_short: 'Intervenant',
+        eu_intro: "Notre entité est l'Entreprise Utilisatrice (EU). Identifiez les intervenants extérieurs qui réalisent la prestation chez nous.",
+        eu_section_title: 'Entreprise Utilisatrice (EU) — notre entité',
+        ee_section_title: 'Entreprise(s) intervenante(s) — sous-traitants / prestataires',
+        exigences_title: 'Nos exigences de sécurité (EU)',
+        exigences_helper: 'Listez les règles de sécurité que vous imposez aux entreprises qui interviennent dans vos locaux.',
+        sig_eu_title: 'Notre signature (EU)',
+        sig_ee_title: 'Signatures des intervenants',
+        pf_oblig: "Ce permis de feu doit être obligatoirement signé et validé par <strong>notre représentant (EU)</strong> avant le début des travaux par points chauds.",
+        pf_renouv: "nouvelle validation de notre représentant (EU)",
+        pf_validations_title: 'Périodes de validation (EU) &amp; Rondes de surveillance',
+        pf_validations_info: "Chaque période de 24h nécessite une <strong>signature de notre représentant (EU)</strong>.",
+        pf_sig_eu: 'Notre représentant (EU)',
+        pf_sig_ee: 'Représentant intervenant (EE)',
+        contact_default: 'Contact EU (interne)',
+        export_eu_block: 'ENTREPRISE UTILISATRICE (EU) — notre entité',
+        export_ee_block: 'ENTREPRISE INTERVENANTE (EE)',
+        export_pf_oblig: "Ce permis doit être obligatoirement signé et validé par notre représentant (EU) avant le début des travaux.",
+        export_pf_renouv: 'nouvelle validation EU',
+        export_pf_eu_label: 'Représentant EU (notre entité)',
+        export_pf_ee_label: 'Représentant EE (intervenant)',
+        export_eu_contact: 'Contact EU',
+        export_eu_tel: 'Téléphone EU',
+      };
+    }
+    return {
+      type: 'client',
+      eu_long: 'Entreprise Utilisatrice (EU) — votre client',
+      eu_short: 'EU (client)',
+      ee_long: 'Entreprises Extérieures (EE)',
+      ee_short: 'EE',
+      eu_intro: "Identifiez l'entreprise utilisatrice (votre client) et les entreprises qui interviennent. Le PDP est obligatoire dès qu'une entreprise extérieure travaille sur le site.",
+      eu_section_title: 'Entreprise Utilisatrice (EU) — votre client',
+      ee_section_title: 'Entreprises Extérieures (EE)',
+      exigences_title: 'Exigences Entreprise Utilisatrice',
+      exigences_helper: 'Les exigences sont les règles imposées par le client sur son site. Utilisez les boutons rapides pour les exigences courantes.',
+      sig_eu_title: 'Signature Entreprise Utilisatrice',
+      sig_ee_title: 'Signatures Entreprises Extérieures',
+      pf_oblig: "Ce permis de feu doit être <strong>obligatoirement signé et validé par le client (Entreprise Utilisatrice)</strong> avant le début de toute réalisation de travaux par points chauds. Aucun travail ne peut débuter sans cette validation.",
+      pf_renouv: "nouvelle validation de l'EU",
+      pf_validations_title: 'Périodes de validation EU &amp; Rondes de surveillance',
+      pf_validations_info: "Chaque période de 24h nécessite une <strong>signature de l'EU</strong>.",
+      pf_sig_eu: 'Représentant EU (client)',
+      pf_sig_ee: 'Représentant Entreprise Intervenante',
+      contact_default: 'Contact EU',
+      export_eu_block: 'ENTREPRISE UTILISATRICE (EU)',
+      export_ee_block: 'ENTREPRISE EXTÉRIEURE (EE)',
+      export_pf_oblig: "Ce permis doit être obligatoirement signé et validé par l'Entreprise Utilisatrice (le client) avant le début des travaux.",
+      export_pf_renouv: 'nouvelle validation EU',
+      export_pf_eu_label: 'Représentant EU',
+      export_pf_ee_label: 'Représentant EE',
+      export_eu_contact: 'Contact EU',
+      export_eu_tel: 'Téléphone EU',
+    };
+  },
+
+  refreshTypeLabels() {
+    const L = this.getTypeLabels();
+    const set = (sel, html) => { const el = document.querySelector(sel); if (el) el.innerHTML = html; };
+    const setText = (sel, t) => { const el = document.querySelector(sel); if (el) el.textContent = t; };
+    set('[data-type-label="ent-helper"]', `<i class="bi bi-lightbulb"></i>${L.eu_intro}`);
+    setText('[data-type-label="ent-eu-title"]', L.eu_section_title);
+    set('[data-type-label="ent-ee-title"]', `<i class="bi bi-buildings me-1"></i>${L.ee_section_title}`);
+    setText('[data-type-label="exigences-title"]', L.exigences_title);
+    setText('[data-type-label="exigences-helper"]', L.exigences_helper);
+    setText('[data-type-label="sig-eu-title"]', L.sig_eu_title);
+    setText('[data-type-label="sig-ee-title"]', L.sig_ee_title);
+    set('[data-type-label="pf-oblig"]', `<i class="bi bi-shield-check me-1"></i><strong>OBLIGATION :</strong> ${L.pf_oblig}`);
+    set('[data-type-label="pf-renouv"]', `<i class="bi bi-hourglass-split me-1"></i><strong>DURÉE MAXIMALE :</strong> Le permis de feu ne peut pas excéder <strong>24 heures</strong>. Au-delà de cette durée, un renouvellement avec <strong>${L.pf_renouv}</strong> est obligatoire pour chaque période de 24h.`);
+    set('[data-type-label="pf-validations-title"]', `<i class="bi bi-arrow-repeat me-1"></i>${L.pf_validations_title}`);
+    set('[data-type-label="pf-validations-info"]', `<i class="bi bi-info-circle me-1"></i>Les périodes de validation sont <strong>générées automatiquement</strong> en fonction de la durée du permis. ${L.pf_validations_info}`);
+    setText('[data-type-label="pf-sig-eu"]', L.pf_sig_eu);
+    setText('[data-type-label="pf-sig-ee"]', L.pf_sig_ee);
+  },
+
   selectTypeChantier(type) {
     const input = document.getElementById('pdp-type');
     if (input) input.value = type;
@@ -5158,6 +5242,7 @@ const App = {
     const entite = document.getElementById('pdp-entite').value;
     const preset = ENTITY_PRESETS[entite] || ENTITY_PRESETS.agriwatt;
     this.syncTypeEntiteUI();
+    this.refreshTypeLabels();
     // Adapter les labels selon le type
     const siteLabel = document.getElementById('pdp-site-label');
     const lieuLabel = document.getElementById('pdp-lieu-label');
@@ -5224,13 +5309,14 @@ const App = {
     const existingNames = p.emargements.map(e => `${e.nom}|${e.societe}`.toLowerCase());
     const today = new Date().toISOString().slice(0,10);
     let added = 0;
+    const TL = this.getTypeLabels(p.typePdp);
 
     // EU : responsable / contact
     const eu = p.eu || {};
     if (eu.responsable) {
       const key = `${eu.responsable}|${eu.nom}`.toLowerCase();
       if (!existingNames.includes(key)) {
-        p.emargements.push({ nom: eu.responsable, prenom: '', fonction: eu.fonction || 'Contact EU', societe: eu.nom || '', date: today, signature: null });
+        p.emargements.push({ nom: eu.responsable, prenom: '', fonction: eu.fonction || TL.contact_default, societe: eu.nom || '', date: today, signature: null });
         added++;
       }
     }
@@ -7445,19 +7531,20 @@ const App = {
     children.push(new Paragraph({children:[],spacing:{before:100}}));
 
     // 1. Parties
+    const TL = this.getTypeLabels(p.typePdp);
     children.push(secTitle('1','IDENTIFICATION DES PARTIES'));
     children.push(new Table({ width:{size:100,type:WidthType.PERCENTAGE}, rows:[
-      new TableRow({children:[hCell('ENTREPRISE UTILISATRICE (EU)',100,2)]}),
+      new TableRow({children:[hCell(TL.export_eu_block,100,2)]}),
       new TableRow({children:[cell('Raison sociale',{width:35,bold:true}),cell(eu.nom||'')]}),
       new TableRow({children:[cell('Site concerné',{width:35,bold:true}),cell(p.site||'')]}),
-      new TableRow({children:[cell('Contact EU',{width:35,bold:true}),cell(eu.responsable||'')]}),
-      new TableRow({children:[cell('Téléphone EU',{width:35,bold:true}),cell(eu.tel||'')]}),
+      new TableRow({children:[cell(TL.export_eu_contact,{width:35,bold:true}),cell(eu.responsable||'')]}),
+      new TableRow({children:[cell(TL.export_eu_tel,{width:35,bold:true}),cell(eu.tel||'')]}),
     ]}));
     children.push(new Paragraph({children:[],spacing:{before:100}}));
 
     for (const ee of ees) {
       children.push(new Table({ width:{size:100,type:WidthType.PERCENTAGE}, rows:[
-        new TableRow({children:[hCell('ENTREPRISE EXTÉRIEURE (EE)',100,2)]}),
+        new TableRow({children:[hCell(TL.export_ee_block,100,2)]}),
         new TableRow({children:[cell('Raison sociale',{width:35,bold:true}),cell(ee.nom||'')]}),
         new TableRow({children:[cell('Activité',{width:35,bold:true}),cell(ee.activite||'')]}),
         new TableRow({children:[cell('Représentant / Technicien',{width:35,bold:true}),cell(ee.responsable||'')]}),
@@ -7988,15 +8075,16 @@ const App = {
     // Réglementations
     children.push(new Paragraph({children:[new TextRun({text:'Ce permis de feu doit être établi avant le démarrage de tout travail utilisant un outil susceptible de générer un point chaud (flamme nue, arcs électriques, étincelles).',size:20,font:'Calibri',italics:true})],spacing:{after:60}}));
     children.push(new Paragraph({children:[new TextRun({text:'INTERDICTION : Les travaux par points chauds sont strictement interdits après 12h00 (midi).',size:20,font:'Calibri',bold:true,color:'CC0000'})],spacing:{after:60}}));
-    children.push(new Paragraph({children:[new TextRun({text:'OBLIGATION : Ce permis doit être obligatoirement signé et validé par l\'Entreprise Utilisatrice avant le début des travaux.',size:20,font:'Calibri',bold:true,color:'CC0000'})],spacing:{after:60}}));
-    children.push(new Paragraph({children:[new TextRun({text:'DURÉE MAXIMALE : 24 heures. Au-delà, un renouvellement avec nouvelle validation EU est obligatoire.',size:20,font:'Calibri',bold:true,color:'CC0000'})],spacing:{after:100}}));
+    const TLpf = this.getTypeLabels(p.typePdp);
+    children.push(new Paragraph({children:[new TextRun({text:`OBLIGATION : ${TLpf.export_pf_oblig}`,size:20,font:'Calibri',bold:true,color:'CC0000'})],spacing:{after:60}}));
+    children.push(new Paragraph({children:[new TextRun({text:`DURÉE MAXIMALE : 24 heures. Au-delà, un renouvellement avec ${TLpf.export_pf_renouv} est obligatoire.`,size:20,font:'Calibri',bold:true,color:'CC0000'})],spacing:{after:100}}));
 
     // Infos générales
     const typeLabels = {soudage:'Soudage',tronconnage:'Tronçonnage',meulage:'Découpage/Meulage',thermosoudure:'Thermosoudure au gaz',miseALaTerre:'Soudure mise à la terre',autre:'Autre'};
     const typesStr = (pf.types||[]).map(t=>typeLabels[t]||t).join(', ');
     const eu = p.eu||{};
     const pfRows = [
-      new TableRow({children:[cell('Entreprise Utilisatrice',{width:35,bold:true}),cell(`${eu.nom||''} — Contact : ${eu.responsable||''} — Tél : ${eu.tel||''}`)]}),
+      new TableRow({children:[cell(p.typePdp==='interne'?'Entreprise Utilisatrice (notre entité)':'Entreprise Utilisatrice',{width:35,bold:true}),cell(`${eu.nom||''} — Contact : ${eu.responsable||''} — Tél : ${eu.tel||''}`)]}),
       new TableRow({children:[cell('Types de travaux',{width:35,bold:true}),cell(typesStr||'')]}),
       new TableRow({children:[cell('Description',{width:35,bold:true}),cell(pf.description||'')]}),
       new TableRow({children:[cell('Risques liés à la structure',{width:35,bold:true}),cell(pf.risqueStructure||'')]}),
@@ -8051,14 +8139,14 @@ const App = {
       return new TableCell({children:paras,width:{size:w,type:WidthType.PERCENTAGE}});
     };
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
-      new TableRow({children:[hCell('Représentant EU',33),hCell('Représentant EE',33),hCell('Exécutant',34)]}),
+      new TableRow({children:[hCell(TLpf.export_pf_eu_label,33),hCell(TLpf.export_pf_ee_label,33),hCell('Exécutant',34)]}),
       new TableRow({children:[cell(`Nom: ${(pf.signatureEU||{}).nom||''}\nDate: ${(pf.signatureEU||{}).date||''}`,{width:33}),cell(`Nom: ${(pf.signatureEE||{}).nom||''}\nDate: ${(pf.signatureEE||{}).date||''}`,{width:33}),cell(`Nom: ${pfExec.nom||''}${pfExec.societe?'\nSociété: '+pfExec.societe:''}\nDate: ${pfExec.date||''}`,{width:34})]}),
       new TableRow({children:[_sigCell(pf.signatureEU,33),_sigCell(pf.signatureEE,33),_sigCell(pf.signatureExec,34)]})
     ]}));
 
     // Saut de page + Validations quotidiennes EU + Rondes par période
     children.push(new Paragraph({children:[new PageBreak()]}));
-    children.push(new Paragraph({children:[new TextRun({text:'Validations quotidiennes EU & Rondes de surveillance',size:22,font:'Calibri',bold:true,color:GREEN})],spacing:{before:200,after:60}}));
+    children.push(new Paragraph({children:[new TextRun({text:p.typePdp==='interne'?'Validations quotidiennes (notre représentant EU) & Rondes de surveillance':'Validations quotidiennes EU & Rondes de surveillance',size:22,font:'Calibri',bold:true,color:GREEN})],spacing:{before:200,after:60}}));
     children.push(new Paragraph({children:[new TextRun({text:'Des rondes d\'inspection doivent être réalisées pendant au minimum 2 heures après la fin de chaque opération par point chaud.',size:20,font:'Calibri',italics:true})],spacing:{after:60}}));
     if ((pf.renouvellements||[]).length) {
       const valides = pf.renouvellements.filter(r=>r.signatureEU?.nom&&r.signatureEU?.date).length;
@@ -8153,7 +8241,7 @@ const App = {
     // Réglementations
     doc.setFontSize(7); doc.setFont('helvetica','bold'); doc.setTextColor(200,0,0);
     doc.text('INTERDICTION : Les travaux par points chauds sont strictement interdits après 12h00 (midi).',m,y); y+=3.5;
-    doc.text('OBLIGATION : Permis signé et validé par l\'EU avant le début des travaux.',m,y); y+=3.5;
+    doc.text(`OBLIGATION : ${p.typePdp==='interne'?'Permis signé et validé par notre représentant (EU) avant le début des travaux.':'Permis signé et validé par l\'EU (le client) avant le début des travaux.'}`,m,y); y+=3.5;
     doc.text('DURÉE MAXIMALE : 24 heures. Renouvellement obligatoire au-delà.',m,y); y+=5;
     doc.setTextColor(0,0,0);
 
@@ -8161,7 +8249,7 @@ const App = {
     secTitle('INFORMATIONS GÉNÉRALES');
     const typeLabels = {soudage:'Soudage',tronconnage:'Tronçonnage',meulage:'Découpage/Meulage',thermosoudure:'Thermosoudure au gaz',miseALaTerre:'Soudure mise à la terre',autre:'Autre'};
     labelTable([
-      ['Entreprise Utilisatrice',`${eu.nom||''} — Contact : ${eu.responsable||''} — Tél : ${eu.tel||''}`],
+      [p.typePdp==='interne'?'Entreprise Utilisatrice (notre entité)':'Entreprise Utilisatrice',`${eu.nom||''} — Contact : ${eu.responsable||''} — Tél : ${eu.tel||''}`],
       ['Types de travaux',(pf.types||[]).map(t=>typeLabels[t]||t).join(', ')],
       ['Description',pf.description||''],
       ['Risques liés à la structure',pf.risqueStructure||''],
@@ -8205,7 +8293,7 @@ const App = {
     checkPage(50);
     secTitle('SIGNATURES');
     const pfExec = pf.signatureExec||{};
-    addTable(['Représentant EU','Représentant EE','Exécutant travaux'], [
+    addTable([p.typePdp==='interne'?'Représentant EU (notre entité)':'Représentant EU',p.typePdp==='interne'?'Représentant EE (intervenant)':'Représentant EE','Exécutant travaux'], [
       [`Nom: ${(pf.signatureEU||{}).nom||''}`,`Nom: ${(pf.signatureEE||{}).nom||''}`,`Nom: ${pfExec.nom||''}`],
       [`Date: ${(pf.signatureEU||{}).date||''}`,`Date: ${(pf.signatureEE||{}).date||''}`,`Date: ${pfExec.date||''}${pfExec.societe?'\nSociété: '+pfExec.societe:''}`],
       [{content:'Signature :',styles:{minCellHeight:12}},{content:'Signature :',styles:{minCellHeight:12}},{content:'Signature :',styles:{minCellHeight:12}}]
@@ -8223,7 +8311,7 @@ const App = {
     checkPage(30);
     secTitle('VALIDATIONS QUOTIDIENNES & RONDES DE SURVEILLANCE');
     doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(80,80,80);
-    doc.text('Chaque période de 24h doit être validée par l\'EU. Des rondes d\'inspection (min. 2h après travaux) prouvent le contrôle post-intervention.',m,y); y+=5;
+    doc.text(`Chaque période de 24h doit être validée par ${p.typePdp==='interne'?'notre représentant (EU)':'l\'EU (le client)'}. Des rondes d'inspection (min. 2h après travaux) prouvent le contrôle post-intervention.`,m,y); y+=5;
     doc.setTextColor(0,0,0);
     if ((pf.renouvellements||[]).length) {
       const valides = pf.renouvellements.filter(r=>r.signatureEU?.nom&&r.signatureEU?.date).length;
@@ -8430,10 +8518,13 @@ const App = {
 
     // 1. Parties
     secTitle('1. IDENTIFICATION DES PARTIES');
-    labelTable([ ['Raison sociale EU',eu.nom||''], ['Site concerné',p.site||''], ['Contact EU',eu.responsable||''], ['Téléphone EU',eu.tel||''] ]);
+    const isInterne = p.typePdp==='interne';
+    const euLabelSuffix = isInterne ? ' (notre entité)' : '';
+    labelTable([ [`Raison sociale EU${euLabelSuffix}`,eu.nom||''], ['Site concerné',p.site||''], [`Contact EU${euLabelSuffix}`,eu.responsable||''], [`Téléphone EU${euLabelSuffix}`,eu.tel||''] ]);
     for (const ee of ees) {
       checkPage(30);
-      labelTable([ ['Raison sociale EE',ee.nom||''], ['Activité',ee.activite||''], ['Représentant EE',ee.responsable||''], ['Téléphone EE',ee.tel||''] ]);
+      const eeSuffix = isInterne ? ' (intervenant)' : '';
+      labelTable([ [`Raison sociale EE${eeSuffix}`,ee.nom||''], ['Activité',ee.activite||''], [`Représentant EE${eeSuffix}`,ee.responsable||''], [`Téléphone EE${eeSuffix}`,ee.tel||''] ]);
     }
 
     // 2. Objet
@@ -8781,7 +8872,7 @@ const App = {
       checkPage(50);
       secTitle(`${secNum}b. SIGNATURES PERMIS DE FEU`);
       const pfExec = pf.signatureExec||{};
-      addTable(['Représentant EU','Représentant EE','Exécutant travaux'], [
+      addTable([p.typePdp==='interne'?'Représentant EU (notre entité)':'Représentant EU',p.typePdp==='interne'?'Représentant EE (intervenant)':'Représentant EE','Exécutant travaux'], [
         [`Nom: ${(pf.signatureEU||{}).nom||''}`,`Nom: ${(pf.signatureEE||{}).nom||''}`,`Nom: ${pfExec.nom||''}`],
         [`Date: ${(pf.signatureEU||{}).date||''}`,`Date: ${(pf.signatureEE||{}).date||''}`,`Date: ${pfExec.date||''}${pfExec.societe?'\nSociété: '+pfExec.societe:''}`],
         [{content:'Signature :',styles:{minCellHeight:12}},{content:'Signature :',styles:{minCellHeight:12}},{content:'Signature :',styles:{minCellHeight:12}}]
