@@ -8329,15 +8329,18 @@ const App = {
     // Signatures
     addT('SIGNATURES',12,'bold',[0,105,62]);
     y+=2;
-    const sigEU = v.signatureEU||{};
-    addT(`EU: ${sigEU.nom||'_________________'}  Date: ${sigEU.date||'____/____/________'}`,9);
-    if (sigEU.data) { try { if(y>255){doc.addPage();y=15} doc.addImage(sigEU.data,'PNG',m,y,50,18); y+=20; } catch(e){} }
-    else { y+=20; }
-    (v.entreprisesExt||[]).forEach((ee,i) => {
-      const sig = (v.signaturesEE||[])[i]||{};
-      addT(`${ee.nom}: ${sig.nom||'_________________'}  Date: ${sig.date||'____/____/________'}`,9);
+    const drawSig = (label, sig) => {
+      addT(`${label}: ${sig.nom||'_________________'}  Date: ${sig.date||'____/____/________'}`,9);
       if (sig.data) { try { if(y>255){doc.addPage();y=15} doc.addImage(sig.data,'PNG',m,y,50,18); y+=20; } catch(e){} }
       else { y+=20; }
+    };
+    drawSig('Représentant EU', v.signatureEU||{});
+    (v.signaturesEUAdd||[]).forEach((s,i) => { if (s.nom||s.data) drawSig(`Participant EU ${i+2}`, s); });
+    drawSig('Représentant EE'+(v.eeRepresentant?.entrepriseNom?` (${v.eeRepresentant.entrepriseNom})`:''), v.signatureEERep||{});
+    (v.signaturesEEAdd||[]).forEach((s,i) => { if (s.nom||s.data) drawSig(`Participant EE ${i+2}`, s); });
+    (v.entreprisesExt||[]).forEach((ee,i) => {
+      const sig = (v.signaturesEE||[])[i]||{};
+      drawSig(ee.nom||`EE sous-traitante ${i+1}`, sig);
     });
 
     // PDP link info
@@ -8491,9 +8494,14 @@ const App = {
     };
 
     const sigEU = v.signatureEU||{};
-    const sigColsData = [{label:'EU',sig:sigEU}];
+    const sigColsData = [{label:'Rep. EU',sig:sigEU}];
+    (v.signaturesEUAdd||[]).forEach((s,i) => { if (s.nom||s.data) sigColsData.push({label:`Participant EU ${i+2}`,sig:s}); });
+    if (v.signatureEERep && (v.signatureEERep.nom||v.signatureEERep.data)) {
+      sigColsData.push({label:`Rep. EE${v.eeRepresentant?.entrepriseNom?` (${v.eeRepresentant.entrepriseNom})`:''}`, sig: v.signatureEERep});
+    }
+    (v.signaturesEEAdd||[]).forEach((s,i) => { if (s.nom||s.data) sigColsData.push({label:`Participant EE ${i+2}`,sig:s}); });
     (v.entreprisesExt||[]).forEach((ee,i) => { sigColsData.push({label:ee.nom||`EE ${i+1}`,sig:(v.signaturesEE||[])[i]||{}}); });
-    if (!v.entreprisesExt?.length) sigColsData.push({label:'EE',sig:{}});
+    if (sigColsData.length === 1) sigColsData.push({label:'EE',sig:{}});
     const cw = Math.floor(100/sigColsData.length);
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
       new TableRow({children:sigColsData.map(c=>_sigCellICP(c.sig,c.label,cw))}),
