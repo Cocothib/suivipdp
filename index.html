@@ -4559,12 +4559,12 @@ const App = {
   async addEE() {
     const ents = await db.entreprises.toArray();
     if (ents.length) {
-      const items = ents.map(e => `<div class="addee-row d-flex align-items-center gap-2 mb-1 p-2 rounded border" data-name="${this.esc((e.nom||'').toLowerCase())}" style="cursor:pointer" onclick="App.addEEFromRepo(${e.id})"><i class="bi bi-building"></i><span class="small">${this.esc(e.nom)}</span></div>`).join('');
+      this._addEECache = ents.sort((a,b) => (a.nom||'').localeCompare(b.nom||'', 'fr', { sensitivity: 'base' }));
       const html = `
-        <div class="mb-2"><input type="text" class="form-control form-control-sm" id="addee-search" placeholder="Rechercher une entreprise…" oninput="App.filterAddEE(this.value)" autofocus></div>
-        <p class="fw-bold small mb-1">Depuis le répertoire :</p>
-        <div id="addee-list">${items}</div>
-        <p id="addee-empty" class="text-muted small text-center mt-2" style="display:none">Aucune entreprise correspondante.</p>
+        <div class="mb-2"><input type="text" class="form-control form-control-sm" id="addee-search" placeholder="Tapez pour rechercher…" oninput="App.filterAddEE(this.value)" autofocus></div>
+        <p class="fw-bold small mb-1">Depuis le répertoire (${ents.length} entreprises) :</p>
+        <div id="addee-list" style="max-height: 320px; overflow-y: auto;"></div>
+        <p id="addee-empty" class="text-muted small text-center mt-2"></p>
         <hr><div class="text-center d-flex gap-2 justify-content-center flex-wrap">
           <button class="btn btn-outline-success btn-sm" onclick="App.openSellsySearchModal('ee')"><i class="bi bi-search me-1"></i>Chercher dans Sellsy</button>
           <button class="btn btn-outline-primary btn-sm" onclick="App.addEEManual()"><i class="bi bi-plus-lg me-1"></i>Saisie manuelle</button>
@@ -4573,20 +4573,24 @@ const App = {
       document.getElementById('modal-entreprise-footer').style.display = 'none';
       document.querySelector('#modal-entreprise .modal-title').innerHTML = '<i class="bi bi-building me-1"></i>Ajouter une EE';
       new bootstrap.Modal(document.getElementById('modal-entreprise')).show();
+      this.filterAddEE('');
     } else { this.addEEManual(); }
   },
 
   filterAddEE(q) {
     const term = (q||'').trim().toLowerCase();
-    const rows = document.querySelectorAll('#addee-list .addee-row');
-    let visible = 0;
-    rows.forEach(r => {
-      const match = !term || (r.dataset.name||'').includes(term);
-      r.style.display = match ? '' : 'none';
-      if (match) visible++;
-    });
+    const list = document.getElementById('addee-list');
     const empty = document.getElementById('addee-empty');
-    if (empty) empty.style.display = visible ? 'none' : '';
+    if (!list) return;
+    const cache = this._addEECache || [];
+    if (!term) {
+      list.innerHTML = '';
+      if (empty) empty.textContent = `Tapez quelques lettres pour rechercher parmi les ${cache.length} entreprises.`;
+      return;
+    }
+    const matches = cache.filter(e => (e.nom||'').toLowerCase().includes(term)).slice(0, 50);
+    list.innerHTML = matches.map(e => `<div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.addEEFromRepo(${e.id})"><i class="bi bi-building"></i><span class="small">${this.esc(e.nom)}</span></div>`).join('');
+    if (empty) empty.textContent = matches.length ? (matches.length === 50 ? '50+ résultats — affinez votre recherche.' : '') : 'Aucune entreprise correspondante.';
   },
 
   async addEEFromRepo(id) {
@@ -7165,32 +7169,37 @@ const App = {
   async addICPEE() {
     const ents = await db.entreprises.toArray();
     if (ents.length) {
-      const items = ents.map(e => `<div class="addicpee-row d-flex align-items-center gap-2 mb-1 p-2 rounded border" data-name="${this.esc((e.nom||'').toLowerCase())}" style="cursor:pointer" onclick="App.addICPEEFromRepo(${e.id})"><i class="bi bi-building"></i><span class="small">${this.esc(e.nom)}</span></div>`).join('');
+      // Cache trié pour recherche rapide ; on ne rend pas tout d'un coup (peut être >5000 entrées).
+      this._addICPEECache = ents.sort((a,b) => (a.nom||'').localeCompare(b.nom||'', 'fr', { sensitivity: 'base' }));
       const html = `
-        <div class="mb-2"><input type="text" class="form-control form-control-sm" id="addicpee-search" placeholder="Rechercher une entreprise…" oninput="App.filterAddICPEE(this.value)" autofocus></div>
-        <p class="fw-bold small mb-1">Depuis le répertoire :</p>
-        <div id="addicpee-list">${items}</div>
-        <p id="addicpee-empty" class="text-muted small text-center mt-2" style="display:none">Aucune entreprise correspondante.</p>
+        <div class="mb-2"><input type="text" class="form-control form-control-sm" id="addicpee-search" placeholder="Tapez pour rechercher…" oninput="App.filterAddICPEE(this.value)" autofocus></div>
+        <p class="fw-bold small mb-1">Depuis le répertoire (${ents.length} entreprises) :</p>
+        <div id="addicpee-list" style="max-height: 320px; overflow-y: auto;"></div>
+        <p id="addicpee-empty" class="text-muted small text-center mt-2"></p>
         <hr><div class="text-center"><button class="btn btn-outline-primary btn-sm" onclick="App.addICPEEManual()"><i class="bi bi-plus-lg me-1"></i>Saisie manuelle</button></div>`;
       document.getElementById('modal-entreprise-body').innerHTML = html;
       document.getElementById('modal-entreprise-footer').style.display = 'none';
       document.querySelector('#modal-entreprise .modal-title').innerHTML = '<i class="bi bi-building me-1"></i>Ajouter une EE à l\'ICP';
       new bootstrap.Modal(document.getElementById('modal-entreprise')).show();
+      // Affichage initial : message d'invitation
+      this.filterAddICPEE('');
     } else { this.addICPEEManual(); }
   },
 
   filterAddICPEE(q) {
     const term = (q||'').trim().toLowerCase();
-    const rows = document.querySelectorAll('#addicpee-list .addicpee-row');
-    let visible = 0;
-    rows.forEach(r => {
-      const name = r.dataset.name || '';
-      const match = !term || name.includes(term);
-      r.style.display = match ? '' : 'none';
-      if (match) visible++;
-    });
+    const list = document.getElementById('addicpee-list');
     const empty = document.getElementById('addicpee-empty');
-    if (empty) empty.style.display = visible ? 'none' : '';
+    if (!list) return;
+    const cache = this._addICPEECache || [];
+    if (!term) {
+      list.innerHTML = '';
+      if (empty) empty.textContent = `Tapez quelques lettres pour rechercher parmi les ${cache.length} entreprises.`;
+      return;
+    }
+    const matches = cache.filter(e => (e.nom||'').toLowerCase().includes(term)).slice(0, 50);
+    list.innerHTML = matches.map(e => `<div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.addICPEEFromRepo(${e.id})"><i class="bi bi-building"></i><span class="small">${this.esc(e.nom)}</span></div>`).join('');
+    if (empty) empty.textContent = matches.length ? (matches.length === 50 ? '50+ résultats — affinez votre recherche.' : '') : 'Aucune entreprise correspondante.';
   },
 
   async addICPEEFromRepo(id) {
