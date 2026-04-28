@@ -7376,7 +7376,7 @@ const App = {
     const s = this._settings || {};
     const pdp = {
       titre: v.objet||'PDP issu ICP '+(v.numero||''), numero:'', statut:'visite_prealable', version:'01',
-      dateDebut:'', dateFin:'', site:v.site||'', lieu:v.lieu||'', description:v.objet||'',
+      dateDebut:'', dateFin:'', site:v.site||'', lieu:'', gps:v.lieu||'', description:v.objet||'',
       materiel:'', nbSalaries:'', horaires:'',
       eu: { nom:s.euNom||'', adresse:s.euAdresse||'', responsable:v.euParticipant?.nom||s.euResponsable||'', tel:v.euParticipant?.tel||s.euTel||'', email:s.euEmail||'', fonction:v.euParticipant?.fonction||'' },
       entreprisesExt: JSON.parse(JSON.stringify(v.entreprisesExt||[])),
