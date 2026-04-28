@@ -6540,7 +6540,8 @@ const App = {
     this.showView('icp-detail');
     document.getElementById('icp-detail-title').textContent = 'Nouvelle ICP';
     document.getElementById('btn-delete-icp').style.display = 'none';
-    document.getElementById('btn-back-to-pdp').style.display = 'none';
+    const btnBack = document.getElementById('btn-back-to-pdp');
+    if (btnBack) btnBack.style.display = 'none';
     this._returnToPDPId = null;
   },
 
@@ -6552,7 +6553,8 @@ const App = {
     this.showView('icp-detail');
     document.getElementById('icp-detail-title').textContent = v.numero || 'ICP #'+v.id;
     document.getElementById('btn-delete-icp').style.display = '';
-    document.getElementById('btn-back-to-pdp').style.display = v.pdpId ? '' : 'none';
+    const btnBack = document.getElementById('btn-back-to-pdp');
+    if (btnBack) btnBack.style.display = v.pdpId ? '' : 'none';
   },
 
   populateICPForm() {
@@ -7075,7 +7077,8 @@ const App = {
     this.showView('icp-detail');
     document.getElementById('icp-detail-title').textContent = newIcp.numero;
     document.getElementById('btn-delete-icp').style.display = '';
-    document.getElementById('btn-back-to-pdp').style.display = '';
+    const btnBack = document.getElementById('btn-back-to-pdp');
+    if (btnBack) btnBack.style.display = '';
   },
 
   backFromICP() {
