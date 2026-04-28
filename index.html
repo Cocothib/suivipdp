@@ -1986,8 +1986,8 @@ textarea.form-control { min-height: 70px; }
         <div class="row g-2">
           <div class="col-md-4"><label class="form-label" for="icp-date">Date de la visite *</label><div class="input-icon-wrap"><i class="bi bi-calendar input-icon"></i><input type="date" class="form-control" id="icp-date"></div></div>
           <div class="col-md-2"><label class="form-label" for="icp-heure">Heure</label><div class="input-icon-wrap"><i class="bi bi-clock input-icon"></i><input type="time" class="form-control" id="icp-heure"></div></div>
-          <div class="col-md-6"><label class="form-label" for="icp-site">Site / Adresse</label><div class="input-icon-wrap"><i class="bi bi-geo-alt input-icon"></i><input type="text" class="form-control" id="icp-site" placeholder="Ex: Bouxières-sous-Froidmont"></div></div>
-          <div class="col-md-6"><label class="form-label" for="icp-lieu">Lieu</label><div class="input-icon-wrap"><i class="bi bi-pin-map input-icon"></i><input type="text" class="form-control" id="icp-lieu" placeholder="Ex: Hangar de stockage"></div></div>
+          <div class="col-md-6"><label class="form-label" for="icp-site">Site / Adresse</label><div class="input-icon-wrap"><i class="bi bi-geo-alt input-icon"></i><input type="text" class="form-control" id="icp-site" placeholder="Ex: 20 rue du 11 novembre 59169 FERIN"></div></div>
+          <div class="col-md-6"><label class="form-label" for="icp-lieu">Coordonnées GPS</label><div class="input-icon-wrap"><i class="bi bi-pin-map input-icon"></i><input type="text" class="form-control" id="icp-lieu" placeholder="Ex: 50.34521, 3.10274"></div></div>
         </div>
       </div>
       <div class="field-group">
@@ -6428,7 +6428,6 @@ const App = {
           console.log('[Sellsy] contact:', contact);
           const mainAddr = (addresses || []).find(a => a.is_main) || (addresses || [])[0] || null;
           if (c) {
-            setIfEmpty('icp-site', c.nom);
             setIfEmpty('icp-eu-tel', c.tel);
           }
           if (contact) {
@@ -6437,13 +6436,18 @@ const App = {
             setIfEmpty('icp-eu-tel', contact.tel);
           }
           if (mainAddr) {
-            setIfEmpty('icp-lieu', mainAddr.adresse);
+            setIfEmpty('icp-site', mainAddr.adresse);
+            if (mainAddr.lat != null && mainAddr.lng != null) {
+              setIfEmpty('icp-lieu', `${(+mainAddr.lat).toFixed(5)}, ${(+mainAddr.lng).toFixed(5)}`);
+            } else if (mainAddr.adresse) {
+              // Sellsy ne renvoie pas toujours les coords GPS — fallback géocodage data.gouv
+              const geo = await this.geocodeFR(mainAddr.adresse).catch(() => null);
+              if (geo) setIfEmpty('icp-lieu', `${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)}`);
+            }
           }
         } catch (err) {
           console.error('[Sellsy] erreur enrichissement company', err);
         }
-      } else if (o.companyName) {
-        setIfEmpty('icp-site', o.companyName);
       }
 
       bootstrap.Modal.getInstance(document.getElementById('modal-entreprise'))?.hide();
