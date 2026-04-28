@@ -2008,7 +2008,7 @@ textarea.form-control { min-height: 70px; }
       <div class="field-group">
         <div class="field-group-title"><i class="bi bi-person-badge"></i> Représentant EU</div>
         <div class="row g-2">
-          <div class="col-md-4"><label class="form-label" for="icp-eu-nom">Nom</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-eu-nom" placeholder="Nom"></div></div>
+          <div class="col-md-4"><label class="form-label" for="icp-eu-nom">Nom</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-eu-nom" placeholder="Nom" oninput="App.syncICPSignatureNom('eu')"></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-eu-fonction">Fonction</label><div class="input-icon-wrap"><i class="bi bi-briefcase input-icon"></i><input type="text" class="form-control" id="icp-eu-fonction" placeholder="Fonction"></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-eu-tel">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="icp-eu-tel" placeholder="Téléphone"></div></div>
         </div>
@@ -2028,7 +2028,7 @@ textarea.form-control { min-height: 70px; }
               <option value="">— Choisir une personne —</option>
             </select>
           </div>
-          <div class="col-md-4"><label class="form-label" for="icp-ee-rep-nom">Nom</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-ee-rep-nom" placeholder="Nom"></div></div>
+          <div class="col-md-4"><label class="form-label" for="icp-ee-rep-nom">Nom</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-ee-rep-nom" placeholder="Nom" oninput="App.syncICPSignatureNom('ee')"></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-ee-rep-fonction">Fonction</label><div class="input-icon-wrap"><i class="bi bi-briefcase input-icon"></i><input type="text" class="form-control" id="icp-ee-rep-fonction" placeholder="Fonction"></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-ee-rep-tel">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="icp-ee-rep-tel" placeholder="Téléphone"></div></div>
         </div>
@@ -2086,7 +2086,18 @@ textarea.form-control { min-height: 70px; }
           </div>
         </div>
       </div>
-      <div class="form-section-title"><i class="bi bi-pen"></i>Signatures EE</div>
+      <div class="field-group">
+        <div class="field-group-title"><i class="bi bi-pen"></i> Signature Représentant EE</div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-6"><label class="form-label" for="icp-sig-ee-rep-nom">Signataire EE</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-sig-ee-rep-nom" placeholder="Nom et qualité"></div></div>
+          <div class="col-md-6"><label class="form-label" for="icp-sig-ee-rep-date">Date</label><div class="input-icon-wrap"><i class="bi bi-calendar input-icon"></i><input type="date" class="form-control" id="icp-sig-ee-rep-date"></div></div>
+          <div class="col-12">
+            <div class="signature-pad-wrapper"><canvas id="icp-sig-ee-rep-canvas" class="signature-canvas"></canvas></div>
+            <button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('icp-sig-ee-rep-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-section-title"><i class="bi bi-pen"></i>Signatures EE additionnelles</div>
       <div id="icp-signatures-ee-container"></div>
     </div>
 
@@ -6743,6 +6754,21 @@ const App = {
     if (btnBack) btnBack.style.display = v.pdpId ? '' : 'none';
   },
 
+  // ---- ICP : sync nom Représentant -> Signataire (si signature vide) ----
+  syncICPSignatureNom(target) {
+    if (target === 'eu') {
+      const nom = document.getElementById('icp-eu-nom')?.value.trim() || '';
+      const fonction = document.getElementById('icp-eu-fonction')?.value.trim() || '';
+      const sig = document.getElementById('icp-sig-eu-nom');
+      if (sig && !sig.value.trim()) sig.value = nom + (fonction ? ' (' + fonction + ')' : '');
+    } else if (target === 'ee') {
+      const nom = document.getElementById('icp-ee-rep-nom')?.value.trim() || '';
+      const fonction = document.getElementById('icp-ee-rep-fonction')?.value.trim() || '';
+      const sig = document.getElementById('icp-sig-ee-rep-nom');
+      if (sig && !sig.value.trim()) sig.value = nom + (fonction ? ' (' + fonction + ')' : '');
+    }
+  },
+
   // ---- ICP Représentant EE (entreprise + personne depuis le répertoire) ----
   async populateICPEERepEntreprises() {
     const datalist = document.getElementById('icp-ee-ent-list');
@@ -6835,12 +6861,19 @@ const App = {
     this.renderICPPhotos();
     this.renderICPSignaturesEE();
     this.renderICPPDPLink();
-    // Init ICP EU signature
+    // Init ICP EU signature + EE Représentant signature
     setTimeout(() => {
       this.initCanvas('icp-sig-eu-canvas');
       if (v.signatureEU?.data) this.loadSigImg('icp-sig-eu-canvas', v.signatureEU.data);
       document.getElementById('icp-sig-eu-nom').value = (v.signatureEU||{}).nom||'';
       document.getElementById('icp-sig-eu-date').value = (v.signatureEU||{}).date||'';
+      // Pré-remplit depuis Représentant EU si signature vide
+      this.syncICPSignatureNom('eu');
+      this.initCanvas('icp-sig-ee-rep-canvas');
+      if (v.signatureEERep?.data) this.loadSigImg('icp-sig-ee-rep-canvas', v.signatureEERep.data);
+      document.getElementById('icp-sig-ee-rep-nom').value = (v.signatureEERep||{}).nom||'';
+      document.getElementById('icp-sig-ee-rep-date').value = (v.signatureEERep||{}).date||'';
+      this.syncICPSignatureNom('ee');
       (v.entreprisesExt||[]).forEach((_,i) => {
         this.initCanvas(`icp-sig-ee-canvas-${i}`);
         if ((v.signaturesEE||[])[i]?.data) this.loadSigImg(`icp-sig-ee-canvas-${i}`, v.signaturesEE[i].data);
@@ -6878,7 +6911,13 @@ const App = {
     v.signatureEU.date = document.getElementById('icp-sig-eu-date').value;
     const canvas = document.getElementById('icp-sig-eu-canvas');
     if (canvas && canvas._hasDrawing) v.signatureEU.data = canvas.toDataURL();
-    // Capture EE signatures
+    // Signature Représentant EE (lié au champ icp-ee-rep-*)
+    v.signatureEERep = v.signatureEERep||{};
+    v.signatureEERep.nom = document.getElementById('icp-sig-ee-rep-nom').value.trim();
+    v.signatureEERep.date = document.getElementById('icp-sig-ee-rep-date').value;
+    const cvERep = document.getElementById('icp-sig-ee-rep-canvas');
+    if (cvERep && cvERep._hasDrawing) v.signatureEERep.data = cvERep.toDataURL();
+    // Capture EE signatures additionnelles
     (v.entreprisesExt||[]).forEach((_,i) => {
       const cv = document.getElementById(`icp-sig-ee-canvas-${i}`);
       if (cv && cv._hasDrawing) { v.signaturesEE = v.signaturesEE||[]; if (!v.signaturesEE[i]) v.signaturesEE[i]={nom:'',date:'',data:null}; v.signaturesEE[i].data = cv.toDataURL(); }
