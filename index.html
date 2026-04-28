@@ -2202,6 +2202,7 @@ textarea.form-control { min-height: 70px; }
       <div class="form-section-title"><i class="bi bi-cloud"></i>Synchronisation SharePoint</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Synchronise vos PDP, ICP et entreprises avec SharePoint pour les partager entre appareils et collègues.</div>
       <div id="settings-sync-status"></div>
+      <button class="btn btn-outline-warning btn-sm mt-2" onclick="App.archiveAllOldExports()" title="Génère les Word + PDF de tous les PDP/ICP existants et les uploade sur SharePoint avec les nouveaux noms"><i class="bi bi-cloud-arrow-up me-1"></i>Re-archiver tous les PDP/ICP</button>
     </div>
 
     <div class="form-section">
@@ -8346,6 +8347,7 @@ const App = {
     }
 
     const icpPdfFn = this.buildICPFilename(v, 'pdf');
+    if (this._returnICPPDFBlob) { this._icpPdfBlobResult = doc.output('blob'); return; }
     doc.save(icpPdfFn);
     doc.output('blob').then(blob => DataSync.uploadExport(blob, icpPdfFn, 'icp')).catch(()=>{});
     this.toast('PDF ICP généré');
@@ -8509,6 +8511,7 @@ const App = {
     const doc2 = new Document({sections:[{properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},children}]});
     const blob = await Packer.toBlob(doc2);
     const icpDocxFn = this.buildICPFilename(v, 'docx');
+    if (this._returnICPDOCXBlob) { this._icpDocxBlobResult = blob; return; }
     saveAs(blob, icpDocxFn);
     DataSync.uploadExport(blob, icpDocxFn, 'icp');
     this.toast('Word ICP généré');
@@ -8654,6 +8657,71 @@ const App = {
     a.href = f.data;
     a.download = f.nom || 'fds.pdf';
     a.click();
+  },
+
+  // ---- Archivage batch des PDP/ICP existants vers SharePoint ----
+  async archiveAllOldExports() {
+    if (!await this.confirm('Re-archiver tous les PDP et ICP sur SharePoint ? Cela peut prendre plusieurs minutes selon le nombre de documents.')) return;
+    if (!DataSync._connected) { this.toast('SharePoint non connecté','warning'); return; }
+    const allPDP = await db.pdps.toArray();
+    const allICP = await db.icps.toArray();
+    const total = allPDP.length + allICP.length;
+    let done = 0, ok = 0, ko = 0;
+    const savedPDP = this.currentPDP, savedICP = this.currentICP;
+    this.toast(`Archivage de ${total} documents en cours…`, 'info');
+
+    for (const p of allPDP) {
+      this.currentPDP = p;
+      try {
+        // DOCX
+        this._returnDOCXBlob = true; this._docxBlobResult = null;
+        await this.exportDOCX();
+        this._returnDOCXBlob = false;
+        if (this._docxBlobResult) {
+          const fn = await this.buildPDPFilename(p, 'docx');
+          await DataSync.uploadExport(this._docxBlobResult, fn, 'pdp');
+        }
+        // PDF
+        this._returnPDFBlob = true; this._pdfBlobResult = null;
+        await this.exportPDF();
+        this._returnPDFBlob = false;
+        if (this._pdfBlobResult) {
+          const fn = await this.buildPDPFilename(p, 'pdf');
+          await DataSync.uploadExport(this._pdfBlobResult, fn, 'pdp');
+        }
+        ok++;
+        console.log(`✓ PDP ${p.numero} (${++done}/${total})`);
+      } catch (e) { ko++; done++; console.error('✗ PDP', p.numero, e); }
+    }
+
+    for (const v of allICP) {
+      this.currentICP = v;
+      try {
+        // DOCX
+        this._returnICPDOCXBlob = true; this._icpDocxBlobResult = null;
+        await this.exportICPDOCX();
+        this._returnICPDOCXBlob = false;
+        if (this._icpDocxBlobResult) {
+          const fn = this.buildICPFilename(v, 'docx');
+          await DataSync.uploadExport(this._icpDocxBlobResult, fn, 'icp');
+        }
+        // PDF
+        this._returnICPPDFBlob = true; this._icpPdfBlobResult = null;
+        await this.exportICPPDF();
+        this._returnICPPDFBlob = false;
+        if (this._icpPdfBlobResult) {
+          const fn = this.buildICPFilename(v, 'pdf');
+          await DataSync.uploadExport(this._icpPdfBlobResult, fn, 'icp');
+        }
+        ok++;
+        console.log(`✓ ICP ${v.numero} (${++done}/${total})`);
+      } catch (e) { ko++; done++; console.error('✗ ICP', v.numero, e); }
+    }
+
+    this.currentPDP = savedPDP; this.currentICP = savedICP;
+    this._docxBlobResult = null; this._pdfBlobResult = null;
+    this._icpDocxBlobResult = null; this._icpPdfBlobResult = null;
+    alert(`Archivage terminé.\n\n  ${ok} document(s) archivé(s) avec succès\n  ${ko} échec(s)\n\nVoir détails en console.`);
   },
 
   async deleteFDS(id) {
