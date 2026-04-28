@@ -4538,14 +4538,34 @@ const App = {
   async addEE() {
     const ents = await db.entreprises.toArray();
     if (ents.length) {
-      let html = '<p class="fw-bold small">Depuis le répertoire :</p>';
-      html += ents.map(e => `<div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.addEEFromRepo(${e.id})"><i class="bi bi-building"></i><span class="small">${this.esc(e.nom)}</span></div>`).join('');
-      html += '<hr><div class="text-center d-flex gap-2 justify-content-center flex-wrap"><button class="btn btn-outline-success btn-sm" onclick="App.openSellsySearchModal(\'ee\')"><i class="bi bi-search me-1"></i>Chercher dans Sellsy</button><button class="btn btn-outline-primary btn-sm" onclick="App.addEEManual()"><i class="bi bi-plus-lg me-1"></i>Saisie manuelle</button></div>';
+      const items = ents.map(e => `<div class="addee-row d-flex align-items-center gap-2 mb-1 p-2 rounded border" data-name="${this.esc((e.nom||'').toLowerCase())}" style="cursor:pointer" onclick="App.addEEFromRepo(${e.id})"><i class="bi bi-building"></i><span class="small">${this.esc(e.nom)}</span></div>`).join('');
+      const html = `
+        <div class="mb-2"><input type="text" class="form-control form-control-sm" id="addee-search" placeholder="Rechercher une entreprise…" oninput="App.filterAddEE(this.value)" autofocus></div>
+        <p class="fw-bold small mb-1">Depuis le répertoire :</p>
+        <div id="addee-list">${items}</div>
+        <p id="addee-empty" class="text-muted small text-center mt-2" style="display:none">Aucune entreprise correspondante.</p>
+        <hr><div class="text-center d-flex gap-2 justify-content-center flex-wrap">
+          <button class="btn btn-outline-success btn-sm" onclick="App.openSellsySearchModal('ee')"><i class="bi bi-search me-1"></i>Chercher dans Sellsy</button>
+          <button class="btn btn-outline-primary btn-sm" onclick="App.addEEManual()"><i class="bi bi-plus-lg me-1"></i>Saisie manuelle</button>
+        </div>`;
       document.getElementById('modal-entreprise-body').innerHTML = html;
       document.getElementById('modal-entreprise-footer').style.display = 'none';
       document.querySelector('#modal-entreprise .modal-title').innerHTML = '<i class="bi bi-building me-1"></i>Ajouter une EE';
       new bootstrap.Modal(document.getElementById('modal-entreprise')).show();
     } else { this.addEEManual(); }
+  },
+
+  filterAddEE(q) {
+    const term = (q||'').trim().toLowerCase();
+    const rows = document.querySelectorAll('#addee-list .addee-row');
+    let visible = 0;
+    rows.forEach(r => {
+      const match = !term || (r.dataset.name||'').includes(term);
+      r.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    const empty = document.getElementById('addee-empty');
+    if (empty) empty.style.display = visible ? 'none' : '';
   },
 
   async addEEFromRepo(id) {
