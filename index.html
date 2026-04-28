@@ -4428,6 +4428,10 @@ const App = {
     if (['actif','signature'].includes(p.statut) && !(p.visite?.effectuee)) {
       this.toast("Attention : ce PDP n'a pas de Inspection Commune Préalable effectuée", 'warning');
     }
+    // Détecte la transition vers un statut final (cloture) pour auto-export
+    let prevStatut = null;
+    if (p.id) { try { const old = await db.pdps.get(p.id); prevStatut = old?.statut||null; } catch {} }
+    const isFinalTransition = p.statut === 'cloture' && prevStatut !== 'cloture';
     try {
       const wasNew = !p.id;
       if (p.id) { await db.pdps.put(p); }
@@ -4442,6 +4446,12 @@ const App = {
       this.updateProgress();
       DataSync.markDirty();
       if (typeof ActivityLog !== 'undefined') ActivityLog.log(wasNew ? 'pdp.create' : 'pdp.update', { id: p.id, numero: p.numero, titre: p.titre, statut: p.statut });
+      // Auto-export PDF + Word à la transition vers Clôturé
+      if (isFinalTransition) {
+        this.toast('Auto-archivage Word + PDF en cours...', 'info');
+        try { await this.exportDOCX(); } catch (e) { console.warn('Auto-export DOCX échoué:', e); }
+        try { await this.exportPDF(); } catch (e) { console.warn('Auto-export PDF échoué:', e); }
+      }
     } catch(e) { console.error(e); this.toast('Erreur','danger'); }
   },
 
@@ -7428,6 +7438,10 @@ const App = {
     }
     document.getElementById('icp-date')?.classList.remove('is-invalid');
     document.getElementById('icp-site')?.classList.remove('is-invalid');
+    // Détecte la transition vers Validée pour auto-export
+    let prevStatut = null;
+    if (v.id) { try { const old = await db.icps.get(v.id); prevStatut = old?.statut||null; } catch {} }
+    const isFinalTransition = v.statut === 'validee' && prevStatut !== 'validee';
     try {
       const wasNew = !v.id;
       if (v.id) { await db.icps.put(v); }
@@ -7438,6 +7452,12 @@ const App = {
       this.toast(newContactsAdded ? `ICP enregistrée + ${newContactsAdded} nouveau(x) contact(s) ajouté(s) au répertoire` : 'ICP enregistrée');
       DataSync.markDirty();
       if (typeof ActivityLog !== 'undefined') ActivityLog.log(wasNew ? 'icp.create' : 'icp.update', { id: v.id, numero: v.numero, site: v.site, pdpId: v.pdpId || null });
+      // Auto-export PDF + Word à la transition vers Validée
+      if (isFinalTransition) {
+        this.toast('Auto-archivage Word + PDF en cours...', 'info');
+        try { await this.exportICPDOCX(); } catch (e) { console.warn('Auto-export ICP DOCX échoué:', e); }
+        try { await this.exportICPPDF(); } catch (e) { console.warn('Auto-export ICP PDF échoué:', e); }
+      }
     } catch(e) { console.error(e); this.toast('Erreur','danger'); }
   },
 
