@@ -5484,16 +5484,17 @@ const App = {
     }
   },
 
-  // Construit un nom de fichier export à partir d'un PDP : numero_OPP-XXXX_titre.ext
+  // Construit un nom de fichier export : OPP-XXXX_PDP-XXX_titre.ext (ordre OPP > numero > titre)
   async buildPDPFilename(p, ext, prefix) {
     if (!p) return `PDP.${ext}`;
-    const parts = [prefix||'', p.numero||'PDP'];
+    const parts = [prefix||''];
     if (p.icpId) {
       try {
         const v = await db.icps.get(p.icpId);
         if (v?.refOperation) parts.push(v.refOperation);
       } catch {}
     }
+    parts.push(p.numero||'PDP');
     if (p.titre) {
       const t = p.titre.replace(/[<>:"/\\|?*]/g,'_').replace(/\s+/g,' ').trim().slice(0, 50);
       if (t && !parts.some(x => (x||'').toLowerCase().includes(t.toLowerCase()))) parts.push(t);
@@ -5503,8 +5504,9 @@ const App = {
 
   buildICPFilename(v, ext) {
     if (!v) return `ICP.${ext}`;
-    const parts = [v.numero||'ICP'];
+    const parts = [];
     if (v.refOperation) parts.push(v.refOperation);
+    parts.push(v.numero||'ICP');
     if (v.objet) {
       const t = v.objet.replace(/[<>:"/\\|?*]/g,'_').replace(/\s+/g,' ').trim().slice(0, 50);
       if (t && !parts.some(x => (x||'').toLowerCase().includes(t.toLowerCase()))) parts.push(t);
