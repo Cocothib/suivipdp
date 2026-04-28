@@ -7469,10 +7469,27 @@ const App = {
     if (v.heure) pdp.visite.heure = v.heure;
     if (v.observations) pdp.visite.observations = v.observations;
     pdp.visite.effectuee = v.statut==='effectuee'||v.statut==='validee';
-    pdp.visite.participants = [v.euParticipant?.nom, ...(v.entreprisesExt||[]).map(e=>e.responsable)].filter(Boolean).join(', ');
+    pdp.visite.participants = this._buildICPParticipants(v);
     pdp.dateModification = new Date().toISOString();
     await db.pdps.put(pdp);
     this.toast(`${added} risque(s) envoyé(s) au PDP (${icpRisques.length - added} déjà présent(s))`);
+  },
+
+  // Construit la liste des participants à la visite à partir d'une ICP (tous rôles confondus)
+  _buildICPParticipants(v) {
+    if (!v) return '';
+    const fmt = p => {
+      if (!p?.nom) return '';
+      return p.fonction ? `${p.nom} (${p.fonction})` : p.nom;
+    };
+    const parts = [
+      fmt(v.euParticipant),
+      ...((v.euParticipants||[]).map(fmt)),
+      fmt(v.eeRepresentant),
+      ...((v.eeParticipants||[]).map(fmt)),
+      ...((v.entreprisesExt||[]).map(e => e.responsable ? (e.fonction ? `${e.responsable} (${e.fonction}) - ${e.nom}` : `${e.responsable} - ${e.nom}`) : '')),
+    ];
+    return parts.filter(Boolean).join(', ');
   },
 
   async createPDPFromICP() {
@@ -7495,7 +7512,7 @@ const App = {
         fonction: v.euParticipant?.fonction || ''
       },
       entreprisesExt: JSON.parse(JSON.stringify(v.entreprisesExt||[])),
-      visite: { date:v.dateVisite||'', heure:v.heure||'', participants: [v.euParticipant?.nom, ...(v.entreprisesExt||[]).map(e=>e.responsable)].filter(Boolean).join(', '), observations:v.observations||'', effectuee:v.statut==='effectuee'||v.statut==='validee', photos:JSON.parse(JSON.stringify(v.photos||[])) },
+      visite: { date:v.dateVisite||'', heure:v.heure||'', participants: this._buildICPParticipants(v), observations:v.observations||'', effectuee:v.statut==='effectuee'||v.statut==='validee', photos:JSON.parse(JSON.stringify(v.photos||[])) },
       risques: JSON.parse(JSON.stringify(v.risques||[])),
       mesures:[], instructions:'', exigences:[],
       urgence: { responsable:'', telResponsable:'', sst:'', telSst:'', numeros:'Pompiers : 18  |  SAMU : 15  |  Gendarmerie : 17  |  Urgences : 112', consignes:'' },
