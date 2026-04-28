@@ -2,3 +2,9 @@ vmc_tmp.html
 logo_b64.txt
 sellsy-config.php
 .sellsy-token.cache
+
+# Données RH/RGPD : jamais commiter
+import-personnel.js
+agriwatt-personnel.json
+*-personnel.json
+*-rh.json
