@@ -6604,13 +6604,17 @@ const App = {
           console.log('[Sellsy] addresses:', addresses);
           console.log('[Sellsy] contact:', contact);
           const mainAddr = (addresses || []).find(a => a.is_main) || (addresses || [])[0] || null;
+          // Écrase les champs EU si Sellsy renvoie une valeur (clic sur opp = volonté
+          // de remplacer). Mais on ne vide pas un champ saisi manuellement avec une
+          // valeur Sellsy vide.
+          const setForceIfValue = (id, v) => { if (v && v.trim()) { const el = document.getElementById(id); if (el) el.value = v; } };
           if (c) {
-            setIfEmpty('icp-eu-tel', c.tel);
+            setForceIfValue('icp-eu-tel', c.tel);
           }
           if (contact) {
-            setIfEmpty('icp-eu-nom', contact.nom);
-            setIfEmpty('icp-eu-fonction', contact.fonction);
-            setIfEmpty('icp-eu-tel', contact.tel);
+            setForceIfValue('icp-eu-nom', contact.nom);
+            setForceIfValue('icp-eu-fonction', contact.fonction);
+            setForceIfValue('icp-eu-tel', contact.tel);
           }
           if (mainAddr) {
             setIfEmpty('icp-site', mainAddr.adresse);
