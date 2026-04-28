@@ -2013,8 +2013,28 @@ textarea.form-control { min-height: 70px; }
           <div class="col-md-4"><label class="form-label" for="icp-eu-tel">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="icp-eu-tel" placeholder="Téléphone"></div></div>
         </div>
       </div>
+      <div class="field-group">
+        <div class="field-group-title"><i class="bi bi-person-badge"></i> Représentant EE</div>
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label" for="icp-ee-entreprise-select">Entreprise</label>
+            <select class="form-select" id="icp-ee-entreprise-select" onchange="App.onICPEERepEntrepriseChange(this.value)">
+              <option value="">— Choisir l'entreprise —</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="icp-ee-personne-select">Personne enregistrée</label>
+            <select class="form-select" id="icp-ee-personne-select" onchange="App.onICPEERepPersonneChange(this.value)" disabled>
+              <option value="">— Choisir une personne —</option>
+            </select>
+          </div>
+          <div class="col-md-4"><label class="form-label" for="icp-ee-rep-nom">Nom</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-ee-rep-nom" placeholder="Nom"></div></div>
+          <div class="col-md-4"><label class="form-label" for="icp-ee-rep-fonction">Fonction</label><div class="input-icon-wrap"><i class="bi bi-briefcase input-icon"></i><input type="text" class="form-control" id="icp-ee-rep-fonction" placeholder="Fonction"></div></div>
+          <div class="col-md-4"><label class="form-label" for="icp-ee-rep-tel">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="icp-ee-rep-tel" placeholder="Téléphone"></div></div>
+        </div>
+      </div>
       <div class="form-section-title d-flex justify-content-between align-items-center">
-        <span><i class="bi bi-buildings me-1"></i>Représentants EE</span>
+        <span><i class="bi bi-buildings me-1"></i>EE additionnelles</span>
         <button class="btn btn-sm btn-outline-primary" onclick="App.addICPEE()"><i class="bi bi-plus-lg me-1"></i>Ajouter EE</button>
       </div>
       <div id="icp-ee-list-container"></div>
@@ -6178,15 +6198,52 @@ const App = {
   // ---- ENTREPRISES RÉPERTOIRE ----
   showEntrepriseForm(id) {
     this.resetEntModal();
-    if (id) db.entreprises.get(id).then(e => { if(!e)return; document.getElementById('ent-edit-id').value=e.id; document.getElementById('ent-nom').value=e.nom||''; document.getElementById('ent-adresse').value=e.adresse||''; document.getElementById('ent-responsable').value=e.responsable||''; document.getElementById('ent-fonction').value=e.fonction||''; document.getElementById('ent-tel').value=e.tel||''; document.getElementById('ent-email').value=e.email||''; document.getElementById('ent-siret').value=e.siret||''; document.getElementById('ent-activite').value=e.activite||''; });
+    if (id) db.entreprises.get(id).then(e => {
+      if(!e)return;
+      document.getElementById('ent-edit-id').value=e.id;
+      document.getElementById('ent-nom').value=e.nom||'';
+      document.getElementById('ent-adresse').value=e.adresse||'';
+      document.getElementById('ent-responsable').value=e.responsable||'';
+      document.getElementById('ent-fonction').value=e.fonction||'';
+      document.getElementById('ent-tel').value=e.tel||'';
+      document.getElementById('ent-email').value=e.email||'';
+      document.getElementById('ent-siret').value=e.siret||'';
+      document.getElementById('ent-activite').value=e.activite||'';
+      // Contacts additionnels (tous sauf le main)
+      const contacts = this.getEntrepriseContacts(e);
+      const additional = contacts.filter(c => !c.isMain).concat(contacts.filter(c => c.isMain).slice(1));
+      additional.forEach(c => this.addEntContactRow(c));
+    });
     document.querySelector('#modal-entreprise .modal-title').innerHTML = '<i class="bi bi-building me-1"></i>'+(id?'Modifier':'Nouvelle')+' Entreprise';
     new bootstrap.Modal(document.getElementById('modal-entreprise')).show();
   },
 
   resetEntModal() {
     const body = document.getElementById('modal-entreprise-body');
-    body.innerHTML = `<input type="hidden" id="ent-edit-id"><div class="row g-2"><div class="col-12"><input type="text" class="form-control" id="ent-nom" placeholder="Raison sociale *"></div><div class="col-12"><input type="text" class="form-control" id="ent-adresse" placeholder="Adresse"></div><div class="col-6"><input type="text" class="form-control" id="ent-responsable" placeholder="Responsable"></div><div class="col-6"><input type="text" class="form-control" id="ent-fonction" placeholder="Fonction"></div><div class="col-6"><input type="tel" class="form-control" id="ent-tel" placeholder="Téléphone"></div><div class="col-6"><input type="email" class="form-control" id="ent-email" placeholder="Email"></div><div class="col-12"><input type="text" class="form-control" id="ent-siret" placeholder="SIRET"></div><div class="col-12"><input type="text" class="form-control" id="ent-activite" placeholder="Activité / Métier"></div><div class="col-12" id="ent-soustraitant-row" style="display:none"><select class="form-select" id="ent-soustraitant"><option value="">— Entreprise principale (pas un sous-traitant) —</option></select></div></div>`;
+    body.innerHTML = `<input type="hidden" id="ent-edit-id"><div class="row g-2"><div class="col-12"><input type="text" class="form-control" id="ent-nom" placeholder="Raison sociale *"></div><div class="col-12"><input type="text" class="form-control" id="ent-adresse" placeholder="Adresse"></div><div class="col-12"><div class="form-text fw-semibold mb-1"><i class="bi bi-person-badge me-1"></i>Contact principal</div></div><div class="col-6"><input type="text" class="form-control" id="ent-responsable" placeholder="Nom"></div><div class="col-6"><input type="text" class="form-control" id="ent-fonction" placeholder="Fonction"></div><div class="col-6"><input type="tel" class="form-control" id="ent-tel" placeholder="Téléphone"></div><div class="col-6"><input type="email" class="form-control" id="ent-email" placeholder="Email"></div><div class="col-12 mt-2"><div class="d-flex justify-content-between align-items-center mb-1"><div class="form-text fw-semibold mb-0"><i class="bi bi-people me-1"></i>Contacts additionnels</div><button type="button" class="btn btn-outline-primary btn-sm" onclick="App.addEntContactRow()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button></div><div id="ent-contacts-list"></div></div><div class="col-12 mt-2"><input type="text" class="form-control" id="ent-siret" placeholder="SIRET"></div><div class="col-12"><input type="text" class="form-control" id="ent-activite" placeholder="Activité / Métier"></div><div class="col-12" id="ent-soustraitant-row" style="display:none"><select class="form-select" id="ent-soustraitant"><option value="">— Entreprise principale (pas un sous-traitant) —</option></select></div></div>`;
     document.getElementById('modal-entreprise-footer').style.display = '';
+  },
+
+  addEntContactRow(c) {
+    const list = document.getElementById('ent-contacts-list');
+    if (!list) return;
+    const div = document.createElement('div');
+    div.className = 'row g-2 mb-2 ent-contact-row align-items-center';
+    div.innerHTML = `<div class="col-md-3"><input type="text" class="form-control form-control-sm ent-c-nom" placeholder="Nom" value="${this.esc(c?.nom||'')}"></div><div class="col-md-3"><input type="text" class="form-control form-control-sm ent-c-fonction" placeholder="Fonction" value="${this.esc(c?.fonction||'')}"></div><div class="col-md-2"><input type="tel" class="form-control form-control-sm ent-c-tel" placeholder="Tél." value="${this.esc(c?.tel||'')}"></div><div class="col-md-3"><input type="email" class="form-control form-control-sm ent-c-email" placeholder="Email" value="${this.esc(c?.email||'')}"></div><div class="col-md-1 d-flex justify-content-end"><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.ent-contact-row').remove()"><i class="bi bi-trash"></i></button></div>`;
+    list.appendChild(div);
+  },
+
+  collectEntContactRows() {
+    const rows = document.querySelectorAll('#ent-contacts-list .ent-contact-row');
+    const out = [];
+    rows.forEach(r => {
+      const nom = r.querySelector('.ent-c-nom')?.value.trim() || '';
+      const fonction = r.querySelector('.ent-c-fonction')?.value.trim() || '';
+      const tel = r.querySelector('.ent-c-tel')?.value.trim() || '';
+      const email = r.querySelector('.ent-c-email')?.value.trim() || '';
+      if (nom || fonction || tel || email) out.push({ nom, fonction, tel, email });
+    });
+    return out;
   },
 
   async saveEntreprise() {
@@ -6194,14 +6251,12 @@ const App = {
     if (!nom) { this.toast('Raison sociale requise','warning'); return; }
     const stEl = document.getElementById('ent-soustraitant');
     const data = { nom, adresse:document.getElementById('ent-adresse').value.trim(), responsable:document.getElementById('ent-responsable').value.trim(), fonction:document.getElementById('ent-fonction').value.trim(), tel:document.getElementById('ent-tel').value.trim(), email:document.getElementById('ent-email').value.trim(), siret:document.getElementById('ent-siret').value.trim(), activite:document.getElementById('ent-activite').value.trim(), sousTraitantDe: stEl ? stEl.value : '' };
-    // Si on édite une entreprise existante, préserver les contacts additionnels déjà saisis.
-    const editIdRaw = document.getElementById('ent-edit-id').value;
-    if (editIdRaw && editIdRaw !== 'new-ee' && !editIdRaw.startsWith('ee-')) {
-      const existing = await db.entreprises.get(parseInt(editIdRaw));
-      if (existing && Array.isArray(existing.contacts)) data.contacts = existing.contacts;
-    }
-    this.syncMainContact(data);
-    const editId = editIdRaw;
+    // Reconstruit contacts[] : main (depuis champs racine) + additionnels (depuis les rows DOM)
+    const main = { nom: data.responsable, fonction: data.fonction, tel: data.tel, email: data.email, isMain: true };
+    const additional = this.collectEntContactRows();
+    const hasMain = main.nom || main.fonction || main.tel || main.email;
+    data.contacts = hasMain ? [main, ...additional] : additional;
+    const editId = document.getElementById('ent-edit-id').value;
     if (editId === 'new-ee') { const repoId = await db.entreprises.add(data); data._repoId = repoId; this.currentPDP.entreprisesExt.push(data); this.renderEEList(); this.renderSignaturesEE(); this.prefillEmargements(); this.addHist(`EE ajoutée: ${nom}`); }
     else if (editId?.startsWith('ee-')) { const idx = parseInt(editId.replace('ee-','')); const repoId = this.currentPDP.entreprisesExt[idx]?._repoId; if (repoId) { data._repoId = repoId; await db.entreprises.put({...data, id:repoId}); } data._repoId = repoId||undefined; this.currentPDP.entreprisesExt[idx] = data; this.renderEEList(); this.renderSignaturesEE(); }
     else if (editId && editId!=='') { data.id = parseInt(editId); await db.entreprises.put(data); }
@@ -6664,6 +6719,53 @@ const App = {
     if (btnBack) btnBack.style.display = v.pdpId ? '' : 'none';
   },
 
+  // ---- ICP Représentant EE (entreprise + personne depuis le répertoire) ----
+  async populateICPEERepEntreprises() {
+    const sel = document.getElementById('icp-ee-entreprise-select');
+    if (!sel) return;
+    const ents = await db.entreprises.toArray();
+    sel.innerHTML = '<option value="">— Choisir l\'entreprise —</option>' + ents.map(e => `<option value="${e.id}">${this.esc(e.nom)}</option>`).join('');
+  },
+
+  async onICPEERepEntrepriseChange(entId, skipReset) {
+    const persSel = document.getElementById('icp-ee-personne-select');
+    if (!persSel) return;
+    if (!entId) {
+      persSel.innerHTML = '<option value="">— Choisir une personne —</option>';
+      persSel.disabled = true;
+      if (!skipReset) {
+        document.getElementById('icp-ee-rep-nom').value = '';
+        document.getElementById('icp-ee-rep-fonction').value = '';
+        document.getElementById('icp-ee-rep-tel').value = '';
+      }
+      return;
+    }
+    const e = await db.entreprises.get(parseInt(entId));
+    if (!e) { persSel.disabled = true; return; }
+    const contacts = this.getEntrepriseContacts(e);
+    persSel.innerHTML = '<option value="">— Choisir une personne —</option>' + contacts.map((c,i) => `<option value="${i}">${this.esc(c.nom||'(sans nom)')}${c.fonction?` — ${this.esc(c.fonction)}`:''}</option>`).join('');
+    persSel.disabled = !contacts.length;
+    // Si une seule personne et champs vides, pré-sélectionner
+    if (!skipReset && contacts.length === 1) {
+      persSel.value = '0';
+      this.onICPEERepPersonneChange('0');
+    }
+  },
+
+  async onICPEERepPersonneChange(idx) {
+    const entId = document.getElementById('icp-ee-entreprise-select').value;
+    if (!entId || idx === '') return;
+    const e = await db.entreprises.get(parseInt(entId));
+    if (!e) return;
+    const contacts = this.getEntrepriseContacts(e);
+    const c = contacts[parseInt(idx)];
+    if (!c) return;
+    document.getElementById('icp-ee-rep-nom').value = c.nom||'';
+    document.getElementById('icp-ee-rep-fonction').value = c.fonction||'';
+    document.getElementById('icp-ee-rep-tel').value = c.tel||'';
+    this._markEditing && this._markEditing();
+  },
+
   populateICPForm() {
     const v = this.currentICP;
     document.getElementById('icp-numero').value = v.numero||'';
@@ -6679,6 +6781,16 @@ const App = {
     document.getElementById('icp-eu-nom').value = eu.nom||'';
     document.getElementById('icp-eu-fonction').value = eu.fonction||'';
     document.getElementById('icp-eu-tel').value = eu.tel||'';
+    // Représentant EE (sélectionnable depuis le répertoire)
+    this.populateICPEERepEntreprises();
+    const ee = v.eeRepresentant||{};
+    if (ee.entrepriseId) {
+      document.getElementById('icp-ee-entreprise-select').value = ee.entrepriseId;
+      this.onICPEERepEntrepriseChange(ee.entrepriseId, /*skipReset*/true);
+    }
+    document.getElementById('icp-ee-rep-nom').value = ee.nom||'';
+    document.getElementById('icp-ee-rep-fonction').value = ee.fonction||'';
+    document.getElementById('icp-ee-rep-tel').value = ee.tel||'';
     document.getElementById('icp-observations').value = v.observations||'';
     this.renderICPEEList();
     this.renderICPRisquesList();
@@ -6713,6 +6825,15 @@ const App = {
       nom: document.getElementById('icp-eu-nom').value.trim(),
       fonction: document.getElementById('icp-eu-fonction').value.trim(),
       tel: document.getElementById('icp-eu-tel').value.trim()
+    };
+    const eeEntId = document.getElementById('icp-ee-entreprise-select')?.value || '';
+    const eeEntName = eeEntId ? document.getElementById('icp-ee-entreprise-select').selectedOptions[0]?.text || '' : '';
+    v.eeRepresentant = {
+      entrepriseId: eeEntId ? parseInt(eeEntId) : null,
+      entrepriseNom: eeEntName,
+      nom: document.getElementById('icp-ee-rep-nom').value.trim(),
+      fonction: document.getElementById('icp-ee-rep-fonction').value.trim(),
+      tel: document.getElementById('icp-ee-rep-tel').value.trim()
     };
     v.observations = document.getElementById('icp-observations').value.trim();
     v.signatureEU = v.signatureEU||{};
