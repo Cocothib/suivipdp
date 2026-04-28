@@ -2013,6 +2013,7 @@ textarea.form-control { min-height: 70px; }
           <div class="col-md-4"><label class="form-label" for="icp-eu-tel">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="icp-eu-tel" placeholder="Téléphone"></div></div>
           <div class="col-12 mt-1 d-flex justify-content-end"><button type="button" class="btn btn-outline-primary btn-sm" onclick="App.addICPEUParticipantRow()"><i class="bi bi-plus-lg me-1"></i>Ajouter une 2e personne EU</button></div>
           <div class="col-12"><div id="icp-eu-add-list"></div></div>
+          <datalist id="icp-eu-contacts-list"></datalist>
         </div>
       </div>
       <div class="field-group">
@@ -6611,13 +6612,18 @@ const App = {
       if (companyId) {
         try {
           // Sellsy v2 : /companies/{id} ne renvoie que le minimal — on fetche
-          // adresses et contact lié en parallèle pour compléter les champs ICP.
+          // adresses, contact lié, et tous les contacts de la company en parallèle.
           const contactId = (o.contactIds && o.contactIds[0]) || null;
-          const [c, addresses, contact] = await Promise.all([
+          const [c, addresses, contact, allContacts] = await Promise.all([
             SellsyAPI.getCompany(companyId).catch(() => null),
             SellsyAPI.getCompanyAddresses(companyId).catch(() => []),
             contactId ? SellsyAPI.getContact(contactId).catch(() => null) : Promise.resolve(null),
+            SellsyAPI.getContacts(companyId).catch(() => []),
           ]);
+          // Datalist autocomplete pour les participants EU additionnels
+          this._icpEUContactsCache = allContacts || [];
+          const dl = document.getElementById('icp-eu-contacts-list');
+          if (dl) dl.innerHTML = (allContacts||[]).map(c => `<option value="${this.esc(c.nom||'')}"></option>`).join('');
           console.log('[Sellsy] company:', c);
           console.log('[Sellsy] addresses:', addresses);
           console.log('[Sellsy] contact:', contact);
@@ -6771,9 +6777,24 @@ const App = {
     const div = document.createElement('div');
     div.className = 'row g-2 mb-2 icp-eu-add-row align-items-center';
     div.dataset.idx = idx;
-    div.innerHTML = `<div class="col-md-4"><input type="text" class="form-control form-control-sm icp-eu-add-nom" placeholder="Nom" value="${this.esc(p?.nom||'')}" oninput="App.renderICPAddSignatures()"></div><div class="col-md-3"><input type="text" class="form-control form-control-sm icp-eu-add-fonction" placeholder="Fonction" value="${this.esc(p?.fonction||'')}"></div><div class="col-md-4"><input type="tel" class="form-control form-control-sm icp-eu-add-tel" placeholder="Tél." value="${this.esc(p?.tel||'')}"></div><div class="col-md-1 d-flex justify-content-end"><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.icp-eu-add-row').remove(); App.renderICPAddSignatures();"><i class="bi bi-trash"></i></button></div>`;
+    div.innerHTML = `<div class="col-md-4"><input type="text" class="form-control form-control-sm icp-eu-add-nom" list="icp-eu-contacts-list" placeholder="Nom (contacts EU…)" value="${this.esc(p?.nom||'')}" oninput="App.onICPEUAddRowNomInput(${idx}, this); App.renderICPAddSignatures();"></div><div class="col-md-3"><input type="text" class="form-control form-control-sm icp-eu-add-fonction" placeholder="Fonction" value="${this.esc(p?.fonction||'')}"></div><div class="col-md-4"><input type="tel" class="form-control form-control-sm icp-eu-add-tel" placeholder="Tél." value="${this.esc(p?.tel||'')}"></div><div class="col-md-1 d-flex justify-content-end"><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.icp-eu-add-row').remove(); App.renderICPAddSignatures();"><i class="bi bi-trash"></i></button></div>`;
     list.appendChild(div);
     this.renderICPAddSignatures();
+  },
+
+  onICPEUAddRowNomInput(idx, inputEl) {
+    const row = inputEl.closest('.icp-eu-add-row');
+    if (!row) return;
+    const v = (inputEl.value||'').trim().toLowerCase();
+    if (!v || v.length < 3) return;
+    const contacts = this._icpEUContactsCache || [];
+    const match = contacts.find(c => (c.nom||'').toLowerCase() === v);
+    if (match) {
+      const fEl = row.querySelector('.icp-eu-add-fonction');
+      const tEl = row.querySelector('.icp-eu-add-tel');
+      if (fEl && !fEl.value.trim()) fEl.value = match.fonction||'';
+      if (tEl && !tEl.value.trim()) tEl.value = match.tel||'';
+    }
   },
 
   addICPEEParticipantRow(p) {
