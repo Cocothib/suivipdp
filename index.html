@@ -6940,14 +6940,32 @@ const App = {
   async addICPEE() {
     const ents = await db.entreprises.toArray();
     if (ents.length) {
-      let html = '<p class="fw-bold small">Depuis le répertoire :</p>';
-      html += ents.map(e => `<div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.addICPEEFromRepo(${e.id})"><i class="bi bi-building"></i><span class="small">${this.esc(e.nom)}</span></div>`).join('');
-      html += '<hr><div class="text-center"><button class="btn btn-outline-primary btn-sm" onclick="App.addICPEEManual()"><i class="bi bi-plus-lg me-1"></i>Saisie manuelle</button></div>';
+      const items = ents.map(e => `<div class="addicpee-row d-flex align-items-center gap-2 mb-1 p-2 rounded border" data-name="${this.esc((e.nom||'').toLowerCase())}" style="cursor:pointer" onclick="App.addICPEEFromRepo(${e.id})"><i class="bi bi-building"></i><span class="small">${this.esc(e.nom)}</span></div>`).join('');
+      const html = `
+        <div class="mb-2"><input type="text" class="form-control form-control-sm" id="addicpee-search" placeholder="Rechercher une entreprise…" oninput="App.filterAddICPEE(this.value)" autofocus></div>
+        <p class="fw-bold small mb-1">Depuis le répertoire :</p>
+        <div id="addicpee-list">${items}</div>
+        <p id="addicpee-empty" class="text-muted small text-center mt-2" style="display:none">Aucune entreprise correspondante.</p>
+        <hr><div class="text-center"><button class="btn btn-outline-primary btn-sm" onclick="App.addICPEEManual()"><i class="bi bi-plus-lg me-1"></i>Saisie manuelle</button></div>`;
       document.getElementById('modal-entreprise-body').innerHTML = html;
       document.getElementById('modal-entreprise-footer').style.display = 'none';
       document.querySelector('#modal-entreprise .modal-title').innerHTML = '<i class="bi bi-building me-1"></i>Ajouter une EE à l\'ICP';
       new bootstrap.Modal(document.getElementById('modal-entreprise')).show();
     } else { this.addICPEEManual(); }
+  },
+
+  filterAddICPEE(q) {
+    const term = (q||'').trim().toLowerCase();
+    const rows = document.querySelectorAll('#addicpee-list .addicpee-row');
+    let visible = 0;
+    rows.forEach(r => {
+      const name = r.dataset.name || '';
+      const match = !term || name.includes(term);
+      r.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    const empty = document.getElementById('addicpee-empty');
+    if (empty) empty.style.display = visible ? 'none' : '';
   },
 
   async addICPEEFromRepo(id) {
