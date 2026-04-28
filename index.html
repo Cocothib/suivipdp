@@ -1659,8 +1659,12 @@ textarea.form-control { min-height: 70px; }
           </div>
         </div>
         <div class="field-group">
-          <div class="field-group-title"><i class="bi bi-people"></i><span data-type-label="sig-ee-title">Signatures Entreprises Extérieures</span></div>
+          <div class="field-group-title"><i class="bi bi-people"></i><span data-type-label="sig-ee-title">Signatures Entreprises Extérieures (sous-traitantes)</span></div>
           <div id="signatures-ee-container"></div>
+        </div>
+        <div class="field-group" id="signatures-icp-section">
+          <div class="field-group-title"><i class="bi bi-pen"></i> Signatures participants ICP</div>
+          <div id="signatures-icp-participants-container"></div>
         </div>
       </div>
     </div>
@@ -4431,6 +4435,7 @@ const App = {
     if (section === 'signatures') setTimeout(() => this.initSignatureCanvases(), 100);
     if (section === 'risques') { this._riskPickerCtx = 'pdp'; this.updateRiskCounters(); }
     if (section === 'emargement') { this.prefillEmargements(); }
+    if (section === 'signatures') { this.renderPDPICPParticipantsSignatures(); }
     if (section === 'permisfeu') setTimeout(() => { this.initCanvas('pf-sig-eu-canvas'); this.initCanvas('pf-sig-ee-canvas'); this.initCanvas('pf-sig-exec-canvas'); if (this.currentPDP?.permisFeu?.signatureEU?.data) this.loadSigImg('pf-sig-eu-canvas', this.currentPDP.permisFeu.signatureEU.data); if (this.currentPDP?.permisFeu?.signatureEE?.data) this.loadSigImg('pf-sig-ee-canvas', this.currentPDP.permisFeu.signatureEE.data); if (this.currentPDP?.permisFeu?.signatureExec?.data) this.loadSigImg('pf-sig-exec-canvas', this.currentPDP.permisFeu.signatureExec.data); (this.currentPDP?.permisFeu?.renouvellements||[]).forEach((r,i) => { this.initCanvas('pf-renouv-sig-'+i); if (r.signatureEU?.data) this.loadSigImg('pf-renouv-sig-'+i, r.signatureEU.data); }); }, 100);
     this._currentSection = section;
     this.updateProgress();
@@ -5392,6 +5397,56 @@ const App = {
       const cv = document.getElementById(`sig-ee-canvas-${i}`);
       if (cv && cv._hasDrawing) this.currentPDP.signaturesEE[i].data = cv.toDataURL();
     });
+    // Signatures participants ICP
+    (this.currentPDP.signaturesICPParticipants||[]).forEach((_,i) => {
+      const cv = document.getElementById(`sig-icp-part-canvas-${i}`);
+      if (cv && cv._hasDrawing) this.currentPDP.signaturesICPParticipants[i].data = cv.toDataURL();
+    });
+  },
+
+  // Rend les blocs signature pour chaque participant de l'ICP liée au PDP
+  async renderPDPICPParticipantsSignatures() {
+    const container = document.getElementById('signatures-icp-participants-container');
+    const section = document.getElementById('signatures-icp-section');
+    const p = this.currentPDP;
+    if (!container || !p) return;
+    if (!p.icpId) {
+      if (section) section.style.display = 'none';
+      container.innerHTML = '';
+      return;
+    }
+    const v = await db.icps.get(p.icpId).catch(() => null);
+    if (!v) {
+      if (section) section.style.display = 'none';
+      container.innerHTML = '';
+      return;
+    }
+    // Construit la liste des participants ICP avec leur rôle
+    const participants = [];
+    const euSoc = p.eu?.nom || v.euInfo?.nom || '';
+    if (v.euParticipant?.nom) participants.push({ role:'Représentant EU', nom: v.euParticipant.nom, fonction: v.euParticipant.fonction||'', societe: euSoc });
+    (v.euParticipants||[]).forEach(pp => { if (pp.nom) participants.push({ role:'Participant EU', nom: pp.nom, fonction: pp.fonction||'', societe: euSoc }); });
+    const eeSoc = v.eeRepresentant?.entrepriseNom || '';
+    if (v.eeRepresentant?.nom) participants.push({ role:'Représentant EE', nom: v.eeRepresentant.nom, fonction: v.eeRepresentant.fonction||'', societe: eeSoc });
+    (v.eeParticipants||[]).forEach(pp => { if (pp.nom) participants.push({ role:'Participant EE', nom: pp.nom, fonction: pp.fonction||'', societe: eeSoc }); });
+    if (section) section.style.display = participants.length ? '' : 'none';
+    if (!participants.length) { container.innerHTML = ''; return; }
+    p.signaturesICPParticipants = p.signaturesICPParticipants || [];
+    // Aligner la longueur du tableau et préserver les signatures par clé (rôle+nom+societe)
+    const keyOf = x => `${x.role}|${x.nom}|${x.societe}`.toLowerCase();
+    const oldByKey = new Map((p.signaturesICPParticipants||[]).map(s => [keyOf(s), s]));
+    p.signaturesICPParticipants = participants.map(x => {
+      const old = oldByKey.get(keyOf(x));
+      return old ? { ...x, date: old.date||'', data: old.data||null } : { ...x, date:'', data:null };
+    });
+    container.innerHTML = participants.map((x,i) => `<div class="border rounded p-2 mb-2"><div class="d-flex justify-content-between align-items-center mb-2"><h6 class="mb-0"><i class="bi bi-person me-1"></i>${this.esc(x.role)} : ${this.esc(x.nom)}${x.fonction?` <span class="text-muted small">(${this.esc(x.fonction)})</span>`:''}</h6>${x.societe?`<span class="badge bg-secondary">${this.esc(x.societe)}</span>`:''}</div><div class="row g-2"><div class="col-md-6"><input type="date" class="form-control form-control-sm" value="${p.signaturesICPParticipants[i].date||''}" onchange="App.currentPDP.signaturesICPParticipants[${i}].date=this.value"></div><div class="col-12"><div class="signature-pad-wrapper"><canvas id="sig-icp-part-canvas-${i}" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('sig-icp-part-canvas-${i}')"><i class="bi bi-eraser me-1"></i>Effacer</button></div></div></div>`).join('');
+    setTimeout(() => {
+      participants.forEach((_,i) => {
+        this.initCanvas(`sig-icp-part-canvas-${i}`);
+        const sig = p.signaturesICPParticipants[i];
+        if (sig?.data) this.loadSigImg(`sig-icp-part-canvas-${i}`, sig.data);
+      });
+    }, 100);
   },
 
   // ---- TYPE/ENTITE AUTO-FILL ----
