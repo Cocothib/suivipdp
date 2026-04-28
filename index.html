@@ -2716,6 +2716,22 @@ db.version(31).stores({
   sites: '++id, nom, entite',
   settings: 'key'
 });
+// v32 : ajoute le champ `contacts[]` aux entreprises (multi-contacts par entreprise).
+// Les champs racine responsable/fonction/tel/email restent comme miroir du contact principal (rétro-compat).
+db.version(32).stores({
+  pdps: '++id, numero, titre, statut, dateDebut, dateFin, dateCreation, dateModification',
+  entreprises: '++id, nom, siret',
+  icps: '++id, numero, site, dateVisite, pdpId, dateCreation',
+  sites: '++id, nom, entite',
+  settings: 'key'
+}).upgrade(async tx => {
+  await tx.table('entreprises').toCollection().modify(e => {
+    if (!Array.isArray(e.contacts)) e.contacts = [];
+    if (!e.contacts.length && (e.responsable || e.fonction || e.tel || e.email)) {
+      e.contacts.push({ nom: e.responsable||'', fonction: e.fonction||'', tel: e.tel||'', email: e.email||'', isMain: true });
+    }
+  });
+});
 
 // ========================================
 // SHAREPOINT CONFIG
@@ -6117,6 +6133,48 @@ const App = {
     }).join('');
   },
 
+  // ---- ENTREPRISES RÉPERTOIRE : helpers contacts multiples ----
+  // Une entreprise peut avoir plusieurs contacts dans `e.contacts[]`. Le contact
+  // principal est marqué `isMain:true` (sinon le premier). Les champs racine
+  // `e.responsable/fonction/tel/email` sont conservés en miroir du contact principal
+  // pour la rétro-compatibilité avec tous les anciens accès.
+  getEntrepriseContacts(e) {
+    if (!e) return [];
+    if (Array.isArray(e.contacts) && e.contacts.length) return e.contacts;
+    if (e.responsable || e.fonction || e.tel || e.email) {
+      return [{ nom: e.responsable||'', fonction: e.fonction||'', tel: e.tel||'', email: e.email||'', isMain: true }];
+    }
+    return [];
+  },
+  getMainContact(e) {
+    const list = this.getEntrepriseContacts(e);
+    return list.find(c => c.isMain) || list[0] || null;
+  },
+  syncMainContact(data) {
+    // Garantit la cohérence champs racine ⇄ contacts[main].
+    if (!Array.isArray(data.contacts)) data.contacts = [];
+    const rootHasData = data.responsable || data.fonction || data.tel || data.email;
+    if (!data.contacts.length && rootHasData) {
+      data.contacts.push({ nom: data.responsable||'', fonction: data.fonction||'', tel: data.tel||'', email: data.email||'', isMain: true });
+    } else if (data.contacts.length) {
+      let main = data.contacts.find(c => c.isMain);
+      if (!main) { main = data.contacts[0]; main.isMain = true; }
+      // Si les champs racine ont été modifiés via le formulaire, on les pousse vers le main.
+      if (rootHasData) {
+        main.nom = data.responsable||main.nom||'';
+        main.fonction = data.fonction||main.fonction||'';
+        main.tel = data.tel||main.tel||'';
+        main.email = data.email||main.email||'';
+      }
+      // Inversement : champs racine reflètent toujours le main.
+      data.responsable = main.nom||'';
+      data.fonction = main.fonction||'';
+      data.tel = main.tel||'';
+      data.email = main.email||'';
+    }
+    return data;
+  },
+
   // ---- ENTREPRISES RÉPERTOIRE ----
   showEntrepriseForm(id) {
     this.resetEntModal();
@@ -6136,7 +6194,14 @@ const App = {
     if (!nom) { this.toast('Raison sociale requise','warning'); return; }
     const stEl = document.getElementById('ent-soustraitant');
     const data = { nom, adresse:document.getElementById('ent-adresse').value.trim(), responsable:document.getElementById('ent-responsable').value.trim(), fonction:document.getElementById('ent-fonction').value.trim(), tel:document.getElementById('ent-tel').value.trim(), email:document.getElementById('ent-email').value.trim(), siret:document.getElementById('ent-siret').value.trim(), activite:document.getElementById('ent-activite').value.trim(), sousTraitantDe: stEl ? stEl.value : '' };
-    const editId = document.getElementById('ent-edit-id').value;
+    // Si on édite une entreprise existante, préserver les contacts additionnels déjà saisis.
+    const editIdRaw = document.getElementById('ent-edit-id').value;
+    if (editIdRaw && editIdRaw !== 'new-ee' && !editIdRaw.startsWith('ee-')) {
+      const existing = await db.entreprises.get(parseInt(editIdRaw));
+      if (existing && Array.isArray(existing.contacts)) data.contacts = existing.contacts;
+    }
+    this.syncMainContact(data);
+    const editId = editIdRaw;
     if (editId === 'new-ee') { const repoId = await db.entreprises.add(data); data._repoId = repoId; this.currentPDP.entreprisesExt.push(data); this.renderEEList(); this.renderSignaturesEE(); this.prefillEmargements(); this.addHist(`EE ajoutée: ${nom}`); }
     else if (editId?.startsWith('ee-')) { const idx = parseInt(editId.replace('ee-','')); const repoId = this.currentPDP.entreprisesExt[idx]?._repoId; if (repoId) { data._repoId = repoId; await db.entreprises.put({...data, id:repoId}); } data._repoId = repoId||undefined; this.currentPDP.entreprisesExt[idx] = data; this.renderEEList(); this.renderSignaturesEE(); }
     else if (editId && editId!=='') { data.id = parseInt(editId); await db.entreprises.put(data); }
@@ -6258,7 +6323,11 @@ const App = {
         // Persister dans le répertoire local pour réutilisation future
         try {
           const existing = (await db.entreprises.toArray()).find(e => e.siret && c.siret && e.siret === c.siret);
-          if (!existing) await db.entreprises.add({ nom:c.nom, siret:c.siret, adresse:c.adresse, tel:c.tel, email:c.email, responsable:c.responsable, fonction:c.fonction, activite:c.activite });
+          if (!existing) {
+            const newEnt = { nom:c.nom, siret:c.siret, adresse:c.adresse, tel:c.tel, email:c.email, responsable:c.responsable, fonction:c.fonction, activite:c.activite };
+            this.syncMainContact(newEnt);
+            await db.entreprises.add(newEnt);
+          }
         } catch {}
         this.renderEEList(); this.renderSignaturesEE && this.renderSignaturesEE(); this.prefillEmargements && this.prefillEmargements();
         this.addHist && this.addHist(`EE ajoutée depuis Sellsy: ${c.nom}`);
@@ -6282,8 +6351,16 @@ const App = {
         for (const c of items) {
           const existing = all.find(e => (c.siret && e.siret === c.siret) || (e.nom && e.nom.toLowerCase() === (c.nom||'').toLowerCase()));
           const data = { nom:c.nom, siret:c.siret, adresse:c.adresse, tel:c.tel, email:c.email, responsable:c.responsable, fonction:c.fonction, activite:c.activite };
-          if (existing) { await db.entreprises.put({ ...existing, ...data }); updated++; }
-          else { await db.entreprises.add(data); added++; }
+          if (existing) {
+            const merged = { ...existing, ...data };
+            this.syncMainContact(merged);
+            await db.entreprises.put(merged);
+            updated++;
+          } else {
+            this.syncMainContact(data);
+            await db.entreprises.add(data);
+            added++;
+          }
         }
         if (items.length < 100) break;
         offset += 100;
