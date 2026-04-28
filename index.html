@@ -10552,9 +10552,44 @@ const App = {
       this._pdfBlobResult = doc.output('blob');
       return;
     }
-    doc.save(pdfFn);
-    try { DataSync.uploadExport(doc.output('blob'), pdfFn, 'pdp'); } catch(e) {}
-    this.toast('PDF généré');
+    const pdfBlob = doc.output('blob');
+    // Si annexes (FDS-ref ou docs avec data) → ZIP global PDP + Annexes
+    const docsToBundle = [];
+    for (const d of (p.documents||[])) {
+      if (d.fdsRef) {
+        try {
+          const f = await db.fds.get(d.fdsRef);
+          if (f?.data) docsToBundle.push({ nom: f.nom||d.nom||'fds.pdf', dataUrl: f.data });
+        } catch {}
+      } else if (d.data) {
+        docsToBundle.push({ nom: d.nom||'document', dataUrl: d.data });
+      }
+    }
+    if (docsToBundle.length && typeof JSZip !== 'undefined') {
+      const zip = new JSZip();
+      zip.file(pdfFn, pdfBlob);
+      const annexesFolder = zip.folder('Annexes');
+      const seen = new Map();
+      for (const dd of docsToBundle) {
+        let nm = dd.nom;
+        const cnt = (seen.get(nm)||0) + 1; seen.set(nm, cnt);
+        if (cnt > 1) {
+          const dot = nm.lastIndexOf('.');
+          nm = dot>0 ? `${nm.slice(0,dot)}_${cnt}${nm.slice(dot)}` : `${nm}_${cnt}`;
+        }
+        const base64 = (dd.dataUrl.split(',')[1])||'';
+        annexesFolder.file(nm, base64, { base64: true });
+      }
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const zipName = `${p.numero||'PDP'}.zip`;
+      saveAs(zipBlob, zipName);
+      try { DataSync.uploadExport(zipBlob, zipName, 'pdp'); } catch(e) {}
+      this.toast(`PDF + ${docsToBundle.length} annexe(s) générés (ZIP)`);
+    } else {
+      doc.save(pdfFn);
+      try { DataSync.uploadExport(pdfBlob, pdfFn, 'pdp'); } catch(e) {}
+      this.toast('PDF généré');
+    }
   },
 
   // ---- EXPORT ZIP COMPLET ----
