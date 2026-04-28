@@ -5978,13 +5978,21 @@ const App = {
   },
 
   updateMapsLink() {
+    // Mobile : URI geo: ouvre Maps/Plans natif (instantané).
+    // Desktop : OSM (charge ~1s vs 5-10s pour Google Maps avec tracking prevention).
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const buildUrl = (lat, lng) => isMobile
+      ? `geo:${lat},${lng}?q=${lat},${lng}`
+      : `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}`;
     const refresh = (inputId, linkId) => {
       const link = document.getElementById(linkId);
       if (!link) return;
       const gps = (document.getElementById(inputId)?.value||'').trim();
-      if (gps && /-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?/.test(gps)) {
+      const m = gps.match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+      if (m) {
         link.style.display = 'inline-block';
-        link.href = 'https://www.google.com/maps?q=' + encodeURIComponent(gps);
+        link.href = buildUrl(m[1], m[2]);
+        link.title = isMobile ? 'Ouvrir dans Maps/Plans' : 'Ouvrir dans OpenStreetMap';
       } else {
         link.style.display = 'none';
       }
