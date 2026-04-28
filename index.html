@@ -5484,6 +5484,34 @@ const App = {
     }
   },
 
+  // Construit un nom de fichier export à partir d'un PDP : numero_OPP-XXXX_titre.ext
+  async buildPDPFilename(p, ext, prefix) {
+    if (!p) return `PDP.${ext}`;
+    const parts = [prefix||'', p.numero||'PDP'];
+    if (p.icpId) {
+      try {
+        const v = await db.icps.get(p.icpId);
+        if (v?.refOperation) parts.push(v.refOperation);
+      } catch {}
+    }
+    if (p.titre) {
+      const t = p.titre.replace(/[<>:"/\\|?*]/g,'_').replace(/\s+/g,' ').trim().slice(0, 50);
+      if (t && !parts.some(x => (x||'').toLowerCase().includes(t.toLowerCase()))) parts.push(t);
+    }
+    return parts.filter(Boolean).join('_') + '.' + ext;
+  },
+
+  buildICPFilename(v, ext) {
+    if (!v) return `ICP.${ext}`;
+    const parts = [v.numero||'ICP'];
+    if (v.refOperation) parts.push(v.refOperation);
+    if (v.objet) {
+      const t = v.objet.replace(/[<>:"/\\|?*]/g,'_').replace(/\s+/g,' ').trim().slice(0, 50);
+      if (t && !parts.some(x => (x||'').toLowerCase().includes(t.toLowerCase()))) parts.push(t);
+    }
+    return parts.filter(Boolean).join('_') + '.' + ext;
+  },
+
   // Pré-remplit la signature EU avec le contact EU si vide (le Représentant EU
   // saisi dans l'onglet Entreprises = le bon signataire pour le PDP).
   prefillSignatureEU() {
@@ -8167,7 +8195,7 @@ const App = {
       if (pdp) { addL(); addT(`PDP associé: ${pdp.numero||''} — ${pdp.titre||''}`,9,'italic',[100,100,100]); }
     }
 
-    const icpPdfFn = `${v.numero||'ICP'}.pdf`;
+    const icpPdfFn = this.buildICPFilename(v, 'pdf');
     doc.save(icpPdfFn);
     doc.output('blob').then(blob => DataSync.uploadExport(blob, icpPdfFn, 'icp')).catch(()=>{});
     this.toast('PDF ICP généré');
@@ -8330,7 +8358,7 @@ const App = {
 
     const doc2 = new Document({sections:[{properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},children}]});
     const blob = await Packer.toBlob(doc2);
-    const icpDocxFn = `${v.numero||'ICP'}.docx`;
+    const icpDocxFn = this.buildICPFilename(v, 'docx');
     saveAs(blob, icpDocxFn);
     DataSync.uploadExport(blob, icpDocxFn, 'icp');
     this.toast('Word ICP généré');
@@ -9531,12 +9559,11 @@ const App = {
     ]});
     const doc = new Document({ sections:[{properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},footers:{default:new Footer({children:[footerPara]})},children}] });
     const blob = await Packer.toBlob(doc);
-    const fn = `${p.numero||'PDP'}.docx`;
+    const fn = await this.buildPDPFilename(p, 'docx');
     if (this._returnDOCXBlob) {
       this._docxBlobResult = blob;
       return;
     }
-    // Export Word seul (sans annexes). Pour le ZIP avec annexes, utiliser exportZIP('docx').
     saveAs(blob, fn);
     DataSync.uploadExport(blob, fn, 'pdp');
     this.toast('Word généré');
@@ -9715,7 +9742,7 @@ const App = {
     ]});
     const doc = new Document({ sections:[{properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},footers:{default:new Ft({children:[footerPara]})},children}] });
     const blob = await Packer.toBlob(doc);
-    const fn = `PERMIS-FEU_${p.numero||'PDP'}.docx`;
+    const fn = await this.buildPDPFilename(p, 'docx', 'PERMIS-FEU');
     saveAs(blob, fn);
     this.toast('Permis de feu Word généré');
    } catch(err) { console.error('exportPermisFeuDOCX error:', err); this.toast('Erreur export Word: '+err.message,'danger'); }
@@ -9884,7 +9911,7 @@ const App = {
       doc.text(`PERMIS DE FEU — ${p.numero||'PDP'} — ${entityName} — Page ${i}/${totalPages}`,105,292,{align:'center'});
     }
 
-    const fn = `PERMIS-FEU_${p.numero||'PDP'}.pdf`;
+    const fn = await this.buildPDPFilename(p, 'pdf', 'PERMIS-FEU');
     doc.save(fn);
     this.toast('Permis de feu PDF généré');
    } catch(err) { console.error('exportPermisFeuPDF error:', err); this.toast('Erreur export PDF: '+err.message,'danger'); }
@@ -10006,7 +10033,7 @@ const App = {
     ]});
     const doc = new Document({ sections:[{properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},footers:{default:new Ft2({children:[footerPara]})},children}] });
     const blob = await Packer.toBlob(doc);
-    const fn = `PDP-SOUS-TRAITANT_${p.numero||'PDP'}.docx`;
+    const fn = await this.buildPDPFilename(p, 'docx', 'SOUS-TRAITANT');
     saveAs(blob, fn);
     this.toast('PDP sous-traitant Word généré');
   },
@@ -10513,7 +10540,7 @@ const App = {
       doc.text(`${p.numero||'PDP'} — ${entityName} — Page ${i}/${totalPages}`,105,292,{align:'center'});
     }
 
-    const pdfFn = `${p.numero||'PDP'}.pdf`;
+    const pdfFn = await this.buildPDPFilename(p, 'pdf');
     if (this._returnPDFBlob) {
       this._pdfBlobResult = doc.output('blob');
       return;
@@ -10531,7 +10558,7 @@ const App = {
     if (typeof JSZip === 'undefined') { this.toast('Bibliothèque JSZip non chargée','danger'); return; }
     const p = this.currentPDP;
     const zip = new JSZip();
-    const baseName = p.numero||'PDP';
+    const baseName = (await this.buildPDPFilename(p, 'tmp')).replace(/\.tmp$/,'');
 
     // 1. Générer le document principal (Word ou PDF)
     this.toast('Génération du ZIP en cours…','info');
