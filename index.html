@@ -1987,7 +1987,7 @@ textarea.form-control { min-height: 70px; }
           <div class="col-md-4"><label class="form-label" for="icp-date">Date de la visite *</label><div class="input-icon-wrap"><i class="bi bi-calendar input-icon"></i><input type="date" class="form-control" id="icp-date"></div></div>
           <div class="col-md-2"><label class="form-label" for="icp-heure">Heure</label><div class="input-icon-wrap"><i class="bi bi-clock input-icon"></i><input type="time" class="form-control" id="icp-heure"></div></div>
           <div class="col-md-6"><label class="form-label" for="icp-site">Site / Adresse</label><div class="input-icon-wrap"><i class="bi bi-geo-alt input-icon"></i><input type="text" class="form-control" id="icp-site" placeholder="Ex: 20 rue du 11 novembre 59169 FERIN"></div></div>
-          <div class="col-md-6"><label class="form-label" for="icp-lieu">Coordonnées GPS</label><div class="input-group"><span class="input-group-text"><i class="bi bi-pin-map"></i></span><input type="text" class="form-control" id="icp-lieu" placeholder="Ex: 50.34521, 3.10274"><button class="btn btn-outline-success" type="button" onclick="App.geocodeICPSite()" title="Géolocaliser depuis l'adresse Site"><i class="bi bi-geo-alt-fill"></i></button></div></div>
+          <div class="col-md-6"><label class="form-label" for="icp-lieu">Coordonnées GPS</label><div class="input-group"><span class="input-group-text"><i class="bi bi-pin-map"></i></span><input type="text" class="form-control" id="icp-lieu" placeholder="Ex: 50.34521, 3.10274" oninput="App.updateMapsLink()"><button class="btn btn-outline-success" type="button" onclick="App.geocodeICPSite()" title="Géolocaliser depuis l'adresse Site"><i class="bi bi-geo-alt-fill"></i></button><a id="icp-gps-maps-link" href="#" target="_blank" rel="noopener" class="btn btn-outline-secondary" style="display:none" title="Ouvrir dans Google Maps"><i class="bi bi-map"></i></a></div></div>
         </div>
       </div>
       <div class="field-group">
@@ -5972,20 +5972,25 @@ const App = {
     if (!r) { this.toast('Adresse introuvable', 'warning'); return; }
     const gps = `${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}`;
     document.getElementById('icp-lieu').value = gps;
+    this.updateMapsLink();
     this._markEditing && this._markEditing();
     this.toast(`GPS récupéré : ${gps}`);
   },
 
   updateMapsLink() {
-    const gps = (document.getElementById('pdp-gps')?.value||'').trim();
-    const link = document.getElementById('pdp-gps-maps-link');
-    if (!link) return;
-    if (gps && /-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?/.test(gps)) {
-      link.style.display = 'inline-block';
-      link.href = 'https://www.google.com/maps?q=' + encodeURIComponent(gps);
-    } else {
-      link.style.display = 'none';
-    }
+    const refresh = (inputId, linkId) => {
+      const link = document.getElementById(linkId);
+      if (!link) return;
+      const gps = (document.getElementById(inputId)?.value||'').trim();
+      if (gps && /-?\d+(\.\d+)?\s*,\s*-?\d+(\.\d+)?/.test(gps)) {
+        link.style.display = 'inline-block';
+        link.href = 'https://www.google.com/maps?q=' + encodeURIComponent(gps);
+      } else {
+        link.style.display = 'none';
+      }
+    };
+    refresh('pdp-gps', 'pdp-gps-maps-link');
+    refresh('icp-lieu', 'icp-gps-maps-link');
   },
 
   async geocodeEUAddress() {
@@ -6463,6 +6468,7 @@ const App = {
       }
 
       bootstrap.Modal.getInstance(document.getElementById('modal-entreprise'))?.hide();
+      this.updateMapsLink();
       this._markEditing && this._markEditing();
       this.toast(`Opportunité Sellsy appliquée : ${o.ref}`);
     } catch (e) {
@@ -6582,6 +6588,7 @@ const App = {
     document.getElementById('icp-heure').value = v.heure||'';
     document.getElementById('icp-site').value = v.site||'';
     document.getElementById('icp-lieu').value = v.lieu||'';
+    this.updateMapsLink();
     document.getElementById('icp-objet').value = v.objet||'';
     const eu = v.euParticipant||{};
     document.getElementById('icp-eu-nom').value = eu.nom||'';
