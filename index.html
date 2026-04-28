@@ -7070,7 +7070,17 @@ const App = {
 
   async saveICP() {
     const v = this.collectICPForm();
-    if (!v.dateVisite && !v.site) { this.toast("Date ou site requis",'warning'); return; }
+    if (!v.dateVisite && !v.site) {
+      const dateEl = document.getElementById('icp-date');
+      const siteEl = document.getElementById('icp-site');
+      dateEl?.classList.add('is-invalid');
+      siteEl?.classList.add('is-invalid');
+      dateEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      alert("Impossible d'enregistrer cette ICP.\n\nVeuillez renseigner au moins :\n  • la Date de visite\n  • OU le champ Site / Adresse\n\nLes champs requis sont surlignés en rouge.");
+      return;
+    }
+    document.getElementById('icp-date')?.classList.remove('is-invalid');
+    document.getElementById('icp-site')?.classList.remove('is-invalid');
     try {
       const wasNew = !v.id;
       if (v.id) { await db.icps.put(v); }
