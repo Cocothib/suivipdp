@@ -2011,6 +2011,8 @@ textarea.form-control { min-height: 70px; }
           <div class="col-md-4"><label class="form-label" for="icp-eu-nom">Nom</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-eu-nom" placeholder="Nom" oninput="App.syncICPSignatureNom('eu')"></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-eu-fonction">Fonction</label><div class="input-icon-wrap"><i class="bi bi-briefcase input-icon"></i><input type="text" class="form-control" id="icp-eu-fonction" placeholder="Fonction"></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-eu-tel">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="icp-eu-tel" placeholder="Téléphone"></div></div>
+          <div class="col-12 mt-1 d-flex justify-content-end"><button type="button" class="btn btn-outline-primary btn-sm" onclick="App.addICPEUParticipantRow()"><i class="bi bi-plus-lg me-1"></i>Ajouter une 2e personne EU</button></div>
+          <div class="col-12"><div id="icp-eu-add-list"></div></div>
         </div>
       </div>
       <div class="field-group">
@@ -2031,6 +2033,8 @@ textarea.form-control { min-height: 70px; }
           <div class="col-md-4"><label class="form-label" for="icp-ee-rep-nom">Nom</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-ee-rep-nom" placeholder="Nom" oninput="App.syncICPSignatureNom('ee')"></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-ee-rep-fonction">Fonction</label><div class="input-icon-wrap"><i class="bi bi-briefcase input-icon"></i><input type="text" class="form-control" id="icp-ee-rep-fonction" placeholder="Fonction"></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-ee-rep-tel">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="icp-ee-rep-tel" placeholder="Téléphone"></div></div>
+          <div class="col-12 mt-1 d-flex justify-content-end"><button type="button" class="btn btn-outline-primary btn-sm" onclick="App.addICPEEParticipantRow()"><i class="bi bi-plus-lg me-1"></i>Ajouter une 2e personne EE</button></div>
+          <div class="col-12"><div id="icp-ee-add-list"></div></div>
         </div>
       </div>
       <div class="form-section-title d-flex justify-content-between align-items-center">
@@ -2086,6 +2090,7 @@ textarea.form-control { min-height: 70px; }
           </div>
         </div>
       </div>
+      <div id="icp-sig-eu-add-container"></div>
       <div class="field-group">
         <div class="field-group-title"><i class="bi bi-pen"></i> Signature Représentant EE</div>
         <div class="row g-2 mb-3">
@@ -2097,6 +2102,7 @@ textarea.form-control { min-height: 70px; }
           </div>
         </div>
       </div>
+      <div id="icp-sig-ee-add-container"></div>
       <div class="form-section-title"><i class="bi bi-pen"></i>Signatures EE additionnelles</div>
       <div id="icp-signatures-ee-container"></div>
     </div>
@@ -6754,6 +6760,91 @@ const App = {
     if (btnBack) btnBack.style.display = v.pdpId ? '' : 'none';
   },
 
+  // ---- ICP Participants additionnels (EU et EE) ----
+  // Permet d'ajouter une 2e (ou plus) personne présente côté EU ou côté EE.
+  // Chaque personne ajoutée a sa propre case signature dans la section Signatures.
+  addICPEUParticipantRow(p) {
+    const list = document.getElementById('icp-eu-add-list');
+    if (!list) return;
+    const idx = list.children.length;
+    const div = document.createElement('div');
+    div.className = 'row g-2 mb-2 icp-eu-add-row align-items-center';
+    div.dataset.idx = idx;
+    div.innerHTML = `<div class="col-md-4"><input type="text" class="form-control form-control-sm icp-eu-add-nom" placeholder="Nom" value="${this.esc(p?.nom||'')}" oninput="App.renderICPAddSignatures()"></div><div class="col-md-3"><input type="text" class="form-control form-control-sm icp-eu-add-fonction" placeholder="Fonction" value="${this.esc(p?.fonction||'')}"></div><div class="col-md-4"><input type="tel" class="form-control form-control-sm icp-eu-add-tel" placeholder="Tél." value="${this.esc(p?.tel||'')}"></div><div class="col-md-1 d-flex justify-content-end"><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.icp-eu-add-row').remove(); App.renderICPAddSignatures();"><i class="bi bi-trash"></i></button></div>`;
+    list.appendChild(div);
+    this.renderICPAddSignatures();
+  },
+
+  addICPEEParticipantRow(p) {
+    const list = document.getElementById('icp-ee-add-list');
+    if (!list) return;
+    const idx = list.children.length;
+    const div = document.createElement('div');
+    div.className = 'row g-2 mb-2 icp-ee-add-row align-items-center';
+    div.dataset.idx = idx;
+    div.innerHTML = `<div class="col-md-4"><input type="text" class="form-control form-control-sm icp-ee-add-nom" list="icp-ee-ent-list" placeholder="Nom (autocomplete AGRIWATT…)" value="${this.esc(p?.nom||'')}" oninput="App.onICPEEAddRowNomInput(${idx}, this); App.renderICPAddSignatures();"></div><div class="col-md-3"><input type="text" class="form-control form-control-sm icp-ee-add-fonction" placeholder="Fonction" value="${this.esc(p?.fonction||'')}"></div><div class="col-md-4"><input type="tel" class="form-control form-control-sm icp-ee-add-tel" placeholder="Tél." value="${this.esc(p?.tel||'')}"></div><div class="col-md-1 d-flex justify-content-end"><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.icp-ee-add-row').remove(); App.renderICPAddSignatures();"><i class="bi bi-trash"></i></button></div>`;
+    list.appendChild(div);
+    this.renderICPAddSignatures();
+  },
+
+  // Si l'utilisateur tape un nom matchant un contact AGRIWATT, on auto-remplit fonction/tel
+  onICPEEAddRowNomInput(idx, inputEl) {
+    const row = inputEl.closest('.icp-ee-add-row');
+    if (!row) return;
+    const v = (inputEl.value||'').trim().toLowerCase();
+    if (!v || v.length < 3) return;
+    const contacts = this._icpEERepCurrentContacts || [];
+    const match = contacts.find(c => (c.nom||'').toLowerCase() === v);
+    if (match) {
+      const fEl = row.querySelector('.icp-ee-add-fonction');
+      const tEl = row.querySelector('.icp-ee-add-tel');
+      if (fEl && !fEl.value.trim()) fEl.value = match.fonction||'';
+      if (tEl && !tEl.value.trim()) tEl.value = match.tel||'';
+    }
+  },
+
+  collectICPEUParticipants() {
+    const out = [];
+    document.querySelectorAll('#icp-eu-add-list .icp-eu-add-row').forEach(r => {
+      const nom = r.querySelector('.icp-eu-add-nom')?.value.trim() || '';
+      const fonction = r.querySelector('.icp-eu-add-fonction')?.value.trim() || '';
+      const tel = r.querySelector('.icp-eu-add-tel')?.value.trim() || '';
+      if (nom || fonction || tel) out.push({ nom, fonction, tel });
+    });
+    return out;
+  },
+
+  collectICPEEParticipants() {
+    const out = [];
+    document.querySelectorAll('#icp-ee-add-list .icp-ee-add-row').forEach(r => {
+      const nom = r.querySelector('.icp-ee-add-nom')?.value.trim() || '';
+      const fonction = r.querySelector('.icp-ee-add-fonction')?.value.trim() || '';
+      const tel = r.querySelector('.icp-ee-add-tel')?.value.trim() || '';
+      if (nom || fonction || tel) out.push({ nom, fonction, tel });
+    });
+    return out;
+  },
+
+  // Rend les blocs de signatures pour les participants additionnels saisis
+  renderICPAddSignatures() {
+    const v = this.currentICP || {};
+    const cEU = document.getElementById('icp-sig-eu-add-container');
+    const cEE = document.getElementById('icp-sig-ee-add-container');
+    if (!cEU || !cEE) return;
+    const eus = this.collectICPEUParticipants();
+    const ees = this.collectICPEEParticipants();
+    v.signaturesEUAdd = v.signaturesEUAdd || [];
+    v.signaturesEEAdd = v.signaturesEEAdd || [];
+    while (v.signaturesEUAdd.length < eus.length) v.signaturesEUAdd.push({nom:'',date:'',data:null});
+    while (v.signaturesEEAdd.length < ees.length) v.signaturesEEAdd.push({nom:'',date:'',data:null});
+    cEU.innerHTML = eus.map((p,i) => `<div class="field-group"><div class="field-group-title"><i class="bi bi-pen"></i> Signature ${this.esc(p.nom||'Participant EU '+(i+1))}</div><div class="row g-2 mb-3"><div class="col-md-6"><input type="text" class="form-control form-control-sm" placeholder="Signataire" value="${this.esc(v.signaturesEUAdd[i]?.nom || (p.nom + (p.fonction?` (${p.fonction})`:'')))}" onchange="App.currentICP.signaturesEUAdd[${i}].nom=this.value"></div><div class="col-md-6"><input type="date" class="form-control form-control-sm" value="${v.signaturesEUAdd[i]?.date||''}" onchange="App.currentICP.signaturesEUAdd[${i}].date=this.value"></div><div class="col-12"><div class="signature-pad-wrapper"><canvas id="icp-sig-eu-add-canvas-${i}" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('icp-sig-eu-add-canvas-${i}')"><i class="bi bi-eraser me-1"></i>Effacer</button></div></div></div>`).join('');
+    cEE.innerHTML = ees.map((p,i) => `<div class="field-group"><div class="field-group-title"><i class="bi bi-pen"></i> Signature ${this.esc(p.nom||'Participant EE '+(i+1))}</div><div class="row g-2 mb-3"><div class="col-md-6"><input type="text" class="form-control form-control-sm" placeholder="Signataire" value="${this.esc(v.signaturesEEAdd[i]?.nom || (p.nom + (p.fonction?` (${p.fonction})`:'')))}" onchange="App.currentICP.signaturesEEAdd[${i}].nom=this.value"></div><div class="col-md-6"><input type="date" class="form-control form-control-sm" value="${v.signaturesEEAdd[i]?.date||''}" onchange="App.currentICP.signaturesEEAdd[${i}].date=this.value"></div><div class="col-12"><div class="signature-pad-wrapper"><canvas id="icp-sig-ee-add-canvas-${i}" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('icp-sig-ee-add-canvas-${i}')"><i class="bi bi-eraser me-1"></i>Effacer</button></div></div></div>`).join('');
+    setTimeout(() => {
+      eus.forEach((_,i) => { this.initCanvas(`icp-sig-eu-add-canvas-${i}`); if (v.signaturesEUAdd[i]?.data) this.loadSigImg(`icp-sig-eu-add-canvas-${i}`, v.signaturesEUAdd[i].data); });
+      ees.forEach((_,i) => { this.initCanvas(`icp-sig-ee-add-canvas-${i}`); if (v.signaturesEEAdd[i]?.data) this.loadSigImg(`icp-sig-ee-add-canvas-${i}`, v.signaturesEEAdd[i].data); });
+    }, 100);
+  },
+
   // ---- ICP : sync nom Représentant -> Signataire (si signature vide) ----
   syncICPSignatureNom(target) {
     if (target === 'eu') {
@@ -6854,6 +6945,11 @@ const App = {
     document.getElementById('icp-ee-rep-nom').value = ee.nom||'';
     document.getElementById('icp-ee-rep-fonction').value = ee.fonction||'';
     document.getElementById('icp-ee-rep-tel').value = ee.tel||'';
+    // Participants additionnels
+    document.getElementById('icp-eu-add-list').innerHTML = '';
+    document.getElementById('icp-ee-add-list').innerHTML = '';
+    (v.euParticipants||[]).forEach(p => this.addICPEUParticipantRow(p));
+    (v.eeParticipants||[]).forEach(p => this.addICPEEParticipantRow(p));
     document.getElementById('icp-observations').value = v.observations||'';
     this.renderICPEEList();
     this.renderICPRisquesList();
@@ -6874,6 +6970,7 @@ const App = {
       document.getElementById('icp-sig-ee-rep-nom').value = (v.signatureEERep||{}).nom||'';
       document.getElementById('icp-sig-ee-rep-date').value = (v.signatureEERep||{}).date||'';
       this.syncICPSignatureNom('ee');
+      this.renderICPAddSignatures();
       (v.entreprisesExt||[]).forEach((_,i) => {
         this.initCanvas(`icp-sig-ee-canvas-${i}`);
         if ((v.signaturesEE||[])[i]?.data) this.loadSigImg(`icp-sig-ee-canvas-${i}`, v.signaturesEE[i].data);
@@ -6905,7 +7002,25 @@ const App = {
       fonction: document.getElementById('icp-ee-rep-fonction').value.trim(),
       tel: document.getElementById('icp-ee-rep-tel').value.trim()
     };
+    v.euParticipants = this.collectICPEUParticipants();
+    v.eeParticipants = this.collectICPEEParticipants();
     v.observations = document.getElementById('icp-observations').value.trim();
+    // Capture signatures additionnelles (canvas + nom/date déjà mis à jour via onchange)
+    v.signaturesEUAdd = v.signaturesEUAdd || [];
+    v.signaturesEEAdd = v.signaturesEEAdd || [];
+    v.euParticipants.forEach((_,i) => {
+      const cv = document.getElementById(`icp-sig-eu-add-canvas-${i}`);
+      if (!v.signaturesEUAdd[i]) v.signaturesEUAdd[i] = {nom:'',date:'',data:null};
+      if (cv && cv._hasDrawing) v.signaturesEUAdd[i].data = cv.toDataURL();
+    });
+    v.eeParticipants.forEach((_,i) => {
+      const cv = document.getElementById(`icp-sig-ee-add-canvas-${i}`);
+      if (!v.signaturesEEAdd[i]) v.signaturesEEAdd[i] = {nom:'',date:'',data:null};
+      if (cv && cv._hasDrawing) v.signaturesEEAdd[i].data = cv.toDataURL();
+    });
+    // Tronquer si on a supprimé des participants
+    v.signaturesEUAdd = v.signaturesEUAdd.slice(0, v.euParticipants.length);
+    v.signaturesEEAdd = v.signaturesEEAdd.slice(0, v.eeParticipants.length);
     v.signatureEU = v.signatureEU||{};
     v.signatureEU.nom = document.getElementById('icp-sig-eu-nom').value.trim();
     v.signatureEU.date = document.getElementById('icp-sig-eu-date').value;
