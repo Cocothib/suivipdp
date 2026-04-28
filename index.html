@@ -1888,6 +1888,7 @@ textarea.form-control { min-height: 70px; }
               </select>
             </div>
             <label class="btn btn-outline-primary btn-sm"><i class="bi bi-upload me-1"></i>Ajouter<input type="file" class="d-none" onchange="App.addDocument(event)" multiple></label>
+            <button class="btn btn-outline-success btn-sm" onclick="App.attachStandardFDSManually()" title="Rattacher les FDS marquées Standard depuis la bibliothèque"><i class="bi bi-file-earmark-pdf me-1"></i>Importer FDS standard</button>
           </div>
         </div>
         <div class="field-group">
@@ -2166,6 +2167,14 @@ textarea.form-control { min-height: 70px; }
       </div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Enregistrez vos sites pour les sélectionner rapidement dans les PDP et ICP. Chaque site peut avoir son propre responsable/conducteur de travaux.</div>
       <div id="sites-list-container"></div>
+    </div>
+    <div class="form-section">
+      <div class="form-section-title d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-file-earmark-pdf"></i>Bibliothèque FDS</span>
+        <label class="btn btn-sm btn-outline-primary mb-0"><i class="bi bi-upload me-1"></i>Importer FDS<input type="file" accept="application/pdf" multiple style="display:none" onchange="App.importFDSFiles(event)"></label>
+      </div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Les FDS marquées « Standard » sont automatiquement rattachées à chaque nouveau PDP. Tu peux les ajouter/retirer manuellement dans l'onglet Annexes.</div>
+      <div id="fds-list-container"></div>
     </div>
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-cloud"></i>Synchronisation SharePoint</div>
@@ -2758,6 +2767,15 @@ db.version(31).stores({
   sites: '++id, nom, entite',
   settings: 'key'
 });
+// v33 : bibliothèque FDS partagée (référencée par ID dans pdp.documents)
+db.version(33).stores({
+  pdps: '++id, numero, titre, statut, dateDebut, dateFin, dateCreation, dateModification',
+  entreprises: '++id, nom, siret',
+  icps: '++id, numero, site, dateVisite, pdpId, dateCreation',
+  sites: '++id, nom, entite',
+  fds: '++id, nom, standard',
+  settings: 'key'
+});
 // v32 : ajoute le champ `contacts[]` aux entreprises (multi-contacts par entreprise).
 // Les champs racine responsable/fonction/tel/email restent comme miroir du contact principal (rétro-compat).
 db.version(32).stores({
@@ -3008,6 +3026,7 @@ const DataSync = {
             icps:        await db.icps.toArray(),
             entreprises: await db.entreprises.toArray(),
             settings:    await db.settings.toArray(),
+            fds:         (db.fds ? await db.fds.toArray() : []),
         };
     },
 
@@ -3107,12 +3126,12 @@ const DataSync = {
         return {
             pdp:    { _meta: remotes.pdp?._meta    || null, pdps:        pdpRes.merged },
             icp:    { _meta: remotes.icp?._meta    || null, icps:        icpRes.merged },
-            shared: { _meta: remotes.shared?._meta || null, entreprises: entRes.merged, settings: setRes.merged },
+            shared: { _meta: remotes.shared?._meta || null, entreprises: entRes.merged, settings: setRes.merged, fds: current.fds },
         };
     },
 
     async _writeLocalData({ pdp, icp, shared }) {
-        await db.transaction('rw', db.pdps, db.icps, db.entreprises, db.settings, async () => {
+        await db.transaction('rw', db.pdps, db.icps, db.entreprises, db.settings, db.fds, async () => {
             await db.pdps.clear();
             if (pdp?.pdps?.length) await db.pdps.bulkPut(pdp.pdps);
             await db.icps.clear();
@@ -3121,6 +3140,10 @@ const DataSync = {
             if (shared?.entreprises?.length) await db.entreprises.bulkPut(shared.entreprises);
             await db.settings.clear();
             if (shared?.settings?.length) await db.settings.bulkPut(shared.settings);
+            if (shared?.fds) {
+              await db.fds.clear();
+              if (shared.fds.length) await db.fds.bulkPut(shared.fds);
+            }
         });
     },
 
@@ -3219,6 +3242,10 @@ const DataSync = {
                 if (sharedData.entreprises?.length) await db.entreprises.bulkPut(sharedData.entreprises);
                 await db.settings.clear();
                 if (sharedData.settings?.length) await db.settings.bulkPut(sharedData.settings);
+                if (sharedData.fds) {
+                  await db.fds.clear();
+                  if (sharedData.fds.length) await db.fds.bulkPut(sharedData.fds);
+                }
                 this._loadedMeta.shared = sharedData._meta; loaded = true;
             }
             if (loaded) { this._dirty = false; this._updateBadge(false); await this._captureSnapshot(); }
@@ -4066,7 +4093,7 @@ const App = {
   // ========================================
   // PDP CRUD
   // ========================================
-  newPDP() {
+  async newPDP() {
     const s = this._settings || {};
     this.currentPDP = {
       titre:'', numero:'', statut:'brouillon', version:'01',
@@ -4085,6 +4112,8 @@ const App = {
       permisFeu: { actif: false, types: [], description: '', risqueStructure: '', risqueActivite: '', risqueEnvironnement: '', dateDebut: '', heureDebut: '', dateFin: '', heureFin: '', operateurs: [], consignes: { avant: [], pendant: [], apres: [] }, autresPrescriptions: '', rondes: [], renouvellements: [], signatureEU: { nom: '', date: '', data: null }, signatureEE: { nom: '', date: '', data: null }, signatureExec: { nom: '', societe: '', date: '', data: null } },
       dateCreation: new Date().toISOString(), dateModification: new Date().toISOString()
     };
+    // Auto-rattachement des FDS marquées "standard" depuis la bibliothèque
+    await this.attachStandardFDS(this.currentPDP);
     this.populateForm();
     this.showView('pdp-detail');
     document.getElementById('pdp-detail-title').textContent = 'Nouveau PDP';
@@ -6315,6 +6344,49 @@ const App = {
     }); ev.target.value = '';
   },
 
+  // Rattache les FDS marquées "standard" de la bibliothèque au PDP donné (si pas déjà rattachées).
+  async attachStandardFDS(pdp) {
+    if (!pdp) return 0;
+    pdp.documents = pdp.documents || [];
+    try {
+      const standards = await db.fds.where('standard').equals(1).toArray()
+        .catch(async () => (await db.fds.toArray()).filter(f => f.standard));
+      const existingRefs = new Set(pdp.documents.filter(d => d.fdsRef).map(d => d.fdsRef));
+      let added = 0;
+      for (const f of standards) {
+        if (existingRefs.has(f.id)) continue;
+        pdp.documents.push({
+          nom: f.nom, type: f.mime||'application/pdf', taille: f.taille||0,
+          fdsRef: f.id, // référence (pas de duplication des données)
+          date: new Date().toISOString(), categorie: 'fds'
+        });
+        added++;
+      }
+      return added;
+    } catch (e) { console.warn('attachStandardFDS échoué:', e); return 0; }
+  },
+
+  async attachStandardFDSManually() {
+    if (!this.currentPDP) return;
+    const added = await this.attachStandardFDS(this.currentPDP);
+    if (added) {
+      this.toast(`${added} FDS standard rattachée(s)`);
+      this.renderDocuments();
+      this._markEditing && this._markEditing();
+    } else {
+      this.toast('Aucune nouvelle FDS standard à rattacher (déjà présentes ou bibliothèque vide)', 'info');
+    }
+  },
+
+  async downloadFDSRef(fdsId, nom) {
+    const f = await db.fds.get(fdsId);
+    if (!f?.data) { this.toast('FDS introuvable dans la bibliothèque (supprimée?)', 'warning'); return; }
+    const a = document.createElement('a');
+    a.href = f.data;
+    a.download = nom || f.nom || 'fds.pdf';
+    a.click();
+  },
+
   renderDocuments() {
     const c = document.getElementById('documents-list-container');
     const docs = this.currentPDP?.documents||[];
@@ -6325,11 +6397,17 @@ const App = {
       const cat = d.categorie||'autre';
       const catLabel = this._docCatLabels[cat]||cat;
       const catColor = catColors[cat]||'secondary';
+      const isRef = !!d.fdsRef;
+      const dlBtn = isRef
+        ? `<button class="btn btn-outline-primary btn-sm py-0" onclick="App.downloadFDSRef(${d.fdsRef}, ${JSON.stringify(d.nom||'')})" title="Télécharger depuis la bibliothèque"><i class="bi bi-download"></i></button>`
+        : `<a href="${d.data}" download="${this.esc(d.nom)}" class="btn btn-outline-primary btn-sm py-0"><i class="bi bi-download"></i></a>`;
+      const refBadge = isRef ? `<span class="badge bg-info text-white" style="font-size:0.65rem" title="Référence vers bibliothèque FDS">REF</span>` : '';
       return `<div class="d-flex align-items-center gap-2 p-2 border rounded mb-1">
         <i class="bi bi-${icon} text-primary"></i>
         <span class="badge bg-${catColor}" style="font-size:0.7rem">${this.esc(catLabel)}</span>
+        ${refBadge}
         <span class="flex-grow-1 small">${this.esc(d.nom)}</span>
-        <a href="${d.data}" download="${this.esc(d.nom)}" class="btn btn-outline-primary btn-sm py-0"><i class="bi bi-download"></i></a>
+        ${dlBtn}
         <button class="btn btn-outline-danger btn-sm py-0" onclick="App.currentPDP.documents.splice(${i},1);App.renderDocuments()"><i class="bi bi-trash"></i></button>
       </div>`;
     }).join('');
@@ -7656,6 +7734,7 @@ const App = {
       modifications:[], historique:[{action:'Créé depuis ICP '+v.numero, date:new Date().toISOString()}], documents:[], icpId: v.id||null,
       dateCreation:new Date().toISOString(), dateModification:new Date().toISOString()
     };
+    await this.attachStandardFDS(pdp);
     const pdpId = await db.pdps.add(pdp);
     pdp.id = pdpId;
     pdp.numero = `PDP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(pdpId).padStart(4,'0')}`;
@@ -8345,12 +8424,65 @@ const App = {
 
   async renderSettingsView() {
     await this.renderSitesList();
+    try { await this.renderFDSList(); } catch (e) { console.warn('renderFDSList:', e); }
     try { await DataSync.renderSettingsStatus(); } catch (e) { console.warn('renderSettingsStatus:', e); }
     try { await this.renderAdminsSection(); } catch (e) { console.warn('renderAdminsSection:', e); }
     try { await this.renderPendingRisksSection(); } catch (e) { console.warn('renderPendingRisksSection:', e); }
     try { await ActivityLog.render(document.getElementById('activity-log-container')); } catch (e) { console.warn('ActivityLog.render:', e); }
     const proxyInput = document.getElementById('sellsy-proxy-url');
     if (proxyInput) proxyInput.value = SellsyAPI.getProxyUrl() === 'sellsy-proxy.php' ? '' : SellsyAPI.getProxyUrl();
+  },
+
+  // ---- BIBLIOTHÈQUE FDS ----
+  async renderFDSList() {
+    const c = document.getElementById('fds-list-container');
+    if (!c) return;
+    const all = await db.fds.toArray();
+    if (!all.length) { c.innerHTML = '<p class="text-muted small">Aucune FDS importée. Cliquez sur « Importer FDS » pour ajouter des PDF.</p>'; return; }
+    c.innerHTML = `<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Nom</th><th>Taille</th><th class="text-center">Standard</th><th></th></tr></thead><tbody>${all.map(f => `<tr><td><i class="bi bi-file-earmark-pdf text-danger me-1"></i>${this.esc(f.nom)}</td><td><small class="text-muted">${(f.taille/1024).toFixed(0)} Ko</small></td><td class="text-center"><input type="checkbox" class="form-check-input" ${f.standard?'checked':''} onchange="App.toggleFDSStandard(${f.id}, this.checked)" title="Rattacher automatiquement à chaque nouveau PDP"></td><td class="text-end"><button class="btn btn-outline-primary btn-sm py-0 px-1 me-1" onclick="App.downloadFDS(${f.id})" title="Télécharger"><i class="bi bi-download"></i></button><button class="btn btn-outline-danger btn-sm py-0 px-1" onclick="App.deleteFDS(${f.id})" title="Supprimer"><i class="bi bi-trash"></i></button></td></tr>`).join('')}</tbody></table></div>`;
+  },
+
+  async importFDSFiles(ev) {
+    const files = Array.from(ev.target.files || []);
+    ev.target.value = '';
+    if (!files.length) return;
+    let added = 0;
+    for (const file of files) {
+      try {
+        const data = await new Promise((res, rej) => {
+          const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file);
+        });
+        await db.fds.add({ nom: file.name, taille: file.size, mime: file.type||'application/pdf', data, standard: true, dateAjout: new Date().toISOString() });
+        added++;
+      } catch (e) { console.error('Import FDS échoué:', file.name, e); }
+    }
+    this.toast(`${added} FDS importée(s) — marquées Standard par défaut`);
+    await this.renderFDSList();
+    DataSync.markDirty();
+  },
+
+  async toggleFDSStandard(id, checked) {
+    const f = await db.fds.get(id);
+    if (!f) return;
+    f.standard = !!checked;
+    await db.fds.put(f);
+    DataSync.markDirty();
+  },
+
+  async downloadFDS(id) {
+    const f = await db.fds.get(id);
+    if (!f?.data) return;
+    const a = document.createElement('a');
+    a.href = f.data;
+    a.download = f.nom || 'fds.pdf';
+    a.click();
+  },
+
+  async deleteFDS(id) {
+    if (!await this.confirm('Supprimer cette FDS de la bibliothèque ? Les PDP qui la référencent garderont la référence (rouge cassée).')) return;
+    await db.fds.delete(id);
+    await this.renderFDSList();
+    DataSync.markDirty();
   },
 
   async renderAdminsSection() {
