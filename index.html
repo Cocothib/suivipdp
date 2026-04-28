@@ -1860,7 +1860,7 @@ textarea.form-control { min-height: 70px; }
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-person-check"></i> Liste des intervenants</div>
           <button class="btn btn-sm btn-outline-primary mb-2" onclick="App.addEmargement()"><i class="bi bi-plus-lg me-1"></i>Ajouter un intervenant</button>
-          <div id="emargements-container"></div>
+          <div id="emargements-list-container"></div>
         </div>
       </div>
     </div>
@@ -5580,7 +5580,7 @@ const App = {
   },
 
   // ---- EMARGEMENTS ----
-  prefillEmargements() {
+  async prefillEmargements() {
     const p = this.currentPDP;
     if (!p) return;
     p.emargements = p.emargements || [];
@@ -5588,47 +5588,45 @@ const App = {
     const today = new Date().toISOString().slice(0,10);
     let added = 0;
     const TL = this.getTypeLabels(p.typePdp);
+    const eu = p.eu || {};
+    const tryAdd = (nom, fonction, societe) => {
+      if (!nom) return;
+      const key = `${nom}|${societe||''}`.toLowerCase();
+      if (existingNames.includes(key)) return;
+      p.emargements.push({ nom, prenom: '', fonction: fonction||'', societe: societe||'', date: today, signature: null });
+      existingNames.push(key);
+      added++;
+    };
 
     // EU : responsable / contact
-    const eu = p.eu || {};
     if (eu.responsable) {
-      const key = `${eu.responsable}|${eu.nom}`.toLowerCase();
-      if (!existingNames.includes(key)) {
-        p.emargements.push({ nom: eu.responsable, prenom: '', fonction: eu.fonction || TL.contact_default, societe: eu.nom || '', date: today, signature: null });
-        added++;
-      }
+      tryAdd(eu.responsable, eu.fonction || TL.contact_default, eu.nom || '');
     }
 
     // EE : responsables
-    (p.entreprisesExt || []).forEach(ee => {
-      if (ee.responsable) {
-        const key = `${ee.responsable}|${ee.nom}`.toLowerCase();
-        if (!existingNames.includes(key)) {
-          p.emargements.push({ nom: ee.responsable, prenom: '', fonction: ee.fonction || '', societe: ee.nom || '', date: today, signature: null });
-          existingNames.push(key);
-          added++;
+    (p.entreprisesExt || []).forEach(ee => tryAdd(ee.responsable, ee.fonction, ee.nom));
+
+    // Si le PDP est lié à une ICP, reprendre tous les participants de l'ICP
+    if (p.icpId) {
+      try {
+        const v = await db.icps.get(p.icpId);
+        if (v) {
+          // Représentant EU + participants EU additionnels
+          tryAdd(v.euParticipant?.nom, v.euParticipant?.fonction, eu.nom || v.euInfo?.nom || '');
+          (v.euParticipants||[]).forEach(pp => tryAdd(pp.nom, pp.fonction, eu.nom || v.euInfo?.nom || ''));
+          // Représentant EE + participants EE additionnels
+          tryAdd(v.eeRepresentant?.nom, v.eeRepresentant?.fonction, v.eeRepresentant?.entrepriseNom || '');
+          (v.eeParticipants||[]).forEach(pp => tryAdd(pp.nom, pp.fonction, v.eeRepresentant?.entrepriseNom || ''));
         }
-      }
-    });
+      } catch (err) { console.warn('prefillEmargements: lecture ICP liée échouée', err); }
+    }
 
     // Opérateurs permis de feu
-    ((p.permisFeu || {}).operateurs || []).forEach(op => {
-      if (op.nom) {
-        const key = `${op.nom}|${op.societe||''}`.toLowerCase();
-        if (!existingNames.includes(key)) {
-          p.emargements.push({ nom: op.nom, prenom: '', fonction: op.fonction || '', societe: op.societe || '', date: today, signature: null });
-          existingNames.push(key);
-          added++;
-        }
-      }
-    });
+    ((p.permisFeu || {}).operateurs || []).forEach(op => tryAdd(op.nom, op.fonction, op.societe));
 
     // Signataires validation EU/EE
     const sigEU = p.signatureEU || {};
-    if (sigEU.nom && !existingNames.some(k => k.startsWith(`${sigEU.nom}|`.toLowerCase()))) {
-      p.emargements.push({ nom: sigEU.nom, prenom: '', fonction: sigEU.fonction || '', societe: (eu.nom || ''), date: today, signature: null });
-      added++;
-    }
+    if (sigEU.nom) tryAdd(sigEU.nom, sigEU.fonction, eu.nom || '');
 
     this.renderEmargements();
   },
