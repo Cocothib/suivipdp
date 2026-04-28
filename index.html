@@ -2017,10 +2017,10 @@ textarea.form-control { min-height: 70px; }
         <div class="field-group-title"><i class="bi bi-person-badge"></i> Représentant EE</div>
         <div class="row g-2">
           <div class="col-md-6">
-            <label class="form-label" for="icp-ee-entreprise-select">Entreprise</label>
-            <select class="form-select" id="icp-ee-entreprise-select" onchange="App.onICPEERepEntrepriseChange(this.value)" onmousedown="App.populateICPEERepEntreprises(this.value)" onfocus="App.populateICPEERepEntreprises(this.value)">
-              <option value="">— Choisir l'entreprise —</option>
-            </select>
+            <label class="form-label" for="icp-ee-entreprise-input">Entreprise</label>
+            <input type="text" class="form-control" id="icp-ee-entreprise-input" list="icp-ee-ent-list" placeholder="Tapez pour rechercher…" oninput="App.onICPEERepEntrepriseInput(this.value)" onfocus="App.populateICPEERepEntreprises()" autocomplete="off">
+            <datalist id="icp-ee-ent-list"></datalist>
+            <input type="hidden" id="icp-ee-entreprise-id">
           </div>
           <div class="col-md-6">
             <label class="form-label" for="icp-ee-personne-select">Personne enregistrée</label>
@@ -6720,13 +6720,28 @@ const App = {
   },
 
   // ---- ICP Représentant EE (entreprise + personne depuis le répertoire) ----
-  async populateICPEERepEntreprises(preserveValue) {
-    const sel = document.getElementById('icp-ee-entreprise-select');
-    if (!sel) return;
-    const current = preserveValue !== undefined ? preserveValue : sel.value;
+  async populateICPEERepEntreprises() {
+    const datalist = document.getElementById('icp-ee-ent-list');
+    if (!datalist) return;
     const ents = await db.entreprises.toArray();
-    sel.innerHTML = '<option value="">— Choisir l\'entreprise —</option>' + ents.map(e => `<option value="${e.id}">${this.esc(e.nom)}</option>`).join('');
-    if (current) sel.value = current;
+    // L'option a comme `value` le nom (texte tapé) et `data-id` pour la résolution.
+    datalist.innerHTML = ents.map(e => `<option data-id="${e.id}" value="${this.esc(e.nom)}"></option>`).join('');
+    this._icpEERepEntsCache = ents;
+  },
+
+  async onICPEERepEntrepriseInput(value) {
+    const v = (value||'').trim().toLowerCase();
+    const ents = this._icpEERepEntsCache || await db.entreprises.toArray();
+    // Match exact prioritaire, sinon premier startsWith.
+    const match = ents.find(e => (e.nom||'').toLowerCase() === v) || ents.find(e => (e.nom||'').toLowerCase().startsWith(v) && v.length >= 2);
+    const hiddenIdEl = document.getElementById('icp-ee-entreprise-id');
+    if (match) {
+      hiddenIdEl.value = match.id;
+      this.onICPEERepEntrepriseChange(match.id);
+    } else {
+      hiddenIdEl.value = '';
+      this.onICPEERepEntrepriseChange('');
+    }
   },
 
   async onICPEERepEntrepriseChange(entId, skipReset) {
@@ -6735,11 +6750,6 @@ const App = {
     if (!entId) {
       persSel.innerHTML = '<option value="">— Choisir une personne —</option>';
       persSel.disabled = true;
-      if (!skipReset) {
-        document.getElementById('icp-ee-rep-nom').value = '';
-        document.getElementById('icp-ee-rep-fonction').value = '';
-        document.getElementById('icp-ee-rep-tel').value = '';
-      }
       return;
     }
     const e = await db.entreprises.get(parseInt(entId));
@@ -6747,7 +6757,7 @@ const App = {
     const contacts = this.getEntrepriseContacts(e);
     persSel.innerHTML = '<option value="">— Choisir une personne —</option>' + contacts.map((c,i) => `<option value="${i}">${this.esc(c.nom||'(sans nom)')}${c.fonction?` — ${this.esc(c.fonction)}`:''}</option>`).join('');
     persSel.disabled = !contacts.length;
-    // Si une seule personne et champs vides, pré-sélectionner
+    // Si une seule personne, pré-sélectionner et remplir les champs
     if (!skipReset && contacts.length === 1) {
       persSel.value = '0';
       this.onICPEERepPersonneChange('0');
@@ -6755,7 +6765,7 @@ const App = {
   },
 
   async onICPEERepPersonneChange(idx) {
-    const entId = document.getElementById('icp-ee-entreprise-select').value;
+    const entId = document.getElementById('icp-ee-entreprise-id').value;
     if (!entId || idx === '') return;
     const e = await db.entreprises.get(parseInt(entId));
     if (!e) return;
@@ -6783,11 +6793,12 @@ const App = {
     document.getElementById('icp-eu-nom').value = eu.nom||'';
     document.getElementById('icp-eu-fonction').value = eu.fonction||'';
     document.getElementById('icp-eu-tel').value = eu.tel||'';
-    // Représentant EE (sélectionnable depuis le répertoire)
+    // Représentant EE (recherche dans le répertoire)
     this.populateICPEERepEntreprises();
     const ee = v.eeRepresentant||{};
+    document.getElementById('icp-ee-entreprise-input').value = ee.entrepriseNom||'';
+    document.getElementById('icp-ee-entreprise-id').value = ee.entrepriseId||'';
     if (ee.entrepriseId) {
-      document.getElementById('icp-ee-entreprise-select').value = ee.entrepriseId;
       this.onICPEERepEntrepriseChange(ee.entrepriseId, /*skipReset*/true);
     }
     document.getElementById('icp-ee-rep-nom').value = ee.nom||'';
@@ -6828,8 +6839,8 @@ const App = {
       fonction: document.getElementById('icp-eu-fonction').value.trim(),
       tel: document.getElementById('icp-eu-tel').value.trim()
     };
-    const eeEntId = document.getElementById('icp-ee-entreprise-select')?.value || '';
-    const eeEntName = eeEntId ? document.getElementById('icp-ee-entreprise-select').selectedOptions[0]?.text || '' : '';
+    const eeEntId = document.getElementById('icp-ee-entreprise-id')?.value || '';
+    const eeEntName = document.getElementById('icp-ee-entreprise-input')?.value.trim() || '';
     v.eeRepresentant = {
       entrepriseId: eeEntId ? parseInt(eeEntId) : null,
       entrepriseNom: eeEntName,
