@@ -10615,23 +10615,28 @@ const App = {
       return;
     }
 
-    // 2. Ajouter tous les documents joints
+    // 2. Ajouter tous les documents joints (résout les fdsRef vers la bibliothèque)
     const docs = p.documents||[];
     const catLabels = {plan:'Plan-Schema',mode_operatoire:'Mode-operatoire',habilitations:'Habilitations',fds:'FDS',analyse_risques:'Analyse-risques',permis_feu:'Permis-feu',attestation:'Attestation',photo:'Photo',autre:'Autre'};
     if (docs.length) {
-      const folder = zip.folder('Documents_joints');
-      docs.forEach((d, i) => {
-        if (!d.data) return;
-        const cat = catLabels[d.categorie]||'Autre';
-        // Nettoyer le nom de fichier
-        const safeName = (d.nom||'document').replace(/[<>:"/\\|?*]/g,'_');
-        const fileName = `${String(i+1).padStart(2,'0')}_${cat}_${safeName}`;
-        // Extraire les données base64
-        if (d.data.startsWith('data:')) {
-          const b64 = d.data.split(',')[1];
-          folder.file(fileName, b64, {base64: true});
+      let i = 0;
+      for (const d of docs) {
+        i++;
+        let dataUrl = d.data;
+        let nm = d.nom;
+        if (d.fdsRef) {
+          try {
+            const f = await db.fds.get(d.fdsRef);
+            if (f?.data) { dataUrl = f.data; nm = f.nom||nm; }
+          } catch (e) { console.warn('FDS ref non résolue:', d.fdsRef, e); }
         }
-      });
+        if (!dataUrl || !dataUrl.startsWith('data:')) continue;
+        const cat = catLabels[d.categorie]||'Autre';
+        const safeName = (nm||'document').replace(/[<>:"/\\|?*]/g,'_');
+        const fileName = `${String(i).padStart(2,'0')}_${cat}_${safeName}`;
+        const b64 = dataUrl.split(',')[1];
+        if (b64) zip.file(`Documents_joints/${fileName}`, b64, {base64: true});
+      }
     }
 
     // 3. Générer et télécharger le ZIP
