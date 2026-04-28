@@ -2029,6 +2029,7 @@ textarea.form-control { min-height: 70px; }
             <select class="form-select" id="icp-ee-personne-select" onchange="App.onICPEERepPersonneChange(this.value)" disabled>
               <option value="">— Choisir une personne —</option>
             </select>
+            <datalist id="icp-ee-contacts-list"></datalist>
           </div>
           <div class="col-md-4"><label class="form-label" for="icp-ee-rep-nom">Nom</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-ee-rep-nom" placeholder="Nom" oninput="App.syncICPSignatureNom('ee')"></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-ee-rep-fonction">Fonction</label><div class="input-icon-wrap"><i class="bi bi-briefcase input-icon"></i><input type="text" class="form-control" id="icp-ee-rep-fonction" placeholder="Fonction"></div></div>
@@ -6782,7 +6783,7 @@ const App = {
     const div = document.createElement('div');
     div.className = 'row g-2 mb-2 icp-ee-add-row align-items-center';
     div.dataset.idx = idx;
-    div.innerHTML = `<div class="col-md-4"><input type="text" class="form-control form-control-sm icp-ee-add-nom" list="icp-ee-ent-list" placeholder="Nom (autocomplete AGRIWATT…)" value="${this.esc(p?.nom||'')}" oninput="App.onICPEEAddRowNomInput(${idx}, this); App.renderICPAddSignatures();"></div><div class="col-md-3"><input type="text" class="form-control form-control-sm icp-ee-add-fonction" placeholder="Fonction" value="${this.esc(p?.fonction||'')}"></div><div class="col-md-4"><input type="tel" class="form-control form-control-sm icp-ee-add-tel" placeholder="Tél." value="${this.esc(p?.tel||'')}"></div><div class="col-md-1 d-flex justify-content-end"><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.icp-ee-add-row').remove(); App.renderICPAddSignatures();"><i class="bi bi-trash"></i></button></div>`;
+    div.innerHTML = `<div class="col-md-4"><input type="text" class="form-control form-control-sm icp-ee-add-nom" list="icp-ee-contacts-list" placeholder="Nom (contacts EE…)" value="${this.esc(p?.nom||'')}" oninput="App.onICPEEAddRowNomInput(${idx}, this); App.renderICPAddSignatures();"></div><div class="col-md-3"><input type="text" class="form-control form-control-sm icp-ee-add-fonction" placeholder="Fonction" value="${this.esc(p?.fonction||'')}"></div><div class="col-md-4"><input type="tel" class="form-control form-control-sm icp-ee-add-tel" placeholder="Tél." value="${this.esc(p?.tel||'')}"></div><div class="col-md-1 d-flex justify-content-end"><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.icp-ee-add-row').remove(); App.renderICPAddSignatures();"><i class="bi bi-trash"></i></button></div>`;
     list.appendChild(div);
     this.renderICPAddSignatures();
   },
@@ -6887,11 +6888,13 @@ const App = {
 
   async onICPEERepEntrepriseChange(entId, skipReset) {
     const persSel = document.getElementById('icp-ee-personne-select');
+    const contactsDL = document.getElementById('icp-ee-contacts-list');
     if (!persSel) return;
     if (!entId) {
       persSel.innerHTML = '<option value="">— Choisir une personne —</option>';
       persSel.disabled = true;
       this._icpEERepCurrentContacts = [];
+      if (contactsDL) contactsDL.innerHTML = '';
       return;
     }
     const e = await db.entreprises.get(parseInt(entId));
@@ -6903,6 +6906,8 @@ const App = {
     this._icpEERepCurrentContacts = contacts;
     persSel.innerHTML = '<option value="">— Choisir une personne —</option>' + contacts.map((c,i) => `<option value="${i}">${this.esc(c.nom||'(sans nom)')}${c.fonction?` — ${this.esc(c.fonction)}`:''}</option>`).join('');
     persSel.disabled = !contacts.length;
+    // Datalist des contacts pour l'autocomplete des participants EE additionnels
+    if (contactsDL) contactsDL.innerHTML = contacts.map(c => `<option value="${this.esc(c.nom||'')}"></option>`).join('');
     if (!skipReset && contacts.length === 1) {
       persSel.value = '0';
       this.onICPEERepPersonneChange('0');
