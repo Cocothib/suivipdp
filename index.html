@@ -3662,13 +3662,37 @@ const SellsyAPI = {
   },
   async getContacts(id) {
     const data = await this._call({ action: 'contacts', id });
-    return (data.data || []).map(c => ({
+    return (data.data || []).map(c => this._mapContact(c));
+  },
+  async getContact(id) {
+    const data = await this._call({ action: 'contact', id });
+    return this._mapContact(data);
+  },
+  async getCompanyAddresses(id) {
+    const data = await this._call({ action: 'addresses', id });
+    return (data.data || []).map(a => this._mapAddress(a));
+  },
+  _mapContact(c) {
+    if (!c) return null;
+    return {
       id: c.id,
       nom: [c.last_name, c.first_name].filter(Boolean).join(' ').trim(),
       fonction: c.position || c.job_title || '',
       email: c.email || (c.email_address && c.email_address.email) || '',
       tel: (c.phone_number && c.phone_number.number) || c.mobile_number || c.phone || '',
-    }));
+    };
+  },
+  _mapAddress(a) {
+    if (!a) return null;
+    const parts = [a.address_line_1 || a.line_1, a.address_line_2 || a.line_2, a.zipcode || a.zip || a.postal_code, a.city, a.country].filter(Boolean);
+    const geo = a.geo || a.coordinates || {};
+    return {
+      id: a.id,
+      is_main: !!a.is_main,
+      adresse: parts.join(' ').trim(),
+      lat: geo.lat || geo.latitude || a.latitude || null,
+      lng: geo.lng || geo.lon || geo.longitude || a.longitude || null,
+    };
   },
   _mapCompany(c) {
     if (!c) return null;
@@ -3712,8 +3736,9 @@ const SellsyAPI = {
     // Sellsy v2 : related[] contient l'entité liée (company/individual)
     const related = Array.isArray(o.related) ? o.related : [];
     const companyRel = related.find(r => (r.type === 'company' || r.related_type === 'company')) || {};
-    const companyId = companyRel.id || companyRel.related_id || (o.company && o.company.id) || null;
+    const companyId = o.company_id || companyRel.id || companyRel.related_id || (o.company && o.company.id) || null;
     const companyName = companyRel.name || (o.company && (o.company.name || o.company.corporate_name)) || '';
+    const contactIds = Array.isArray(o.contact_ids) ? o.contact_ids : [];
     // Étape (statut)
     const step = o.step || {};
     return {
@@ -3727,6 +3752,7 @@ const SellsyAPI = {
       dateCloture: o.estimated_closing_date || o.due_date || '',
       companyId,
       companyName,
+      contactIds,
     };
   },
 };
@@ -6389,17 +6415,32 @@ const App = {
 
       if (companyId) {
         try {
-          const c = await SellsyAPI.getCompany(companyId);
+          // Sellsy v2 : /companies/{id} ne renvoie que le minimal — on fetche
+          // adresses et contact lié en parallèle pour compléter les champs ICP.
+          const contactId = (o.contactIds && o.contactIds[0]) || null;
+          const [c, addresses, contact] = await Promise.all([
+            SellsyAPI.getCompany(companyId).catch(() => null),
+            SellsyAPI.getCompanyAddresses(companyId).catch(() => []),
+            contactId ? SellsyAPI.getContact(contactId).catch(() => null) : Promise.resolve(null),
+          ]);
           console.log('[Sellsy] company:', c);
+          console.log('[Sellsy] addresses:', addresses);
+          console.log('[Sellsy] contact:', contact);
+          const mainAddr = (addresses || []).find(a => a.is_main) || (addresses || [])[0] || null;
           if (c) {
-            setIfEmpty('icp-eu-nom', c.responsable);
-            setIfEmpty('icp-eu-fonction', c.fonction);
-            setIfEmpty('icp-eu-tel', c.tel);
             setIfEmpty('icp-site', c.nom);
-            setIfEmpty('icp-lieu', c.adresse);
+            setIfEmpty('icp-eu-tel', c.tel);
+          }
+          if (contact) {
+            setIfEmpty('icp-eu-nom', contact.nom);
+            setIfEmpty('icp-eu-fonction', contact.fonction);
+            setIfEmpty('icp-eu-tel', contact.tel);
+          }
+          if (mainAddr) {
+            setIfEmpty('icp-lieu', mainAddr.adresse);
           }
         } catch (err) {
-          console.error('[Sellsy] erreur getCompany', err);
+          console.error('[Sellsy] erreur enrichissement company', err);
         }
       } else if (o.companyName) {
         setIfEmpty('icp-site', o.companyName);

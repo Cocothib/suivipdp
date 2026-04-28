@@ -8,6 +8,8 @@
  *   GET ?action=search&q=...         -> Sellsy /companies/search
  *   GET ?action=company&id=...       -> Sellsy /companies/{id}
  *   GET ?action=contacts&id=...      -> Sellsy /companies/{id}/contacts
+ *   GET ?action=addresses&id=...     -> Sellsy /companies/{id}/addresses
+ *   GET ?action=contact&id=...       -> Sellsy /contacts/{id}
  *   GET ?action=list&limit=100&offset=0 -> Sellsy /companies (paginated)
  *   GET ?action=opp_search&q=...     -> Sellsy /opportunities/search
  *   GET ?action=opportunity&id=...   -> Sellsy /opportunities/{id}
@@ -77,6 +79,16 @@ try {
             $id = (int)($_GET['id'] ?? 0);
             if (!$id) { http_response_code(400); echo json_encode(['error' => 'id manquant']); exit; }
             $res = sellsy_call('GET', "/companies/$id/contacts?limit=20", $token);
+            break;
+        case 'addresses':
+            $id = (int)($_GET['id'] ?? 0);
+            if (!$id) { http_response_code(400); echo json_encode(['error' => 'id manquant']); exit; }
+            $res = sellsy_call('GET', "/companies/$id/addresses?limit=20", $token);
+            break;
+        case 'contact':
+            $id = (int)($_GET['id'] ?? 0);
+            if (!$id) { http_response_code(400); echo json_encode(['error' => 'id manquant']); exit; }
+            $res = sellsy_call('GET', "/contacts/$id", $token);
             break;
         case 'opp_search':
             $q = trim($_GET['q'] ?? '');
