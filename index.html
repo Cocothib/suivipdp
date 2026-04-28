@@ -9551,18 +9551,17 @@ const App = {
     if (docsToBundle.length && typeof JSZip !== 'undefined') {
       const zip = new JSZip();
       zip.file(fn, blob);
-      const annexesFolder = zip.folder('Annexes');
       const seen = new Map();
       for (const dd of docsToBundle) {
         let nm = dd.nom;
-        // Évite les collisions de nom dans le ZIP
         const cnt = (seen.get(nm)||0) + 1; seen.set(nm, cnt);
         if (cnt > 1) {
           const dot = nm.lastIndexOf('.');
           nm = dot>0 ? `${nm.slice(0,dot)}_${cnt}${nm.slice(dot)}` : `${nm}_${cnt}`;
         }
         const base64 = (dd.dataUrl.split(',')[1])||'';
-        annexesFolder.file(nm, base64, { base64: true });
+        if (!base64) { console.warn('FDS sans base64:', dd.nom); continue; }
+        zip.file(`Annexes/${nm}`, base64, { base64: true });
       }
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       const zipName = `${p.numero||'PDP'}.zip`;
@@ -10568,7 +10567,6 @@ const App = {
     if (docsToBundle.length && typeof JSZip !== 'undefined') {
       const zip = new JSZip();
       zip.file(pdfFn, pdfBlob);
-      const annexesFolder = zip.folder('Annexes');
       const seen = new Map();
       for (const dd of docsToBundle) {
         let nm = dd.nom;
@@ -10578,7 +10576,8 @@ const App = {
           nm = dot>0 ? `${nm.slice(0,dot)}_${cnt}${nm.slice(dot)}` : `${nm}_${cnt}`;
         }
         const base64 = (dd.dataUrl.split(',')[1])||'';
-        annexesFolder.file(nm, base64, { base64: true });
+        if (!base64) { console.warn('FDS sans base64:', dd.nom); continue; }
+        zip.file(`Annexes/${nm}`, base64, { base64: true });
       }
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       const zipName = `${p.numero||'PDP'}.zip`;
