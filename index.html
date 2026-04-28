@@ -4398,7 +4398,8 @@ const App = {
       document.getElementById('btn-delete-pdp').style.display = '';
       document.getElementById('btn-save-pdp').classList.add('btn-save-flash');
       setTimeout(() => document.getElementById('btn-save-pdp').classList.remove('btn-save-flash'), 600);
-      this.toast('PDP enregistré');
+      const propagated = await this.propagateEEUpdatesToRepo(p);
+      this.toast(propagated ? `PDP enregistré + ${propagated} contact(s) répertoire mis à jour` : 'PDP enregistré');
       this._markSaved();
       this.updateProgress();
       DataSync.markDirty();
@@ -6198,6 +6199,32 @@ const App = {
     }).join('');
   },
 
+  // ---- Propage les modifs des EE additionnelles d'un PDP/ICP vers le répertoire ----
+  // Pour chaque EE ayant un _repoId (= elle vient du répertoire), met à jour le contact
+  // principal (responsable/fonction/tel) dans db.entreprises si différent de la version courante.
+  async propagateEEUpdatesToRepo(currentObj) {
+    if (!currentObj || !Array.isArray(currentObj.entreprisesExt)) return 0;
+    let updated = 0;
+    for (const ee of currentObj.entreprisesExt) {
+      if (!ee._repoId) continue;
+      try {
+        const repo = await db.entreprises.get(ee._repoId);
+        if (!repo) continue;
+        const main = this.getMainContact(repo) || {};
+        const newResp = ee.responsable||'', newFct = ee.fonction||'', newTel = ee.tel||'';
+        const same = (main.nom||'') === newResp && (main.fonction||'') === newFct && (main.tel||'') === newTel;
+        if (same) continue;
+        repo.responsable = newResp;
+        repo.fonction = newFct;
+        repo.tel = newTel;
+        this.syncMainContact(repo);
+        await db.entreprises.put(repo);
+        updated++;
+      } catch (e) { console.warn('propagateEEUpdates skipped for id', ee._repoId, e); }
+    }
+    return updated;
+  },
+
   // ---- ENTREPRISES RÉPERTOIRE : helpers contacts multiples ----
   // Une entreprise peut avoir plusieurs contacts dans `e.contacts[]`. Le contact
   // principal est marqué `isMain:true` (sinon le premier). Les champs racine
@@ -7102,7 +7129,8 @@ const App = {
       else { v.id = await db.icps.add(v); v.numero = `ICP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(v.id).padStart(4,'0')}`; await db.icps.put(v); }
       document.getElementById('icp-detail-title').textContent = v.numero||'ICP #'+v.id;
       document.getElementById('btn-delete-icp').style.display = '';
-      this.toast('ICP enregistrée');
+      const propagated = await this.propagateEEUpdatesToRepo(v);
+      this.toast(propagated ? `ICP enregistrée + ${propagated} contact(s) répertoire mis à jour` : 'ICP enregistrée');
       DataSync.markDirty();
       if (typeof ActivityLog !== 'undefined') ActivityLog.log(wasNew ? 'icp.create' : 'icp.update', { id: v.id, numero: v.numero, site: v.site, pdpId: v.pdpId || null });
     } catch(e) { console.error(e); this.toast('Erreur','danger'); }
@@ -7207,7 +7235,7 @@ const App = {
     if (!e) return;
     bootstrap.Modal.getInstance(document.getElementById('modal-entreprise'))?.hide();
     setTimeout(() => this.resetEntModal(), 300);
-    this.currentICP.entreprisesExt.push({ nom:e.nom, adresse:e.adresse, responsable:e.responsable, fonction:e.fonction, tel:e.tel, email:e.email, siret:e.siret, activite:e.activite });
+    this.currentICP.entreprisesExt.push({ _repoId:e.id, nom:e.nom, adresse:e.adresse, responsable:e.responsable, fonction:e.fonction, tel:e.tel, email:e.email, siret:e.siret, activite:e.activite });
     this.currentICP.signaturesEE = this.currentICP.signaturesEE||[];
     this.currentICP.signaturesEE.push({ nom:'', date:'', data:null });
     this.renderICPEEList(); this.renderICPSignaturesEE(); this.toast('EE ajoutée');
