@@ -5484,16 +5484,17 @@ const App = {
     }
   },
 
-  // Construit un nom de fichier export : OPP-XXXX_PDP-XXX_titre.ext (ordre OPP > numero > titre)
+  // Construit un nom de fichier export : OPP-XXXX_[prefix]_PDP-XXX_titre.ext
   async buildPDPFilename(p, ext, prefix) {
     if (!p) return `PDP.${ext}`;
-    const parts = [prefix||''];
+    const parts = [];
     if (p.icpId) {
       try {
         const v = await db.icps.get(p.icpId);
         if (v?.refOperation) parts.push(v.refOperation);
       } catch {}
     }
+    if (prefix) parts.push(prefix);
     parts.push(p.numero||'PDP');
     if (p.titre) {
       const t = p.titre.replace(/[<>:"/\\|?*]/g,'_').replace(/\s+/g,' ').trim().slice(0, 50);
