@@ -4398,8 +4398,8 @@ const App = {
       document.getElementById('btn-delete-pdp').style.display = '';
       document.getElementById('btn-save-pdp').classList.add('btn-save-flash');
       setTimeout(() => document.getElementById('btn-save-pdp').classList.remove('btn-save-flash'), 600);
-      const propagated = await this.propagateEEUpdatesToRepo(p);
-      this.toast(propagated ? `PDP enregistré + ${propagated} contact(s) répertoire mis à jour` : 'PDP enregistré');
+      const newContactsAdded = await this.addNewContactsToRepo(p);
+      this.toast(newContactsAdded ? `PDP enregistré + ${newContactsAdded} nouveau(x) contact(s) ajouté(s) au répertoire` : 'PDP enregistré');
       this._markSaved();
       this.updateProgress();
       DataSync.markDirty();
@@ -6199,30 +6199,43 @@ const App = {
     }).join('');
   },
 
-  // ---- Propage les modifs des EE additionnelles d'un PDP/ICP vers le répertoire ----
-  // Pour chaque EE ayant un _repoId (= elle vient du répertoire), met à jour le contact
-  // principal (responsable/fonction/tel) dans db.entreprises si différent de la version courante.
-  async propagateEEUpdatesToRepo(currentObj) {
-    if (!currentObj || !Array.isArray(currentObj.entreprisesExt)) return 0;
-    let updated = 0;
-    for (const ee of currentObj.entreprisesExt) {
-      if (!ee._repoId) continue;
+  // ---- Enrichit le répertoire entreprises avec les nouveaux contacts vus dans un PDP/ICP ----
+  // Ne MODIFIE PAS le contact principal existant : ajoute juste les personnes non encore connues
+  // comme contacts additionnels (non-main). Permet d'enrichir progressivement la base.
+  async addNewContactsToRepo(currentObj) {
+    if (!currentObj) return 0;
+    let added = 0;
+    const tryAddContact = async (entId, p) => {
+      if (!entId || !p?.nom) return false;
       try {
-        const repo = await db.entreprises.get(ee._repoId);
-        if (!repo) continue;
-        const main = this.getMainContact(repo) || {};
-        const newResp = ee.responsable||'', newFct = ee.fonction||'', newTel = ee.tel||'';
-        const same = (main.nom||'') === newResp && (main.fonction||'') === newFct && (main.tel||'') === newTel;
-        if (same) continue;
-        repo.responsable = newResp;
-        repo.fonction = newFct;
-        repo.tel = newTel;
-        this.syncMainContact(repo);
+        const repo = await db.entreprises.get(entId);
+        if (!repo) return false;
+        const contacts = this.getEntrepriseContacts(repo);
+        const norm = s => (s||'').toLowerCase().replace(/\s+/g,' ').trim();
+        const exists = contacts.some(c => norm(c.nom) === norm(p.nom));
+        if (exists) return false;
+        repo.contacts = [...contacts, { nom: p.nom, fonction: p.fonction||'', tel: p.tel||'', email: p.email||'', isMain: false }];
         await db.entreprises.put(repo);
-        updated++;
-      } catch (e) { console.warn('propagateEEUpdates skipped for id', ee._repoId, e); }
+        return true;
+      } catch (e) { console.warn('addNewContact skipped', e); return false; }
+    };
+    // EE additionnelles (entreprisesExt[]) — la personne saisie comme responsable
+    for (const ee of (currentObj.entreprisesExt || [])) {
+      if (!ee._repoId) continue;
+      if (await tryAddContact(ee._repoId, { nom: ee.responsable, fonction: ee.fonction, tel: ee.tel, email: ee.email })) added++;
     }
-    return updated;
+    // Représentant EE de l'ICP (côté AGRIWATT/Enersolys)
+    const rep = currentObj.eeRepresentant;
+    if (rep?.entrepriseId && rep.nom) {
+      if (await tryAddContact(rep.entrepriseId, rep)) added++;
+    }
+    // Participants EE additionnels (icp-ee-add-list) liés à la même entreprise EE
+    if (rep?.entrepriseId && Array.isArray(currentObj.eeParticipants)) {
+      for (const p of currentObj.eeParticipants) {
+        if (await tryAddContact(rep.entrepriseId, p)) added++;
+      }
+    }
+    return added;
   },
 
   // ---- ENTREPRISES RÉPERTOIRE : helpers contacts multiples ----
@@ -7129,8 +7142,8 @@ const App = {
       else { v.id = await db.icps.add(v); v.numero = `ICP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(v.id).padStart(4,'0')}`; await db.icps.put(v); }
       document.getElementById('icp-detail-title').textContent = v.numero||'ICP #'+v.id;
       document.getElementById('btn-delete-icp').style.display = '';
-      const propagated = await this.propagateEEUpdatesToRepo(v);
-      this.toast(propagated ? `ICP enregistrée + ${propagated} contact(s) répertoire mis à jour` : 'ICP enregistrée');
+      const newContactsAdded = await this.addNewContactsToRepo(v);
+      this.toast(newContactsAdded ? `ICP enregistrée + ${newContactsAdded} nouveau(x) contact(s) ajouté(s) au répertoire` : 'ICP enregistrée');
       DataSync.markDirty();
       if (typeof ActivityLog !== 'undefined') ActivityLog.log(wasNew ? 'icp.create' : 'icp.update', { id: v.id, numero: v.numero, site: v.site, pdpId: v.pdpId || null });
     } catch(e) { console.error(e); this.toast('Erreur','danger'); }
