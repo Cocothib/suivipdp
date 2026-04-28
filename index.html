@@ -1376,11 +1376,11 @@ textarea.form-control { min-height: 70px; }
           <div class="row g-2">
             <div class="col-md-4">
               <label class="form-label" for="pdp-date-debut">Date début</label>
-              <input type="date" class="form-control" id="pdp-date-debut">
+              <input type="date" class="form-control" id="pdp-date-debut" onchange="App.calcDuree()">
             </div>
             <div class="col-md-4">
               <label class="form-label" for="pdp-date-fin">Date fin prévue</label>
-              <input type="date" class="form-control" id="pdp-date-fin">
+              <input type="date" class="form-control" id="pdp-date-fin" onchange="App.calcDuree()">
             </div>
             <div class="col-md-4">
               <label class="form-label" for="pdp-horaires">Horaires</label>
