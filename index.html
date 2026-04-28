@@ -6770,14 +6770,18 @@ const App = {
     if (!entId) {
       persSel.innerHTML = '<option value="">— Choisir une personne —</option>';
       persSel.disabled = true;
+      this._icpEERepCurrentContacts = [];
       return;
     }
     const e = await db.entreprises.get(parseInt(entId));
     if (!e) { persSel.disabled = true; return; }
-    const contacts = this.getEntrepriseContacts(e);
+    // Tri par nom de famille (insensible à la casse, locale FR pour les accents)
+    const contacts = [...this.getEntrepriseContacts(e)].sort((a, b) =>
+      (a.nom||'').localeCompare(b.nom||'', 'fr', { sensitivity: 'base' })
+    );
+    this._icpEERepCurrentContacts = contacts;
     persSel.innerHTML = '<option value="">— Choisir une personne —</option>' + contacts.map((c,i) => `<option value="${i}">${this.esc(c.nom||'(sans nom)')}${c.fonction?` — ${this.esc(c.fonction)}`:''}</option>`).join('');
     persSel.disabled = !contacts.length;
-    // Si une seule personne, pré-sélectionner et remplir les champs
     if (!skipReset && contacts.length === 1) {
       persSel.value = '0';
       this.onICPEERepPersonneChange('0');
@@ -6785,12 +6789,8 @@ const App = {
   },
 
   async onICPEERepPersonneChange(idx) {
-    const entId = document.getElementById('icp-ee-entreprise-id').value;
-    if (!entId || idx === '') return;
-    const e = await db.entreprises.get(parseInt(entId));
-    if (!e) return;
-    const contacts = this.getEntrepriseContacts(e);
-    const c = contacts[parseInt(idx)];
+    if (idx === '') return;
+    const c = (this._icpEERepCurrentContacts||[])[parseInt(idx)];
     if (!c) return;
     document.getElementById('icp-ee-rep-nom').value = c.nom||'';
     document.getElementById('icp-ee-rep-fonction').value = c.fonction||'';
