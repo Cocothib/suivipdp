@@ -9502,7 +9502,9 @@ const App = {
     children.push(new Paragraph({children:[new TextRun({text:'Les parties soussignées attestent avoir pris connaissance des dispositions du présent plan de prévention et s\'engagent à les respecter.',size:20,font:'Calibri',italics:true})],spacing:{after:150}}));
     const sigCols = [{label:`EU (${(eu.nom||'').toUpperCase()})`,sig:p.signatureEU||{}}];
     ees.forEach((ee,i) => sigCols.push({label:ee.nom||`EE ${i+1}`,sig:(p.signaturesEE||[])[i]||{}}));
-    if (!ees.length) sigCols.push({label:'ENTREPRISE EXTÉRIEURE',sig:{}});
+    // Signatures depuis les participants ICP liée (Représentant EE + additionnels)
+    (p.signaturesICPEE||[]).forEach(s => { if (s.nom||s.data) sigCols.push({label:s.societe||'EE',sig:{nom:s.nom||'', fonction:s.fonction||'', date:s.date||'', data:s.data||null}}); });
+    if (sigCols.length === 1) sigCols.push({label:'ENTREPRISE EXTÉRIEURE',sig:{}});
     const cw = Math.floor(100/sigCols.length);
     const _sigCellPDP = (sig, label, w) => {
       const paras = [
@@ -10501,7 +10503,8 @@ const App = {
     doc.setTextColor(0,0,0);
     const sigCols = [{label:`EU (${(eu.nom||'').toUpperCase()})`,sig:p.signatureEU||{}}];
     ees.forEach((ee,i) => sigCols.push({label:ee.nom||`EE ${i+1}`,sig:(p.signaturesEE||[])[i]||{}}));
-    if(!ees.length) sigCols.push({label:'ENTREPRISE EXTÉRIEURE',sig:{}});
+    (p.signaturesICPEE||[]).forEach(s => { if (s.nom||s.data) sigCols.push({label:s.societe||'EE',sig:{nom:s.nom||'', fonction:s.fonction||'', date:s.date||'', data:s.data||null}}); });
+    if (sigCols.length === 1) sigCols.push({label:'ENTREPRISE EXTÉRIEURE',sig:{}});
     addTable(sigCols.map(c=>c.label), [
       sigCols.map(c=>`Nom : ${c.sig.nom||''}`),
       sigCols.map(c=>`Fonction : ${c.sig.fonction||''}`),
