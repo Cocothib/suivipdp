@@ -1220,12 +1220,13 @@ textarea.form-control { min-height: 70px; }
 
   <!-- ==================== PDP LIST ==================== -->
   <div id="view-list" class="view fade-in" style="display:none">
-    <div class="d-flex justify-content-between flex-wrap align-items-center gap-2 mb-3">
+    <div class="d-flex justify-content-between flex-wrap align-items-center gap-2 mb-2">
       <h5 class="mb-0"><i class="bi bi-list-ul me-1"></i>Plans de Prévention</h5>
       <div class="d-flex gap-2 flex-wrap">
-        <input type="search" class="form-control form-control-sm search-bar" style="width:200px" placeholder="Rechercher..." id="search-pdp" oninput="App.filterPDPList()">
+        <input type="search" class="form-control form-control-sm" style="width:240px" placeholder="OPP, client, site, titre…" id="search-pdp" oninput="App.filterPDPList()" list="search-pdp-list">
+        <datalist id="search-pdp-list"></datalist>
         <select class="form-select form-select-sm" style="width:auto" id="filter-status" onchange="App.filterPDPList()">
-          <option value="">Tous</option>
+          <option value="">Tous statuts</option>
           <option value="brouillon">Brouillon</option>
           <option value="visite_prealable">Visite préalable</option>
           <option value="analyse_risque">Analyse de risque</option>
@@ -1234,8 +1235,16 @@ textarea.form-control { min-height: 70px; }
           <option value="modifie">Modifié</option>
           <option value="cloture">Clôturé</option>
         </select>
+        <select class="form-select form-select-sm" style="width:auto" id="filter-client" onchange="App.filterPDPList()">
+          <option value="">Tous clients</option>
+        </select>
+        <select class="form-select form-select-sm" style="width:auto" id="filter-annee" onchange="App.filterPDPList()">
+          <option value="">Toutes années</option>
+        </select>
+        <button class="btn btn-outline-secondary btn-sm" onclick="App.resetPDPFilters()" title="Réinitialiser les filtres"><i class="bi bi-x-circle"></i></button>
       </div>
     </div>
+    <div id="pdp-count-info" class="small text-muted mb-2"></div>
     <div id="pdp-list-container"></div>
   </div>
 
@@ -4025,6 +4034,7 @@ const App = {
     const c = document.getElementById('pdp-list-container');
     if (!pdps.length) { c.innerHTML = '<p class="text-muted text-center mt-4">Aucun PDP.</p>'; return; }
     c.innerHTML = pdps.sort((a,b) => new Date(b.dateModification||b.dateCreation) - new Date(a.dateModification||a.dateCreation)).map(p => this.renderPDPCard(p)).join('');
+    this.populatePDPFilters(pdps);
     const pf = this._pendingPDPFilter;
     this._pendingPDPFilter = null;
     if (pf === 'en_cours') {
@@ -4046,7 +4056,8 @@ const App = {
     const labels = { brouillon:'Brouillon', visite_prealable:'Inspection préalable', analyse_risque:'Analyse risque', signature:'En signature', actif:'Actif', modifie:'Modifié', cloture:'Clôturé' };
     const cls = { brouillon:'brouillon', visite_prealable:'visite', analyse_risque:'analyse', signature:'signature', actif:'actif', modifie:'modifie', cloture:'cloture' };
     const refOp = (p.icpId && this._icpRefByIdCache) ? this._icpRefByIdCache.get(p.icpId) : '';
-    return `<div class="card pdp-card" onclick="App.openPDP(${p.id})" data-statut="${p.statut}" data-titre="${(p.titre||'').toLowerCase()}" data-ref="${(refOp||'').toLowerCase()}" data-datefin="${p.dateFin||''}">
+    const annee = (p.dateDebut||p.dateCreation||'').slice(0,4);
+    return `<div class="card pdp-card" onclick="App.openPDP(${p.id})" data-statut="${p.statut}" data-titre="${(p.titre||'').toLowerCase()}" data-ref="${(refOp||'').toLowerCase()}" data-numero="${(p.numero||'').toLowerCase()}" data-site="${(p.site||'').toLowerCase()}" data-client="${(p.eu?.nom||'').toLowerCase()}" data-annee="${annee}" data-datefin="${p.dateFin||''}">
       <div class="card-body p-2">
         <div class="d-flex align-items-start gap-2">
           <div class="flex-grow-1">
@@ -4076,14 +4087,60 @@ const App = {
   },
 
   filterPDPList(multiStatuts) {
-    const s = (document.getElementById('search-pdp').value||'').toLowerCase();
+    const s = (document.getElementById('search-pdp').value||'').toLowerCase().trim();
     const st = multiStatuts || document.getElementById('filter-status').value;
     const statuts = Array.isArray(st) ? st : (st ? [st] : []);
+    const client = (document.getElementById('filter-client')?.value||'').toLowerCase();
+    const annee = document.getElementById('filter-annee')?.value || '';
+    let visible = 0, total = 0;
     document.querySelectorAll('#pdp-list-container .pdp-card').forEach(c => {
-      const matchSearch = !s || c.dataset.titre.includes(s);
+      total++;
+      // Match search dans tous les champs : titre, OPP, numero, site, client
+      const haystack = [c.dataset.titre, c.dataset.ref, c.dataset.numero, c.dataset.site, c.dataset.client].filter(Boolean).join(' ');
+      const matchSearch = !s || haystack.includes(s);
       const matchStatut = !statuts.length || statuts.includes(c.dataset.statut);
-      c.style.display = matchSearch && matchStatut ? '' : 'none';
+      const matchClient = !client || (c.dataset.client||'').includes(client);
+      const matchAnnee = !annee || c.dataset.annee === annee;
+      const show = matchSearch && matchStatut && matchClient && matchAnnee;
+      c.style.display = show ? '' : 'none';
+      if (show) visible++;
     });
+    const info = document.getElementById('pdp-count-info');
+    if (info) info.textContent = (visible === total) ? `${total} PDP` : `${visible} / ${total} PDP affiché(s)`;
+  },
+
+  resetPDPFilters() {
+    const ids = ['search-pdp','filter-status','filter-client','filter-annee'];
+    ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    this.filterPDPList();
+  },
+
+  // Peuple les filtres déroulants client et année à partir des PDP
+  populatePDPFilters(pdps) {
+    const clients = new Set();
+    const annees = new Set();
+    const refs = new Set();
+    pdps.forEach(p => {
+      if (p.eu?.nom) clients.add(p.eu.nom);
+      const a = (p.dateDebut||p.dateCreation||'').slice(0,4);
+      if (a) annees.add(a);
+      const r = (p.icpId && this._icpRefByIdCache) ? this._icpRefByIdCache.get(p.icpId) : '';
+      if (r) refs.add(r);
+    });
+    const clientSel = document.getElementById('filter-client');
+    if (clientSel) {
+      const cur = clientSel.value;
+      clientSel.innerHTML = '<option value="">Tous clients</option>' + [...clients].sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'})).map(n => `<option value="${this.esc(n)}">${this.esc(n)}</option>`).join('');
+      clientSel.value = cur;
+    }
+    const anneeSel = document.getElementById('filter-annee');
+    if (anneeSel) {
+      const cur = anneeSel.value;
+      anneeSel.innerHTML = '<option value="">Toutes années</option>' + [...annees].sort((a,b)=>b.localeCompare(a)).map(a => `<option value="${a}">${a}</option>`).join('');
+      anneeSel.value = cur;
+    }
+    const dl = document.getElementById('search-pdp-list');
+    if (dl) dl.innerHTML = [...refs, ...clients].slice(0, 100).map(v => `<option value="${this.esc(v)}"></option>`).join('');
   },
 
   filterPDPExpires() {
