@@ -9324,11 +9324,23 @@ const App = {
           children.push(new Paragraph({children:[],spacing:{before:40}}));
           // Rondes de cette période
           children.push(new Paragraph({children:[new TextRun({text:`Rondes de surveillance — Période n°${i+1}`,size:20,font:'Calibri',bold:true,italics:true})],spacing:{before:40,after:30}}));
-          const rRows = [new TableRow({children:[hCell('Heure',15),hCell('Inspecteur',25),hCell('Observations',45),hCell('RAS',15)]})];
+          const rRows = [new TableRow({children:[hCell('Heure',14),hCell('Inspecteur',22),hCell('Observations',36),hCell('RAS',10),hCell('Émargement',18)]})];
           if (rondes.length) {
-            rondes.forEach(rd => rRows.push(new TableRow({children:[cell(rd.heure||'',{width:15}),cell(rd.inspecteur||'',{width:25}),cell(rd.observations||'',{width:45}),cell(rd.conforme?'Oui':'',{width:15,align:AlignmentType.CENTER})]})));
+            rondes.forEach(rd => {
+              let sigCellRonde;
+              if (rd.signature) {
+                try {
+                  const base64 = rd.signature.split(',')[1];
+                  const arr = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+                  sigCellRonde = new TableCell({ children:[new Paragraph({children:[new ImageRun({data:arr.buffer, transformation:{width:100, height:40}, type:'png'})]})], width:{size:18, type:WidthType.PERCENTAGE} });
+                } catch { sigCellRonde = cell('', {width:18}); }
+              } else {
+                sigCellRonde = cell('', {width:18});
+              }
+              rRows.push(new TableRow({children:[cell(rd.heure||'',{width:14}),cell(rd.inspecteur||'',{width:22}),cell(rd.observations||'',{width:36}),cell(rd.conforme?'Oui':'',{width:10,align:AlignmentType.CENTER}),sigCellRonde]}));
+            });
           } else {
-            for(let j=0;j<3;j++) rRows.push(new TableRow({children:[cell('',{width:15}),cell('',{width:25}),cell('',{width:45}),cell('',{width:15})]}));
+            for(let j=0;j<3;j++) rRows.push(new TableRow({children:[cell('',{width:14}),cell('',{width:22}),cell('',{width:36}),cell('',{width:10}),cell('',{width:18})]}));
           }
           children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
         });
@@ -9534,11 +9546,23 @@ const App = {
         children.push(new Paragraph({children:[],spacing:{before:40}}));
         // Rondes de cette période
         children.push(new Paragraph({children:[new TextRun({text:`Rondes de surveillance — Période n°${i+1}`,size:20,font:'Calibri',bold:true,italics:true})],spacing:{before:40,after:30}}));
-        const rRows = [new TableRow({children:[hCell('Heure',15),hCell('Inspecteur',25),hCell('Observations',45),hCell('RAS',15)]})];
+        const rRows = [new TableRow({children:[hCell('Heure',14),hCell('Inspecteur',22),hCell('Observations',36),hCell('RAS',10),hCell('Émargement',18)]})];
         if (rondes.length) {
-          rondes.forEach(rd => rRows.push(new TableRow({children:[cell(rd.heure||'',{width:15}),cell(rd.inspecteur||'',{width:25}),cell(rd.observations||'',{width:45}),cell(rd.conforme?'Oui':'Non',{width:15,align:AlignmentType.CENTER})]})));
+          rondes.forEach(rd => {
+            let sigCellRonde;
+            if (rd.signature) {
+              try {
+                const base64 = rd.signature.split(',')[1];
+                const arr = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+                sigCellRonde = new TableCell({ children:[new Paragraph({children:[new ImageRun({data:arr.buffer, transformation:{width:100, height:40}, type:'png'})]})], width:{size:18, type:WidthType.PERCENTAGE} });
+              } catch { sigCellRonde = cell('', {width:18}); }
+            } else {
+              sigCellRonde = cell('', {width:18});
+            }
+            rRows.push(new TableRow({children:[cell(rd.heure||'',{width:14}),cell(rd.inspecteur||'',{width:22}),cell(rd.observations||'',{width:36}),cell(rd.conforme?'Oui':'Non',{width:10,align:AlignmentType.CENTER}),sigCellRonde]}));
+          });
         } else {
-          for(let j=0;j<3;j++) rRows.push(new TableRow({children:[cell('',{width:15}),cell('',{width:25}),cell('',{width:45}),cell('',{width:15})]}));
+          for(let j=0;j<3;j++) rRows.push(new TableRow({children:[cell('',{width:14}),cell('',{width:22}),cell('',{width:36}),cell('',{width:10}),cell('',{width:18})]}));
         }
         children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
       });
@@ -9698,10 +9722,20 @@ const App = {
         // Rondes de cette période
         const rondes = r.rondes || [];
         if (rondes.length) {
-          addTable(['Heure','Inspecteur','Observations','RAS'], rondes.map(rd=>[rd.heure||'',rd.inspecteur||'',rd.observations||'',{content:rd.conforme?'Oui':'',styles:{halign:'center'}}]), {columnStyles:{0:{cellWidth:25},3:{cellWidth:20}}});
+          const sigs = rondes.map(rd => rd.signature || null);
+          addTable(['Heure','Inspecteur','Observations','RAS','Émargement'],
+            rondes.map(rd => [rd.heure||'', rd.inspecteur||'', rd.observations||'', {content: rd.conforme?'Oui':'', styles:{halign:'center'}}, '']),
+            { columnStyles:{0:{cellWidth:22},3:{cellWidth:14},4:{cellWidth:35}},
+              bodyStyles:{minCellHeight:14},
+              didDrawCell: (d) => {
+                if (d.section === 'body' && d.column.index === 4 && sigs[d.row.index]) {
+                  try { doc.addImage(sigs[d.row.index], 'PNG', d.cell.x+1, d.cell.y+1, d.cell.width-2, d.cell.height-2); } catch {}
+                }
+              }
+            });
         } else {
-          const emptyRows = [['','','',''],['','','',''],['','','','']];
-          addTable(['Heure','Inspecteur','Observations','RAS'], emptyRows, {columnStyles:{0:{cellWidth:25},3:{cellWidth:20}}, bodyStyles:{minCellHeight:8,fontSize:8,cellPadding:2}});
+          const emptyRows = [['','','','',''],['','','','',''],['','','','','']];
+          addTable(['Heure','Inspecteur','Observations','RAS','Émargement'], emptyRows, {columnStyles:{0:{cellWidth:22},3:{cellWidth:14},4:{cellWidth:35}}, bodyStyles:{minCellHeight:12,fontSize:8,cellPadding:2}});
         }
       });
     } else {
@@ -10275,9 +10309,19 @@ const App = {
           // Rondes
           const rondes = r.rondes || [];
           if (rondes.length) {
-            addTable(['Heure','Inspecteur','Observations','RAS'], rondes.map(rd=>[rd.heure||'',rd.inspecteur||'',rd.observations||'',{content:rd.conforme?'Oui':'',styles:{halign:'center'}}]), {columnStyles:{0:{cellWidth:25},3:{cellWidth:20}}});
+            const sigs = rondes.map(rd => rd.signature || null);
+            addTable(['Heure','Inspecteur','Observations','RAS','Émargement'],
+              rondes.map(rd => [rd.heure||'', rd.inspecteur||'', rd.observations||'', {content: rd.conforme?'Oui':'', styles:{halign:'center'}}, '']),
+              { columnStyles:{0:{cellWidth:22},3:{cellWidth:14},4:{cellWidth:35}},
+                bodyStyles:{minCellHeight:14},
+                didDrawCell: (d) => {
+                  if (d.section === 'body' && d.column.index === 4 && sigs[d.row.index]) {
+                    try { doc.addImage(sigs[d.row.index], 'PNG', d.cell.x+1, d.cell.y+1, d.cell.width-2, d.cell.height-2); } catch {}
+                  }
+                }
+              });
           } else {
-            addTable(['Heure','Inspecteur','Observations','RAS'], [['','','',''],['','','',''],['','','','']], {columnStyles:{0:{cellWidth:25},3:{cellWidth:20}}, bodyStyles:{minCellHeight:8,fontSize:8,cellPadding:2}});
+            addTable(['Heure','Inspecteur','Observations','RAS','Émargement'], [['','','','',''],['','','','',''],['','','','','']], {columnStyles:{0:{cellWidth:22},3:{cellWidth:14},4:{cellWidth:35}}, bodyStyles:{minCellHeight:12,fontSize:8,cellPadding:2}});
           }
         });
       }
