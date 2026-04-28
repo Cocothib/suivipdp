@@ -6349,8 +6349,8 @@ const App = {
     if (!pdp) return 0;
     pdp.documents = pdp.documents || [];
     try {
-      const standards = await db.fds.where('standard').equals(1).toArray()
-        .catch(async () => (await db.fds.toArray()).filter(f => f.standard));
+      // Filtre en JS car Dexie n'indexe pas les booléens correctement
+      const standards = (await db.fds.toArray()).filter(f => f.standard);
       const existingRefs = new Set(pdp.documents.filter(d => d.fdsRef).map(d => d.fdsRef));
       let added = 0;
       for (const f of standards) {
