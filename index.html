@@ -9536,9 +9536,44 @@ const App = {
       this._docxBlobResult = blob;
       return;
     }
-    saveAs(blob, fn);
-    DataSync.uploadExport(blob, fn, 'pdp');
-    this.toast('Word généré');
+    // Si le PDP a des annexes (FDS-ref ou docs avec data), créer un ZIP global
+    const docsToBundle = [];
+    for (const d of (p.documents||[])) {
+      if (d.fdsRef) {
+        try {
+          const f = await db.fds.get(d.fdsRef);
+          if (f?.data) docsToBundle.push({ nom: f.nom||d.nom||'fds.pdf', dataUrl: f.data });
+        } catch {}
+      } else if (d.data) {
+        docsToBundle.push({ nom: d.nom||'document', dataUrl: d.data });
+      }
+    }
+    if (docsToBundle.length && typeof JSZip !== 'undefined') {
+      const zip = new JSZip();
+      zip.file(fn, blob);
+      const annexesFolder = zip.folder('Annexes');
+      const seen = new Map();
+      for (const dd of docsToBundle) {
+        let nm = dd.nom;
+        // Évite les collisions de nom dans le ZIP
+        const cnt = (seen.get(nm)||0) + 1; seen.set(nm, cnt);
+        if (cnt > 1) {
+          const dot = nm.lastIndexOf('.');
+          nm = dot>0 ? `${nm.slice(0,dot)}_${cnt}${nm.slice(dot)}` : `${nm}_${cnt}`;
+        }
+        const base64 = (dd.dataUrl.split(',')[1])||'';
+        annexesFolder.file(nm, base64, { base64: true });
+      }
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const zipName = `${p.numero||'PDP'}.zip`;
+      saveAs(zipBlob, zipName);
+      DataSync.uploadExport(zipBlob, zipName, 'pdp');
+      this.toast(`Word + ${docsToBundle.length} annexe(s) générés (ZIP)`);
+    } else {
+      saveAs(blob, fn);
+      DataSync.uploadExport(blob, fn, 'pdp');
+      this.toast('Word généré');
+    }
   },
 
   // ---- EXPORT PERMIS DE FEU SÉPARÉ (WORD) ----
