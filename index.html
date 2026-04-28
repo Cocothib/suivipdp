@@ -6235,6 +6235,17 @@ const App = {
         if (await tryAddContact(rep.entrepriseId, p)) added++;
       }
     }
+    // Côté EU : Représentant EU + participants additionnels rattachés à l'entreprise EU Sellsy
+    const euLocalId = currentObj.euInfo?.localId;
+    const euRep = currentObj.euParticipant;
+    if (euLocalId && euRep?.nom) {
+      if (await tryAddContact(euLocalId, euRep)) added++;
+    }
+    if (euLocalId && Array.isArray(currentObj.euParticipants)) {
+      for (const p of currentObj.euParticipants) {
+        if (await tryAddContact(euLocalId, p)) added++;
+      }
+    }
     return added;
   },
 
@@ -6697,6 +6708,37 @@ const App = {
               if (geo) setIfEmpty('icp-lieu', `${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)}`);
             }
           }
+          // Crée ou met à jour l'entreprise EU dans le répertoire local pour pouvoir y rattacher
+          // les participants EU (sans écraser les contacts existants).
+          let euLocalId = null;
+          if (c?.nom) {
+            try {
+              const allEnts = await db.entreprises.toArray();
+              const existing = allEnts.find(e =>
+                (c.siret && e.siret && e.siret === c.siret) ||
+                (e.nom && c.nom && (e.nom||'').toLowerCase() === c.nom.toLowerCase())
+              );
+              if (existing) {
+                // Mise à jour des infos racine sans toucher aux contacts.
+                existing.siret = existing.siret || c.siret || '';
+                existing.adresse = mainAddr?.adresse || existing.adresse || '';
+                existing.tel = existing.tel || c.tel || '';
+                existing.email = existing.email || c.email || '';
+                existing.activite = existing.activite || c.activite || '';
+                this.syncMainContact(existing);
+                await db.entreprises.put(existing);
+                euLocalId = existing.id;
+              } else {
+                const newEnt = {
+                  nom: c.nom, siret: c.siret || '', adresse: mainAddr?.adresse || '',
+                  tel: c.tel || '', email: c.email || '', activite: c.activite || '',
+                  contacts: contact ? [{ nom: contact.nom||'', fonction: contact.fonction||'', tel: contact.tel||'', email: contact.email||'', isMain: true }] : []
+                };
+                this.syncMainContact(newEnt);
+                euLocalId = await db.entreprises.add(newEnt);
+              }
+            } catch (err) { console.warn('[Sellsy] sync EU répertoire échoué', err); }
+          }
           // Stocke les infos EU complètes dans l'ICP pour passage vers PDP
           this.currentICP.euInfo = {
             nom: c?.nom || '',
@@ -6705,6 +6747,7 @@ const App = {
             email: c?.email || '',
             tel: c?.tel || '',
             companyId: companyId,
+            localId: euLocalId,
           };
         } catch (err) {
           console.error('[Sellsy] erreur enrichissement company', err);
