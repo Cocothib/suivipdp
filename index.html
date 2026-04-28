@@ -1968,7 +1968,8 @@ textarea.form-control { min-height: 70px; }
             <label class="form-label" for="icp-ref-operation">N° d'opération / Réf.</label>
             <div class="input-group input-group-sm">
               <span class="input-group-text"><i class="bi bi-bookmark"></i></span>
-              <input type="text" class="form-control" id="icp-ref-operation" placeholder="Ex: OPP-2026-001">
+              <span class="input-group-text">OPP-</span>
+              <input type="text" class="form-control" id="icp-ref-operation" placeholder="Ex: 04146">
               <button class="btn btn-outline-success" type="button" onclick="App.openSellsyOppSearchModal()" title="Rechercher une opportunité dans Sellsy"><i class="bi bi-search"></i></button>
             </div>
           </div>
@@ -6651,7 +6652,8 @@ const App = {
       console.log('[Sellsy] opp mappée:', o);
       const setIfEmpty = (id, v) => { const el = document.getElementById(id); if (el && !el.value.trim()) el.value = v||''; };
       const setForce = (id, v) => { const el = document.getElementById(id); if (el) el.value = v||''; };
-      setForce('icp-ref-operation', o.ref);
+      // o.ref vient de Sellsy au format "OPP-XXXXX" — on n'affiche que le numéro (le préfixe est visuel)
+      setForce('icp-ref-operation', (o.ref||'').replace(/^OPP-?/i, ''));
       setIfEmpty('icp-objet', o.nom);
 
       // Tenter de récupérer la company liée par tous les moyens disponibles
@@ -7046,7 +7048,8 @@ const App = {
   populateICPForm() {
     const v = this.currentICP;
     document.getElementById('icp-numero').value = v.numero||'';
-    document.getElementById('icp-ref-operation').value = v.refOperation||'';
+    // Le champ affiche juste le numéro ; le préfixe "OPP-" est dans le label visuel
+    document.getElementById('icp-ref-operation').value = (v.refOperation||'').replace(/^OPP-?/i, '');
     document.getElementById('icp-statut').value = v.statut||'effectuee';
     document.getElementById('icp-date').value = v.dateVisite||'';
     document.getElementById('icp-heure').value = v.heure||'';
@@ -7105,7 +7108,9 @@ const App = {
   collectICPForm() {
     const v = this.currentICP;
     v.numero = document.getElementById('icp-numero').value.trim();
-    v.refOperation = document.getElementById('icp-ref-operation').value.trim();
+    // Si l'utilisateur a saisi un numéro, on re-préfixe automatiquement avec "OPP-"
+    const refRaw = document.getElementById('icp-ref-operation').value.trim();
+    v.refOperation = refRaw ? (refRaw.toUpperCase().startsWith('OPP-') ? refRaw : 'OPP-' + refRaw) : '';
     v.statut = document.getElementById('icp-statut').value;
     v.dateVisite = document.getElementById('icp-date').value;
     v.heure = document.getElementById('icp-heure').value;
