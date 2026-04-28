@@ -7305,13 +7305,10 @@ const App = {
   // ---- ICP SIGNATURES EE ----
   renderICPSignaturesEE() {
     const c = document.getElementById('icp-signatures-ee-container');
-    const section = document.getElementById('icp-signatures-ee-section');
     const ees = this.currentICP.entreprisesExt||[];
     this.currentICP.signaturesEE = this.currentICP.signaturesEE||[];
     while (this.currentICP.signaturesEE.length < ees.length) this.currentICP.signaturesEE.push({nom:'',date:'',data:null});
-    // Masque la section si aucune EE additionnelle (cas usuel AGRIWATT sans sous-traitants)
-    if (section) section.style.display = ees.length ? '' : 'none';
-    if (!ees.length) { c.innerHTML = ''; return; }
+    if (!ees.length) { c.innerHTML = '<p class="text-muted small">Aucune EE sous-traitante. Utilisez « Ajouter EE » dans la section Participants pour ajouter un sous-traitant.</p>'; return; }
     c.innerHTML = ees.map((ee,i) => `<div class="mb-3 p-2 border rounded"><strong class="small">${this.esc(ee.nom)}</strong><div class="row g-2 mt-1"><div class="col-md-6"><input type="text" class="form-control form-control-sm" placeholder="Signataire" value="${this.esc((this.currentICP.signaturesEE[i]||{}).nom||'')}" onchange="App.currentICP.signaturesEE[${i}].nom=this.value"></div><div class="col-md-6"><input type="date" class="form-control form-control-sm" value="${(this.currentICP.signaturesEE[i]||{}).date||''}" onchange="App.currentICP.signaturesEE[${i}].date=this.value"></div><div class="col-12"><div class="signature-pad-wrapper"><canvas id="icp-sig-ee-canvas-${i}" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('icp-sig-ee-canvas-${i}')"><i class="bi bi-eraser me-1"></i>Effacer</button></div></div></div>`).join('');
     setTimeout(() => {
       ees.forEach((_,i) => {
