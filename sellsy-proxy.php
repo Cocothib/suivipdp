@@ -71,7 +71,7 @@ try {
         case 'company':
             $id = (int)($_GET['id'] ?? 0);
             if (!$id) { http_response_code(400); echo json_encode(['error' => 'id manquant']); exit; }
-            $res = sellsy_call('GET', "/companies/$id?embed[]=address&embed[]=contact&embed[]=phone_number&embed[]=email", $token);
+            $res = sellsy_call('GET', "/companies/$id", $token);
             break;
         case 'contacts':
             $id = (int)($_GET['id'] ?? 0);
