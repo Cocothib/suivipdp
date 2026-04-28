@@ -6639,6 +6639,7 @@ const App = {
             setForceIfValue('icp-eu-nom', contact.nom);
             setForceIfValue('icp-eu-fonction', contact.fonction);
             setForceIfValue('icp-eu-tel', contact.tel);
+            this.syncICPSignatureNom('eu');
           }
           if (mainAddr) {
             setIfEmpty('icp-site', mainAddr.adresse);
@@ -6859,8 +6860,8 @@ const App = {
     v.signaturesEEAdd = v.signaturesEEAdd || [];
     while (v.signaturesEUAdd.length < eus.length) v.signaturesEUAdd.push({nom:'',date:'',data:null});
     while (v.signaturesEEAdd.length < ees.length) v.signaturesEEAdd.push({nom:'',date:'',data:null});
-    cEU.innerHTML = eus.map((p,i) => `<div class="field-group"><div class="field-group-title"><i class="bi bi-pen"></i> Signature ${this.esc(p.nom||'Participant EU '+(i+1))}</div><div class="row g-2 mb-3"><div class="col-md-6"><input type="text" class="form-control form-control-sm" placeholder="Signataire" value="${this.esc(v.signaturesEUAdd[i]?.nom || (p.nom + (p.fonction?` (${p.fonction})`:'')))}" onchange="App.currentICP.signaturesEUAdd[${i}].nom=this.value"></div><div class="col-md-6"><input type="date" class="form-control form-control-sm" value="${v.signaturesEUAdd[i]?.date||''}" onchange="App.currentICP.signaturesEUAdd[${i}].date=this.value"></div><div class="col-12"><div class="signature-pad-wrapper"><canvas id="icp-sig-eu-add-canvas-${i}" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('icp-sig-eu-add-canvas-${i}')"><i class="bi bi-eraser me-1"></i>Effacer</button></div></div></div>`).join('');
-    cEE.innerHTML = ees.map((p,i) => `<div class="field-group"><div class="field-group-title"><i class="bi bi-pen"></i> Signature ${this.esc(p.nom||'Participant EE '+(i+1))}</div><div class="row g-2 mb-3"><div class="col-md-6"><input type="text" class="form-control form-control-sm" placeholder="Signataire" value="${this.esc(v.signaturesEEAdd[i]?.nom || (p.nom + (p.fonction?` (${p.fonction})`:'')))}" onchange="App.currentICP.signaturesEEAdd[${i}].nom=this.value"></div><div class="col-md-6"><input type="date" class="form-control form-control-sm" value="${v.signaturesEEAdd[i]?.date||''}" onchange="App.currentICP.signaturesEEAdd[${i}].date=this.value"></div><div class="col-12"><div class="signature-pad-wrapper"><canvas id="icp-sig-ee-add-canvas-${i}" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('icp-sig-ee-add-canvas-${i}')"><i class="bi bi-eraser me-1"></i>Effacer</button></div></div></div>`).join('');
+    cEU.innerHTML = eus.map((p,i) => `<div class="field-group"><div class="field-group-title"><i class="bi bi-pen"></i> Signature ${this.esc(p.nom||'Participant EU '+(i+1))}</div><div class="row g-2 mb-3"><div class="col-md-6"><input type="text" class="form-control form-control-sm" placeholder="Signataire" value="${this.esc(v.signaturesEUAdd[i]?.nom || p.nom || '')}" onchange="App.currentICP.signaturesEUAdd[${i}].nom=this.value"></div><div class="col-md-6"><input type="date" class="form-control form-control-sm" value="${v.signaturesEUAdd[i]?.date||''}" onchange="App.currentICP.signaturesEUAdd[${i}].date=this.value"></div><div class="col-12"><div class="signature-pad-wrapper"><canvas id="icp-sig-eu-add-canvas-${i}" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('icp-sig-eu-add-canvas-${i}')"><i class="bi bi-eraser me-1"></i>Effacer</button></div></div></div>`).join('');
+    cEE.innerHTML = ees.map((p,i) => `<div class="field-group"><div class="field-group-title"><i class="bi bi-pen"></i> Signature ${this.esc(p.nom||'Participant EE '+(i+1))}</div><div class="row g-2 mb-3"><div class="col-md-6"><input type="text" class="form-control form-control-sm" placeholder="Signataire" value="${this.esc(v.signaturesEEAdd[i]?.nom || p.nom || '')}" onchange="App.currentICP.signaturesEEAdd[${i}].nom=this.value"></div><div class="col-md-6"><input type="date" class="form-control form-control-sm" value="${v.signaturesEEAdd[i]?.date||''}" onchange="App.currentICP.signaturesEEAdd[${i}].date=this.value"></div><div class="col-12"><div class="signature-pad-wrapper"><canvas id="icp-sig-ee-add-canvas-${i}" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('icp-sig-ee-add-canvas-${i}')"><i class="bi bi-eraser me-1"></i>Effacer</button></div></div></div>`).join('');
     setTimeout(() => {
       eus.forEach((_,i) => { this.initCanvas(`icp-sig-eu-add-canvas-${i}`); if (v.signaturesEUAdd[i]?.data) this.loadSigImg(`icp-sig-eu-add-canvas-${i}`, v.signaturesEUAdd[i].data); });
       ees.forEach((_,i) => { this.initCanvas(`icp-sig-ee-add-canvas-${i}`); if (v.signaturesEEAdd[i]?.data) this.loadSigImg(`icp-sig-ee-add-canvas-${i}`, v.signaturesEEAdd[i].data); });
@@ -6871,14 +6872,12 @@ const App = {
   syncICPSignatureNom(target) {
     if (target === 'eu') {
       const nom = document.getElementById('icp-eu-nom')?.value.trim() || '';
-      const fonction = document.getElementById('icp-eu-fonction')?.value.trim() || '';
       const sig = document.getElementById('icp-sig-eu-nom');
-      if (sig && !sig.value.trim()) sig.value = nom + (fonction ? ' (' + fonction + ')' : '');
+      if (sig && !sig.value.trim()) sig.value = nom;
     } else if (target === 'ee') {
       const nom = document.getElementById('icp-ee-rep-nom')?.value.trim() || '';
-      const fonction = document.getElementById('icp-ee-rep-fonction')?.value.trim() || '';
       const sig = document.getElementById('icp-sig-ee-rep-nom');
-      if (sig && !sig.value.trim()) sig.value = nom + (fonction ? ' (' + fonction + ')' : '');
+      if (sig && !sig.value.trim()) sig.value = nom;
     }
   },
 
@@ -6942,6 +6941,7 @@ const App = {
     document.getElementById('icp-ee-rep-nom').value = c.nom||'';
     document.getElementById('icp-ee-rep-fonction').value = c.fonction||'';
     document.getElementById('icp-ee-rep-tel').value = c.tel||'';
+    this.syncICPSignatureNom('ee');
     this._markEditing && this._markEditing();
   },
 
