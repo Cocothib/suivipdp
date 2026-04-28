@@ -7814,11 +7814,11 @@ const App = {
 
   // ---- SITES MANAGEMENT ----
   DEFAULT_SITES: [
-    { nom:'Bouxières-sous-Froidmont', entite:'agriwatt', adresse:'Bouxières-sous-Froidmont (54)', responsable:'', fonction:'Conducteur de travaux', tel:'', email:'', siret:'' },
-    { nom:'Seclin', entite:'agriwatt', adresse:'Seclin (59)', responsable:'', fonction:'Conducteur de travaux', tel:'', email:'', siret:'' },
-    { nom:'Vervins', entite:'agriwatt', adresse:'Vervins (02)', responsable:'', fonction:'Conducteur de travaux', tel:'', email:'', siret:'' },
-    { nom:'Honfleur', entite:'agriwatt', adresse:'Honfleur (14)', responsable:'', fonction:'Conducteur de travaux', tel:'', email:'', siret:'' },
-    { nom:'Bailly-Romainvilliers', entite:'enersolys', adresse:'Bailly-Romainvilliers (77)', responsable:'', fonction:'Conducteur de travaux', tel:'', email:'', siret:'' },
+    { nom:'Bouxières-sous-Froidmont', entite:'agriwatt', adresse:'Bouxières-sous-Froidmont (54)', responsable:'', fonction:'', tel:'', email:'', siret:'' },
+    { nom:'Seclin', entite:'agriwatt', adresse:'Seclin (59)', responsable:'', fonction:'', tel:'', email:'', siret:'' },
+    { nom:'Vervins', entite:'agriwatt', adresse:'Vervins (02)', responsable:'', fonction:'', tel:'', email:'', siret:'' },
+    { nom:'Honfleur', entite:'agriwatt', adresse:'Honfleur (14)', responsable:'', fonction:'', tel:'', email:'', siret:'' },
+    { nom:'Bailly-Romainvilliers', entite:'enersolys', adresse:'Bailly-Romainvilliers (77)', responsable:'', fonction:'', tel:'', email:'', siret:'' },
   ],
 
   async seedDefaultSites() {
@@ -7871,10 +7871,12 @@ const App = {
     if (!siteId) return;
     const s = await db.sites.get(parseInt(siteId));
     if (!s) return;
-    document.getElementById('icp-eu-nom').value = s.responsable || '';
-    document.getElementById('icp-eu-fonction').value = s.fonction || '';
-    document.getElementById('icp-eu-tel').value = s.tel || '';
-    document.getElementById('icp-site').value = s.nom;
+    // setIfEmpty : ne pas écraser ce que Sellsy ou l'utilisateur a déjà saisi
+    const setIfEmpty = (id, v) => { const el = document.getElementById(id); if (el && !el.value.trim()) el.value = v||''; };
+    setIfEmpty('icp-eu-nom', s.responsable);
+    setIfEmpty('icp-eu-fonction', s.fonction);
+    setIfEmpty('icp-eu-tel', s.tel);
+    setIfEmpty('icp-site', s.nom);
   },
 
   async renderSettingsView() {
@@ -8245,7 +8247,7 @@ const App = {
     document.getElementById('site-nom').value = '';
     document.getElementById('site-adresse').value = '';
     document.getElementById('site-responsable').value = '';
-    document.getElementById('site-fonction').value = 'Conducteur de travaux';
+    document.getElementById('site-fonction').value = '';
     document.getElementById('site-tel').value = '';
     document.getElementById('site-email').value = '';
     document.getElementById('site-siret').value = '';
