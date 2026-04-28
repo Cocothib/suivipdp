@@ -4287,6 +4287,8 @@ const App = {
     document.getElementById('pf-sig-eu-date').value = (pf.signatureEU||{}).date || '';
     document.getElementById('pf-sig-ee-nom').value = (pf.signatureEE||{}).nom || '';
     document.getElementById('pf-sig-ee-date').value = (pf.signatureEE||{}).date || '';
+    // Pré-remplissage si vide depuis les données du PDP (Rep EU = contact EU PDP, Rep EE = Rep EE de l'ICP liée)
+    this.prefillPermisFeuSignataires();
     document.getElementById('pf-sig-exec-nom').value = (pf.signatureExec||{}).nom || '';
     document.getElementById('pf-sig-exec-societe').value = (pf.signatureExec||{}).societe || '';
     document.getElementById('pf-sig-exec-date').value = (pf.signatureExec||{}).date || '';
@@ -4432,6 +4434,7 @@ const App = {
     if (section === 'risques') { this._riskPickerCtx = 'pdp'; this.updateRiskCounters(); }
     if (section === 'emargement') { this.prefillEmargements(); }
     if (section === 'signatures') { this.renderSignaturesEE(); this.prefillSignatureEU(); }
+    if (section === 'permisfeu') { this.prefillPermisFeuSignataires(); }
     if (section === 'permisfeu') setTimeout(() => { this.initCanvas('pf-sig-eu-canvas'); this.initCanvas('pf-sig-ee-canvas'); this.initCanvas('pf-sig-exec-canvas'); if (this.currentPDP?.permisFeu?.signatureEU?.data) this.loadSigImg('pf-sig-eu-canvas', this.currentPDP.permisFeu.signatureEU.data); if (this.currentPDP?.permisFeu?.signatureEE?.data) this.loadSigImg('pf-sig-ee-canvas', this.currentPDP.permisFeu.signatureEE.data); if (this.currentPDP?.permisFeu?.signatureExec?.data) this.loadSigImg('pf-sig-exec-canvas', this.currentPDP.permisFeu.signatureExec.data); (this.currentPDP?.permisFeu?.renouvellements||[]).forEach((r,i) => { this.initCanvas('pf-renouv-sig-'+i); if (r.signatureEU?.data) this.loadSigImg('pf-renouv-sig-'+i, r.signatureEU.data); }); }, 100);
     this._currentSection = section;
     this.updateProgress();
@@ -5426,6 +5429,24 @@ const App = {
         if (p.signaturesICPEE[i]?.data) this.loadSigImg(`sig-ee-icp-canvas-${i}`, p.signaturesICPEE[i].data);
       });
     }, 100);
+  },
+
+  // Pré-remplit les signataires du permis de feu (Rep EU + Rep Entreprise Intervenante)
+  // depuis les données du PDP / ICP liée. L'exécutant reste manuel.
+  async prefillPermisFeuSignataires() {
+    const p = this.currentPDP;
+    if (!p) return;
+    const eu = p.eu || {};
+    const euNomEl = document.getElementById('pf-sig-eu-nom');
+    if (euNomEl && !euNomEl.value.trim() && eu.responsable) euNomEl.value = eu.responsable;
+    // Rep Entreprise Intervenante = Représentant EE de l'ICP liée (AGRIWATT/Enersolys)
+    const eeNomEl = document.getElementById('pf-sig-ee-nom');
+    if (eeNomEl && !eeNomEl.value.trim() && p.icpId) {
+      try {
+        const v = await db.icps.get(p.icpId);
+        if (v?.eeRepresentant?.nom) eeNomEl.value = v.eeRepresentant.nom;
+      } catch {}
+    }
   },
 
   // Pré-remplit la signature EU avec le contact EU si vide (le Représentant EU
