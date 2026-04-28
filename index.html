@@ -2018,7 +2018,7 @@ textarea.form-control { min-height: 70px; }
         <div class="row g-2">
           <div class="col-md-6">
             <label class="form-label" for="icp-ee-entreprise-select">Entreprise</label>
-            <select class="form-select" id="icp-ee-entreprise-select" onchange="App.onICPEERepEntrepriseChange(this.value)">
+            <select class="form-select" id="icp-ee-entreprise-select" onchange="App.onICPEERepEntrepriseChange(this.value)" onmousedown="App.populateICPEERepEntreprises(this.value)" onfocus="App.populateICPEERepEntreprises(this.value)">
               <option value="">— Choisir l'entreprise —</option>
             </select>
           </div>
@@ -6720,11 +6720,13 @@ const App = {
   },
 
   // ---- ICP Représentant EE (entreprise + personne depuis le répertoire) ----
-  async populateICPEERepEntreprises() {
+  async populateICPEERepEntreprises(preserveValue) {
     const sel = document.getElementById('icp-ee-entreprise-select');
     if (!sel) return;
+    const current = preserveValue !== undefined ? preserveValue : sel.value;
     const ents = await db.entreprises.toArray();
     sel.innerHTML = '<option value="">— Choisir l\'entreprise —</option>' + ents.map(e => `<option value="${e.id}">${this.esc(e.nom)}</option>`).join('');
+    if (current) sel.value = current;
   },
 
   async onICPEERepEntrepriseChange(entId, skipReset) {
