@@ -1987,7 +1987,7 @@ textarea.form-control { min-height: 70px; }
           <div class="col-md-4"><label class="form-label" for="icp-date">Date de la visite *</label><div class="input-icon-wrap"><i class="bi bi-calendar input-icon"></i><input type="date" class="form-control" id="icp-date"></div></div>
           <div class="col-md-2"><label class="form-label" for="icp-heure">Heure</label><div class="input-icon-wrap"><i class="bi bi-clock input-icon"></i><input type="time" class="form-control" id="icp-heure"></div></div>
           <div class="col-md-6"><label class="form-label" for="icp-site">Site / Adresse</label><div class="input-icon-wrap"><i class="bi bi-geo-alt input-icon"></i><input type="text" class="form-control" id="icp-site" placeholder="Ex: 20 rue du 11 novembre 59169 FERIN"></div></div>
-          <div class="col-md-6"><label class="form-label" for="icp-lieu">Coordonnées GPS</label><div class="input-icon-wrap"><i class="bi bi-pin-map input-icon"></i><input type="text" class="form-control" id="icp-lieu" placeholder="Ex: 50.34521, 3.10274"></div></div>
+          <div class="col-md-6"><label class="form-label" for="icp-lieu">Coordonnées GPS</label><div class="input-group"><span class="input-group-text"><i class="bi bi-pin-map"></i></span><input type="text" class="form-control" id="icp-lieu" placeholder="Ex: 50.34521, 3.10274"><button class="btn btn-outline-success" type="button" onclick="App.geocodeICPSite()" title="Géolocaliser depuis l'adresse Site"><i class="bi bi-geo-alt-fill"></i></button></div></div>
         </div>
       </div>
       <div class="field-group">
@@ -5960,6 +5960,18 @@ const App = {
     if (r.label && r.label.toLowerCase() !== site.toLowerCase() && (await this.confirm(`Adresse normalisée : <strong>${this.esc(r.label)}</strong><br>Remplacer le champ "Site" ?`))) {
       document.getElementById('pdp-site').value = r.label;
     }
+    this._markEditing && this._markEditing();
+    this.toast(`GPS récupéré : ${gps}`);
+  },
+
+  async geocodeICPSite() {
+    const site = (document.getElementById('icp-site')?.value||'').trim();
+    if (site.length < 3) { this.toast('Saisissez d\'abord une adresse dans Site', 'warning'); return; }
+    this.toast('Recherche…', 'info');
+    const r = await this.geocodeFR(site);
+    if (!r) { this.toast('Adresse introuvable', 'warning'); return; }
+    const gps = `${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}`;
+    document.getElementById('icp-lieu').value = gps;
     this._markEditing && this._markEditing();
     this.toast(`GPS récupéré : ${gps}`);
   },
