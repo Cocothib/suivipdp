@@ -4020,6 +4020,8 @@ const App = {
   // ========================================
   async renderPDPList() {
     const pdps = await db.pdps.toArray();
+    const icps = await db.icps.toArray();
+    this._icpRefByIdCache = new Map(icps.map(v => [v.id, v.refOperation || '']));
     const c = document.getElementById('pdp-list-container');
     if (!pdps.length) { c.innerHTML = '<p class="text-muted text-center mt-4">Aucun PDP.</p>'; return; }
     c.innerHTML = pdps.sort((a,b) => new Date(b.dateModification||b.dateCreation) - new Date(a.dateModification||a.dateCreation)).map(p => this.renderPDPCard(p)).join('');
@@ -4043,12 +4045,14 @@ const App = {
   renderPDPCard(p) {
     const labels = { brouillon:'Brouillon', visite_prealable:'Inspection préalable', analyse_risque:'Analyse risque', signature:'En signature', actif:'Actif', modifie:'Modifié', cloture:'Clôturé' };
     const cls = { brouillon:'brouillon', visite_prealable:'visite', analyse_risque:'analyse', signature:'signature', actif:'actif', modifie:'modifie', cloture:'cloture' };
-    return `<div class="card pdp-card" onclick="App.openPDP(${p.id})" data-statut="${p.statut}" data-titre="${(p.titre||'').toLowerCase()}" data-datefin="${p.dateFin||''}">
+    const refOp = (p.icpId && this._icpRefByIdCache) ? this._icpRefByIdCache.get(p.icpId) : '';
+    return `<div class="card pdp-card" onclick="App.openPDP(${p.id})" data-statut="${p.statut}" data-titre="${(p.titre||'').toLowerCase()}" data-ref="${(refOp||'').toLowerCase()}" data-datefin="${p.dateFin||''}">
       <div class="card-body p-2">
         <div class="d-flex align-items-start gap-2">
           <div class="flex-grow-1">
-            <div class="d-flex align-items-center gap-2 mb-1">
+            <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
               <span class="badge badge-${cls[p.statut]||'brouillon'}">${labels[p.statut]||p.statut}</span>
+              ${refOp ? `<span class="badge bg-info text-white" style="font-size:0.7rem">${this.esc(refOp)}</span>` : ''}
               ${p.numero ? `<span class="text-muted" style="font-size:0.75rem">${this.esc(p.numero)}</span>` : ''}
             </div>
             <div class="fw-bold" style="font-size:0.9rem">${this.esc(p.titre||'Sans titre')}</div>
@@ -4129,7 +4133,13 @@ const App = {
     this.currentPDP = p;
     this.populateForm();
     this.showView('pdp-detail');
-    document.getElementById('pdp-detail-title').textContent = p.titre || 'PDP #'+p.id;
+    // Titre = OPP-XXXX | PDP-XXX | titre (avec OPP si ICP liée)
+    let displayTitle = p.numero || ('PDP #' + p.id);
+    if (p.icpId) {
+      try { const v = await db.icps.get(p.icpId); if (v?.refOperation) displayTitle = `${v.refOperation} | ${displayTitle}`; } catch {}
+    }
+    if (p.titre) displayTitle += ` | ${p.titre}`;
+    document.getElementById('pdp-detail-title').textContent = displayTitle;
     document.getElementById('btn-delete-pdp').style.display = '';
     if (p.statut === 'cloture') this._lockPDP(); else this._unlockPDP();
     this._markSaved();
@@ -4436,7 +4446,10 @@ const App = {
       const wasNew = !p.id;
       if (p.id) { await db.pdps.put(p); }
       else { p.id = await db.pdps.add(p); p.numero = `PDP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(p.id).padStart(4,'0')}`; await db.pdps.put(p); }
-      document.getElementById('pdp-detail-title').textContent = p.titre;
+      let displayTitle = p.numero || ('PDP #' + p.id);
+      if (p.icpId) { try { const v = await db.icps.get(p.icpId); if (v?.refOperation) displayTitle = `${v.refOperation} | ${displayTitle}`; } catch {} }
+      if (p.titre) displayTitle += ` | ${p.titre}`;
+      document.getElementById('pdp-detail-title').textContent = displayTitle;
       document.getElementById('btn-delete-pdp').style.display = '';
       document.getElementById('btn-save-pdp').classList.add('btn-save-flash');
       setTimeout(() => document.getElementById('btn-save-pdp').classList.remove('btn-save-flash'), 600);
@@ -7116,7 +7129,7 @@ const App = {
     this.currentICP = v;
     this.populateICPForm();
     this.showView('icp-detail');
-    document.getElementById('icp-detail-title').textContent = v.numero || 'ICP #'+v.id;
+    document.getElementById('icp-detail-title').textContent = [v.refOperation, v.numero || ('ICP #' + v.id), v.objet].filter(Boolean).join(' | ');
     document.getElementById('btn-delete-icp').style.display = '';
     const btnBack = document.getElementById('btn-back-to-pdp');
     if (btnBack) btnBack.style.display = v.pdpId ? '' : 'none';
@@ -7446,7 +7459,7 @@ const App = {
       const wasNew = !v.id;
       if (v.id) { await db.icps.put(v); }
       else { v.id = await db.icps.add(v); v.numero = `ICP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(v.id).padStart(4,'0')}`; await db.icps.put(v); }
-      document.getElementById('icp-detail-title').textContent = v.numero||'ICP #'+v.id;
+      document.getElementById('icp-detail-title').textContent = [v.refOperation, v.numero || ('ICP #' + v.id), v.objet].filter(Boolean).join(' | ');
       document.getElementById('btn-delete-icp').style.display = '';
       const newContactsAdded = await this.addNewContactsToRepo(v);
       this.toast(newContactsAdded ? `ICP enregistrée + ${newContactsAdded} nouveau(x) contact(s) ajouté(s) au répertoire` : 'ICP enregistrée');
@@ -7487,10 +7500,13 @@ const App = {
     c.innerHTML = icpList.map(v => `<div class="card pdp-card" data-site="${(v.site||'').toLowerCase()}" data-ref="${(v.refOperation||'').toLowerCase()}" onclick="App.openICP(${v.id})">
       <div class="card-body p-2">
         <div class="d-flex justify-content-between align-items-start">
-          <div>
-            <span class="badge bg-${statutColors[v.statut]||'secondary'} me-1">${statutLabels[v.statut]||v.statut}</span>
-            <strong>${this.esc(v.numero||'ICP #'+v.id)}</strong>
-            ${v.refOperation ? `<span class="text-muted small ms-1">Réf: ${this.esc(v.refOperation)}</span>`:''}
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-1 mb-1 flex-wrap">
+              <span class="badge bg-${statutColors[v.statut]||'secondary'}">${statutLabels[v.statut]||v.statut}</span>
+              ${v.refOperation ? `<span class="badge bg-info text-white" style="font-size:0.7rem">${this.esc(v.refOperation)}</span>`:''}
+              <span class="text-muted" style="font-size:0.75rem">${this.esc(v.numero||'ICP #'+v.id)}</span>
+            </div>
+            ${v.objet ? `<div class="fw-bold" style="font-size:0.9rem">${this.esc(v.objet)}</div>` : ''}
           </div>
           <small class="text-muted">${v.dateVisite||'—'}</small>
         </div>
