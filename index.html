@@ -4081,7 +4081,7 @@ const App = {
       modifications: [], historique: [], documents: [], icpId: null,
 
       emargements: [],
-      pictogrammes: { interdictions: [], epiObligatoires: [], remarques: '' },
+      pictogrammes: { interdictions: ['vapoter','acces'], epiObligatoires: ['casque','chaussures','vetement','gants','antichute'], remarques: '' },
       permisFeu: { actif: false, types: [], description: '', risqueStructure: '', risqueActivite: '', risqueEnvironnement: '', dateDebut: '', heureDebut: '', dateFin: '', heureFin: '', operateurs: [], consignes: { avant: [], pendant: [], apres: [] }, autresPrescriptions: '', rondes: [], renouvellements: [], signatureEU: { nom: '', date: '', data: null }, signatureEE: { nom: '', date: '', data: null }, signatureExec: { nom: '', societe: '', date: '', data: null } },
       dateCreation: new Date().toISOString(), dateModification: new Date().toISOString()
     };
@@ -7619,6 +7619,7 @@ const App = {
       risques: JSON.parse(JSON.stringify(v.risques||[])),
       mesures:[], instructions:'', exigences:[],
       urgence: { responsable:'', telResponsable:'', sst:'', telSst:'', numeros:'Pompiers : 18  |  SAMU : 15  |  Gendarmerie : 17  |  Urgences : 112', consignes:'' },
+      pictogrammes: { interdictions: ['vapoter','acces'], epiObligatoires: ['casque','chaussures','vetement','gants','antichute'], remarques: '' },
       signatureEU:{nom:'',date:'',data:null}, signaturesEE:[],
       modifications:[], historique:[{action:'Créé depuis ICP '+v.numero, date:new Date().toISOString()}], documents:[], icpId: v.id||null,
       dateCreation:new Date().toISOString(), dateModification:new Date().toISOString()
