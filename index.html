@@ -4375,6 +4375,11 @@ const App = {
       if (canvasEU?._hasDrawing) r.signatureEU.data = canvasEU.toDataURL();
       const canvasExec = document.getElementById('pf-renouv-sig-exec-'+i);
       if (canvasExec?._hasDrawing) r.signatureExec.data = canvasExec.toDataURL();
+      // Émargements des rondes
+      (r.rondes||[]).forEach((rd, ri) => {
+        const cv = document.getElementById(`pf-renouv-ronde-sig-${i}-${ri}`);
+        if (cv?._hasDrawing) rd.signature = cv.toDataURL();
+      });
     });
     p.permisFeu.signatureEU = { nom: document.getElementById('pf-sig-eu-nom').value.trim(), date: document.getElementById('pf-sig-eu-date').value, data: document.getElementById('pf-sig-eu-canvas')?._hasDrawing ? document.getElementById('pf-sig-eu-canvas').toDataURL() : (p.permisFeu.signatureEU?.data||null) };
     p.permisFeu.signatureEE = { nom: document.getElementById('pf-sig-ee-nom').value.trim(), date: document.getElementById('pf-sig-ee-date').value, data: document.getElementById('pf-sig-ee-canvas')?._hasDrawing ? document.getElementById('pf-sig-ee-canvas').toDataURL() : (p.permisFeu.signatureEE?.data||null) };
@@ -5865,12 +5870,12 @@ const App = {
     pf.renouvellements = pf.renouvellements || [];
     if (periodeIdx === undefined) {
       // Compatibilité : si pas de période spécifiée et rondes globales
-      if (!pf.renouvellements.length) { pf.rondes = pf.rondes||[]; pf.rondes.push({heure:'',inspecteur:'',observations:'',conforme:false}); return; }
+      if (!pf.renouvellements.length) { pf.rondes = pf.rondes||[]; pf.rondes.push({heure:'',inspecteur:'',observations:'',conforme:false,signature:null}); return; }
       periodeIdx = 0;
     }
     if (!pf.renouvellements[periodeIdx]) return;
     pf.renouvellements[periodeIdx].rondes = pf.renouvellements[periodeIdx].rondes || [];
-    pf.renouvellements[periodeIdx].rondes.push({ heure: '', inspecteur: '', observations: '', conforme: false });
+    pf.renouvellements[periodeIdx].rondes.push({ heure: '', inspecteur: '', observations: '', conforme: false, signature: null });
     this.renderPFRenouvellements();
   },
 
@@ -6003,13 +6008,13 @@ const App = {
       const isValide = r.signatureEU?.nom && r.signatureEU?.date;
       const rondes = r.rondes || [];
       const nbRondes = rondes.length;
-      const rondesHtml = rondes.map((rd, ri) => `<div class="row g-1 mb-1 align-items-center">
+      const rondesHtml = rondes.map((rd, ri) => `<div class="border rounded p-2 mb-2"><div class="row g-1 align-items-center">
         <div class="col-3 col-md-2"><input type="time" class="form-control form-control-sm" value="${this.esc(rd.heure||'')}" onchange="App.currentPDP.permisFeu.renouvellements[${i}].rondes[${ri}].heure=this.value"></div>
         <div class="col-4 col-md-3"><input type="text" class="form-control form-control-sm" placeholder="Inspecteur" value="${this.esc(rd.inspecteur||'')}" onchange="App.currentPDP.permisFeu.renouvellements[${i}].rondes[${ri}].inspecteur=this.value"></div>
         <div class="col-5 col-md-4"><input type="text" class="form-control form-control-sm" placeholder="Observations" value="${this.esc(rd.observations||'')}" onchange="App.currentPDP.permisFeu.renouvellements[${i}].rondes[${ri}].observations=this.value"></div>
         <div class="col-auto"><div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" ${rd.conforme?'checked':''} onchange="App.currentPDP.permisFeu.renouvellements[${i}].rondes[${ri}].conforme=this.checked"><label class="form-check-label small">RAS</label></div></div>
         <div class="col-auto"><button class="btn btn-outline-danger btn-sm py-0 px-1" onclick="App.removePFRonde(${i},${ri})" title="Supprimer"><i class="bi bi-trash"></i></button></div>
-      </div>`).join('');
+      </div><div class="mt-1"><label class="form-label small mb-1"><i class="bi bi-pen me-1"></i>Émargement de l'inspecteur</label><div class="signature-pad-wrapper"><canvas id="pf-renouv-ronde-sig-${i}-${ri}" class="signature-canvas" style="height:60px"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-renouv-ronde-sig-${i}-${ri}')"><i class="bi bi-eraser me-1"></i>Effacer</button></div></div>`).join('');
 
       return `<div class="card mb-3 ${isValide ? 'border-success' : 'border-warning'}">
       <div class="card-header py-2 ${isValide ? 'bg-success bg-opacity-10' : 'bg-warning bg-opacity-10'}">
@@ -6049,13 +6054,18 @@ const App = {
       </div>
     </div>`}).join('');
     c.innerHTML = html;
-    // Init canvases des renouvellements
+    // Init canvases des renouvellements + rondes
     setTimeout(() => {
       renouv.forEach((r, i) => {
         this.initCanvas('pf-renouv-sig-eu-'+i);
         if (r.signatureEU?.data) this.loadSigImg('pf-renouv-sig-eu-'+i, r.signatureEU.data);
         this.initCanvas('pf-renouv-sig-exec-'+i);
         if (r.signatureExec?.data) this.loadSigImg('pf-renouv-sig-exec-'+i, r.signatureExec.data);
+        (r.rondes||[]).forEach((rd, ri) => {
+          const id = `pf-renouv-ronde-sig-${i}-${ri}`;
+          this.initCanvas(id);
+          if (rd.signature) this.loadSigImg(id, rd.signature);
+        });
       });
     }, 50);
   },
