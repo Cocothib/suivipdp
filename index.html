@@ -6653,6 +6653,15 @@ const App = {
               if (geo) setIfEmpty('icp-lieu', `${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)}`);
             }
           }
+          // Stocke les infos EU complètes dans l'ICP pour passage vers PDP
+          this.currentICP.euInfo = {
+            nom: c?.nom || '',
+            adresse: mainAddr?.adresse || '',
+            siret: c?.siret || '',
+            email: c?.email || '',
+            tel: c?.tel || '',
+            companyId: companyId,
+          };
         } catch (err) {
           console.error('[Sellsy] erreur enrichissement company', err);
         }
@@ -7378,7 +7387,15 @@ const App = {
       titre: v.objet||'PDP issu ICP '+(v.numero||''), numero:'', statut:'visite_prealable', version:'01',
       dateDebut:'', dateFin:'', site:v.site||'', lieu:'', gps:v.lieu||'', description:v.objet||'',
       materiel:'', nbSalaries:'', horaires:'',
-      eu: { nom:s.euNom||'', adresse:s.euAdresse||'', responsable:v.euParticipant?.nom||s.euResponsable||'', tel:v.euParticipant?.tel||s.euTel||'', email:s.euEmail||'', fonction:v.euParticipant?.fonction||'' },
+      eu: {
+        nom: v.euInfo?.nom || s.euNom || '',
+        adresse: v.euInfo?.adresse || v.site || s.euAdresse || '',
+        siret: v.euInfo?.siret || s.euSiret || '',
+        responsable: v.euParticipant?.nom || s.euResponsable || '',
+        tel: v.euParticipant?.tel || v.euInfo?.tel || s.euTel || '',
+        email: v.euInfo?.email || s.euEmail || '',
+        fonction: v.euParticipant?.fonction || ''
+      },
       entreprisesExt: JSON.parse(JSON.stringify(v.entreprisesExt||[])),
       visite: { date:v.dateVisite||'', heure:v.heure||'', participants: [v.euParticipant?.nom, ...(v.entreprisesExt||[]).map(e=>e.responsable)].filter(Boolean).join(', '), observations:v.observations||'', effectuee:v.statut==='effectuee'||v.statut==='validee', photos:JSON.parse(JSON.stringify(v.photos||[])) },
       risques: JSON.parse(JSON.stringify(v.risques||[])),
