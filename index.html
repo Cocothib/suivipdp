@@ -1948,11 +1948,24 @@ textarea.form-control { min-height: 70px; }
 
   <!-- ==================== ICP LIST ==================== -->
   <div id="view-icps" class="view fade-in" style="display:none">
-    <div class="d-flex justify-content-between flex-wrap align-items-center gap-2 mb-3">
+    <div class="d-flex justify-content-between flex-wrap align-items-center gap-2 mb-2">
       <h5 class="mb-0"><i class="bi bi-clipboard-check me-1"></i>Inspections Communes Préalables</h5>
       <button class="btn btn-primary btn-sm" onclick="App.newICP()"><i class="bi bi-plus-lg me-1"></i>Nouvelle ICP</button>
     </div>
-    <input type="search" class="form-control form-control-sm search-bar mb-3" placeholder="Rechercher..." id="search-icp" oninput="App.filterICPs()">
+    <div class="d-flex gap-2 flex-wrap mb-2">
+      <input type="search" class="form-control form-control-sm" style="width:240px" placeholder="OPP, site, objet…" id="search-icp" oninput="App.filterICPs()" list="search-icp-list">
+      <datalist id="search-icp-list"></datalist>
+      <select class="form-select form-select-sm" style="width:auto" id="filter-icp-statut" onchange="App.filterICPs()">
+        <option value="">Tous statuts</option>
+        <option value="effectuee">Effectuée</option>
+        <option value="validee">Validée</option>
+      </select>
+      <select class="form-select form-select-sm" style="width:auto" id="filter-icp-annee" onchange="App.filterICPs()">
+        <option value="">Toutes années</option>
+      </select>
+      <button class="btn btn-outline-secondary btn-sm" onclick="App.resetICPFilters()" title="Réinitialiser"><i class="bi bi-x-circle"></i></button>
+    </div>
+    <div id="icp-count-info" class="small text-muted mb-2"></div>
     <div id="icps-list-container"></div>
   </div>
 
@@ -7554,7 +7567,9 @@ const App = {
     if (!icpList.length) { c.innerHTML = '<p class="text-muted text-center mt-4">Aucune ICP.</p>'; return; }
     const statutLabels = { effectuee:'Effectuée', validee:'Validée' };
     const statutColors = { effectuee:'primary', validee:'success' };
-    c.innerHTML = icpList.map(v => `<div class="card pdp-card" data-site="${(v.site||'').toLowerCase()}" data-ref="${(v.refOperation||'').toLowerCase()}" onclick="App.openICP(${v.id})">
+    c.innerHTML = icpList.map(v => {
+      const annee = (v.dateVisite||v.dateCreation||'').slice(0,4);
+      return `<div class="card pdp-card" data-statut="${v.statut||''}" data-site="${(v.site||'').toLowerCase()}" data-ref="${(v.refOperation||'').toLowerCase()}" data-numero="${(v.numero||'').toLowerCase()}" data-objet="${(v.objet||'').toLowerCase()}" data-annee="${annee}" onclick="App.openICP(${v.id})">
       <div class="card-body p-2">
         <div class="d-flex justify-content-between align-items-start">
           <div class="flex-grow-1">
@@ -7574,14 +7589,53 @@ const App = {
           ${(v.risques||[]).length ? `<span>${(v.risques||[]).length} risques</span>`:''} ${v.pdpId ? '<span class="badge bg-info ms-1">PDP lié</span>':''}
         </div>
       </div>
-    </div>`).join('');
+    </div>`}).join('');
+    this.populateICPFilters(icpList);
+    this.filterICPs();
   },
 
   filterICPs() {
-    const s = (document.getElementById('search-icp').value||'').toLowerCase();
+    const s = (document.getElementById('search-icp').value||'').toLowerCase().trim();
+    const st = document.getElementById('filter-icp-statut')?.value || '';
+    const annee = document.getElementById('filter-icp-annee')?.value || '';
+    let visible = 0, total = 0;
     document.querySelectorAll('#icps-list-container .pdp-card').forEach(c => {
-      c.style.display = !s || (c.dataset.site||'').includes(s) || (c.dataset.ref||'').includes(s) ? '' : 'none';
+      total++;
+      const haystack = [c.dataset.site, c.dataset.ref, c.dataset.numero, c.dataset.objet].filter(Boolean).join(' ');
+      const matchSearch = !s || haystack.includes(s);
+      const matchStatut = !st || c.dataset.statut === st;
+      const matchAnnee = !annee || c.dataset.annee === annee;
+      const show = matchSearch && matchStatut && matchAnnee;
+      c.style.display = show ? '' : 'none';
+      if (show) visible++;
     });
+    const info = document.getElementById('icp-count-info');
+    if (info) info.textContent = (visible === total) ? `${total} ICP` : `${visible} / ${total} ICP affichée(s)`;
+  },
+
+  resetICPFilters() {
+    ['search-icp','filter-icp-statut','filter-icp-annee'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    this.filterICPs();
+  },
+
+  populateICPFilters(icps) {
+    const annees = new Set();
+    const refs = new Set();
+    const sites = new Set();
+    icps.forEach(v => {
+      const a = (v.dateVisite||v.dateCreation||'').slice(0,4);
+      if (a) annees.add(a);
+      if (v.refOperation) refs.add(v.refOperation);
+      if (v.site) sites.add(v.site);
+    });
+    const anneeSel = document.getElementById('filter-icp-annee');
+    if (anneeSel) {
+      const cur = anneeSel.value;
+      anneeSel.innerHTML = '<option value="">Toutes années</option>' + [...annees].sort((a,b)=>b.localeCompare(a)).map(a => `<option value="${a}">${a}</option>`).join('');
+      anneeSel.value = cur;
+    }
+    const dl = document.getElementById('search-icp-list');
+    if (dl) dl.innerHTML = [...refs, ...sites].slice(0, 100).map(v => `<option value="${this.esc(v)}"></option>`).join('');
   },
 
   // ---- ICP EE ----
