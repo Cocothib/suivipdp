@@ -4233,7 +4233,6 @@ const App = {
     this.renderExigencesList();
     const urg = p.urgence||{};
     // Pré-remplit depuis le contact EU si pas encore saisi (responsable de site = contact EU)
-    const eu = p.eu || {};
     document.getElementById('urgence-responsable').value = urg.responsable || eu.responsable || '';
     document.getElementById('urgence-tel-responsable').value = urg.telResponsable || eu.tel || '';
     document.getElementById('urgence-sst').value = urg.sst||'';
