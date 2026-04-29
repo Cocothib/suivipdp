@@ -8787,7 +8787,20 @@ const App = {
     if (!c) return;
     const all = await db.fds.toArray();
     if (!all.length) { c.innerHTML = '<p class="text-muted small">Aucune FDS importée. Cliquez sur « Importer FDS » pour ajouter des PDF.</p>'; return; }
-    c.innerHTML = `<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Nom</th><th>Taille</th><th class="text-center">Standard</th><th></th></tr></thead><tbody>${all.map(f => `<tr><td><i class="bi bi-file-earmark-pdf text-danger me-1"></i>${this.esc(f.nom)}</td><td><small class="text-muted">${(f.taille/1024).toFixed(0)} Ko</small></td><td class="text-center"><input type="checkbox" class="form-check-input" ${f.standard?'checked':''} onchange="App.toggleFDSStandard(${f.id}, this.checked)" title="Rattacher automatiquement à chaque nouveau PDP"></td><td class="text-end"><button class="btn btn-outline-primary btn-sm py-0 px-1 me-1" onclick="App.downloadFDS(${f.id})" title="Télécharger"><i class="bi bi-download"></i></button><button class="btn btn-outline-danger btn-sm py-0 px-1" onclick="App.deleteFDS(${f.id})" title="Supprimer"><i class="bi bi-trash"></i></button></td></tr>`).join('')}</tbody></table></div>`;
+    c.innerHTML = all.map(f => `
+      <div class="border rounded p-2 mb-2 d-flex align-items-center gap-2 flex-wrap">
+        <i class="bi bi-file-earmark-pdf text-danger fs-5"></i>
+        <div class="flex-grow-1" style="min-width:0">
+          <div class="fw-semibold small text-break" style="word-break:break-word">${this.esc(f.nom)}</div>
+          <div class="small text-muted">${(f.taille/1024).toFixed(0)} Ko${f.dateAjout ? ' · '+new Date(f.dateAjout).toLocaleDateString('fr-FR') : ''}</div>
+        </div>
+        <div class="form-check form-switch mb-0" title="Rattacher automatiquement à chaque nouveau PDP">
+          <input class="form-check-input" type="checkbox" id="fds-std-${f.id}" ${f.standard?'checked':''} onchange="App.toggleFDSStandard(${f.id}, this.checked)">
+          <label class="form-check-label small" for="fds-std-${f.id}">Standard</label>
+        </div>
+        <button class="btn btn-outline-primary btn-sm" onclick="App.downloadFDS(${f.id})" title="Télécharger"><i class="bi bi-download"></i></button>
+        <button class="btn btn-outline-danger btn-sm" onclick="App.deleteFDS(${f.id})" title="Supprimer"><i class="bi bi-trash"></i></button>
+      </div>`).join('');
   },
 
   async importFDSFiles(ev) {
