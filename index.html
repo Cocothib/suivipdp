@@ -1304,11 +1304,20 @@ textarea.form-control { min-height: 70px; }
               <label class="form-label" for="pdp-titre"><span class="required">*</span> Intitulé de l'opération</label>
               <div class="input-icon-wrap"><i class="bi bi-pencil input-icon"></i><input type="text" class="form-control" id="pdp-titre" placeholder="Ex: PRO MESURES – Métrologie"></div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
               <label class="form-label" for="pdp-numero">N° PDP</label>
               <input type="text" class="form-control" id="pdp-numero" placeholder="Auto-généré">
             </div>
             <div class="col-md-4">
+              <label class="form-label" for="pdp-ref-operation">N° d'opération / Réf.</label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-bookmark"></i></span>
+                <span class="input-group-text">OPP-</span>
+                <input type="text" class="form-control" id="pdp-ref-operation" placeholder="Ex: 04146">
+                <button class="btn btn-outline-success" type="button" onclick="App.openSellsyOppSearchModal('pdp')" title="Rechercher une opportunité dans Sellsy"><i class="bi bi-search"></i></button>
+              </div>
+            </div>
+            <div class="col-md-2">
               <label class="form-label" for="pdp-version">Version</label>
               <input type="text" class="form-control" id="pdp-version" value="01" readonly style="background:#f0f0f0">
             </div>
@@ -4095,7 +4104,7 @@ const App = {
   renderPDPCard(p) {
     const labels = { brouillon:'Brouillon', visite_prealable:'Inspection préalable', analyse_risque:'Analyse risque', signature:'En signature', actif:'Actif', modifie:'Modifié', cloture:'Clôturé' };
     const cls = { brouillon:'brouillon', visite_prealable:'visite', analyse_risque:'analyse', signature:'signature', actif:'actif', modifie:'modifie', cloture:'cloture' };
-    const refOp = (p.icpId && this._icpRefByIdCache) ? this._icpRefByIdCache.get(p.icpId) : '';
+    const refOp = p.refOperation || ((p.icpId && this._icpRefByIdCache) ? this._icpRefByIdCache.get(p.icpId) : '') || '';
     const annee = (p.dateDebut||p.dateCreation||'').slice(0,4);
     return `<div class="card pdp-card" onclick="App.openPDP(${p.id})" data-statut="${p.statut}" data-titre="${(p.titre||'').toLowerCase()}" data-ref="${(refOp||'').toLowerCase()}" data-numero="${(p.numero||'').toLowerCase()}" data-site="${(p.site||'').toLowerCase()}" data-client="${(p.eu?.nom||'').toLowerCase()}" data-annee="${annee}" data-datefin="${p.dateFin||''}">
       <div class="card-body p-2">
@@ -4164,7 +4173,7 @@ const App = {
       if (p.eu?.nom) clients.add(p.eu.nom);
       const a = (p.dateDebut||p.dateCreation||'').slice(0,4);
       if (a) annees.add(a);
-      const r = (p.icpId && this._icpRefByIdCache) ? this._icpRefByIdCache.get(p.icpId) : '';
+      const r = p.refOperation || ((p.icpId && this._icpRefByIdCache) ? this._icpRefByIdCache.get(p.icpId) : '') || '';
       if (r) refs.add(r);
     });
     const clientSel = document.getElementById('filter-client');
@@ -4230,11 +4239,11 @@ const App = {
     this.currentPDP = p;
     this.populateForm();
     this.showView('pdp-detail');
-    // Titre = OPP-XXXX | PDP-XXX | titre (avec OPP si ICP liée)
+    // Titre = OPP-XXXX | PDP-XXX | titre (refOperation direct ou via ICP liée)
     let displayTitle = p.numero || ('PDP #' + p.id);
-    if (p.icpId) {
-      try { const v = await db.icps.get(p.icpId); if (v?.refOperation) displayTitle = `${v.refOperation} | ${displayTitle}`; } catch {}
-    }
+    let ref = p.refOperation || '';
+    if (!ref && p.icpId) { try { const v = await db.icps.get(p.icpId); if (v?.refOperation) ref = v.refOperation; } catch {} }
+    if (ref) displayTitle = `${ref} | ${displayTitle}`;
     if (p.titre) displayTitle += ` | ${p.titre}`;
     document.getElementById('pdp-detail-title').textContent = displayTitle;
     document.getElementById('btn-delete-pdp').style.display = '';
@@ -4325,6 +4334,7 @@ const App = {
     this._populatingForm = false;
     document.getElementById('pdp-titre').value = p.titre||'';
     document.getElementById('pdp-numero').value = p.numero||'';
+    document.getElementById('pdp-ref-operation').value = (p.refOperation||'').replace(/^OPP-?/i, '');
     document.getElementById('pdp-version').value = p.version||'01';
     document.getElementById('pdp-statut').value = p.statut||'brouillon';
     document.getElementById('pdp-site').value = p.site||'';
@@ -4444,6 +4454,8 @@ const App = {
     p.duree = document.getElementById('pdp-duree').value.trim();
     p.titre = document.getElementById('pdp-titre').value.trim();
     p.numero = document.getElementById('pdp-numero').value.trim();
+    const refRaw = document.getElementById('pdp-ref-operation').value.trim();
+    p.refOperation = refRaw ? (refRaw.toUpperCase().startsWith('OPP-') ? refRaw : 'OPP-' + refRaw) : '';
     p.version = document.getElementById('pdp-version').value.trim()||'01';
     p.statut = document.getElementById('pdp-statut').value;
     p.site = document.getElementById('pdp-site').value.trim();
@@ -4544,7 +4556,9 @@ const App = {
       if (p.id) { await db.pdps.put(p); }
       else { p.id = await db.pdps.add(p); p.numero = `PDP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(p.id).padStart(4,'0')}`; await db.pdps.put(p); }
       let displayTitle = p.numero || ('PDP #' + p.id);
-      if (p.icpId) { try { const v = await db.icps.get(p.icpId); if (v?.refOperation) displayTitle = `${v.refOperation} | ${displayTitle}`; } catch {} }
+      let dispRef = p.refOperation || '';
+      if (!dispRef && p.icpId) { try { const v = await db.icps.get(p.icpId); if (v?.refOperation) dispRef = v.refOperation; } catch {} }
+      if (dispRef) displayTitle = `${dispRef} | ${displayTitle}`;
       if (p.titre) displayTitle += ` | ${p.titre}`;
       document.getElementById('pdp-detail-title').textContent = displayTitle;
       document.getElementById('btn-delete-pdp').style.display = '';
@@ -5608,12 +5622,11 @@ const App = {
   async buildPDPFilename(p, ext, prefix) {
     if (!p) return `PDP.${ext}`;
     const parts = [];
-    if (p.icpId) {
-      try {
-        const v = await db.icps.get(p.icpId);
-        if (v?.refOperation) parts.push(v.refOperation);
-      } catch {}
+    let ref = p.refOperation || '';
+    if (!ref && p.icpId) {
+      try { const v = await db.icps.get(p.icpId); if (v?.refOperation) ref = v.refOperation; } catch {}
     }
+    if (ref) parts.push(ref);
     if (prefix) parts.push(prefix);
     parts.push(p.numero||'PDP');
     if (p.titre) {
@@ -6924,7 +6937,8 @@ const App = {
   // ---- SELLSY OPPORTUNITIES (live search via PHP proxy) ----
   _sellsyOppCache: [],
 
-  openSellsyOppSearchModal() {
+  openSellsyOppSearchModal(target) {
+    this._sellsyOppTarget = target || 'icp'; // 'icp' ou 'pdp'
     const body = document.getElementById('modal-entreprise-body');
     const footer = document.getElementById('modal-entreprise-footer');
     const title = document.querySelector('#modal-entreprise .modal-title');
@@ -7010,7 +7024,99 @@ const App = {
     }).join('');
   },
 
+  // Applique une opportunité Sellsy au PDP courant (équivalent ICP mais sur les champs eu-*/pdp-*)
+  async applySellsyOppToPDP(oppId) {
+    if (!this.currentPDP) { this.toast('Aucun PDP courant', 'warning'); return; }
+    const statusEl = document.getElementById('sellsy-opp-status');
+    if (statusEl) statusEl.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Récupération de l\'opportunité…';
+    try {
+      const raw = await SellsyAPI._call({ action: 'opportunity', id: oppId });
+      const o = SellsyAPI._mapOpportunity(raw);
+      const setForce = (id, v) => { const el = document.getElementById(id); if (el) el.value = v||''; };
+      const setIfEmpty = (id, v) => { const el = document.getElementById(id); if (el && !el.value.trim()) el.value = v||''; };
+      const setForceIfValue = (id, v) => { if (v && v.trim()) { const el = document.getElementById(id); if (el) el.value = v; } };
+      // N° opération (sans préfixe OPP- visuel)
+      setForce('pdp-ref-operation', (o.ref||'').replace(/^OPP-?/i, ''));
+      setIfEmpty('pdp-titre', o.nom);
+      this.currentPDP.refOperation = o.ref || '';
+
+      // Récupère company + adresse + contact en parallèle
+      let companyId = o.companyId;
+      if (!companyId && this._sellsyOppCache) {
+        const cached = this._sellsyOppCache.find(x => x.id == oppId);
+        if (cached?.companyId) companyId = cached.companyId;
+      }
+      if (!companyId) companyId = raw.third_id || raw.customer_id || raw.company_id || raw.third?.id || null;
+
+      if (companyId) {
+        const contactId = (o.contactIds && o.contactIds[0]) || null;
+        const [c, addresses, contact, allContacts] = await Promise.all([
+          SellsyAPI.getCompany(companyId).catch(() => null),
+          SellsyAPI.getCompanyAddresses(companyId).catch(() => []),
+          contactId ? SellsyAPI.getContact(contactId).catch(() => null) : Promise.resolve(null),
+          SellsyAPI.getContacts(companyId).catch(() => []),
+        ]);
+        const mainAddr = (addresses || []).find(a => a.is_main) || (addresses || [])[0] || null;
+        // EU PDP
+        if (c) {
+          setForceIfValue('eu-nom', c.nom);
+          setForceIfValue('eu-tel', c.tel);
+          setForceIfValue('eu-email', c.email);
+        }
+        if (contact) {
+          setForceIfValue('eu-responsable', contact.nom);
+          setForceIfValue('eu-fonction', contact.fonction);
+          setForceIfValue('eu-tel', contact.tel);
+        }
+        if (mainAddr) {
+          setForceIfValue('eu-adresse', mainAddr.adresse);
+          setIfEmpty('pdp-site', mainAddr.adresse);
+          if (mainAddr.lat != null && mainAddr.lng != null) {
+            setIfEmpty('pdp-gps', `${(+mainAddr.lat).toFixed(5)}, ${(+mainAddr.lng).toFixed(5)}`);
+          } else if (mainAddr.adresse) {
+            const geo = await this.geocodeFR(mainAddr.adresse).catch(() => null);
+            if (geo) setIfEmpty('pdp-gps', `${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)}`);
+          }
+        }
+        // Crée/met à jour l'entreprise EU dans le répertoire local et stocke localId
+        let euLocalId = null;
+        if (c?.nom) {
+          try {
+            const allEnts = await db.entreprises.toArray();
+            const existing = allEnts.find(e => (c.siret && e.siret === c.siret) || (e.nom||'').toLowerCase() === c.nom.toLowerCase());
+            if (existing) {
+              existing.siret = existing.siret || c.siret || '';
+              existing.adresse = mainAddr?.adresse || existing.adresse || '';
+              existing.tel = existing.tel || c.tel || '';
+              existing.email = existing.email || c.email || '';
+              this.syncMainContact(existing);
+              await db.entreprises.put(existing);
+              euLocalId = existing.id;
+            } else {
+              const newEnt = { nom: c.nom, siret: c.siret||'', adresse: mainAddr?.adresse||'', tel: c.tel||'', email: c.email||'', activite: c.activite||'', contacts: contact ? [{nom:contact.nom||'', fonction:contact.fonction||'', tel:contact.tel||'', email:contact.email||'', isMain:true}] : [] };
+              this.syncMainContact(newEnt);
+              euLocalId = await db.entreprises.add(newEnt);
+            }
+          } catch {}
+        }
+        this.currentPDP.euInfo = {
+          nom: c?.nom||'', adresse: mainAddr?.adresse||'', siret: c?.siret||'',
+          email: c?.email||'', tel: c?.tel||'', companyId, localId: euLocalId,
+        };
+      }
+      bootstrap.Modal.getInstance(document.getElementById('modal-entreprise'))?.hide();
+      this.updateMapsLink && this.updateMapsLink();
+      this._markEditing && this._markEditing();
+      this.toast(`Opportunité Sellsy appliquée : ${o.ref}`);
+    } catch (e) {
+      console.error('[Sellsy applyOppToPDP] échec', e);
+      if (statusEl) statusEl.innerHTML = `<span class="text-danger">${this.esc(e.message||String(e))}</span>`;
+    }
+  },
+
   async applySellsyOpp(oppId) {
+    // Route vers PDP ou ICP selon le contexte
+    if (this._sellsyOppTarget === 'pdp') return this.applySellsyOppToPDP(oppId);
     const statusEl = document.getElementById('sellsy-opp-status');
     if (statusEl) statusEl.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Récupération de l\'opportunité…';
     try {
