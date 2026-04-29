@@ -2023,7 +2023,11 @@ textarea.form-control { min-height: 70px; }
     <!-- ICP Participants -->
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-people"></i>Participants à la visite</div>
-      <div class="field-group">
+      <div class="form-check form-switch mb-2">
+        <input class="form-check-input" type="checkbox" id="icp-chantier-interne" onchange="App.onICPChantierInterneToggle(this.checked)">
+        <label class="form-check-label small" for="icp-chantier-interne">Chantier interne (AGRIWATT/Enersolys) — afficher la sélection rapide d'un site enregistré</label>
+      </div>
+      <div class="field-group" id="icp-site-eu-group" style="display:none">
         <div class="field-group-title"><i class="bi bi-geo-alt-fill"></i> Site EU</div>
         <select class="form-select mb-2" id="icp-site-select" onchange="App.onICPSiteSelect(this.value)">
           <option value="">— Choisir un site enregistré —</option>
@@ -7404,6 +7408,12 @@ const App = {
 
   populateICPForm() {
     const v = this.currentICP;
+    // Toggle chantier interne (montre/masque le sélecteur Site EU)
+    const isInterne = !!v.chantierInterne;
+    const cb = document.getElementById('icp-chantier-interne');
+    if (cb) cb.checked = isInterne;
+    const grp = document.getElementById('icp-site-eu-group');
+    if (grp) grp.style.display = isInterne ? '' : 'none';
     document.getElementById('icp-numero').value = v.numero||'';
     // Le champ affiche juste le numéro ; le préfixe "OPP-" est dans le label visuel
     document.getElementById('icp-ref-operation').value = (v.refOperation||'').replace(/^OPP-?/i, '');
@@ -7464,6 +7474,7 @@ const App = {
 
   collectICPForm() {
     const v = this.currentICP;
+    v.chantierInterne = !!document.getElementById('icp-chantier-interne')?.checked;
     v.numero = document.getElementById('icp-numero').value.trim();
     // Si l'utilisateur a saisi un numéro, on re-préfixe automatiquement avec "OPP-"
     const refRaw = document.getElementById('icp-ref-operation').value.trim();
@@ -8616,6 +8627,13 @@ const App = {
     document.getElementById('pdp-entite').value = s.entite || 'agriwatt';
     this.syncTypeEntiteUI();
     this._markEditing();
+  },
+
+  onICPChantierInterneToggle(checked) {
+    const grp = document.getElementById('icp-site-eu-group');
+    if (grp) grp.style.display = checked ? '' : 'none';
+    if (this.currentICP) this.currentICP.chantierInterne = !!checked;
+    this._markEditing && this._markEditing();
   },
 
   async onICPSiteSelect(siteId) {
