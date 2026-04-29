@@ -3136,8 +3136,10 @@ const DataSync = {
     async _collectSharedData() {
         const entreprises = await db.entreprises.toArray();
         const settings = await db.settings.toArray();
+        const fdsRaw = db.fds ? await db.fds.toArray() : [];
+        const fds = fdsRaw.map(f => { const { data, ...meta } = f; return meta; });
         const version = ((this._loadedMeta.shared?.version)||0)+1;
-        return { _meta:{ version, lastSaved:new Date().toISOString(), savedBy:this.getUserName()||'inconnu' }, entreprises, settings };
+        return { _meta:{ version, lastSaved:new Date().toISOString(), savedBy:this.getUserName()||'inconnu' }, entreprises, settings, fds };
     },
 
     /* ---- Snapshot & merge : evite les pertes en saisie concurrente ---- */
