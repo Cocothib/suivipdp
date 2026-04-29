@@ -2876,7 +2876,8 @@ const SP_CONFIG = {
     SHARED_DATA_FILE: 'SuiviPDP/Shared/shared-data.json',
     FDS_FOLDER:       'SuiviPDP/Shared/FDS',
     ACTIVITY_LOG_FILE:'SuiviPDP/activity-log.json',
-    SCOPES: ['Files.ReadWrite.All', 'User.Read', 'Sites.ReadWrite.All', 'Mail.Send'],
+    SCOPES: ['Files.ReadWrite.All', 'User.Read', 'Sites.ReadWrite.All'],
+    MAIL_SCOPES: ['Mail.Send'],
     REDIRECT_URI: window.location.origin + window.location.pathname,
     POLL_INTERVAL_MS:  15000,
     PRESENCE_INTERVAL_MS: 30000,
@@ -2987,6 +2988,24 @@ async function _getToken() {
     }
 }
 
+// Token séparé pour Mail.Send — silencieux, ne casse rien si refusé par l'admin
+async function _getMailToken() {
+    if (!_msalInstance) await _initMSAL();
+    if (!_msalAccount) return null;
+    try {
+        return (await _msalInstance.acquireTokenSilent({ scopes: SP_CONFIG.MAIL_SCOPES, account: _msalAccount })).accessToken;
+    } catch (e) {
+        if (e instanceof msal.InteractionRequiredAuthError) {
+            try {
+                if (_isMobile) { await _msalInstance.acquireTokenRedirect({ scopes: SP_CONFIG.MAIL_SCOPES }); return null; }
+                const resp = await _msalInstance.acquireTokenPopup({ scopes: SP_CONFIG.MAIL_SCOPES });
+                _msalAccount = resp.account; return resp.accessToken;
+            } catch (e2) { console.warn('Mail.Send consent refusé ou bloqué par l\'admin :', e2?.message||e2); return null; }
+        }
+        console.warn('Mail token error (notif désactivée) :', e?.message||e); return null;
+    }
+}
+
 async function _graphFetch(url, options = {}) {
     const token = await _getToken();
     if (!token) throw new Error('Non authentifié');
@@ -3038,13 +3057,17 @@ async function _safeDeleteFile(filePath) {
     try { await _deleteFile(filePath); } catch (e) { /* déjà supprimé ou inaccessible */ }
 }
 
-// Envoie un mail via Graph API (depuis le compte connecté)
+// Envoie un mail via Graph API (depuis le compte connecté).
+// Utilise un token Mail.Send séparé : si l'admin IT a bloqué ce scope,
+// la notif est juste désactivée silencieusement, sans impacter la sync SharePoint.
 async function _sendMailViaGraph(to, subject, htmlBody) {
     const recipients = (Array.isArray(to) ? to : [to]).filter(e => e && /@/.test(e));
     if (!recipients.length) return false;
-    const resp = await _graphFetch('https://graph.microsoft.com/v1.0/me/sendMail', {
+    const token = await _getMailToken();
+    if (!token) return false;
+    const resp = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
             message: {
                 subject,
