@@ -3007,11 +3007,40 @@ async function _readJsonFile(filePath) {
 
 async function _writeJsonFile(filePath, data) {
     const driveId = await _getDriveId();
-    const resp = await _graphFetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${filePath}:/content`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data)
+    const body = JSON.stringify(data);
+    const bytes = new TextEncoder().encode(body);
+    const totalSize = bytes.length;
+    const SIMPLE_LIMIT = 4 * 1024 * 1024; // Graph API : PUT simple jusqu'à 4 Mo
+    if (totalSize < SIMPLE_LIMIT) {
+        const resp = await _graphFetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${filePath}:/content`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body
+        });
+        if (!resp.ok) throw new Error('Erreur écriture: ' + resp.status);
+        return resp.json();
+    }
+    // Au-delà : uploadSession (chunked, jusqu'à 250 Go par fichier)
+    const sessResp = await _graphFetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${filePath}:/createUploadSession`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item: { '@microsoft.graph.conflictBehavior': 'replace' } })
     });
-    if (!resp.ok) throw new Error('Erreur écriture: ' + resp.status);
-    return resp.json();
+    if (!sessResp.ok) throw new Error('Erreur création upload session: ' + sessResp.status);
+    const { uploadUrl } = await sessResp.json();
+    if (!uploadUrl) throw new Error('uploadUrl manquant');
+    const CHUNK_SIZE = 5 * 1024 * 1024; // 5 Mo (multiple de 320 Ko recommandé)
+    let offset = 0, lastResp;
+    while (offset < totalSize) {
+        const end = Math.min(offset + CHUNK_SIZE, totalSize);
+        const chunk = bytes.slice(offset, end);
+        const r = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: { 'Content-Range': `bytes ${offset}-${end-1}/${totalSize}`, 'Content-Type': 'application/json' },
+            body: chunk
+        });
+        if (!r.ok && r.status !== 202) throw new Error('Erreur upload chunk ['+offset+'-'+(end-1)+']: ' + r.status);
+        lastResp = r;
+        offset = end;
+    }
+    try { return await lastResp.json(); } catch { return {}; }
 }
 
 async function _deleteFile(filePath) {
