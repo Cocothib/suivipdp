@@ -9746,8 +9746,13 @@ const App = {
           children.push(new Paragraph({children:[new TextRun({text:icpObs,size:20,font:'Calibri'})],spacing:{after:100}}));
         }
 
-        // --- Photos ICP ---
-        const icpPhotos = (icp.photos||[]).length ? icp.photos : (vis.photos||[]);
+        // --- Photos ICP + PDP (fusionnées, dédupliquées sur .date) ---
+        const _seenPhotosDocx = new Set();
+        const icpPhotos = [...(vis.photos||[]), ...(icp.photos||[])].filter(p => {
+          const k = p?.date || (p?.data||'').slice(0, 80);
+          if (!k || _seenPhotosDocx.has(k)) return false;
+          _seenPhotosDocx.add(k); return true;
+        });
         if (icpPhotos.length) {
           children.push(new Paragraph({children:[new TextRun({text:'Photos de la visite :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
           for (const photo of icpPhotos) {
@@ -10739,8 +10744,13 @@ const App = {
           y+=2;
         }
 
-        // Photos ICP
-        const icpPhotosPdf = (icp.photos||[]).length ? icp.photos : (visPdf.photos||[]);
+        // Photos ICP + PDP (fusionnées, dédupliquées sur .date)
+        const _seenPhotosPdf = new Set();
+        const icpPhotosPdf = [...(visPdf.photos||[]), ...(icp.photos||[])].filter(p => {
+          const k = p?.date || (p?.data||'').slice(0, 80);
+          if (!k || _seenPhotosPdf.has(k)) return false;
+          _seenPhotosPdf.add(k); return true;
+        });
         if (icpPhotosPdf.length) {
           checkPage(20);
           doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Photos de la visite :',m,y); y+=4;
