@@ -2229,6 +2229,12 @@ textarea.form-control { min-height: 70px; }
     </div>
 
     <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-envelope-at"></i>Notifications par mail</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Adresses qui reçoivent un mail à chaque nouveau risque proposé. Le mail est envoyé depuis le compte SharePoint de l'utilisateur qui propose.</div>
+      <div id="settings-notify-emails"></div>
+    </div>
+
+    <div class="form-section">
       <div class="form-section-title"><i class="bi bi-shield-check"></i>Risques en attente de validation</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Nouveaux risques proposés par les utilisateurs. Un administrateur doit les valider pour qu'ils intègrent le Document Unique (DUERP).</div>
       <div id="settings-pending-risks"></div>
@@ -2870,7 +2876,7 @@ const SP_CONFIG = {
     SHARED_DATA_FILE: 'SuiviPDP/Shared/shared-data.json',
     FDS_FOLDER:       'SuiviPDP/Shared/FDS',
     ACTIVITY_LOG_FILE:'SuiviPDP/activity-log.json',
-    SCOPES: ['Files.ReadWrite.All', 'User.Read', 'Sites.ReadWrite.All'],
+    SCOPES: ['Files.ReadWrite.All', 'User.Read', 'Sites.ReadWrite.All', 'Mail.Send'],
     REDIRECT_URI: window.location.origin + window.location.pathname,
     POLL_INTERVAL_MS:  15000,
     PRESENCE_INTERVAL_MS: 30000,
@@ -3030,6 +3036,30 @@ async function _downloadFileAsDataURL(filePath) {
 // Supprime un fichier sur SharePoint (silencieux si absent)
 async function _safeDeleteFile(filePath) {
     try { await _deleteFile(filePath); } catch (e) { /* déjà supprimé ou inaccessible */ }
+}
+
+// Envoie un mail via Graph API (depuis le compte connecté)
+async function _sendMailViaGraph(to, subject, htmlBody) {
+    const recipients = (Array.isArray(to) ? to : [to]).filter(e => e && /@/.test(e));
+    if (!recipients.length) return false;
+    const resp = await _graphFetch('https://graph.microsoft.com/v1.0/me/sendMail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            message: {
+                subject,
+                body: { contentType: 'HTML', content: htmlBody },
+                toRecipients: recipients.map(e => ({ emailAddress: { address: e } })),
+            },
+            saveToSentItems: true,
+        }),
+    });
+    if (!resp.ok) {
+        const txt = await resp.text().catch(() => '');
+        console.warn('sendMail échoué:', resp.status, txt);
+        return false;
+    }
+    return true;
 }
 
 // Construit le chemin SharePoint d'une FDS
@@ -8430,7 +8460,30 @@ const App = {
     list.push(entry);
     await this._saveCustomRisksRaw(list);
     if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.propose', { nom: entry.nom, categorie: entry.categorie });
+    // Notification par mail aux destinataires configurés
+    this._notifyRiskProposed(entry).catch(e => console.warn('Notif mail risque échouée:', e));
     return entry;
+  },
+
+  async _notifyRiskProposed(entry) {
+    if (!DataSync._connected) return;
+    const recipients = await this.loadNotifyEmails();
+    if (!recipients.length) return;
+    const niveauLabel = ['', 'Faible', 'Moyen', 'Élevé', 'Critique'][entry.niveau] || entry.niveau;
+    const appUrl = window.location.origin + window.location.pathname;
+    const html = `
+      <p>Bonjour,</p>
+      <p><strong>${this.esc(entry.proposedBy)}</strong> vient de proposer un nouveau risque dans l'application SuiviPDP. Une validation est requise.</p>
+      <table style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif">
+        <tr><td style="padding:4px 12px 4px 0"><strong>Risque :</strong></td><td>${this.esc(entry.nom)}</td></tr>
+        <tr><td style="padding:4px 12px 4px 0"><strong>Catégorie :</strong></td><td>${this.esc(entry.categorie)}</td></tr>
+        <tr><td style="padding:4px 12px 4px 0"><strong>Niveau :</strong></td><td>${this.esc(niveauLabel)}</td></tr>
+        ${entry.situation ? `<tr><td style="padding:4px 12px 4px 0;vertical-align:top"><strong>Situation :</strong></td><td>${this.esc(entry.situation)}</td></tr>` : ''}
+        ${entry.prevention ? `<tr><td style="padding:4px 12px 4px 0;vertical-align:top"><strong>Prévention :</strong></td><td>${this.esc(entry.prevention)}</td></tr>` : ''}
+      </table>
+      <p style="margin-top:16px"><a href="${appUrl}#settings" style="background:#00693e;color:#fff;padding:8px 16px;text-decoration:none;border-radius:4px">Ouvrir l'application</a></p>
+      <p style="font-size:11px;color:#888">Notification automatique SuiviPDP — ne pas répondre à cet email.</p>`;
+    await _sendMailViaGraph(recipients, `[SuiviPDP] Nouveau risque à valider : ${entry.nom}`, html);
   },
 
   // Backward-compat : l'ancien code appelle saveCustomRisk(name). On redirige vers proposeCustomRisk.
@@ -8518,6 +8571,47 @@ const App = {
     const filtered = list.filter(a => a.toLowerCase() !== name.toLowerCase());
     await this.saveAdmins(filtered);
     if (typeof ActivityLog !== 'undefined') ActivityLog.log('admin.remove', { name });
+  },
+
+  // ---- Notifications par mail (liste d'emails destinataires) ----
+  async loadNotifyEmails() {
+    try { const s = await db.settings.get('notifyEmails'); return (s?.value)||[]; } catch(e) { return []; }
+  },
+  async saveNotifyEmails(list) {
+    await db.settings.put({ key:'notifyEmails', value: list });
+    DataSync.markDirty();
+  },
+  async addNotifyEmail(email) {
+    email = (email||'').trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { this.toast('Email invalide', 'warning'); return; }
+    const list = await this.loadNotifyEmails();
+    if (list.some(e => e.toLowerCase() === email.toLowerCase())) { this.toast('Déjà dans la liste', 'warning'); return; }
+    list.push(email);
+    await this.saveNotifyEmails(list);
+    this.renderNotifyEmails();
+    this.toast('Email ajouté');
+  },
+  async removeNotifyEmail(email) {
+    const list = await this.loadNotifyEmails();
+    await this.saveNotifyEmails(list.filter(e => e.toLowerCase() !== email.toLowerCase()));
+    this.renderNotifyEmails();
+  },
+  async renderNotifyEmails() {
+    const el = document.getElementById('settings-notify-emails');
+    if (!el) return;
+    const list = await this.loadNotifyEmails();
+    const rows = list.map(e => `
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <i class="bi bi-envelope text-muted"></i>
+        <span class="flex-grow-1 text-break">${this.esc(e)}</span>
+        <button class="btn btn-sm btn-outline-danger" onclick="App.removeNotifyEmail('${this.esc(e)}')"><i class="bi bi-trash"></i></button>
+      </div>`).join('');
+    el.innerHTML = `
+      ${rows || '<p class="text-muted small">Aucun destinataire. Ajoutez au moins un email pour activer les notifications.</p>'}
+      <div class="input-group input-group-sm mt-2" style="max-width:420px">
+        <input type="email" class="form-control" id="notify-email-input" placeholder="email@exemple.fr">
+        <button class="btn btn-outline-primary" onclick="App.addNotifyEmail(document.getElementById('notify-email-input').value); document.getElementById('notify-email-input').value='';"><i class="bi bi-plus-lg"></i> Ajouter</button>
+      </div>`;
   },
   // renderCustomRiskBtns, addICPCustomRisk, addPDPCustomRisk replaced by risk picker
 
@@ -8885,6 +8979,7 @@ const App = {
     try { await this.renderFDSList(); } catch (e) { console.warn('renderFDSList:', e); }
     try { await DataSync.renderSettingsStatus(); } catch (e) { console.warn('renderSettingsStatus:', e); }
     try { await this.renderAdminsSection(); } catch (e) { console.warn('renderAdminsSection:', e); }
+    try { await this.renderNotifyEmails(); } catch (e) { console.warn('renderNotifyEmails:', e); }
     try { await this.renderPendingRisksSection(); } catch (e) { console.warn('renderPendingRisksSection:', e); }
     try { await ActivityLog.render(document.getElementById('activity-log-container')); } catch (e) { console.warn('ActivityLog.render:', e); }
     const proxyInput = document.getElementById('sellsy-proxy-url');
