@@ -8970,8 +8970,17 @@ const App = {
   },
 
   async downloadFDS(id) {
-    const f = await db.fds.get(id);
-    if (!f?.data) return;
+    let f = await db.fds.get(id);
+    if (!f) { this.toast('FDS introuvable', 'warning'); return; }
+    if (!f.data && DataSync._connected) {
+      this.toast('Téléchargement de la FDS depuis SharePoint…', 'info');
+      try {
+        const path = f._spPath || _fdsFilePath(f);
+        f.data = await _downloadFileAsDataURL(path);
+        await db.fds.put(f);
+      } catch (e) { console.error('Téléchargement FDS échoué:', e); this.toast('FDS introuvable sur SharePoint', 'danger'); return; }
+    }
+    if (!f.data) { this.toast('FDS sans contenu (hors-ligne ?)', 'warning'); return; }
     const a = document.createElement('a');
     a.href = f.data;
     a.download = f.nom || 'fds.pdf';
