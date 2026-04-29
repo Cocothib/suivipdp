@@ -7155,7 +7155,7 @@ const App = {
       const setForceIfValue = (id, v) => { if (v && v.trim()) { const el = document.getElementById(id); if (el) el.value = v; } };
       // N° opération (sans préfixe OPP- visuel)
       setForce('pdp-ref-operation', (o.ref||'').replace(/^OPP-?/i, ''));
-      setIfEmpty('pdp-titre', o.nom);
+      setForceIfValue('pdp-titre', o.nom);
       this.currentPDP.refOperation = o.ref || '';
 
       // Récupère company + adresse + contact en parallèle
@@ -7188,12 +7188,12 @@ const App = {
         }
         if (mainAddr) {
           setForceIfValue('eu-adresse', mainAddr.adresse);
-          setIfEmpty('pdp-site', mainAddr.adresse);
+          setForceIfValue('pdp-site', mainAddr.adresse);
           if (mainAddr.lat != null && mainAddr.lng != null) {
-            setIfEmpty('pdp-gps', `${(+mainAddr.lat).toFixed(5)}, ${(+mainAddr.lng).toFixed(5)}`);
+            setForceIfValue('pdp-gps', `${(+mainAddr.lat).toFixed(5)}, ${(+mainAddr.lng).toFixed(5)}`);
           } else if (mainAddr.adresse) {
             const geo = await this.geocodeFR(mainAddr.adresse).catch(() => null);
-            if (geo) setIfEmpty('pdp-gps', `${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)}`);
+            if (geo) setForceIfValue('pdp-gps', `${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)}`);
           }
         }
         // Crée/met à jour l'entreprise EU dans le répertoire local et stocke localId
@@ -7245,9 +7245,10 @@ const App = {
       console.log('[Sellsy] opp mappée:', o);
       const setIfEmpty = (id, v) => { const el = document.getElementById(id); if (el && !el.value.trim()) el.value = v||''; };
       const setForce = (id, v) => { const el = document.getElementById(id); if (el) el.value = v||''; };
+      const setForceIfValue = (id, v) => { if (v && v.trim()) { const el = document.getElementById(id); if (el) el.value = v; } };
       // o.ref vient de Sellsy au format "OPP-XXXXX" — on n'affiche que le numéro (le préfixe est visuel)
       setForce('icp-ref-operation', (o.ref||'').replace(/^OPP-?/i, ''));
-      setIfEmpty('icp-objet', o.nom);
+      setForceIfValue('icp-objet', o.nom);
 
       // Tenter de récupérer la company liée par tous les moyens disponibles
       let companyId = o.companyId;
@@ -7280,10 +7281,9 @@ const App = {
           console.log('[Sellsy] addresses:', addresses);
           console.log('[Sellsy] contact:', contact);
           const mainAddr = (addresses || []).find(a => a.is_main) || (addresses || [])[0] || null;
-          // Écrase les champs EU si Sellsy renvoie une valeur (clic sur opp = volonté
+          // Écrase les champs si Sellsy renvoie une valeur (clic sur opp = volonté
           // de remplacer). Mais on ne vide pas un champ saisi manuellement avec une
           // valeur Sellsy vide.
-          const setForceIfValue = (id, v) => { if (v && v.trim()) { const el = document.getElementById(id); if (el) el.value = v; } };
           if (c) {
             setForceIfValue('icp-eu-tel', c.tel);
           }
@@ -7294,13 +7294,13 @@ const App = {
             this.syncICPSignatureNom('eu');
           }
           if (mainAddr) {
-            setIfEmpty('icp-site', mainAddr.adresse);
+            setForceIfValue('icp-site', mainAddr.adresse);
             if (mainAddr.lat != null && mainAddr.lng != null) {
-              setIfEmpty('icp-lieu', `${(+mainAddr.lat).toFixed(5)}, ${(+mainAddr.lng).toFixed(5)}`);
+              setForceIfValue('icp-lieu', `${(+mainAddr.lat).toFixed(5)}, ${(+mainAddr.lng).toFixed(5)}`);
             } else if (mainAddr.adresse) {
               // Sellsy ne renvoie pas toujours les coords GPS — fallback géocodage data.gouv
               const geo = await this.geocodeFR(mainAddr.adresse).catch(() => null);
-              if (geo) setIfEmpty('icp-lieu', `${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)}`);
+              if (geo) setForceIfValue('icp-lieu', `${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)}`);
             }
           }
           // Crée ou met à jour l'entreprise EU dans le répertoire local pour pouvoir y rattacher
