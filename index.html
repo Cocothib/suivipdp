@@ -11046,6 +11046,50 @@ const App = {
 // ========================================
 document.addEventListener('DOMContentLoaded', () => App.init());
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+
+// ========================================
+// MODALES DEPLAÇABLES — drag sur l'en-tête
+// ========================================
+(function setupDraggableModals() {
+  const makeDraggable = (modal) => {
+    const header = modal.querySelector('.modal-header');
+    const dialog = modal.querySelector('.modal-dialog');
+    if (!header || !dialog || header.dataset.draggable) return;
+    header.dataset.draggable = '1';
+    header.style.cursor = 'move';
+    header.style.userSelect = 'none';
+    let isDown = false, startX = 0, startY = 0, dx = 0, dy = 0;
+    const onDown = (e) => {
+      // Ignore les clics sur les boutons (close, etc.)
+      if (e.target.closest('button')) return;
+      const ev = e.touches ? e.touches[0] : e;
+      isDown = true;
+      startX = ev.clientX - dx;
+      startY = ev.clientY - dy;
+    };
+    const onMove = (e) => {
+      if (!isDown) return;
+      e.preventDefault();
+      const ev = e.touches ? e.touches[0] : e;
+      dx = ev.clientX - startX;
+      dy = ev.clientY - startY;
+      dialog.style.transform = `translate(${dx}px, ${dy}px)`;
+    };
+    const onUp = () => { isDown = false; };
+    header.addEventListener('mousedown', onDown);
+    header.addEventListener('touchstart', onDown, { passive: true });
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchend', onUp);
+    // Reset position à la fermeture pour éviter qu'elle reste hors écran
+    modal.addEventListener('hidden.bs.modal', () => { dx = 0; dy = 0; dialog.style.transform = ''; });
+  };
+  // Active pour toutes les modales déjà présentes
+  document.querySelectorAll('.modal').forEach(makeDraggable);
+  // Et pour les modales ajoutées dynamiquement
+  document.body.addEventListener('shown.bs.modal', (e) => makeDraggable(e.target));
+})();
 </script>
 </body>
 </html>
