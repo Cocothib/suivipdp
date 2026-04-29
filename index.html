@@ -1265,6 +1265,7 @@ textarea.form-control { min-height: 70px; }
     <div class="alert alert-danger small mb-2" id="pdp-locked-banner" style="display:none">
       <i class="bi bi-lock me-1"></i><strong>PDP clôturé</strong> — Ce PDP est en lecture seule. Cliquez sur <strong>Réouvrir</strong> pour le modifier.
     </div>
+    <div class="alert alert-warning small mb-2" id="pdp-editing-banner" style="display:none"></div>
 
     <!-- Progress bar -->
     <div class="no-print">
@@ -1992,6 +1993,7 @@ textarea.form-control { min-height: 70px; }
         <button class="btn btn-primary btn-sm" id="btn-save-icp" onclick="App.saveICP()"><i class="bi bi-check-lg me-1"></i>Enregistrer</button>
       </div>
     </div>
+    <div class="alert alert-warning small mb-2" id="icp-editing-banner" style="display:none"></div>
 
     <!-- ICP General -->
     <div class="form-section">
@@ -3527,16 +3529,34 @@ const DataSync = {
     },
 
     // ---- Presence ----
+    _currentEditing: null,
+    _presenceCache: null,
+    _presenceCacheTime: 0,
+
     async _registerPresence() {
         if (!this._connected) return;
         const name = this.getUserName()||'anonyme';
         const safeName = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')||'user';
-        try { await _writeJsonFile(`${SP_CONFIG.PRESENCE_FOLDER}/${safeName}.json`, { user:name, ts:new Date().toISOString() }); } catch {}
+        try { await _writeJsonFile(`${SP_CONFIG.PRESENCE_FOLDER}/${safeName}.json`, { user:name, ts:new Date().toISOString(), editing: this._currentEditing }); } catch {}
         if (!this._presenceTimer) this._presenceTimer = setInterval(() => this._registerPresence(), SP_CONFIG.PRESENCE_INTERVAL_MS);
+    },
+
+    // Indique ce que l'utilisateur courant \u00e9dite (lock optimiste).
+    // type: 'pdp' | 'icp' | null  ; id: number | null
+    setEditing(type, id) {
+        const next = (type && id) ? { type, id } : null;
+        const same = JSON.stringify(next) === JSON.stringify(this._currentEditing);
+        this._currentEditing = next;
+        this._presenceCache = null; // force relecture
+        if (!same) this._registerPresence().catch(() => {});
     },
 
     async getActiveUsers() {
         if (!this._connected) return [];
+        // Cache 20 sec pour \u00e9viter de lister/lire \u00e0 chaque render de liste
+        if (this._presenceCache && (Date.now() - this._presenceCacheTime) < 20000) {
+            return this._presenceCache;
+        }
         try {
             const files = await _listFiles(SP_CONFIG.PRESENCE_FOLDER);
             const now = Date.now(); const myName = this.getUserName();
@@ -3548,8 +3568,27 @@ const DataSync = {
                     if (c && (now - new Date(c.ts).getTime()) < SP_CONFIG.PRESENCE_STALE_MS && c.user !== myName) users.push(c);
                 } catch {}
             }
+            this._presenceCache = users;
+            this._presenceCacheTime = Date.now();
             return users;
         } catch { return []; }
+    },
+
+    async getEditorsFor(type, id) {
+        const users = await this.getActiveUsers();
+        return users.filter(u => u.editing && u.editing.type === type && String(u.editing.id) === String(id));
+    },
+
+    async getEditorsMap(type) {
+        const users = await this.getActiveUsers();
+        const map = {};
+        for (const u of users) {
+            if (u.editing && u.editing.type === type && u.editing.id != null) {
+                const k = String(u.editing.id);
+                (map[k] = map[k] || []).push(u.user);
+            }
+        }
+        return map;
     },
 
     // ---- Upload PDF/DOCX sur SharePoint ----
@@ -4121,6 +4160,8 @@ const App = {
 
   // ---- NAVIGATION ----
   showView(view) {
+    // Libère le lock optimiste si on quitte la vue détail PDP/ICP
+    if (view !== 'pdp-detail' && view !== 'icp-detail' && DataSync.setEditing) DataSync.setEditing(null);
     document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
     const el = document.getElementById('view-' + view);
     if (el) { el.style.display = 'block'; el.classList.remove('fade-in'); void el.offsetWidth; el.classList.add('fade-in'); }
@@ -4220,6 +4261,7 @@ const App = {
     const pdps = await db.pdps.toArray();
     const icps = await db.icps.toArray();
     this._icpRefByIdCache = new Map(icps.map(v => [v.id, v.refOperation || '']));
+    this._pdpEditorsMap = (DataSync.getEditorsMap ? await DataSync.getEditorsMap('pdp') : {}) || {};
     const c = document.getElementById('pdp-list-container');
     if (!pdps.length) { c.innerHTML = '<p class="text-muted text-center mt-4">Aucun PDP.</p>'; return; }
     c.innerHTML = pdps.sort((a,b) => new Date(b.dateModification||b.dateCreation) - new Date(a.dateModification||a.dateCreation)).map(p => this.renderPDPCard(p)).join('');
@@ -4246,6 +4288,8 @@ const App = {
     const cls = { brouillon:'brouillon', visite_prealable:'visite', analyse_risque:'analyse', signature:'signature', actif:'actif', modifie:'modifie', cloture:'cloture' };
     const refOp = p.refOperation || ((p.icpId && this._icpRefByIdCache) ? this._icpRefByIdCache.get(p.icpId) : '') || '';
     const annee = (p.dateDebut||p.dateCreation||'').slice(0,4);
+    const editors = (this._pdpEditorsMap||{})[String(p.id)] || [];
+    const editingBadge = editors.length ? `<span class="badge bg-warning text-dark" style="font-size:0.7rem" title="${this.esc(editors.join(', '))} édite${editors.length>1?'nt':''} en ce moment"><i class="bi bi-pencil-square me-1"></i>${this.esc(editors[0])}${editors.length>1?` +${editors.length-1}`:''}</span>` : '';
     return `<div class="card pdp-card" onclick="App.openPDP(${p.id})" data-statut="${p.statut}" data-titre="${(p.titre||'').toLowerCase()}" data-ref="${(refOp||'').toLowerCase()}" data-numero="${(p.numero||'').toLowerCase()}" data-site="${(p.site||'').toLowerCase()}" data-client="${(p.eu?.nom||'').toLowerCase()}" data-annee="${annee}" data-datefin="${p.dateFin||''}">
       <div class="card-body p-2">
         <div class="d-flex align-items-start gap-2">
@@ -4253,6 +4297,7 @@ const App = {
             <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
               <span class="badge badge-${cls[p.statut]||'brouillon'}">${labels[p.statut]||p.statut}</span>
               ${refOp ? `<span class="badge bg-info text-white" style="font-size:0.7rem">${this.esc(refOp)}</span>` : ''}
+              ${editingBadge}
               ${p.numero ? `<span class="text-muted" style="font-size:0.75rem">${this.esc(p.numero)}</span>` : ''}
             </div>
             <div class="fw-bold" style="font-size:0.9rem">${this.esc(p.titre||'Sans titre')}</div>
@@ -4390,6 +4435,24 @@ const App = {
     if (p.statut === 'cloture') this._lockPDP(); else this._unlockPDP();
     this._markSaved();
     this.showPDPSection('general');
+    // Lock optimiste : signale qu'on édite ce PDP, et alerte si déjà ouvert ailleurs
+    DataSync.setEditing && DataSync.setEditing('pdp', id);
+    this._showEditingBanner('pdp', id);
+  },
+
+  async _showEditingBanner(type, id) {
+    const banner = document.getElementById(type === 'pdp' ? 'pdp-editing-banner' : 'icp-editing-banner');
+    if (!banner) return;
+    try {
+      const others = await DataSync.getEditorsFor(type, id);
+      if (others.length) {
+        const names = others.map(u => u.user).join(', ');
+        banner.style.display = '';
+        banner.innerHTML = `<i class="bi bi-exclamation-triangle me-1"></i> <strong>${this.esc(names)}</strong> ${others.length>1?'éditent':'édite'} aussi ce ${type === 'pdp' ? 'PDP' : 'ICP'}. Le dernier qui enregistre écrase les modifs de l'autre.`;
+      } else {
+        banner.style.display = 'none';
+      }
+    } catch { banner.style.display = 'none'; }
   },
 
   _lockPDP() {
@@ -7512,6 +7575,8 @@ const App = {
     document.getElementById('btn-delete-icp').style.display = '';
     const btnBack = document.getElementById('btn-back-to-pdp');
     if (btnBack) btnBack.style.display = v.pdpId ? '' : 'none';
+    DataSync.setEditing && DataSync.setEditing('icp', id);
+    this._showEditingBanner('icp', id);
   },
 
   // ---- ICP Participants additionnels (EU et EE) ----
@@ -7883,8 +7948,11 @@ const App = {
     if (!icpList.length) { c.innerHTML = '<p class="text-muted text-center mt-4">Aucune ICP.</p>'; return; }
     const statutLabels = { effectuee:'Effectuée', validee:'Validée' };
     const statutColors = { effectuee:'primary', validee:'success' };
+    const editorsMap = (DataSync.getEditorsMap ? await DataSync.getEditorsMap('icp') : {}) || {};
     c.innerHTML = icpList.map(v => {
       const annee = (v.dateVisite||v.dateCreation||'').slice(0,4);
+      const editors = editorsMap[String(v.id)] || [];
+      const editingBadge = editors.length ? `<span class="badge bg-warning text-dark" style="font-size:0.7rem" title="${this.esc(editors.join(', '))} édite${editors.length>1?'nt':''} en ce moment"><i class="bi bi-pencil-square me-1"></i>${this.esc(editors[0])}${editors.length>1?` +${editors.length-1}`:''}</span>` : '';
       return `<div class="card pdp-card" data-statut="${v.statut||''}" data-site="${(v.site||'').toLowerCase()}" data-ref="${(v.refOperation||'').toLowerCase()}" data-numero="${(v.numero||'').toLowerCase()}" data-objet="${(v.objet||'').toLowerCase()}" data-annee="${annee}" onclick="App.openICP(${v.id})">
       <div class="card-body p-2">
         <div class="d-flex justify-content-between align-items-start">
@@ -7892,6 +7960,7 @@ const App = {
             <div class="d-flex align-items-center gap-1 mb-1 flex-wrap">
               <span class="badge bg-${statutColors[v.statut]||'secondary'}">${statutLabels[v.statut]||v.statut}</span>
               ${v.refOperation ? `<span class="badge bg-info text-white" style="font-size:0.7rem">${this.esc(v.refOperation)}</span>`:''}
+              ${editingBadge}
               <span class="text-muted" style="font-size:0.75rem">${this.esc(v.numero||'ICP #'+v.id)}</span>
             </div>
             ${v.objet ? `<div class="fw-bold" style="font-size:0.9rem">${this.esc(v.objet)}</div>` : ''}
