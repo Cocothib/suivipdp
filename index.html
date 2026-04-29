@@ -1382,7 +1382,8 @@ textarea.form-control { min-height: 70px; }
                 <span class="input-group-text"><i class="bi bi-globe"></i></span>
                 <input type="text" class="form-control" id="pdp-gps" placeholder="Ex: 49.8333, 3.9167" oninput="App.updateMapsLink()">
                 <button class="btn btn-outline-success" type="button" onclick="App.geocodePDPSite()" title="Géolocaliser depuis le site/lieu"><i class="bi bi-geo-alt-fill"></i></button>
-                <a id="pdp-gps-maps-link" href="#" target="_blank" rel="noopener" class="btn btn-outline-secondary" style="display:none" title="Ouvrir dans Google Maps"><i class="bi bi-map"></i></a>
+                <a id="pdp-gps-maps-link" href="#" target="_blank" rel="noopener" class="btn btn-outline-secondary" style="display:none" title="OpenStreetMap (rapide)"><i class="bi bi-map"></i></a>
+                <a id="pdp-gps-gmaps-link" href="#" target="_blank" rel="noopener" class="btn btn-outline-danger" style="display:none" title="Google Maps"><i class="bi bi-google"></i></a>
               </div>
             </div>
           </div>
@@ -2023,7 +2024,7 @@ textarea.form-control { min-height: 70px; }
           <div class="col-md-4"><label class="form-label" for="icp-date">Date de la visite *</label><div class="input-icon-wrap"><i class="bi bi-calendar input-icon"></i><input type="date" class="form-control" id="icp-date"></div></div>
           <div class="col-md-2"><label class="form-label" for="icp-heure">Heure</label><div class="input-icon-wrap"><i class="bi bi-clock input-icon"></i><input type="time" class="form-control" id="icp-heure"></div></div>
           <div class="col-md-6"><label class="form-label" for="icp-site">Site / Adresse</label><div class="input-icon-wrap"><i class="bi bi-geo-alt input-icon"></i><input type="text" class="form-control" id="icp-site" placeholder="Ex: 20 rue du 11 novembre 59169 FERIN"></div></div>
-          <div class="col-md-6"><label class="form-label" for="icp-lieu">Coordonnées GPS</label><div class="input-group"><span class="input-group-text"><i class="bi bi-pin-map"></i></span><input type="text" class="form-control" id="icp-lieu" placeholder="Ex: 50.34521, 3.10274" oninput="App.updateMapsLink()"><button class="btn btn-outline-success" type="button" onclick="App.geocodeICPSite()" title="Géolocaliser depuis l'adresse Site"><i class="bi bi-geo-alt-fill"></i></button><a id="icp-gps-maps-link" href="#" target="_blank" rel="noopener" class="btn btn-outline-secondary" style="display:none" title="Ouvrir dans Google Maps"><i class="bi bi-map"></i></a></div></div>
+          <div class="col-md-6"><label class="form-label" for="icp-lieu">Coordonnées GPS</label><div class="input-group"><span class="input-group-text"><i class="bi bi-pin-map"></i></span><input type="text" class="form-control" id="icp-lieu" placeholder="Ex: 50.34521, 3.10274" oninput="App.updateMapsLink()"><button class="btn btn-outline-success" type="button" onclick="App.geocodeICPSite()" title="Géolocaliser depuis l'adresse Site"><i class="bi bi-geo-alt-fill"></i></button><a id="icp-gps-maps-link" href="#" target="_blank" rel="noopener" class="btn btn-outline-secondary" style="display:none" title="OpenStreetMap (rapide)"><i class="bi bi-map"></i></a><a id="icp-gps-gmaps-link" href="#" target="_blank" rel="noopener" class="btn btn-outline-danger" style="display:none" title="Google Maps"><i class="bi bi-google"></i></a></div></div>
         </div>
       </div>
       <div class="field-group">
@@ -6394,27 +6395,34 @@ const App = {
   },
 
   updateMapsLink() {
-    // Mobile : URI geo: ouvre Maps/Plans natif (instantané).
-    // Desktop : OSM (charge ~1s vs 5-10s pour Google Maps avec tracking prevention).
+    // Mobile : URI geo: ouvre Maps/Plans natif. Desktop : OSM rapide + Google Maps en option.
     const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const buildUrl = (lat, lng) => isMobile
+    const buildOSM = (lat, lng) => isMobile
       ? `geo:${lat},${lng}?q=${lat},${lng}`
       : `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}`;
-    const refresh = (inputId, linkId) => {
-      const link = document.getElementById(linkId);
-      if (!link) return;
+    const buildGoogle = (lat, lng) => `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+    const refresh = (inputId, osmLinkId, gmapsLinkId) => {
+      const osmLink = document.getElementById(osmLinkId);
+      const gmapsLink = document.getElementById(gmapsLinkId);
       const gps = (document.getElementById(inputId)?.value||'').trim();
       const m = gps.match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
       if (m) {
-        link.style.display = 'inline-block';
-        link.href = buildUrl(m[1], m[2]);
-        link.title = isMobile ? 'Ouvrir dans Maps/Plans' : 'Ouvrir dans OpenStreetMap';
+        if (osmLink) {
+          osmLink.style.display = 'inline-block';
+          osmLink.href = buildOSM(m[1], m[2]);
+          osmLink.title = isMobile ? 'Ouvrir dans Maps/Plans (natif)' : 'OpenStreetMap (rapide)';
+        }
+        if (gmapsLink) {
+          gmapsLink.style.display = 'inline-block';
+          gmapsLink.href = buildGoogle(m[1], m[2]);
+        }
       } else {
-        link.style.display = 'none';
+        if (osmLink) osmLink.style.display = 'none';
+        if (gmapsLink) gmapsLink.style.display = 'none';
       }
     };
-    refresh('pdp-gps', 'pdp-gps-maps-link');
-    refresh('icp-lieu', 'icp-gps-maps-link');
+    refresh('pdp-gps', 'pdp-gps-maps-link', 'pdp-gps-gmaps-link');
+    refresh('icp-lieu', 'icp-gps-maps-link', 'icp-gps-gmaps-link');
   },
 
   async geocodeEUAddress() {
