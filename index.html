@@ -1429,12 +1429,15 @@ textarea.form-control { min-height: 70px; }
       <div class="section-helper" data-type-label="ent-helper"><i class="bi bi-lightbulb"></i>Identifiez l'entreprise utilisatrice (votre client) et les entreprises qui interviennent. Le PDP est obligatoire dès qu'une entreprise extérieure travaille sur le site.</div>
       <div class="form-section">
         <div class="form-section-title"><i class="bi bi-building"></i><span data-type-label="ent-eu-title">Entreprise Utilisatrice (EU) — votre client</span></div>
-        <div class="field-group">
-          <div class="field-group-title"><i class="bi bi-geo-alt-fill"></i> Sélection rapide du site</div>
+        <div class="field-group" id="eu-site-select-group">
+          <div class="field-group-title"><i class="bi bi-geo-alt-fill"></i> Sélection rapide du site (chantier interne)</div>
           <select class="form-select mb-2" id="eu-site-select" onchange="App.onSiteSelect(this.value)">
             <option value="">— Choisir un site enregistré —</option>
           </select>
           <button class="btn btn-outline-success btn-sm" onclick="App.openSellsySearchModal('eu')"><i class="bi bi-search me-1"></i>Rechercher dans Sellsy</button>
+        </div>
+        <div class="field-group" id="eu-sellsy-only-group" style="display:none">
+          <button class="btn btn-outline-success btn-sm" onclick="App.openSellsySearchModal('eu')"><i class="bi bi-search me-1"></i>Rechercher dans Sellsy (chantier client)</button>
         </div>
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-person-badge"></i>Coordonnées</div>
@@ -5830,6 +5833,11 @@ const App = {
     const preset = ENTITY_PRESETS[entite] || ENTITY_PRESETS.agriwatt;
     this.syncTypeEntiteUI();
     this.refreshTypeLabels();
+    // Affiche le sélecteur Site EU uniquement pour chantier interne
+    const siteGrp = document.getElementById('eu-site-select-group');
+    const sellsyOnly = document.getElementById('eu-sellsy-only-group');
+    if (siteGrp) siteGrp.style.display = (type === 'interne') ? '' : 'none';
+    if (sellsyOnly) sellsyOnly.style.display = (type === 'interne') ? 'none' : '';
     // Adapter les labels selon le type
     const siteLabel = document.getElementById('pdp-site-label');
     const lieuLabel = document.getElementById('pdp-lieu-label');
