@@ -4745,6 +4745,7 @@ const App = {
   async savePDP() {
     this.captureEmargementSigs();
     const p = this.collectForm();
+    this.captureAllSigs();
     if (!p.titre) { this.toast("Intitulé requis",'warning'); return; }
     // Avertissement si PDP actif/validé sans ICP effectuée
     if (['actif','signature'].includes(p.statut) && !(p.visite?.effectuee)) {
