@@ -10063,7 +10063,18 @@ const App = {
       children.push(secTitle(String(secNum),'ÉMARGEMENT'));
       children.push(new Paragraph({children:[new TextRun({text:'En signant, l\'intervenant atteste avoir pris connaissance du plan de prévention et avoir mis en œuvre les mesures de prévention nécessaires.',size:20,font:'Calibri',italics:true})],spacing:{after:150}}));
       const emRows = [new TableRow({children:[hCell('Nom',20),hCell('Prénom',15),hCell('Fonction',15),hCell('Société',20),hCell('Date',15),hCell('Signature',15)]})];
-      p.emargements.forEach(e => emRows.push(new TableRow({children:[cell(e.nom||'',{width:20}),cell(e.prenom||'',{width:15}),cell(e.fonction||'',{width:15}),cell(e.societe||'',{width:20}),cell(e.date||'',{width:15}),new TableCell({children:[new Paragraph({children:[new TextRun({text:'',size:20})],spacing:{before:200,after:200}})],width:{size:15,type:WidthType.PERCENTAGE}})]})));
+      const _emSigCell = (sig) => {
+        if (sig) {
+          try {
+            const raw = atob(sig.split(',')[1]);
+            const arr = new Uint8Array(raw.length);
+            for (let j = 0; j < raw.length; j++) arr[j] = raw.charCodeAt(j);
+            return new TableCell({children:[new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:90,height:35},type:'png'})]})],width:{size:15,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER});
+          } catch(e) {}
+        }
+        return new TableCell({children:[new Paragraph({children:[new TextRun({text:'',size:20})],spacing:{before:200,after:200}})],width:{size:15,type:WidthType.PERCENTAGE}});
+      };
+      p.emargements.forEach(e => emRows.push(new TableRow({children:[cell(e.nom||'',{width:20}),cell(e.prenom||'',{width:15}),cell(e.fonction||'',{width:15}),cell(e.societe||'',{width:20}),cell(e.date||'',{width:15}),_emSigCell(e.signature)]})));
       children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:emRows}));
     }
 
@@ -11058,9 +11069,17 @@ const App = {
     // Émargement
     if ((p.emargements||[]).length) {
       secTitle(`${secNum}. ÉMARGEMENT`);
+      const emSigs = p.emargements.map(e => e.signature || null);
       addTable(['Nom','Prénom','Fonction','Société','Date','Signature'],
-        p.emargements.map(e=>[e.nom||'',e.prenom||'',e.fonction||'',e.societe||'',e.date||'',{content:'',styles:{minCellHeight:12}}]),
-        {columnStyles:{5:{cellWidth:30}}}
+        p.emargements.map(e=>[e.nom||'',e.prenom||'',e.fonction||'',e.societe||'',e.date||'','']),
+        {columnStyles:{5:{cellWidth:30}},
+         bodyStyles:{minCellHeight:14},
+         didDrawCell: (d) => {
+           if (d.section === 'body' && d.column.index === 5 && emSigs[d.row.index]) {
+             try { doc.addImage(emSigs[d.row.index], 'PNG', d.cell.x+1, d.cell.y+1, d.cell.width-2, d.cell.height-2); } catch {}
+           }
+         }
+        }
       );
       secNum++;
     }
