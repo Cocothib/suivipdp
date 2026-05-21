@@ -752,6 +752,106 @@ textarea.form-control { min-height: 70px; }
 }
 .btn-save-flash { animation: save-flash 0.6s ease; }
 
+/* ---- Bouton flottant Sauvegarder (FAB) ---- */
+.fab-save {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1050;
+    width: auto;
+    min-width: 56px;
+    height: 56px;
+    border-radius: 28px;
+    padding: 0 20px;
+    background-color: var(--agw-green);
+    color: #fff;
+    border: none;
+    box-shadow: 0 4px 16px rgba(0, 105, 62, 0.4), 0 2px 6px rgba(0,0,0,0.2);
+    font-weight: 600;
+    font-size: 0.95rem;
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    transition: transform 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+.fab-save:hover, .fab-save:focus {
+    background-color: var(--agw-green-dark);
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 105, 62, 0.5), 0 3px 8px rgba(0,0,0,0.25);
+}
+.fab-save:active { transform: translateY(0); }
+.fab-save.visible { display: inline-flex; }
+.fab-save .bi { font-size: 1.3rem; }
+.fab-save.saving { background-color: var(--agw-green-dark); pointer-events: none; opacity: 0.85; }
+@keyframes fab-pulse {
+    0%   { box-shadow: 0 4px 16px rgba(0, 105, 62, 0.4), 0 2px 6px rgba(0,0,0,0.2), 0 0 0 0 rgba(0,105,62,0.55); }
+    70%  { box-shadow: 0 4px 16px rgba(0, 105, 62, 0.4), 0 2px 6px rgba(0,0,0,0.2), 0 0 0 14px rgba(0,105,62,0); }
+    100% { box-shadow: 0 4px 16px rgba(0, 105, 62, 0.4), 0 2px 6px rgba(0,0,0,0.2), 0 0 0 0 rgba(0,105,62,0); }
+}
+.fab-save.unsaved { animation: fab-pulse 2.2s ease-out infinite; }
+@media (max-width: 576px) {
+    .fab-save { bottom: 12px; right: 12px; padding: 0 16px; font-size: 0.9rem; }
+    .fab-save .fab-label-full { display: none; }
+}
+
+/* ---- Onboarding contextuel ---- */
+.onboarding-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 2000;
+    display: none;
+    pointer-events: auto;
+}
+.onboarding-overlay.active { display: block; }
+.onboarding-spotlight {
+    position: absolute;
+    border-radius: 8px;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.55), 0 0 0 4px rgba(255, 215, 0, 0.7);
+    transition: top 0.3s, left 0.3s, width 0.3s, height 0.3s;
+    pointer-events: none;
+    background: transparent;
+}
+.onboarding-card {
+    position: absolute;
+    background: #fff;
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    max-width: 320px;
+    z-index: 2001;
+    border-left: 4px solid var(--agw-green);
+}
+.onboarding-card h6 { color: var(--agw-green-dark); font-weight: 700; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.4rem; }
+.onboarding-card p { color: #333; font-size: 0.88rem; margin-bottom: 0.8rem; line-height: 1.4; }
+.onboarding-card-footer { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+.onboarding-card-footer .step-count { color: #999; font-size: 0.78rem; font-weight: 600; }
+.onboarding-card-footer .btn { font-size: 0.82rem; padding: 0.3rem 0.85rem; }
+@media (max-width: 576px) {
+    .onboarding-card { max-width: calc(100vw - 24px); left: 12px !important; right: 12px; width: auto; }
+}
+
+/* ---- Mode Express ICP : masque les sections optionnelles ---- */
+body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important; }
+.icp-mode-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.85rem;
+    background: rgba(0, 105, 62, 0.08);
+    border: 1px solid rgba(0, 105, 62, 0.2);
+    border-radius: 999px;
+    color: var(--agw-green-dark);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s;
+}
+.icp-mode-toggle:hover { background: rgba(0, 105, 62, 0.15); }
+.icp-mode-toggle .form-check-input { margin: 0; cursor: pointer; }
+.icp-mode-toggle .form-check-input:checked { background-color: var(--agw-green); border-color: var(--agw-green); }
+
 /* ---- Risk Picker ---- */
 .risk-picker-btn {
     display: flex;
@@ -1987,7 +2087,11 @@ textarea.form-control { min-height: 70px; }
   <div id="view-icp-detail" class="view fade-in" style="display:none">
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 no-print">
       <h5 class="mb-0" id="icp-detail-title">Nouvelle ICP</h5>
-      <div class="d-flex gap-2">
+      <div class="d-flex gap-2 align-items-center flex-wrap">
+        <label class="icp-mode-toggle no-print" title="Mode Express : masque les sections avancées (autres intervenants, liaison PDP). Idéal pour une visite simple.">
+          <input type="checkbox" class="form-check-input" id="icp-mode-express-toggle" onchange="App.toggleICPModeExpress(this.checked)">
+          <i class="bi bi-lightning-charge-fill"></i><span>Mode Express</span>
+        </label>
         <button class="btn btn-outline-danger btn-sm" id="btn-delete-icp" style="display:none" onclick="App.deleteICP()"><i class="bi bi-trash me-1"></i>Supprimer</button>
         <button class="btn btn-outline-secondary btn-sm" onclick="App.showView('icps')"><i class="bi bi-arrow-left me-1"></i>Retour</button>
         <button class="btn btn-primary btn-sm" id="btn-save-icp" onclick="App.saveICP()"><i class="bi bi-check-lg me-1"></i>Enregistrer</button>
@@ -2038,29 +2142,29 @@ textarea.form-control { min-height: 70px; }
     <!-- ICP Participants -->
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-people"></i>Participants à la visite</div>
-      <div class="form-check form-switch mb-2">
+      <div class="form-check form-switch mb-2 icp-advanced">
         <input class="form-check-input" type="checkbox" id="icp-chantier-interne" onchange="App.onICPChantierInterneToggle(this.checked)">
         <label class="form-check-label small" for="icp-chantier-interne">Chantier interne (AGRIWATT/Enersolys) — afficher la sélection rapide d'un site enregistré</label>
       </div>
       <div class="field-group" id="icp-site-eu-group" style="display:none">
-        <div class="field-group-title"><i class="bi bi-geo-alt-fill"></i> Site EU</div>
+        <div class="field-group-title"><i class="bi bi-geo-alt-fill"></i> Site du client (EU)</div>
         <select class="form-select mb-2" id="icp-site-select" onchange="App.onICPSiteSelect(this.value)">
           <option value="">— Choisir un site enregistré —</option>
         </select>
       </div>
       <div class="field-group">
-        <div class="field-group-title"><i class="bi bi-person-badge"></i> Représentant EU</div>
+        <div class="field-group-title"><i class="bi bi-person-badge"></i> Représentant du client (EU)</div>
         <div class="row g-2">
           <div class="col-md-4"><label class="form-label" for="icp-eu-nom">Nom</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-eu-nom" placeholder="Nom" oninput="App.syncICPSignatureNom('eu')"></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-eu-fonction">Fonction</label><div class="input-icon-wrap"><i class="bi bi-briefcase input-icon"></i><input type="text" class="form-control" id="icp-eu-fonction" placeholder="Fonction"></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-eu-tel">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="icp-eu-tel" placeholder="Téléphone"></div></div>
-          <div class="col-12 mt-1 d-flex justify-content-end"><button type="button" class="btn btn-outline-primary btn-sm" onclick="App.addICPEUParticipantRow()"><i class="bi bi-plus-lg me-1"></i>Ajouter une 2e personne EU</button></div>
+          <div class="col-12 mt-1 d-flex justify-content-end"><button type="button" class="btn btn-outline-primary btn-sm" onclick="App.addICPEUParticipantRow()"><i class="bi bi-plus-lg me-1"></i>Ajouter une 2e personne côté client</button></div>
           <div class="col-12"><div id="icp-eu-add-list"></div></div>
           <datalist id="icp-eu-contacts-list"></datalist>
         </div>
       </div>
       <div class="field-group">
-        <div class="field-group-title"><i class="bi bi-person-badge"></i> Représentant EE</div>
+        <div class="field-group-title"><i class="bi bi-person-badge"></i> Représentant de l'intervenant principal (EE)</div>
         <div class="row g-2">
           <div class="col-md-6">
             <label class="form-label" for="icp-ee-entreprise-input">Entreprise</label>
@@ -2078,15 +2182,15 @@ textarea.form-control { min-height: 70px; }
           <div class="col-md-4"><label class="form-label" for="icp-ee-rep-nom">Nom</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-ee-rep-nom" placeholder="Nom" oninput="App.syncICPSignatureNom('ee')"></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-ee-rep-fonction">Fonction</label><div class="input-icon-wrap"><i class="bi bi-briefcase input-icon"></i><input type="text" class="form-control" id="icp-ee-rep-fonction" placeholder="Fonction"></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-ee-rep-tel">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="icp-ee-rep-tel" placeholder="Téléphone"></div></div>
-          <div class="col-12 mt-1 d-flex justify-content-end"><button type="button" class="btn btn-outline-primary btn-sm" onclick="App.addICPEEParticipantRow()"><i class="bi bi-plus-lg me-1"></i>Ajouter une 2e personne EE</button></div>
+          <div class="col-12 mt-1 d-flex justify-content-end"><button type="button" class="btn btn-outline-primary btn-sm" onclick="App.addICPEEParticipantRow()"><i class="bi bi-plus-lg me-1"></i>Ajouter une 2e personne côté intervenant</button></div>
           <div class="col-12"><div id="icp-ee-add-list"></div></div>
         </div>
       </div>
-      <div class="form-section-title d-flex justify-content-between align-items-center">
-        <span><i class="bi bi-buildings me-1"></i>EE additionnelles</span>
-        <button class="btn btn-sm btn-outline-primary" onclick="App.addICPEE()"><i class="bi bi-plus-lg me-1"></i>Ajouter EE</button>
+      <div class="form-section-title d-flex justify-content-between align-items-center icp-advanced">
+        <span><i class="bi bi-buildings me-1"></i>Autres intervenants / sous-traitants (EE)</span>
+        <button class="btn btn-sm btn-outline-primary" onclick="App.addICPEE()"><i class="bi bi-plus-lg me-1"></i>Ajouter un intervenant</button>
       </div>
-      <div id="icp-ee-list-container"></div>
+      <div id="icp-ee-list-container" class="icp-advanced"></div>
     </div>
 
     <!-- ICP Risques identifiés -->
@@ -2125,9 +2229,9 @@ textarea.form-control { min-height: 70px; }
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-pen"></i>Signatures</div>
       <div class="field-group">
-        <div class="field-group-title"><i class="bi bi-pen"></i> Signature EU</div>
+        <div class="field-group-title"><i class="bi bi-pen"></i> Signature du client (EU)</div>
         <div class="row g-2 mb-3">
-          <div class="col-md-6"><label class="form-label" for="icp-sig-eu-nom">Signataire EU</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-sig-eu-nom" placeholder="Nom et qualité"></div></div>
+          <div class="col-md-6"><label class="form-label" for="icp-sig-eu-nom">Signataire (client)</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-sig-eu-nom" placeholder="Nom et qualité"></div></div>
           <div class="col-md-6"><label class="form-label" for="icp-sig-eu-date">Date</label><div class="input-icon-wrap"><i class="bi bi-calendar input-icon"></i><input type="date" class="form-control" id="icp-sig-eu-date"></div></div>
           <div class="col-12">
             <div class="signature-pad-wrapper"><canvas id="icp-sig-eu-canvas" class="signature-canvas"></canvas></div>
@@ -2137,9 +2241,9 @@ textarea.form-control { min-height: 70px; }
       </div>
       <div id="icp-sig-eu-add-container"></div>
       <div class="field-group">
-        <div class="field-group-title"><i class="bi bi-pen"></i> Signature Représentant EE</div>
+        <div class="field-group-title"><i class="bi bi-pen"></i> Signature du représentant intervenant (EE)</div>
         <div class="row g-2 mb-3">
-          <div class="col-md-6"><label class="form-label" for="icp-sig-ee-rep-nom">Signataire EE</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-sig-ee-rep-nom" placeholder="Nom et qualité"></div></div>
+          <div class="col-md-6"><label class="form-label" for="icp-sig-ee-rep-nom">Signataire (intervenant)</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-sig-ee-rep-nom" placeholder="Nom et qualité"></div></div>
           <div class="col-md-6"><label class="form-label" for="icp-sig-ee-rep-date">Date</label><div class="input-icon-wrap"><i class="bi bi-calendar input-icon"></i><input type="date" class="form-control" id="icp-sig-ee-rep-date"></div></div>
           <div class="col-12">
             <div class="signature-pad-wrapper"><canvas id="icp-sig-ee-rep-canvas" class="signature-canvas"></canvas></div>
@@ -2148,14 +2252,14 @@ textarea.form-control { min-height: 70px; }
         </div>
       </div>
       <div id="icp-sig-ee-add-container"></div>
-      <div id="icp-signatures-ee-section">
-        <div class="form-section-title"><i class="bi bi-pen"></i>Signatures EE additionnelles (sous-traitantes)</div>
+      <div id="icp-signatures-ee-section" class="icp-advanced">
+        <div class="form-section-title"><i class="bi bi-pen"></i>Signatures autres intervenants / sous-traitants (EE)</div>
         <div id="icp-signatures-ee-container"></div>
       </div>
     </div>
 
     <!-- ICP → PDP Link -->
-    <div class="form-section">
+    <div class="form-section icp-advanced">
       <div class="form-section-title"><i class="bi bi-link-45deg"></i>Liaison avec un PDP</div>
       <div id="icp-pdp-link-info" class="mb-2"></div>
       <div class="d-flex flex-wrap gap-2">
@@ -2182,7 +2286,12 @@ textarea.form-control { min-height: 70px; }
     <h5 class="mb-3"><i class="bi bi-gear me-1"></i>Paramètres</h5>
     <div class="section-helper"><i class="bi bi-lightbulb"></i> Configurez les paramètres par défaut de l'application.</div>
     <div class="form-section">
-      <div class="form-section-title"><i class="bi bi-building"></i>Entreprise Utilisatrice par défaut</div>
+      <div class="form-section-title"><i class="bi bi-question-circle"></i>Aide</div>
+      <button class="btn btn-outline-primary btn-sm" onclick="App.resetOnboarding()"><i class="bi bi-arrow-counterclockwise me-1"></i>Réactiver le tour d'aide</button>
+      <div class="small text-muted mt-2">Le tour d'aide se déclenchera automatiquement à la prochaine ouverture d'une fiche ICP ou PDP.</div>
+    </div>
+    <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-building"></i>Client (Entreprise Utilisatrice — EU) par défaut</div>
       <div class="field-group">
         <div class="field-group-title"><i class="bi bi-building"></i> Identité</div>
         <div class="row g-2">
@@ -2534,6 +2643,27 @@ textarea.form-control { min-height: 70px; }
 
 <!-- Toast container -->
 <div class="toast-container" id="toast-container"></div>
+
+<!-- Bouton flottant Sauvegarder (PDP / ICP) -->
+<button type="button" class="fab-save" id="fab-save" onclick="App.fabSave()" aria-label="Enregistrer">
+  <i class="bi bi-check-lg"></i><span class="fab-label-full">Enregistrer</span>
+</button>
+
+<!-- Onboarding contextuel -->
+<div class="onboarding-overlay" id="onboarding-overlay">
+  <div class="onboarding-spotlight" id="onboarding-spotlight"></div>
+  <div class="onboarding-card" id="onboarding-card">
+    <h6 id="onboarding-title"><i class="bi bi-lightbulb-fill"></i><span></span></h6>
+    <p id="onboarding-body"></p>
+    <div class="onboarding-card-footer">
+      <span class="step-count" id="onboarding-step-count">1 / 4</span>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="App.skipOnboarding()">Passer</button>
+        <button type="button" class="btn btn-sm btn-primary" id="onboarding-next-btn" onclick="App.nextOnboardingStep()">Suivant</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ===== MODALS ===== -->
 <!-- Entreprise Modal -->
@@ -4180,6 +4310,160 @@ const App = {
     // Collapse mobile navbar
     const navCollapse = document.getElementById('navbarMain');
     if (navCollapse?.classList.contains('show')) bootstrap.Collapse.getInstance(navCollapse)?.hide();
+    // FAB Sauvegarder : visible uniquement sur vues détail PDP/ICP
+    const fab = document.getElementById('fab-save');
+    if (fab) {
+      const isDetail = (view === 'pdp-detail' || view === 'icp-detail');
+      fab.classList.toggle('visible', isDetail);
+      fab.classList.remove('unsaved', 'saving');
+    }
+    // Mode Express ICP : appliquer la préférence au chargement de la vue
+    if (view === 'icp-detail') this.applyICPModeExpressFromPref();
+    else document.body.classList.remove('icp-mode-express');
+    // Onboarding 1ère visite
+    this._maybeAutoOnboard(view);
+  },
+
+  // ---- ONBOARDING CONTEXTUEL ----
+  _onboardingSteps: null,
+  _onboardingIndex: 0,
+
+  _onboardingStepsICP: [
+    { selector: '#icp-ref-operation', title: 'Récupérer une opportunité Sellsy',
+      body: "Tapez le n° d'opportunité (ex: 04146) puis cliquez sur la loupe verte. Toutes les données client se remplissent automatiquement.",
+      placement: 'bottom' },
+    { selector: '#icp-mode-express-toggle', title: 'Mode Express',
+      body: "Activez ce mode pour masquer les sections avancées (autres intervenants, liaison PDP). Idéal pour une visite simple.",
+      placement: 'bottom' },
+    { selector: '.risk-picker-btn', title: 'Sélectionner les risques',
+      body: "Cliquez ici pour ouvrir le sélecteur arborescent et choisir les risques identifiés sur le chantier.",
+      placement: 'bottom' },
+    { selector: '#fab-save', title: 'Bouton Enregistrer flottant',
+      body: "Ce bouton vert reste toujours visible en bas à droite. Appuyez dessus dès que vous avez fait des modifications pour ne rien perdre.",
+      placement: 'top-left' },
+  ],
+
+  _onboardingStepsPDP: [
+    { selector: '#pdp-ref-operation, #pdp-numero', title: 'N° d\'opération Sellsy',
+      body: "Tapez le n° d'opportunité Sellsy (préfixe OPP-) pour récupérer toutes les données client automatiquement.",
+      placement: 'bottom' },
+    { selector: '#pdp-section-tabs', title: 'Naviguer entre les sections',
+      body: "Le PDP est découpé en sections : général, entreprises, risques, signatures… Utilisez ces onglets pour passer de l'une à l'autre.",
+      placement: 'bottom' },
+    { selector: '[onclick*="showPDPSection(\'signatures\')"]', title: 'Section Signatures',
+      body: "Quand vous êtes prêt à faire signer le client et les intervenants, allez ici. Chaque personne signe sur sa zone.",
+      placement: 'bottom' },
+    { selector: '#fab-save', title: 'Bouton Enregistrer flottant',
+      body: "Ce bouton vert reste toujours visible. Appuyez dessus régulièrement pour sauvegarder vos modifications.",
+      placement: 'top-left' },
+  ],
+
+  startOnboarding(type) {
+    this._onboardingSteps = (type === 'pdp') ? this._onboardingStepsPDP : this._onboardingStepsICP;
+    this._onboardingIndex = 0;
+    document.getElementById('onboarding-overlay').classList.add('active');
+    this._renderOnboardingStep();
+  },
+
+  _renderOnboardingStep() {
+    const step = this._onboardingSteps[this._onboardingIndex];
+    if (!step) return this.skipOnboarding();
+    const target = document.querySelector(step.selector);
+    const spotlight = document.getElementById('onboarding-spotlight');
+    const card = document.getElementById('onboarding-card');
+    const titleEl = document.querySelector('#onboarding-title span');
+    const bodyEl = document.getElementById('onboarding-body');
+    const stepEl = document.getElementById('onboarding-step-count');
+    const nextBtn = document.getElementById('onboarding-next-btn');
+
+    titleEl.textContent = step.title;
+    bodyEl.innerHTML = step.body;
+    stepEl.textContent = `${this._onboardingIndex + 1} / ${this._onboardingSteps.length}`;
+    nextBtn.textContent = (this._onboardingIndex === this._onboardingSteps.length - 1) ? 'Terminer' : 'Suivant';
+
+    if (!target) {
+      // Élément introuvable : skip cette étape silencieusement
+      this._onboardingIndex++;
+      return this._renderOnboardingStep();
+    }
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => {
+      const r = target.getBoundingClientRect();
+      const pad = 6;
+      spotlight.style.top = (r.top - pad) + 'px';
+      spotlight.style.left = (r.left - pad) + 'px';
+      spotlight.style.width = (r.width + pad * 2) + 'px';
+      spotlight.style.height = (r.height + pad * 2) + 'px';
+      // Place la carte selon placement
+      const cw = 320, ch = card.offsetHeight || 160;
+      let top, left;
+      if (step.placement === 'top-left') {
+        top = Math.max(12, r.top - ch - 20);
+        left = Math.max(12, Math.min(window.innerWidth - cw - 12, r.left));
+      } else { // bottom par défaut
+        top = Math.min(window.innerHeight - ch - 12, r.bottom + 16);
+        left = Math.max(12, Math.min(window.innerWidth - cw - 12, r.left));
+      }
+      card.style.top = top + 'px';
+      card.style.left = left + 'px';
+    }, 250);
+  },
+
+  nextOnboardingStep() {
+    this._onboardingIndex++;
+    if (this._onboardingIndex >= this._onboardingSteps.length) return this.skipOnboarding();
+    this._renderOnboardingStep();
+  },
+
+  skipOnboarding() {
+    document.getElementById('onboarding-overlay').classList.remove('active');
+    try { localStorage.setItem('onboarding_v1_seen', '1'); } catch {}
+  },
+
+  _maybeAutoOnboard(view) {
+    let seen = false;
+    try { seen = localStorage.getItem('onboarding_v1_seen') === '1'; } catch {}
+    if (seen) return;
+    if (view === 'icp-detail') setTimeout(() => this.startOnboarding('icp'), 600);
+    else if (view === 'pdp-detail') setTimeout(() => this.startOnboarding('pdp'), 600);
+  },
+
+  replayOnboarding() {
+    try { localStorage.removeItem('onboarding_v1_seen'); } catch {}
+    const type = (this.currentView === 'pdp-detail') ? 'pdp' : 'icp';
+    this.startOnboarding(type);
+  },
+
+  resetOnboarding() {
+    try { localStorage.removeItem('onboarding_v1_seen'); } catch {}
+    this.toast("Le tour d'aide s'affichera à la prochaine ouverture d'une fiche", 'info');
+  },
+
+  // Mode Express ICP : masque les sections optionnelles
+  toggleICPModeExpress(on) {
+    document.body.classList.toggle('icp-mode-express', !!on);
+    try { localStorage.setItem('icp_mode_express', on ? '1' : '0'); } catch {}
+    const toggle = document.getElementById('icp-mode-express-toggle');
+    if (toggle && toggle.checked !== !!on) toggle.checked = !!on;
+  },
+  applyICPModeExpressFromPref() {
+    let on = false;
+    try { on = localStorage.getItem('icp_mode_express') === '1'; } catch {}
+    document.body.classList.toggle('icp-mode-express', on);
+    const toggle = document.getElementById('icp-mode-express-toggle');
+    if (toggle) toggle.checked = on;
+  },
+
+  // Bouton flottant : route vers la save de la vue active
+  async fabSave() {
+    const fab = document.getElementById('fab-save');
+    if (fab) { fab.classList.add('saving'); fab.classList.remove('unsaved'); }
+    try {
+      if (this.currentView === 'pdp-detail') await this.savePDP();
+      else if (this.currentView === 'icp-detail') await this.saveICP();
+    } finally {
+      if (fab) fab.classList.remove('saving');
+    }
   },
 
   // ---- FAB MENU ----
@@ -4906,10 +5190,14 @@ const App = {
   _markEditing() {
     const el = document.getElementById('save-status');
     if (el) el.innerHTML = '<span class="dot dot-editing"></span>Non enregistré';
+    const fab = document.getElementById('fab-save');
+    if (fab && fab.classList.contains('visible')) fab.classList.add('unsaved');
   },
   _markSaved() {
     const el = document.getElementById('save-status');
     if (el) el.innerHTML = '<span class="dot dot-saved"></span>Enregistré';
+    const fab = document.getElementById('fab-save');
+    if (fab) fab.classList.remove('unsaved');
   },
 
   // ---- EE ----
@@ -5959,24 +6247,24 @@ const App = {
     }
     return {
       type: 'client',
-      eu_long: 'Entreprise Utilisatrice (EU) — votre client',
-      eu_short: 'EU (client)',
-      ee_long: 'Entreprises Extérieures (EE)',
-      ee_short: 'EE',
-      eu_intro: "Identifiez l'entreprise utilisatrice (votre client) et les entreprises qui interviennent. Le PDP est obligatoire dès qu'une entreprise extérieure travaille sur le site.",
-      eu_section_title: 'Entreprise Utilisatrice (EU) — votre client',
-      ee_section_title: 'Entreprises Extérieures (EE)',
-      exigences_title: 'Exigences Entreprise Utilisatrice',
-      exigences_helper: 'Les exigences sont les règles imposées par le client sur son site. Utilisez les boutons rapides pour les exigences courantes.',
-      sig_eu_title: 'Signature Entreprise Utilisatrice',
-      sig_ee_title: 'Signatures Entreprises Extérieures',
-      pf_oblig: "Ce permis de feu doit être <strong>obligatoirement signé et validé par le client (Entreprise Utilisatrice)</strong> avant le début de toute réalisation de travaux par points chauds. Aucun travail ne peut débuter sans cette validation.",
-      pf_renouv: "nouvelle validation de l'EU",
-      pf_validations_title: 'Périodes de validation EU &amp; Rondes de surveillance',
-      pf_validations_info: "Chaque période de 24h nécessite une <strong>signature de l'EU</strong>.",
-      pf_sig_eu: 'Représentant EU (client)',
-      pf_sig_ee: 'Représentant Entreprise Intervenante',
-      contact_default: 'Contact EU',
+      eu_long: 'Client (Entreprise Utilisatrice — EU)',
+      eu_short: 'Client (EU)',
+      ee_long: 'Intervenants (Entreprises Extérieures — EE)',
+      ee_short: 'Intervenant (EE)',
+      eu_intro: "Identifiez le client (Entreprise Utilisatrice — EU) et les intervenants (Entreprises Extérieures — EE) qui réalisent les travaux. Le PDP est obligatoire dès qu'un intervenant extérieur travaille sur le site du client.",
+      eu_section_title: 'Client (Entreprise Utilisatrice — EU)',
+      ee_section_title: 'Intervenants (Entreprises Extérieures — EE)',
+      exigences_title: 'Exigences du client (EU)',
+      exigences_helper: 'Les exigences sont les règles de sécurité imposées par le client sur son site. Utilisez les boutons rapides pour les exigences courantes.',
+      sig_eu_title: 'Signature du client (EU)',
+      sig_ee_title: 'Signatures des intervenants (EE)',
+      pf_oblig: "Ce permis de feu doit être <strong>obligatoirement signé et validé par le client (Entreprise Utilisatrice — EU)</strong> avant le début de toute réalisation de travaux par points chauds. Aucun travail ne peut débuter sans cette validation.",
+      pf_renouv: "nouvelle validation du client (EU)",
+      pf_validations_title: 'Périodes de validation client (EU) &amp; Rondes de surveillance',
+      pf_validations_info: "Chaque période de 24h nécessite une <strong>signature du client (EU)</strong>.",
+      pf_sig_eu: 'Représentant du client (EU)',
+      pf_sig_ee: 'Représentant de l\'intervenant (EE)',
+      contact_default: 'Contact client (EU)',
       export_eu_block: 'ENTREPRISE UTILISATRICE (EU)',
       export_ee_block: 'ENTREPRISE EXTÉRIEURE (EE)',
       export_pf_oblig: "Ce permis doit être obligatoirement signé et validé par l'Entreprise Utilisatrice (le client) avant le début des travaux.",
