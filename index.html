@@ -10961,21 +10961,31 @@ const App = {
         children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:emRows}));
       }
 
-      // Visiteurs / intervenants occasionnels — 20 lignes pour personnes non inscrites au PDP
+      // Visiteurs / intervenants occasionnels — 20 lignes sur une page dediee
       const libres = p.emargementsLibres || [];
       const libresCount = Math.max(libres.length, this.EMARGEMENTS_LIBRES_COUNT);
-      children.push(new Paragraph({children:[new TextRun({text:'',size:20})],spacing:{before:200}}));
-      children.push(new Paragraph({children:[new TextRun({text:'Visiteurs / intervenants occasionnels',size:22,font:'Calibri',bold:true})],spacing:{after:100}}));
-      children.push(new Paragraph({children:[new TextRun({text:'Personnes accédant ponctuellement au chantier sans être inscrites officiellement au PDP. Signature obligatoire avant tout accès.',size:18,font:'Calibri',italics:true})],spacing:{after:150}}));
-      const libresRows = [new TableRow({children:[hCell('#',5),hCell('Nom et prénom',30),hCell('Société / Fonction',25),hCell('Date',15),hCell('Signature',25)]})];
+      children.push(new Paragraph({pageBreakBefore:true,children:[new TextRun({text:'Visiteurs / intervenants occasionnels',size:22,font:'Calibri',bold:true})],spacing:{after:80}}));
+      children.push(new Paragraph({children:[new TextRun({text:'Personnes accédant ponctuellement au chantier sans être inscrites officiellement au PDP. Signature obligatoire avant tout accès.',size:18,font:'Calibri',italics:true})],spacing:{after:120}}));
+      const _libreSigCell = (sig, widthPct) => {
+        if (sig) {
+          try {
+            const raw = atob(sig.split(',')[1]);
+            const arr = new Uint8Array(raw.length);
+            for (let j = 0; j < raw.length; j++) arr[j] = raw.charCodeAt(j);
+            return new TableCell({children:[new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:70,height:22},type:'png'})]})],width:{size:widthPct,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER});
+          } catch(e) {}
+        }
+        return new TableCell({children:[new Paragraph({children:[new TextRun({text:'',size:16})]})],width:{size:widthPct,type:WidthType.PERCENTAGE}});
+      };
+      const libresRows = [new TableRow({tableHeader:true,cantSplit:true,children:[hCell('#',5),hCell('Nom et prénom',30),hCell('Société / Fonction',25),hCell('Date',15),hCell('Signature',25)]})];
       for (let i = 0; i < libresCount; i++) {
         const e = libres[i] || {};
-        libresRows.push(new TableRow({children:[
+        libresRows.push(new TableRow({cantSplit:true,height:{value:480,rule:'atLeast'},children:[
           cell(String(i+1),{width:5}),
           cell(e.nom||'',{width:30}),
           cell(e.societe||'',{width:25}),
           cell(e.date||'',{width:15}),
-          _emSigCell(e.signature,25)
+          _libreSigCell(e.signature,25)
         ]}));
       }
       children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:libresRows}));
@@ -11683,21 +11693,31 @@ const App = {
     }
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:emRows}));
 
-    // Visiteurs / intervenants occasionnels — 20 lignes prêtes à signer sur le terrain
-    children.push(new Paragraph({children:[new TextRun({text:'',size:20})],spacing:{before:200}}));
-    children.push(new Paragraph({children:[new TextRun({text:'Visiteurs / intervenants occasionnels',size:22,font:'Calibri',bold:true,color:GREEN})],spacing:{after:80}}));
+    // Visiteurs / intervenants occasionnels — 20 lignes sur une page dediee
+    children.push(new Paragraph({pageBreakBefore:true,children:[new TextRun({text:'Visiteurs / intervenants occasionnels',size:22,font:'Calibri',bold:true,color:GREEN})],spacing:{after:80}}));
     children.push(new Paragraph({children:[new TextRun({text:'Personnes accédant ponctuellement au chantier sans être inscrites au PDP. Signature obligatoire avant tout accès.',size:18,font:'Calibri',italics:true})],spacing:{after:120}}));
     const libresST = p.emargementsLibres || [];
     const libresCountST = Math.max(libresST.length, this.EMARGEMENTS_LIBRES_COUNT);
-    const libresRowsST = [new TableRow({children:[hCell('#',5),hCell('Nom et prénom',30),hCell('Société / Fonction',25),hCell('Date',15),hCell('Signature',25)]})];
+    const _libreSigCellST = (sig) => {
+      if (sig) {
+        try {
+          const raw = atob(sig.split(',')[1]);
+          const arr = new Uint8Array(raw.length);
+          for (let j = 0; j < raw.length; j++) arr[j] = raw.charCodeAt(j);
+          return new TableCell({children:[new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:70,height:22},type:'png'})]})],width:{size:25,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER});
+        } catch(e) {}
+      }
+      return new TableCell({children:[new Paragraph({children:[new TextRun({text:'',size:16})]})],width:{size:25,type:WidthType.PERCENTAGE}});
+    };
+    const libresRowsST = [new TableRow({tableHeader:true,cantSplit:true,children:[hCell('#',5),hCell('Nom et prénom',30),hCell('Société / Fonction',25),hCell('Date',15),hCell('Signature',25)]})];
     for (let i = 0; i < libresCountST; i++) {
       const e = libresST[i] || {};
-      libresRowsST.push(new TableRow({children:[
+      libresRowsST.push(new TableRow({cantSplit:true,height:{value:480,rule:'atLeast'},children:[
         cell(String(i+1),{width:5,align:AlignmentType.CENTER}),
         cell(e.nom||'',{width:30}),
         cell(e.societe||'',{width:25}),
         cell(e.date||'',{width:15}),
-        new TableCell({children:[new Paragraph({children:[],spacing:{before:40,after:200}})],width:{size:25,type:WidthType.PERCENTAGE}})
+        _libreSigCellST(e.signature)
       ]}));
     }
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:libresRowsST}));
@@ -12007,12 +12027,13 @@ const App = {
       secNum++;
     }
 
-    // Visiteurs / intervenants occasionnels — 20 lignes
+    // Visiteurs / intervenants occasionnels — 20 lignes sur une page dediee
     {
       const libresPDF = p.emargementsLibres || [];
       const countPDF = Math.max(libresPDF.length, this.EMARGEMENTS_LIBRES_COUNT);
+      doc.addPage();
+      y = m;
       if (!hasEmPDF) { secTitle(`${secNum}. ÉMARGEMENT`); secNum++; }
-      checkPage(20);
       doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(0,105,62);
       doc.text('Visiteurs / intervenants occasionnels', m, y); y+=5;
       doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(80,80,80);
@@ -12026,13 +12047,15 @@ const App = {
         libresSigs.push(e.signature || null);
       }
       addTable(['#','Nom et prénom','Société / Fonction','Date','Signature'], libresRows, {
-        columnStyles:{0:{cellWidth:8,halign:'center'},3:{cellWidth:22},4:{cellWidth:40}},
-        bodyStyles:{minCellHeight:10},
+        columnStyles:{0:{cellWidth:7,halign:'center'},3:{cellWidth:20},4:{cellWidth:35}},
+        bodyStyles:{minCellHeight:9,fontSize:8},
+        headStyles:{fontSize:8},
         didDrawCell: (d) => {
           if (d.section === 'body' && d.column.index === 4 && libresSigs[d.row.index]) {
             try { doc.addImage(libresSigs[d.row.index], 'PNG', d.cell.x+1, d.cell.y+1, d.cell.width-2, d.cell.height-2); } catch {}
           }
-        }
+        },
+        pageBreak: 'avoid'
       });
     }
 
