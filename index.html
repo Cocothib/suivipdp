@@ -3031,6 +3031,26 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
   </div>
 </div>
 
+<!-- Modal de resolution de conflits de fusion multi-utilisateurs -->
+<div class="modal fade" id="modal-merge-conflict" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-exclamation-triangle text-warning me-1"></i>Conflits de modifications simultanees</h5>
+      </div>
+      <div class="modal-body" id="modal-merge-conflict-body">
+        <p class="small text-muted mb-2">Un autre utilisateur a modifie les memes champs que vous. Choisissez la valeur a conserver pour chaque champ :</p>
+        <div id="modal-merge-conflict-list"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-merge-conflict-all-mine">Tout : ma version</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-merge-conflict-all-other">Tout : version distante</button>
+        <button type="button" class="btn btn-primary" id="btn-merge-conflict-validate">Valider les choix</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Scripts essentiels (bloquants) -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.min.js"></script>
@@ -3459,12 +3479,346 @@ const DataSync = {
         }
     },
 
+    // ---- Helpers internes pour le merge 3-way par champ ----
+    _isPlainObject(v) {
+        return v !== null && typeof v === 'object' && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype;
+    },
+    _deepEqual(a, b) {
+        if (a === b) return true;
+        if (a === null || b === null || a === undefined || b === undefined) return a === b;
+        if (typeof a !== typeof b) return false;
+        if (typeof a !== 'object') return a === b;
+        try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+    },
+    // Champs append-only : pas de conflit, union ordonnee par date
+    _APPEND_ONLY_FIELDS: new Set(['historique', 'modifications']),
+    // Champs scalaires "techniques" qui ne doivent jamais lever de conflit
+    _NEVER_CONFLICT_FIELDS: new Set(['id', 'dateModification', 'dateCreation']),
+
+    _hashPhoto(p) {
+        if (!p) return '';
+        if (p.id != null) return 'id:' + p.id;
+        if (p.dataUrl) return 'data:' + String(p.dataUrl).slice(0, 100);
+        try { return 'j:' + JSON.stringify(p).slice(0, 120); } catch { return 'r:' + Math.random(); }
+    },
+
+    /**
+     * Merge 3-way d'un tableau (regle: items avec id stable => merge recursif ;
+     * sans id => union dedupliquee par JSON.stringify).
+     */
+    _mergeArray(curArr, snapArr, remArr, basePath, conflicts, fieldName) {
+        curArr  = Array.isArray(curArr)  ? curArr  : [];
+        snapArr = Array.isArray(snapArr) ? snapArr : [];
+        remArr  = Array.isArray(remArr)  ? remArr  : [];
+
+        // Cas 1 : append-only (historique, modifications)
+        if (this._APPEND_ONLY_FIELDS.has(fieldName)) {
+            const seen = new Set();
+            const out = [];
+            const pushUniq = (item) => {
+                const key = (item && (item.date || item.ts || '')) + '|' + (item && (item.action || item.champ || '')) + '|' + (item && (item.user || ''));
+                if (seen.has(key)) return;
+                seen.add(key);
+                out.push(item);
+            };
+            for (const it of remArr) pushUniq(it);
+            for (const it of curArr) pushUniq(it);
+            out.sort((a, b) => String(a?.date || a?.ts || '').localeCompare(String(b?.date || b?.ts || '')));
+            return out;
+        }
+
+        // Cas 2 : items avec id stable
+        const hasIds = (arr) => arr.length > 0 && arr.every(x => x && typeof x === 'object' && (x.id != null || x._repoId != null));
+        const someHaveIds = (arr) => arr.some(x => x && typeof x === 'object' && (x.id != null || x._repoId != null));
+
+        if ((curArr.length || remArr.length || snapArr.length) && (hasIds(curArr) || hasIds(remArr) || hasIds(snapArr)) && someHaveIds([...curArr, ...remArr, ...snapArr])) {
+            const keyOf = (x) => (x?.id != null ? 'i:' + x.id : (x?._repoId != null ? 'r:' + x._repoId : null));
+            const mapBy = (arr) => {
+                const m = new Map();
+                for (const it of arr) { const k = keyOf(it); if (k) m.set(k, it); }
+                return m;
+            };
+            const curM = mapBy(curArr), snapM = mapBy(snapArr), remM = mapBy(remArr);
+            // Items supprimes localement : presents snap, absents cur => retirer du resultat
+            const deletedLocal = new Set();
+            for (const k of snapM.keys()) if (!curM.has(k)) deletedLocal.add(k);
+            const keys = new Set([...curM.keys(), ...remM.keys()]);
+            const out = [];
+            for (const k of keys) {
+                if (deletedLocal.has(k)) continue; // suppression locale prioritaire
+                const cur = curM.get(k);
+                const rem = remM.get(k);
+                const snap = snapM.get(k);
+                if (cur && !rem) { out.push(cur); continue; }
+                if (rem && !cur) { out.push(rem); continue; }
+                // Les deux presents => merge recursif
+                const itemPath = `${basePath}[id=${cur.id ?? cur._repoId}]`;
+                const merged = this._mergeRecord(cur, snap || rem, rem, { fieldLevel: true, conflicts, basePath: itemPath });
+                out.push(merged);
+            }
+            // Items sans id en plus (rare mais possible cohabitation) : union par hash
+            const noIdAll = [...curArr, ...remArr].filter(x => keyOf(x) === null);
+            const seen = new Set();
+            for (const it of noIdAll) {
+                let h;
+                try { h = JSON.stringify(it); } catch { h = String(Math.random()); }
+                if (seen.has(h)) continue;
+                seen.add(h);
+                out.push(it);
+            }
+            return out;
+        }
+
+        // Cas 2bis : tableau de "photos" (objets avec dataUrl) => dedup par hash content
+        const looksLikePhotos = (arr) => arr.some(x => x && typeof x === 'object' && (x.dataUrl || x.url || x.data));
+        if (looksLikePhotos(curArr) || looksLikePhotos(remArr)) {
+            const seen = new Set();
+            const out = [];
+            const snapHashes = new Set(snapArr.map(p => this._hashPhoto(p)));
+            const curHashes  = new Set(curArr.map(p  => this._hashPhoto(p)));
+            // Supprimees localement = dans snap, plus dans cur
+            const deletedLocal = new Set([...snapHashes].filter(h => !curHashes.has(h)));
+            for (const arr of [curArr, remArr]) {
+                for (const it of arr) {
+                    const h = this._hashPhoto(it);
+                    if (deletedLocal.has(h)) continue;
+                    if (seen.has(h)) continue;
+                    seen.add(h);
+                    out.push(it);
+                }
+            }
+            return out;
+        }
+
+        // Cas 3 : items sans id => union dedupliquee par JSON.stringify
+        const seen = new Set();
+        const out = [];
+        const snapKeys = new Set();
+        for (const it of snapArr) { try { snapKeys.add(JSON.stringify(it)); } catch {} }
+        const curKeys = new Set();
+        for (const it of curArr)  { try { curKeys.add(JSON.stringify(it));  } catch {} }
+        const deletedLocal = new Set([...snapKeys].filter(k => !curKeys.has(k)));
+        for (const arr of [curArr, remArr]) {
+            for (const it of arr) {
+                let k; try { k = JSON.stringify(it); } catch { k = String(Math.random()); }
+                if (deletedLocal.has(k)) continue;
+                if (seen.has(k)) continue;
+                seen.add(k);
+                out.push(it);
+            }
+        }
+        return out;
+    },
+
+    /**
+     * Merge 3-way par champ d'un objet (record ou sous-objet).
+     * - Scalaires en conflit reel => ajoute a `conflicts` (decision differee), valeur "current" provisoire.
+     * - Objets imbriques => recursif.
+     * - Tableaux => _mergeArray.
+     * - Champs append-only / techniques => regles speciales.
+     * @returns objet merge (les conflits scalaires sont resolus apres via _resolveConflicts)
+     */
+    _mergeRecord(current, snapshot, remote, options = {}) {
+        const { fieldLevel = true, conflicts = [], basePath = '' } = options;
+        if (!fieldLevel) {
+            // Fallback : ancien comportement "current wins"
+            return current != null ? current : remote;
+        }
+        current  = current  ?? {};
+        snapshot = snapshot ?? {};
+        remote   = remote   ?? {};
+
+        // dateModification : on prend le max
+        const dmCur = current.dateModification || '';
+        const dmRem = remote.dateModification  || '';
+        const dmMax = dmCur > dmRem ? dmCur : dmRem;
+
+        const out = {};
+        const allKeys = new Set([...Object.keys(current), ...Object.keys(remote), ...Object.keys(snapshot)]);
+
+        for (const key of allKeys) {
+            const path = basePath ? `${basePath}.${key}` : key;
+            const cur  = current[key];
+            const snap = snapshot[key];
+            const rem  = remote[key];
+
+            if (this._NEVER_CONFLICT_FIELDS.has(key)) {
+                // id : conserver l'existant ; dates : prendre max ; autres techniques : current si defini
+                if (key === 'dateModification') { out[key] = dmMax || cur || rem; continue; }
+                if (key === 'dateCreation')     { out[key] = cur || rem || snap; continue; }
+                if (key === 'id')               { out[key] = current.id != null ? current.id : rem; continue; }
+            }
+
+            const curChanged = !this._deepEqual(cur, snap);
+            const remChanged = !this._deepEqual(rem, snap);
+
+            // Tableau
+            if (Array.isArray(cur) || Array.isArray(rem) || Array.isArray(snap)) {
+                out[key] = this._mergeArray(cur, snap, rem, path, conflicts, key);
+                continue;
+            }
+
+            // Objet imbrique
+            if (this._isPlainObject(cur) || this._isPlainObject(rem) || this._isPlainObject(snap)) {
+                if (!curChanged && !remChanged) { out[key] = cur !== undefined ? cur : rem; continue; }
+                if (curChanged && !remChanged)  { out[key] = cur; continue; }
+                if (!curChanged && remChanged)  { out[key] = rem; continue; }
+                // Modifies des deux cotes => merge recursif champ par champ
+                out[key] = this._mergeRecord(cur || {}, snap || {}, rem || {}, { fieldLevel: true, conflicts, basePath: path });
+                continue;
+            }
+
+            // Scalaire
+            if (!curChanged && !remChanged) { out[key] = cur !== undefined ? cur : rem; continue; }
+            if (curChanged && !remChanged)  { out[key] = cur; continue; }
+            if (!curChanged && remChanged)  { out[key] = rem; continue; }
+            // Conflit reel : current != snapshot ET remote != snapshot ET current != remote
+            if (!this._deepEqual(cur, rem)) {
+                conflicts.push({ path, currentValue: cur, snapshotValue: snap, remoteValue: rem });
+                out[key] = cur; // provisoire (sera patche par _resolveConflicts si choix "other"/"combine")
+            } else {
+                out[key] = cur;
+            }
+        }
+
+        return out;
+    },
+
+    /**
+     * Applique une valeur a un chemin de la forme "a.b[id=12].c" sur un graphe d'objets/arrays.
+     */
+    _applyAtPath(rootArr, path, valueSetter) {
+        // rootArr = tableau de records. path commence par "[id=X].xxx" sur un record.
+        const segs = [];
+        const re = /\[id=([^\]]+)\]|([^.[\]]+)/g;
+        let m;
+        while ((m = re.exec(path)) !== null) {
+            if (m[1] !== undefined) segs.push({ type: 'id', value: m[1] });
+            else segs.push({ type: 'key', value: m[2] });
+        }
+        if (!segs.length) return;
+        // Premier segment doit etre un id
+        if (segs[0].type !== 'id') return;
+        const recId = segs[0].value;
+        const rec = rootArr.find(r => String(r.id) === String(recId) || String(r._repoId) === String(recId));
+        if (!rec) return;
+        let cursor = rec;
+        for (let i = 1; i < segs.length - 1; i++) {
+            const s = segs[i];
+            if (s.type === 'key') {
+                if (cursor[s.value] == null || typeof cursor[s.value] !== 'object') return;
+                cursor = cursor[s.value];
+            } else { // id dans un tableau
+                if (!Array.isArray(cursor)) return;
+                const next = cursor.find(x => String(x.id) === String(s.value) || String(x._repoId) === String(s.value));
+                if (!next) return;
+                cursor = next;
+            }
+        }
+        const last = segs[segs.length - 1];
+        if (last.type !== 'key') return;
+        cursor[last.value] = valueSetter(cursor[last.value]);
+    },
+
+    /**
+     * Affiche un modal Bootstrap qui demande a l'utilisateur de choisir pour chaque conflit.
+     * Resout avec { [path]: { choice: 'mine'|'other'|'combine' } }.
+     */
+    _resolveConflicts(conflicts, savedBy) {
+        if (!conflicts || !conflicts.length) return Promise.resolve({});
+        return new Promise((resolve) => {
+            const modalEl = document.getElementById('modal-merge-conflict');
+            if (!modalEl) { resolve({}); return; }
+            const listEl = document.getElementById('modal-merge-conflict-list');
+            const fmt = (v) => {
+                if (v === null || v === undefined || v === '') return '<em class="text-muted">(vide)</em>';
+                if (typeof v === 'object') { try { return '<code class="small">' + this._escHtml(JSON.stringify(v)).slice(0, 200) + '</code>'; } catch { return '<em>objet</em>'; } }
+                return '<span class="small">' + this._escHtml(String(v)) + '</span>';
+            };
+            const html = conflicts.map((c, i) => {
+                const isStr = (typeof c.currentValue === 'string' && typeof c.remoteValue === 'string');
+                return `
+                <div class="border rounded p-2 mb-2" data-conflict-index="${i}">
+                    <div class="small fw-bold mb-1"><i class="bi bi-signpost-split me-1"></i>Champ : <code>${this._escHtml(c.path)}</code></div>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <div class="border rounded p-2 h-100">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="conflict-${i}" id="conflict-${i}-mine" value="mine" checked>
+                                    <label class="form-check-label small fw-bold text-primary" for="conflict-${i}-mine">Ma version</label>
+                                </div>
+                                <div class="mt-1">${fmt(c.currentValue)}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="border rounded p-2 h-100">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="conflict-${i}" id="conflict-${i}-other" value="other">
+                                    <label class="form-check-label small fw-bold text-danger" for="conflict-${i}-other">Version de ${this._escHtml(savedBy || 'un collegue')}</label>
+                                </div>
+                                <div class="mt-1">${fmt(c.remoteValue)}</div>
+                            </div>
+                        </div>
+                        ${isStr ? `
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="conflict-${i}" id="conflict-${i}-combine" value="combine">
+                                <label class="form-check-label small" for="conflict-${i}-combine"><i class="bi bi-link-45deg me-1"></i>Combiner les deux (concatenation)</label>
+                            </div>
+                        </div>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+            listEl.innerHTML = html;
+
+            const validateBtn = document.getElementById('btn-merge-conflict-validate');
+            const allMineBtn  = document.getElementById('btn-merge-conflict-all-mine');
+            const allOtherBtn = document.getElementById('btn-merge-conflict-all-other');
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+            const setAll = (val) => {
+                conflicts.forEach((_c, i) => {
+                    const r = document.getElementById(`conflict-${i}-${val}`);
+                    if (r) r.checked = true;
+                });
+            };
+            const onMine  = () => setAll('mine');
+            const onOther = () => setAll('other');
+            const onValidate = () => {
+                const result = {};
+                conflicts.forEach((c, i) => {
+                    const checked = document.querySelector(`input[name="conflict-${i}"]:checked`);
+                    result[c.path] = { choice: checked ? checked.value : 'mine' };
+                });
+                cleanup();
+                modal.hide();
+                resolve(result);
+            };
+            const cleanup = () => {
+                validateBtn.removeEventListener('click', onValidate);
+                allMineBtn.removeEventListener('click', onMine);
+                allOtherBtn.removeEventListener('click', onOther);
+            };
+            validateBtn.addEventListener('click', onValidate);
+            allMineBtn.addEventListener('click', onMine);
+            allOtherBtn.addEventListener('click', onOther);
+            modal.show();
+        });
+    },
+
+    _escHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    },
+
     /**
      * Fusionne les donnees d'un store (par ex. pdps) avec son equivalent distant,
      * en se basant sur le snapshot local du dernier sync pour identifier les
-     * modifications locales. Retourne { merged: [...], remap: {oldId:newId} }.
+     * modifications locales. Retourne { merged: [...], remap: {oldId:newId}, conflicts: [...] }.
+     *
+     * options.fieldLevel : si true (pdps/icps), merge champ par champ avec collecte
+     * de conflits. Sinon (entreprises/settings), ancien comportement "current wins".
      */
-    _mergeStore(currentArr, snapshotArr, remoteArr, { autoId }) {
+    _mergeStore(currentArr, snapshotArr, remoteArr, { autoId, fieldLevel = false }) {
         const remoteById = new Map((remoteArr||[]).map(e => [e.id, e]));
         const snapById   = new Map((snapshotArr||[]).map(e => [e.id, e]));
         const curById    = new Map((currentArr||[]).map(e => [e.id, e]));
@@ -3472,6 +3826,7 @@ const DataSync = {
         const localUpdated = [];
         const localDeletedIds = [];
         const remap = {};
+        const conflicts = [];
 
         for (const [id, entry] of curById) {
             const snap = snapById.get(id);
@@ -3482,9 +3837,26 @@ const DataSync = {
             if (!curById.has(id)) localDeletedIds.push(id);
         }
         for (const id of localDeletedIds) remoteById.delete(id);
+
         for (const entry of localUpdated) {
-            if (remoteById.has(entry.id)) remoteById.set(entry.id, entry);
-            else localAdded.push(entry);
+            if (remoteById.has(entry.id)) {
+                if (fieldLevel) {
+                    // Merge 3-way par champ
+                    const snap = snapById.get(entry.id);
+                    const rem  = remoteById.get(entry.id);
+                    const merged = this._mergeRecord(entry, snap, rem, {
+                        fieldLevel: true,
+                        conflicts,
+                        basePath: `[id=${entry.id}]`,
+                    });
+                    remoteById.set(entry.id, merged);
+                } else {
+                    // Comportement legacy : current wins
+                    remoteById.set(entry.id, entry);
+                }
+            } else {
+                localAdded.push(entry);
+            }
         }
         let nextId = 1;
         for (const id of remoteById.keys()) {
@@ -3500,7 +3872,7 @@ const DataSync = {
             }
             remoteById.set(newEntry.id, newEntry);
         }
-        return { merged: Array.from(remoteById.values()), remap };
+        return { merged: Array.from(remoteById.values()), remap, conflicts };
     },
 
     /**
@@ -3516,10 +3888,51 @@ const DataSync = {
                 : { pdps:[], icps:[], entreprises:[], settings:[] };
         } catch { snapshot = { pdps:[], icps:[], entreprises:[], settings:[] }; }
 
-        const pdpRes  = this._mergeStore(current.pdps,        snapshot.pdps,        remotes.pdp?.pdps         || [], { autoId:true });
-        const icpRes  = this._mergeStore(current.icps,        snapshot.icps,        remotes.icp?.icps         || [], { autoId:true });
-        const entRes  = this._mergeStore(current.entreprises, snapshot.entreprises, remotes.shared?.entreprises || [], { autoId:true });
-        const setRes  = this._mergeStore(current.settings,    snapshot.settings,    remotes.shared?.settings    || [], { autoId:false });
+        const pdpRes  = this._mergeStore(current.pdps,        snapshot.pdps,        remotes.pdp?.pdps         || [], { autoId:true,  fieldLevel:true  });
+        const icpRes  = this._mergeStore(current.icps,        snapshot.icps,        remotes.icp?.icps         || [], { autoId:true,  fieldLevel:true  });
+        const entRes  = this._mergeStore(current.entreprises, snapshot.entreprises, remotes.shared?.entreprises || [], { autoId:true,  fieldLevel:false });
+        const setRes  = this._mergeStore(current.settings,    snapshot.settings,    remotes.shared?.settings    || [], { autoId:false, fieldLevel:false });
+
+        // Resolution des conflits scalaires (pdps + icps)
+        const allConflicts = [
+            ...pdpRes.conflicts.map(c => ({ ...c, _entityType: 'pdp', _bucket: pdpRes.merged })),
+            ...icpRes.conflicts.map(c => ({ ...c, _entityType: 'icp', _bucket: icpRes.merged })),
+        ];
+        if (allConflicts.length) {
+            const savedBy = remotes.pdp?._meta?.savedBy || remotes.icp?._meta?.savedBy || 'un collegue';
+            const byUser  = this.getUserName() || 'inconnu';
+            const choices = await this._resolveConflicts(allConflicts, savedBy);
+            for (const c of allConflicts) {
+                const decision = choices[c.path]?.choice || 'mine';
+                let finalValue;
+                if (decision === 'mine') finalValue = c.currentValue;
+                else if (decision === 'other') finalValue = c.remoteValue;
+                else if (decision === 'combine') {
+                    const a = c.currentValue, b = c.remoteValue;
+                    if (typeof a === 'string' && typeof b === 'string' && a.trim() && b.trim() && a !== b) {
+                        finalValue = a + ' — ' + b;
+                    } else {
+                        finalValue = a || b;
+                    }
+                }
+                // Appliquer la valeur finale dans le bucket (par defaut, _mergeRecord avait pose currentValue)
+                this._applyAtPath(c._bucket, c.path, () => finalValue);
+                // Trace ActivityLog
+                if (typeof ActivityLog !== 'undefined') {
+                    const idMatch = /\[id=([^\]]+)\]/.exec(c.path);
+                    ActivityLog.log('conflit_merge', {
+                        entityType: c._entityType,
+                        entityId: idMatch ? idMatch[1] : null,
+                        field: c.path.replace(/^\[id=[^\]]+\]\.?/, ''),
+                        chosen: decision,
+                        myValue: typeof c.currentValue === 'object' ? '[objet]' : String(c.currentValue ?? ''),
+                        otherValue: typeof c.remoteValue === 'object' ? '[objet]' : String(c.remoteValue ?? ''),
+                        otherUser: savedBy,
+                        byUser,
+                    });
+                }
+            }
+        }
 
         // Propager remappings : icps.pdpId suit les pdps remappes
         if (Object.keys(pdpRes.remap).length) {
