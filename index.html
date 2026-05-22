@@ -9707,7 +9707,7 @@ const App = {
       width:width?{size:width,type:WidthType.PERCENTAGE}:undefined,
       shading:{type:ShadingType.SOLID,color:GREEN},verticalAlign:VerticalAlign.CENTER,columnSpan:colSpan||1,
     });
-    const secTitle = (n,t) => new Paragraph({children:[new TextRun({text:`${n}. ${t}`,size:24,bold:true,font:'Calibri',color:GREEN})],spacing:{before:300,after:150}});
+    const secTitle = (n,t) => new Paragraph({children:[new TextRun({text:`${n}. ${t}`,size:24,bold:true,font:'Calibri',color:GREEN})],spacing:{before:300,after:150},keepNext:true,keepLines:true});
     const spacer = () => new Paragraph({children:[],spacing:{before:100}});
 
     const children = [];
@@ -9717,7 +9717,7 @@ const App = {
     children.push(new Paragraph({children:[new TextRun({text:s.euNom||'GÉNÉRATIONS RENOUVELABLES',size:28,bold:true,font:'Calibri',color:GREEN})],alignment:AlignmentType.CENTER,spacing:{after:50}}));
     children.push(new Paragraph({children:[new TextRun({text:"INSPECTION COMMUNE PRÉALABLE",size:32,bold:true,font:'Calibri'})],alignment:AlignmentType.CENTER,spacing:{after:80}}));
     if (v.site) children.push(new Paragraph({children:[new TextRun({text:v.site,size:22,font:'Calibri'})],alignment:AlignmentType.CENTER,spacing:{after:40}}));
-    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[new TableRow({children:[
+    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[new TableRow({cantSplit:true,children:[
       cell(`Réf. : ${v.numero||''}`,{width:40,size:18}),
       cell(`Réf. opération : ${v.refOperation||''}`,{width:30,size:18}),
       cell(`Statut : ${statutL[v.statut]||v.statut}`,{width:30,size:18,align:AlignmentType.RIGHT})
@@ -9727,11 +9727,11 @@ const App = {
     // 1. Infos visite
     children.push(secTitle('1','INFORMATIONS DE LA VISITE'));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
-      new TableRow({children:[cell('Date',{width:35,bold:true}),cell(v.dateVisite||'')]}),
-      new TableRow({children:[cell('Heure',{width:35,bold:true}),cell(v.heure||'')]}),
-      new TableRow({children:[cell('Site / Adresse',{width:35,bold:true}),cell(v.site||'')]}),
-      new TableRow({children:[cell('Lieu précis',{width:35,bold:true}),cell(v.lieu||'')]}),
-      new TableRow({children:[cell("Objet de l'intervention",{width:35,bold:true}),cell(v.objet||'')]}),
+      new TableRow({cantSplit:true,children:[cell('Date',{width:35,bold:true}),cell(v.dateVisite||'')]}),
+      new TableRow({cantSplit:true,children:[cell('Heure',{width:35,bold:true}),cell(v.heure||'')]}),
+      new TableRow({cantSplit:true,children:[cell('Site / Adresse',{width:35,bold:true}),cell(v.site||'')]}),
+      new TableRow({cantSplit:true,children:[cell('Lieu précis',{width:35,bold:true}),cell(v.lieu||'')]}),
+      new TableRow({cantSplit:true,children:[cell("Objet de l'intervention",{width:35,bold:true}),cell(v.objet||'')]}),
     ]}));
     children.push(spacer());
 
@@ -9739,25 +9739,25 @@ const App = {
     children.push(secTitle('2','PARTICIPANTS'));
     const euP = v.euParticipant||{};
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
-      new TableRow({children:[hCell('REPRÉSENTANT EU',100,3)]}),
-      new TableRow({children:[cell('Nom',{width:35,bold:true}),cell(euP.nom||'',{width:35}),cell(`Tél: ${euP.tel||''}`,{width:30})]}),
-      new TableRow({children:[cell('Fonction',{width:35,bold:true}),cell(euP.fonction||'',{colSpan:2,width:65})]}),
+      new TableRow({cantSplit:true,children:[hCell('REPRÉSENTANT EU',100,3)]}),
+      new TableRow({cantSplit:true,children:[cell('Nom',{width:35,bold:true}),cell(euP.nom||'',{width:35}),cell(`Tél: ${euP.tel||''}`,{width:30})]}),
+      new TableRow({cantSplit:true,children:[cell('Fonction',{width:35,bold:true}),cell(euP.fonction||'',{colSpan:2,width:65})]}),
     ]}));
     children.push(spacer());
     for (const ee of (v.entreprisesExt||[])) {
       children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
-        new TableRow({children:[hCell('REPRÉSENTANT EE',100,3)]}),
-        new TableRow({children:[cell('Entreprise',{width:35,bold:true}),cell(ee.nom||'',{width:35}),cell(`Tél: ${ee.tel||''}`,{width:30})]}),
-        new TableRow({children:[cell('Représentant',{width:35,bold:true}),cell(ee.responsable||'',{width:35}),cell(ee.activite?`Activité: ${ee.activite}`:'',{width:30})]}),
+        new TableRow({cantSplit:true,children:[hCell('REPRÉSENTANT EE',100,3)]}),
+        new TableRow({cantSplit:true,children:[cell('Entreprise',{width:35,bold:true}),cell(ee.nom||'',{width:35}),cell(`Tél: ${ee.tel||''}`,{width:30})]}),
+        new TableRow({cantSplit:true,children:[cell('Représentant',{width:35,bold:true}),cell(ee.responsable||'',{width:35}),cell(ee.activite?`Activité: ${ee.activite}`:'',{width:30})]}),
       ]}));
       children.push(spacer());
     }
 
     // 3. Risques
     children.push(secTitle('3','RISQUES IDENTIFIÉS SUR SITE'));
-    const rRows = [new TableRow({children:[hCell('Risque',22),hCell('Niveau',10),hCell('Localisation',18),hCell('Situation',25),hCell('Prévention',25)]})];
+    const rRows = [new TableRow({cantSplit:true,children:[hCell('Risque',22),hCell('Niveau',10),hCell('Localisation',18),hCell('Situation',25),hCell('Prévention',25)]})];
     (v.risques||[]).forEach(r => {
-      rRows.push(new TableRow({children:[
+      rRows.push(new TableRow({cantSplit:true,children:[
         cell(r.danger||'',{width:22}),
         cell(niveauLabels[r.niveau]||'',{width:10,align:AlignmentType.CENTER,bold:true,shading:niveauColors[r.niveau]}),
         cell(r.localisation||'',{width:18}),
@@ -9765,7 +9765,7 @@ const App = {
         cell(r.prevention||'',{width:25})
       ]}));
     });
-    if (!(v.risques||[]).length) rRows.push(new TableRow({children:[cell('Aucun risque identifié',{colSpan:5,width:100,align:AlignmentType.CENTER})]}));
+    if (!(v.risques||[]).length) rRows.push(new TableRow({cantSplit:true,children:[cell('Aucun risque identifié',{colSpan:5,width:100,align:AlignmentType.CENTER})]}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
     children.push(spacer());
 
@@ -9833,7 +9833,7 @@ const App = {
     if (sigColsData.length === 1) sigColsData.push({label:'EE',sig:{}});
     const cw = Math.floor(100/sigColsData.length);
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
-      new TableRow({children:sigColsData.map(c=>_sigCellICP(c.sig,c.label,cw))}),
+      new TableRow({cantSplit:true,children:sigColsData.map(c=>_sigCellICP(c.sig,c.label,cw))}),
     ]}));
 
     // PDP link
@@ -10407,6 +10407,7 @@ const App = {
             ? (r.score <= 15 ? 'D4EDDA' : r.score <= 40 ? 'FFF3CD' : r.score <= 75 ? 'FFE5D0' : 'F8D7DA')
             : niveauColor(r.niveau);
           return new TableRow({
+            cantSplit: true,
             children: [
               new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r.nom, bold: true, size: 18 })] })], width: { size: 18, type: WidthType.PERCENTAGE } }),
               new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: r.situation, size: 18 })] })], width: { size: 30, type: WidthType.PERCENTAGE } }),
@@ -10425,7 +10426,7 @@ const App = {
         });
         const table = new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
-          rows: [new TableRow({ tableHeader: true, children: headerCells }), ...bodyRows]
+          rows: [new TableRow({ tableHeader: true, cantSplit: true, children: headerCells }), ...bodyRows]
         });
         children.push(table);
       }
@@ -10647,7 +10648,7 @@ const App = {
       shading: {type:ShadingType.SOLID,color:GREEN}, verticalAlign:VerticalAlign.CENTER, columnSpan:colSpan||1,
     });
 
-    const secTitle = (n,t) => new Paragraph({ children:[new TextRun({text:`${n}. ${t}`,size:24,bold:true,font:'Calibri',color:GREEN})], spacing:{before:300,after:150} });
+    const secTitle = (n,t) => new Paragraph({ children:[new TextRun({text:`${n}. ${t}`,size:24,bold:true,font:'Calibri',color:GREEN})], spacing:{before:300,after:150}, keepNext:true, keepLines:true });
     const spacer = () => new Paragraph({children:[],spacing:{before:100}});
 
     const eu = p.eu||{}; const ees = p.entreprisesExt||[];
@@ -10659,7 +10660,7 @@ const App = {
 
     // Header avec logo à gauche
     const logoBuffer = getLogoBuffer();
-    const headerRow = new Table({ rows:[new TableRow({ children:[
+    const headerRow = new Table({ rows:[new TableRow({ cantSplit:true, children:[
       new TableCell({ children:[logoBuffer ? new Paragraph({ children:[new ImageRun({data:logoBuffer,transformation:{width:100,height:60},type:'jpg'})], spacing:{before:20,after:20} }) : new Paragraph({children:[]})], width:{size:25,type:WidthType.PERCENTAGE}, borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}} }),
       new TableCell({ children:[
         new Paragraph({ children:[new TextRun({text:entityName,size:28,bold:true,font:'Calibri',color:GREEN})], alignment:AlignmentType.LEFT, spacing:{before:40,after:20} }),
@@ -10669,28 +10670,28 @@ const App = {
     children.push(headerRow);
     children.push(new Paragraph({ children:[new TextRun({text:p.titre||'',size:22,font:'Calibri'})], alignment:AlignmentType.CENTER, spacing:{after:40} }));
     if (p.site) children.push(new Paragraph({ children:[new TextRun({text:p.site,size:22,font:'Calibri'})], alignment:AlignmentType.CENTER, spacing:{after:80} }));
-    children.push(new Table({ width:{size:100,type:WidthType.PERCENTAGE}, rows:[new TableRow({children:[cell(`Réf. : EN 9.1 – ${p.numero||''}`,{width:50,size:18}), cell(`Version : ${p.version||'01'}`,{width:25,size:18,align:AlignmentType.CENTER}), cell(`Date : ${moisNoms[datePDP.getMonth()]} ${datePDP.getFullYear()}`,{width:25,size:18,align:AlignmentType.RIGHT})]})] }));
+    children.push(new Table({ width:{size:100,type:WidthType.PERCENTAGE}, rows:[new TableRow({cantSplit:true,children:[cell(`Réf. : EN 9.1 – ${p.numero||''}`,{width:50,size:18}), cell(`Version : ${p.version||'01'}`,{width:25,size:18,align:AlignmentType.CENTER}), cell(`Date : ${moisNoms[datePDP.getMonth()]} ${datePDP.getFullYear()}`,{width:25,size:18,align:AlignmentType.RIGHT})]})] }));
     children.push(new Paragraph({children:[],spacing:{before:100}}));
 
     // 1. Parties
     const TL = this.getTypeLabels(p.typePdp);
     children.push(secTitle('1','IDENTIFICATION DES PARTIES'));
     children.push(new Table({ width:{size:100,type:WidthType.PERCENTAGE}, rows:[
-      new TableRow({children:[hCell(TL.export_eu_block,100,2)]}),
-      new TableRow({children:[cell('Raison sociale',{width:35,bold:true}),cell(eu.nom||'')]}),
-      new TableRow({children:[cell('Site concerné',{width:35,bold:true}),cell(p.site||'')]}),
-      new TableRow({children:[cell(TL.export_eu_contact,{width:35,bold:true}),cell(eu.responsable||'')]}),
-      new TableRow({children:[cell(TL.export_eu_tel,{width:35,bold:true}),cell(eu.tel||'')]}),
+      new TableRow({cantSplit:true,children:[hCell(TL.export_eu_block,100,2)]}),
+      new TableRow({cantSplit:true,children:[cell('Raison sociale',{width:35,bold:true}),cell(eu.nom||'')]}),
+      new TableRow({cantSplit:true,children:[cell('Site concerné',{width:35,bold:true}),cell(p.site||'')]}),
+      new TableRow({cantSplit:true,children:[cell(TL.export_eu_contact,{width:35,bold:true}),cell(eu.responsable||'')]}),
+      new TableRow({cantSplit:true,children:[cell(TL.export_eu_tel,{width:35,bold:true}),cell(eu.tel||'')]}),
     ]}));
     children.push(new Paragraph({children:[],spacing:{before:100}}));
 
     for (const ee of ees) {
       children.push(new Table({ width:{size:100,type:WidthType.PERCENTAGE}, rows:[
-        new TableRow({children:[hCell(TL.export_ee_block,100,2)]}),
-        new TableRow({children:[cell('Raison sociale',{width:35,bold:true}),cell(ee.nom||'')]}),
-        new TableRow({children:[cell('Activité',{width:35,bold:true}),cell(ee.activite||'')]}),
-        new TableRow({children:[cell('Représentant / Technicien',{width:35,bold:true}),cell(ee.responsable||'')]}),
-        new TableRow({children:[cell('Téléphone EE',{width:35,bold:true}),cell(ee.tel||'')]}),
+        new TableRow({cantSplit:true,children:[hCell(TL.export_ee_block,100,2)]}),
+        new TableRow({cantSplit:true,children:[cell('Raison sociale',{width:35,bold:true}),cell(ee.nom||'')]}),
+        new TableRow({cantSplit:true,children:[cell('Activité',{width:35,bold:true}),cell(ee.activite||'')]}),
+        new TableRow({cantSplit:true,children:[cell('Représentant / Technicien',{width:35,bold:true}),cell(ee.responsable||'')]}),
+        new TableRow({cantSplit:true,children:[cell('Téléphone EE',{width:35,bold:true}),cell(ee.tel||'')]}),
       ]}));
       children.push(new Paragraph({children:[],spacing:{before:60}}));
     }
@@ -10698,14 +10699,14 @@ const App = {
     // 2. Objet
     children.push(secTitle('2',"OBJET DE L'INTERVENTION"));
     const objetRows = [
-      new TableRow({children:[cell('Nature de la prestation',{width:35,bold:true}),cell(p.description||'')]}),
-      new TableRow({children:[cell("Date d'intervention",{width:35,bold:true}),cell(p.dateDebut||'')]}),
-      new TableRow({children:[cell('Lieu précis',{width:35,bold:true}),cell(p.lieu||'')]}),
+      new TableRow({cantSplit:true,children:[cell('Nature de la prestation',{width:35,bold:true}),cell(p.description||'')]}),
+      new TableRow({cantSplit:true,children:[cell("Date d'intervention",{width:35,bold:true}),cell(p.dateDebut||'')]}),
+      new TableRow({cantSplit:true,children:[cell('Lieu précis',{width:35,bold:true}),cell(p.lieu||'')]}),
     ];
-    if (p.materiel) objetRows.push(new TableRow({children:[cell('Matériel / Équipements',{width:35,bold:true}),cell(p.materiel)]}));
-    if (p.gps) objetRows.push(new TableRow({children:[cell('Coordonnées GPS',{width:35,bold:true}),cell(p.gps)]}));
-    if (p.duree) objetRows.push(new TableRow({children:[cell('Durée',{width:35,bold:true}),cell(p.duree)]}));
-    if (p.dateFin) objetRows.push(new TableRow({children:[cell('Date de fin prévue',{width:35,bold:true}),cell(p.dateFin)]}));
+    if (p.materiel) objetRows.push(new TableRow({cantSplit:true,children:[cell('Matériel / Équipements',{width:35,bold:true}),cell(p.materiel)]}));
+    if (p.gps) objetRows.push(new TableRow({cantSplit:true,children:[cell('Coordonnées GPS',{width:35,bold:true}),cell(p.gps)]}));
+    if (p.duree) objetRows.push(new TableRow({cantSplit:true,children:[cell('Durée',{width:35,bold:true}),cell(p.duree)]}));
+    if (p.dateFin) objetRows.push(new TableRow({cantSplit:true,children:[cell('Date de fin prévue',{width:35,bold:true}),cell(p.dateFin)]}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:objetRows}));
 
     // 3. ICP (Inspection Commune Préalable)
@@ -10739,11 +10740,11 @@ const App = {
 
         // --- Info table ---
         const icpInfoRows = [];
-        if (icp.numero) icpInfoRows.push(new TableRow({children:[cell('Référence ICP',{width:35,bold:true}),cell(icp.numero||'')]}));
-        icpInfoRows.push(new TableRow({children:[cell('Date de visite',{width:35,bold:true}),cell(`${icp.dateVisite||vis.date||''} ${(icp.heure||vis.heure)?'à '+(icp.heure||vis.heure):''}`)]}));
-        if (icp.site||p.site) icpInfoRows.push(new TableRow({children:[cell('Site / Adresse',{width:35,bold:true}),cell(icp.site||p.site||'')]}));
-        if (icp.lieu||p.lieu) icpInfoRows.push(new TableRow({children:[cell('Lieu précis',{width:35,bold:true}),cell(icp.lieu||p.lieu||'')]}));
-        if (icp.objet||p.description) icpInfoRows.push(new TableRow({children:[cell('Objet',{width:35,bold:true}),cell(icp.objet||p.description||'')]}));
+        if (icp.numero) icpInfoRows.push(new TableRow({cantSplit:true,children:[cell('Référence ICP',{width:35,bold:true}),cell(icp.numero||'')]}));
+        icpInfoRows.push(new TableRow({cantSplit:true,children:[cell('Date de visite',{width:35,bold:true}),cell(`${icp.dateVisite||vis.date||''} ${(icp.heure||vis.heure)?'à '+(icp.heure||vis.heure):''}`)]}));
+        if (icp.site||p.site) icpInfoRows.push(new TableRow({cantSplit:true,children:[cell('Site / Adresse',{width:35,bold:true}),cell(icp.site||p.site||'')]}));
+        if (icp.lieu||p.lieu) icpInfoRows.push(new TableRow({cantSplit:true,children:[cell('Lieu précis',{width:35,bold:true}),cell(icp.lieu||p.lieu||'')]}));
+        if (icp.objet||p.description) icpInfoRows.push(new TableRow({cantSplit:true,children:[cell('Objet',{width:35,bold:true}),cell(icp.objet||p.description||'')]}));
         children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:icpInfoRows}));
         children.push(spacer());
 
@@ -10751,15 +10752,15 @@ const App = {
         if (hasIcpEntity) {
           children.push(new Paragraph({children:[new TextRun({text:'Participants à l\'ICP :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
           const euP = icp.euParticipant||{};
-          const partRows = [new TableRow({children:[hCell('Rôle',20),hCell('Nom',25),hCell('Fonction',25),hCell('Téléphone',30)]})];
-          partRows.push(new TableRow({children:[
+          const partRows = [new TableRow({cantSplit:true,children:[hCell('Rôle',20),hCell('Nom',25),hCell('Fonction',25),hCell('Téléphone',30)]})];
+          partRows.push(new TableRow({cantSplit:true,children:[
             cell('EU',{width:20,bold:true}),
             cell(euP.nom||'',{width:25}),
             cell(euP.fonction||'',{width:25}),
             cell(euP.tel||'',{width:30})
           ]}));
           (icp.entreprisesExt||[]).forEach(ee => {
-            partRows.push(new TableRow({children:[
+            partRows.push(new TableRow({cantSplit:true,children:[
               cell('EE',{width:20,bold:true}),
               cell(`${ee.responsable||''} (${ee.nom||''})`,{width:25}),
               cell(ee.activite||'',{width:25}),
@@ -10777,10 +10778,10 @@ const App = {
         if (icpRisques.length) {
           children.push(new Paragraph({children:[new TextRun({text:'Risques identifiés lors de la visite :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
           const icpNiveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
-          const icpRiskRows = [new TableRow({children:[hCell('Risque',20),hCell('Niveau',10),hCell('Localisation',18),hCell('Situation',26),hCell('Prévention',26)]})];
+          const icpRiskRows = [new TableRow({cantSplit:true,children:[hCell('Risque',20),hCell('Niveau',10),hCell('Localisation',18),hCell('Situation',26),hCell('Prévention',26)]})];
           icpRisques.forEach(r => {
             const nc = {1:'92D050',2:'FFC000',3:'FD7E14',4:'FF0000'}[r.niveau]||'FFC000';
-            icpRiskRows.push(new TableRow({children:[
+            icpRiskRows.push(new TableRow({cantSplit:true,children:[
               cell(r.danger||'',{width:20}),
               cell(icpNiveauLabels[r.niveau]||'',{width:10,align:AlignmentType.CENTER,bold:true,shading:nc}),
               cell(r.localisation||'',{width:18}),
@@ -10794,14 +10795,14 @@ const App = {
 
         // --- Données visite complémentaires (locaux, matériels, documents échangés) ---
         const visRows = [];
-        if (vis.locaux) visRows.push(new TableRow({children:[cell('Locaux mis à disposition',{width:35,bold:true}),cell(vis.locaux)]}));
-        if (vis.materielEU) visRows.push(new TableRow({children:[cell('Matériels/Équipements EU',{width:35,bold:true}),cell(vis.materielEU)]}));
-        if (vis.materielEE) visRows.push(new TableRow({children:[cell('Matériels/Équipements EE',{width:35,bold:true}),cell(vis.materielEE)]}));
+        if (vis.locaux) visRows.push(new TableRow({cantSplit:true,children:[cell('Locaux mis à disposition',{width:35,bold:true}),cell(vis.locaux)]}));
+        if (vis.materielEU) visRows.push(new TableRow({cantSplit:true,children:[cell('Matériels/Équipements EU',{width:35,bold:true}),cell(vis.materielEU)]}));
+        if (vis.materielEE) visRows.push(new TableRow({cantSplit:true,children:[cell('Matériels/Équipements EE',{width:35,bold:true}),cell(vis.materielEE)]}));
         if ((vis.documentsEchanges||[]).length) {
           const docLabels = {plan_acces:"Plan d'accès",mode_operatoire:'Mode(s) opératoire(s)',analyse_risques:'Analyse(s) de risques',permis_feux:'Permis Feux',habilitations:'Habilitations / Compétences'};
-          visRows.push(new TableRow({children:[cell('Documents échangés',{width:35,bold:true}),cell(vis.documentsEchanges.map(d=>docLabels[d]||d).join(', '))]}));
+          visRows.push(new TableRow({cantSplit:true,children:[cell('Documents échangés',{width:35,bold:true}),cell(vis.documentsEchanges.map(d=>docLabels[d]||d).join(', '))]}));
         }
-        if (vis.consignesAcces) visRows.push(new TableRow({children:[cell('Consignes d\'accès / secours',{width:35,bold:true}),cell(vis.consignesAcces)]}));
+        if (vis.consignesAcces) visRows.push(new TableRow({cantSplit:true,children:[cell('Consignes d\'accès / secours',{width:35,bold:true}),cell(vis.consignesAcces)]}));
         if (visRows.length) {
           children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:visRows}));
           children.push(spacer());
@@ -10867,7 +10868,7 @@ const App = {
           if (!icp.entreprisesExt?.length) icpSigCols.push({label:'EE',sig:{}});
           const icpCw = Math.floor(100/icpSigCols.length);
           children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
-            new TableRow({children:icpSigCols.map(c=>_sigCellPdpIcp(c.sig,c.label,icpCw))}),
+            new TableRow({cantSplit:true,children:icpSigCols.map(c=>_sigCellPdpIcp(c.sig,c.label,icpCw))}),
           ]}));
         }
       } catch(e) {
@@ -10877,17 +10878,17 @@ const App = {
 
     // 4. Risques
     children.push(secTitle('4','RISQUES ET MESURES DE PRÉVENTION'));
-    const rRows = [new TableRow({children:[hCell('Risque',25),hCell('Niveau',10),hCell('Mesures de prévention',40),hCell('EU',8),hCell('EE',8)]})];
-    (p.risques||[]).forEach(r => rRows.push(new TableRow({children:[cell(r.danger||'',{width:25}),cell(niveauLabels[r.niveau]||'',{width:10,align:AlignmentType.CENTER,bold:true}),cell(r.prevention||r.situation||'',{width:40}),cell(r.chargeEU?'X':'',{width:8,align:AlignmentType.CENTER}),cell(r.chargeEE?'X':'',{width:8,align:AlignmentType.CENTER})]})));
-    if (!(p.risques||[]).length) rRows.push(new TableRow({children:[cell('',{width:25}),cell('',{width:10}),cell('',{width:40}),cell('',{width:8}),cell('',{width:8})]}));
+    const rRows = [new TableRow({cantSplit:true,children:[hCell('Risque',25),hCell('Niveau',10),hCell('Mesures de prévention',40),hCell('EU',8),hCell('EE',8)]})];
+    (p.risques||[]).forEach(r => rRows.push(new TableRow({cantSplit:true,children:[cell(r.danger||'',{width:25}),cell(niveauLabels[r.niveau]||'',{width:10,align:AlignmentType.CENTER,bold:true}),cell(r.prevention||r.situation||'',{width:40}),cell(r.chargeEU?'X':'',{width:8,align:AlignmentType.CENTER}),cell(r.chargeEE?'X':'',{width:8,align:AlignmentType.CENTER})]})));
+    if (!(p.risques||[]).length) rRows.push(new TableRow({cantSplit:true,children:[cell('',{width:25}),cell('',{width:10}),cell('',{width:40}),cell('',{width:8}),cell('',{width:8})]}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
 
     // 5. Exigences
     let secNum = 5;
     if ((p.exigences||[]).length) {
       children.push(secTitle(String(secNum),`EXIGENCES ${(eu.nom||'EU').toUpperCase()}`));
-      const eRows = [new TableRow({children:[hCell('N°',8),hCell('Exigence',92)]})];
-      p.exigences.forEach((e,i) => eRows.push(new TableRow({children:[cell(String(i+1),{width:8,align:AlignmentType.CENTER,bold:true}),cell(e,{width:92})]})));
+      const eRows = [new TableRow({cantSplit:true,children:[hCell('N°',8),hCell('Exigence',92)]})];
+      p.exigences.forEach((e,i) => eRows.push(new TableRow({cantSplit:true,children:[cell(String(i+1),{width:8,align:AlignmentType.CENTER,bold:true}),cell(e,{width:92})]})));
       children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:eRows}));
       secNum++;
     }
@@ -10896,9 +10897,9 @@ const App = {
     const urg = p.urgence||{};
     children.push(secTitle(String(secNum),"CONSIGNES D'URGENCE"));
     const uRows = [];
-    if (urg.responsable) uRows.push(new TableRow({children:[cell('Responsable de site',{width:35,bold:true}),cell(`${urg.responsable}${urg.telResponsable?' – '+urg.telResponsable:''}`)]}));
-    if (urg.sst) uRows.push(new TableRow({children:[cell('SST / Secouriste',{width:35,bold:true}),cell(`${urg.sst}${urg.telSst?' – '+urg.telSst:''}`)]}));
-    uRows.push(new TableRow({children:[cell("Numéros d'urgence",{width:35,bold:true}),cell(urg.numeros||'Pompiers : 18  |  SAMU : 15  |  Gendarmerie : 17  |  Urgences : 112')]}));
+    if (urg.responsable) uRows.push(new TableRow({cantSplit:true,children:[cell('Responsable de site',{width:35,bold:true}),cell(`${urg.responsable}${urg.telResponsable?' – '+urg.telResponsable:''}`)]}));
+    if (urg.sst) uRows.push(new TableRow({cantSplit:true,children:[cell('SST / Secouriste',{width:35,bold:true}),cell(`${urg.sst}${urg.telSst?' – '+urg.telSst:''}`)]}));
+    uRows.push(new TableRow({cantSplit:true,children:[cell("Numéros d'urgence",{width:35,bold:true}),cell(urg.numeros||'Pompiers : 18  |  SAMU : 15  |  Gendarmerie : 17  |  Urgences : 112')]}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:uRows}));
     secNum++;
 
@@ -10930,11 +10931,11 @@ const App = {
       return new TableCell({children:paras,width:{size:w,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.TOP});
     };
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
-      new TableRow({children:sigCols.map(c=>hCell(c.label,cw))}),
-      new TableRow({children:sigCols.map(c=>cell(`Nom / Prénom : ${c.sig.nom||''}`,{width:cw}))}),
-      new TableRow({children:sigCols.map(c=>cell(`Fonction : ${c.sig.fonction||''}`,{width:cw}))}),
-      new TableRow({children:sigCols.map(c=>cell(`Date : ${c.sig.date||''}`,{width:cw}))}),
-      new TableRow({children:sigCols.map(c=>_sigCellPDP(c.sig,c.label,cw))}),
+      new TableRow({cantSplit:true,children:sigCols.map(c=>hCell(c.label,cw))}),
+      new TableRow({cantSplit:true,children:sigCols.map(c=>cell(`Nom / Prénom : ${c.sig.nom||''}`,{width:cw}))}),
+      new TableRow({cantSplit:true,children:sigCols.map(c=>cell(`Fonction : ${c.sig.fonction||''}`,{width:cw}))}),
+      new TableRow({cantSplit:true,children:sigCols.map(c=>cell(`Date : ${c.sig.date||''}`,{width:cw}))}),
+      new TableRow({cantSplit:true,children:sigCols.map(c=>_sigCellPDP(c.sig,c.label,cw))}),
     ]}));
 
     // Émargement
@@ -10956,8 +10957,8 @@ const App = {
         return new TableCell({children:[new Paragraph({children:[new TextRun({text:'',size:20})],spacing:{before:200,after:200}})],width:{size:widthPct||15,type:WidthType.PERCENTAGE}});
       };
       if (hasEmargements) {
-        const emRows = [new TableRow({children:[hCell('Nom',20),hCell('Prénom',15),hCell('Fonction',15),hCell('Société',20),hCell('Date',15),hCell('Signature',15)]})];
-        p.emargements.forEach(e => emRows.push(new TableRow({children:[cell(e.nom||'',{width:20}),cell(e.prenom||'',{width:15}),cell(e.fonction||'',{width:15}),cell(e.societe||'',{width:20}),cell(e.date||'',{width:15}),_emSigCell(e.signature,15)]})));
+        const emRows = [new TableRow({cantSplit:true,children:[hCell('Nom',20),hCell('Prénom',15),hCell('Fonction',15),hCell('Société',20),hCell('Date',15),hCell('Signature',15)]})];
+        p.emargements.forEach(e => emRows.push(new TableRow({cantSplit:true,children:[cell(e.nom||'',{width:20}),cell(e.prenom||'',{width:15}),cell(e.fonction||'',{width:15}),cell(e.societe||'',{width:20}),cell(e.date||'',{width:15}),_emSigCell(e.signature,15)]})));
         children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:emRows}));
       }
 
@@ -11028,7 +11029,7 @@ const App = {
             for (let pad = chunk.length; pad < cols; pad++) {
               tableCells.push(new TableCell({children:[new Paragraph({children:[]})],width:{size:Math.floor(100/cols),type:WidthType.PERCENTAGE},borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}}}));
             }
-            rows.push(new TableRow({children:tableCells}));
+            rows.push(new TableRow({cantSplit:true,children:tableCells}));
           }
           if (rows.length) items.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows}));
         } else {
@@ -11073,20 +11074,20 @@ const App = {
       const typeLabels = {soudage:'Soudage',tronconnage:'Tronçonnage',meulage:'Découpage/Meulage',thermosoudure:'Thermosoudure au gaz',miseALaTerre:'Soudure mise à la terre',autre:'Autre'};
       const typesStr = (pf.types||[]).map(t=>typeLabels[t]||t).join(', ');
       const pfRows = [
-        new TableRow({children:[cell('Types de travaux',{width:35,bold:true}),cell(typesStr||'')]}),
-        new TableRow({children:[cell('Description',{width:35,bold:true}),cell(pf.description||'')]}),
-        new TableRow({children:[cell('Risques liés à la structure',{width:35,bold:true}),cell(pf.risqueStructure||'')]}),
-        new TableRow({children:[cell('Risques liés à l\'activité du site',{width:35,bold:true}),cell(pf.risqueActivite||'')]}),
-        new TableRow({children:[cell('Risques liés à l\'environnement',{width:35,bold:true}),cell(pf.risqueEnvironnement||'')]}),
-        new TableRow({children:[cell('Date/heure début',{width:35,bold:true}),cell(`${pf.dateDebut||''} ${pf.heureDebut||''}`)]}),
-        new TableRow({children:[cell('Date/heure fin',{width:35,bold:true}),cell(`${pf.dateFin||''} ${pf.heureFin||''}`)]}),
+        new TableRow({cantSplit:true,children:[cell('Types de travaux',{width:35,bold:true}),cell(typesStr||'')]}),
+        new TableRow({cantSplit:true,children:[cell('Description',{width:35,bold:true}),cell(pf.description||'')]}),
+        new TableRow({cantSplit:true,children:[cell('Risques liés à la structure',{width:35,bold:true}),cell(pf.risqueStructure||'')]}),
+        new TableRow({cantSplit:true,children:[cell('Risques liés à l\'activité du site',{width:35,bold:true}),cell(pf.risqueActivite||'')]}),
+        new TableRow({cantSplit:true,children:[cell('Risques liés à l\'environnement',{width:35,bold:true}),cell(pf.risqueEnvironnement||'')]}),
+        new TableRow({cantSplit:true,children:[cell('Date/heure début',{width:35,bold:true}),cell(`${pf.dateDebut||''} ${pf.heureDebut||''}`)]}),
+        new TableRow({cantSplit:true,children:[cell('Date/heure fin',{width:35,bold:true}),cell(`${pf.dateFin||''} ${pf.heureFin||''}`)]}),
       ];
       children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:pfRows}));
       children.push(new Paragraph({children:[],spacing:{before:100}}));
       // Opérateurs
       if ((pf.operateurs||[]).length) {
-        const opRows = [new TableRow({children:[hCell('Nom',25),hCell('Société',25),hCell('Fonction',25),hCell('Habilitation',25)]})];
-        pf.operateurs.forEach(o => opRows.push(new TableRow({children:[cell(o.nom||'',{width:25}),cell(o.societe||'',{width:25}),cell(o.fonction||'',{width:25}),cell(o.habilitation||'',{width:25})]})));
+        const opRows = [new TableRow({cantSplit:true,children:[hCell('Nom',25),hCell('Société',25),hCell('Fonction',25),hCell('Habilitation',25)]})];
+        pf.operateurs.forEach(o => opRows.push(new TableRow({cantSplit:true,children:[cell(o.nom||'',{width:25}),cell(o.societe||'',{width:25}),cell(o.fonction||'',{width:25}),cell(o.habilitation||'',{width:25})]})));
         children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:opRows}));
         children.push(new Paragraph({children:[],spacing:{before:100}}));
       }
@@ -11094,14 +11095,14 @@ const App = {
       const consLabelsAv = {'av-materiel':'Vérifier matériel en parfait état','av-eloigner':'Éloigner/protéger installations','av-couvrir':'Couvrir ouvertures et fissures','av-inflammable':'Éloigner produits inflammables','av-alarme':'Prévoir moyens alarme/lutte incendie','av-detection':'Dispositions détection/extinction'};
       const consLabelsPe = {'pe-projections':'Surveiller projections incandescentes','pe-support':'Poser objets chauffés sur supports résistants'};
       const consLabelsAp = {'ap-detection':'Remettre en service détection/extinction','ap-inspecter':'Inspecter lieu de travail et environs','ap-surveillance':'Inspections 2h après cessation'};
-      const consRows = [new TableRow({children:[hCell('AVANT LES TRAVAUX',34),hCell('FAIT',8),hCell('PENDANT LES TRAVAUX',34),hCell('FAIT',8),hCell('APRÈS LES TRAVAUX',16)]})];
+      const consRows = [new TableRow({cantSplit:true,children:[hCell('AVANT LES TRAVAUX',34),hCell('FAIT',8),hCell('PENDANT LES TRAVAUX',34),hCell('FAIT',8),hCell('APRÈS LES TRAVAUX',16)]})];
       const avItems = Object.entries(consLabelsAv);
       const peItems = Object.entries(consLabelsPe);
       const apItems = Object.entries(consLabelsAp);
       const maxLen = Math.max(avItems.length, peItems.length+apItems.length);
       for (let ri=0;ri<maxLen;ri++) {
         const av = avItems[ri]; const pe = peItems[ri]; const ap = apItems[ri-peItems.length];
-        consRows.push(new TableRow({children:[
+        consRows.push(new TableRow({cantSplit:true,children:[
           cell(av?av[1]:'',{width:34}), cell(av&&(pf.consignes?.avant||[]).includes(av[0])?'X':'',{width:8,align:AlignmentType.CENTER}),
           cell(pe?pe[1]:(ap?ap[1]:''),{width:34}), cell((pe&&(pf.consignes?.pendant||[]).includes(pe[0]))||(ap&&(pf.consignes?.apres||[]).includes(ap[0]))?'X':'',{width:8,align:AlignmentType.CENTER}),
           cell(ri===0?'Autres: '+(pf.autresPrescriptions||''):'',{width:16})
@@ -11124,9 +11125,9 @@ const App = {
         return new TableCell({children:paras,width:{size:w,type:WidthType.PERCENTAGE}});
       };
       children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
-        new TableRow({children:[hCell('Représentant EU',33),hCell('Représentant Entreprise Intervenante',33),hCell('Exécutant travaux par point chaud',34)]}),
-        new TableRow({children:[cell(`Nom: ${(pf.signatureEU||{}).nom||''}\nDate: ${(pf.signatureEU||{}).date||''}`,{width:33}),cell(`Nom: ${(pf.signatureEE||{}).nom||''}\nDate: ${(pf.signatureEE||{}).date||''}`,{width:33}),cell(`Nom: ${pfExec.nom||''}${pfExec.societe?'\nSociété: '+pfExec.societe:''}\nDate: ${pfExec.date||''}`,{width:34})]}),
-        new TableRow({children:[_sigCellPF(pf.signatureEU,33),_sigCellPF(pf.signatureEE,33),_sigCellPF(pf.signatureExec,34)]})
+        new TableRow({cantSplit:true,children:[hCell('Représentant EU',33),hCell('Représentant Entreprise Intervenante',33),hCell('Exécutant travaux par point chaud',34)]}),
+        new TableRow({cantSplit:true,children:[cell(`Nom: ${(pf.signatureEU||{}).nom||''}\nDate: ${(pf.signatureEU||{}).date||''}`,{width:33}),cell(`Nom: ${(pf.signatureEE||{}).nom||''}\nDate: ${(pf.signatureEE||{}).date||''}`,{width:33}),cell(`Nom: ${pfExec.nom||''}${pfExec.societe?'\nSociété: '+pfExec.societe:''}\nDate: ${pfExec.date||''}`,{width:34})]}),
+        new TableRow({cantSplit:true,children:[_sigCellPF(pf.signatureEU,33),_sigCellPF(pf.signatureEE,33),_sigCellPF(pf.signatureExec,34)]})
       ]}));
       // Saut de page + Validations quotidiennes EU + Rondes par période
       children.push(new Paragraph({children:[new PageBreak()]}));
@@ -11142,9 +11143,9 @@ const App = {
           // Validation EU + Exécutant
           const rExec = r.signatureExec||{};
           const vRows = [
-            new TableRow({children:[hCell('Représentant EU',50),hCell('Exécutant travaux',50)]}),
-            new TableRow({children:[cell(`Nom : ${r.signatureEU?.nom||''}\nDate : ${r.signatureEU?.date||''}`,{width:50}),cell(`Nom : ${rExec.nom||''}\nDate : ${rExec.date||''}`,{width:50})]}),
-            new TableRow({children:[
+            new TableRow({cantSplit:true,children:[hCell('Représentant EU',50),hCell('Exécutant travaux',50)]}),
+            new TableRow({cantSplit:true,children:[cell(`Nom : ${r.signatureEU?.nom||''}\nDate : ${r.signatureEU?.date||''}`,{width:50}),cell(`Nom : ${rExec.nom||''}\nDate : ${rExec.date||''}`,{width:50})]}),
+            new TableRow({cantSplit:true,children:[
               new TableCell({children:[new Paragraph({children:[new TextRun({text:'Signature :',size:18,font:'Calibri',italics:true})],spacing:{before:20,after:150}})],width:{size:50,type:WidthType.PERCENTAGE}}),
               new TableCell({children:[new Paragraph({children:[new TextRun({text:'Signature :',size:18,font:'Calibri',italics:true})],spacing:{before:20,after:150}})],width:{size:50,type:WidthType.PERCENTAGE}})
             ]})
@@ -11153,7 +11154,7 @@ const App = {
           children.push(new Paragraph({children:[],spacing:{before:40}}));
           // Rondes de cette période
           children.push(new Paragraph({children:[new TextRun({text:`Rondes de surveillance — Période n°${i+1}`,size:20,font:'Calibri',bold:true,italics:true})],spacing:{before:40,after:30}}));
-          const rRows = [new TableRow({children:[hCell('Heure',14),hCell('Inspecteur',22),hCell('Observations',36),hCell('RAS',10),hCell('Émargement',18)]})];
+          const rRows = [new TableRow({cantSplit:true,children:[hCell('Heure',14),hCell('Inspecteur',22),hCell('Observations',36),hCell('RAS',10),hCell('Émargement',18)]})];
           if (rondes.length) {
             rondes.forEach(rd => {
               let sigCellRonde;
@@ -11166,10 +11167,10 @@ const App = {
               } else {
                 sigCellRonde = cell('', {width:18});
               }
-              rRows.push(new TableRow({children:[cell(rd.heure||'',{width:14}),cell(rd.inspecteur||'',{width:22}),cell(rd.observations||'',{width:36}),cell(rd.conforme?'Oui':'',{width:10,align:AlignmentType.CENTER}),sigCellRonde]}));
+              rRows.push(new TableRow({cantSplit:true,children:[cell(rd.heure||'',{width:14}),cell(rd.inspecteur||'',{width:22}),cell(rd.observations||'',{width:36}),cell(rd.conforme?'Oui':'',{width:10,align:AlignmentType.CENTER}),sigCellRonde]}));
             });
           } else {
-            for(let j=0;j<3;j++) rRows.push(new TableRow({children:[cell('',{width:14}),cell('',{width:22}),cell('',{width:36}),cell('',{width:10}),cell('',{width:18})]}));
+            for(let j=0;j<3;j++) rRows.push(new TableRow({cantSplit:true,children:[cell('',{width:14}),cell('',{width:22}),cell('',{width:36}),cell('',{width:10}),cell('',{width:18})]}));
           }
           children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
         });
@@ -11215,8 +11216,8 @@ const App = {
       secNum++;
       children.push(secTitle(String(secNum),'MODIFICATIONS / AVENANTS'));
       const labels = {ajout_ee:'Ajout EE',ajout_risque:'Ajout risque',ajout_mesure:'Ajout mesure',modif_dates:'Modif. dates',modif_horaires:'Modif. horaires',modif_effectif:'Modif. effectif',ajout_travaux:'Travaux suppl.',autre:'Autre'};
-      const mRows = [new TableRow({children:[hCell('Date',15),hCell('Type',20),hCell('Description',50),hCell('Auteur',15)]})];
-      p.modifications.forEach(m => mRows.push(new TableRow({children:[cell(m.date||'',{width:15}),cell(labels[m.type]||m.type,{width:20}),cell(m.description||'',{width:50}),cell(m.auteur||'',{width:15})]})));
+      const mRows = [new TableRow({cantSplit:true,children:[hCell('Date',15),hCell('Type',20),hCell('Description',50),hCell('Auteur',15)]})];
+      p.modifications.forEach(m => mRows.push(new TableRow({cantSplit:true,children:[cell(m.date||'',{width:15}),cell(labels[m.type]||m.type,{width:20}),cell(m.description||'',{width:50}),cell(m.auteur||'',{width:15})]})));
       children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:mRows}));
     }
 
@@ -11265,7 +11266,7 @@ const App = {
 
     // Header avec logo à gauche
     const logoBuffer = getLogoBuffer();
-    const headerRow = new Table({ rows:[new TableRow({ children:[
+    const headerRow = new Table({ rows:[new TableRow({ cantSplit:true, children:[
       new TableCell({ children:[logoBuffer ? new Paragraph({ children:[new ImageRun({data:logoBuffer,transformation:{width:100,height:60},type:'jpg'})], spacing:{before:20,after:20} }) : new Paragraph({children:[]})], width:{size:25,type:WidthType.PERCENTAGE}, borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}} }),
       new TableCell({ children:[
         new Paragraph({ children:[new TextRun({text:entityName,size:28,bold:true,font:'Calibri',color:GREEN})], alignment:AlignmentType.LEFT, spacing:{before:40,after:20} }),
@@ -11289,14 +11290,14 @@ const App = {
     const typesStr = (pf.types||[]).map(t=>typeLabels[t]||t).join(', ');
     const eu = p.eu||{};
     const pfRows = [
-      new TableRow({children:[cell(p.typePdp==='interne'?'Entreprise Utilisatrice (notre entité)':'Entreprise Utilisatrice',{width:35,bold:true}),cell(`${eu.nom||''} — Contact : ${eu.responsable||''} — Tél : ${eu.tel||''}`)]}),
-      new TableRow({children:[cell('Types de travaux',{width:35,bold:true}),cell(typesStr||'')]}),
-      new TableRow({children:[cell('Description',{width:35,bold:true}),cell(pf.description||'')]}),
-      new TableRow({children:[cell('Risques liés à la structure',{width:35,bold:true}),cell(pf.risqueStructure||'')]}),
-      new TableRow({children:[cell('Risques liés à l\'activité du site',{width:35,bold:true}),cell(pf.risqueActivite||'')]}),
-      new TableRow({children:[cell('Risques liés à l\'environnement',{width:35,bold:true}),cell(pf.risqueEnvironnement||'')]}),
-      new TableRow({children:[cell('Date/heure début',{width:35,bold:true}),cell(`${pf.dateDebut||''} ${pf.heureDebut||''}`)]}),
-      new TableRow({children:[cell('Date/heure fin',{width:35,bold:true}),cell(`${pf.dateFin||''} ${pf.heureFin||''}`)]}),
+      new TableRow({cantSplit:true,children:[cell(p.typePdp==='interne'?'Entreprise Utilisatrice (notre entité)':'Entreprise Utilisatrice',{width:35,bold:true}),cell(`${eu.nom||''} — Contact : ${eu.responsable||''} — Tél : ${eu.tel||''}`)]}),
+      new TableRow({cantSplit:true,children:[cell('Types de travaux',{width:35,bold:true}),cell(typesStr||'')]}),
+      new TableRow({cantSplit:true,children:[cell('Description',{width:35,bold:true}),cell(pf.description||'')]}),
+      new TableRow({cantSplit:true,children:[cell('Risques liés à la structure',{width:35,bold:true}),cell(pf.risqueStructure||'')]}),
+      new TableRow({cantSplit:true,children:[cell('Risques liés à l\'activité du site',{width:35,bold:true}),cell(pf.risqueActivite||'')]}),
+      new TableRow({cantSplit:true,children:[cell('Risques liés à l\'environnement',{width:35,bold:true}),cell(pf.risqueEnvironnement||'')]}),
+      new TableRow({cantSplit:true,children:[cell('Date/heure début',{width:35,bold:true}),cell(`${pf.dateDebut||''} ${pf.heureDebut||''}`)]}),
+      new TableRow({cantSplit:true,children:[cell('Date/heure fin',{width:35,bold:true}),cell(`${pf.dateFin||''} ${pf.heureFin||''}`)]}),
     ];
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:pfRows}));
     children.push(new Paragraph({children:[],spacing:{before:100}}));
@@ -11304,8 +11305,8 @@ const App = {
     // Opérateurs
     if ((pf.operateurs||[]).length) {
       children.push(new Paragraph({children:[new TextRun({text:'Opérateurs',size:22,font:'Calibri',bold:true,color:GREEN})],spacing:{before:100,after:60}}));
-      const opRows = [new TableRow({children:[hCell('Nom',25),hCell('Société',25),hCell('Fonction',25),hCell('Habilitation',25)]})];
-      pf.operateurs.forEach(o => opRows.push(new TableRow({children:[cell(o.nom||'',{width:25}),cell(o.societe||'',{width:25}),cell(o.fonction||'',{width:25}),cell(o.habilitation||'',{width:25})]})));
+      const opRows = [new TableRow({cantSplit:true,children:[hCell('Nom',25),hCell('Société',25),hCell('Fonction',25),hCell('Habilitation',25)]})];
+      pf.operateurs.forEach(o => opRows.push(new TableRow({cantSplit:true,children:[cell(o.nom||'',{width:25}),cell(o.societe||'',{width:25}),cell(o.fonction||'',{width:25}),cell(o.habilitation||'',{width:25})]})));
       children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:opRows}));
       children.push(new Paragraph({children:[],spacing:{before:100}}));
     }
@@ -11315,12 +11316,12 @@ const App = {
     const consLabelsAv = {'av-materiel':'Vérifier matériel en parfait état','av-eloigner':'Éloigner/protéger installations','av-couvrir':'Couvrir ouvertures et fissures','av-inflammable':'Éloigner produits inflammables','av-alarme':'Prévoir moyens alarme/lutte incendie','av-detection':'Dispositions détection/extinction'};
     const consLabelsPe = {'pe-projections':'Surveiller projections incandescentes','pe-support':'Poser objets chauffés sur supports résistants'};
     const consLabelsAp = {'ap-detection':'Remettre en service détection/extinction','ap-inspecter':'Inspecter lieu de travail et environs','ap-surveillance':'Inspections 2h après cessation'};
-    const consRows = [new TableRow({children:[hCell('AVANT',34),hCell('FAIT',8),hCell('PENDANT / APRÈS',42),hCell('FAIT',8),hCell('AUTRES',8)]})];
+    const consRows = [new TableRow({cantSplit:true,children:[hCell('AVANT',34),hCell('FAIT',8),hCell('PENDANT / APRÈS',42),hCell('FAIT',8),hCell('AUTRES',8)]})];
     const avItems = Object.entries(consLabelsAv); const peItems = Object.entries(consLabelsPe); const apItems = Object.entries(consLabelsAp);
     const maxLen = Math.max(avItems.length, peItems.length+apItems.length);
     for (let ri=0;ri<maxLen;ri++) {
       const av = avItems[ri]; const pe = peItems[ri]; const ap = apItems[ri-peItems.length];
-      consRows.push(new TableRow({children:[
+      consRows.push(new TableRow({cantSplit:true,children:[
         cell(av?av[1]:'',{width:34}), cell(av&&(pf.consignes?.avant||[]).includes(av[0])?'X':'',{width:8,align:AlignmentType.CENTER}),
         cell(pe?pe[1]:(ap?ap[1]:''),{width:42}), cell((pe&&(pf.consignes?.pendant||[]).includes(pe[0]))||(ap&&(pf.consignes?.apres||[]).includes(ap[0]))?'X':'',{width:8,align:AlignmentType.CENTER}),
         cell(ri===0?(pf.autresPrescriptions||''):'',{width:8})
@@ -11344,9 +11345,9 @@ const App = {
       return new TableCell({children:paras,width:{size:w,type:WidthType.PERCENTAGE}});
     };
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
-      new TableRow({children:[hCell(TLpf.export_pf_eu_label,33),hCell(TLpf.export_pf_ee_label,33),hCell('Exécutant',34)]}),
-      new TableRow({children:[cell(`Nom: ${(pf.signatureEU||{}).nom||''}\nDate: ${(pf.signatureEU||{}).date||''}`,{width:33}),cell(`Nom: ${(pf.signatureEE||{}).nom||''}\nDate: ${(pf.signatureEE||{}).date||''}`,{width:33}),cell(`Nom: ${pfExec.nom||''}${pfExec.societe?'\nSociété: '+pfExec.societe:''}\nDate: ${pfExec.date||''}`,{width:34})]}),
-      new TableRow({children:[_sigCell(pf.signatureEU,33),_sigCell(pf.signatureEE,33),_sigCell(pf.signatureExec,34)]})
+      new TableRow({cantSplit:true,children:[hCell(TLpf.export_pf_eu_label,33),hCell(TLpf.export_pf_ee_label,33),hCell('Exécutant',34)]}),
+      new TableRow({cantSplit:true,children:[cell(`Nom: ${(pf.signatureEU||{}).nom||''}\nDate: ${(pf.signatureEU||{}).date||''}`,{width:33}),cell(`Nom: ${(pf.signatureEE||{}).nom||''}\nDate: ${(pf.signatureEE||{}).date||''}`,{width:33}),cell(`Nom: ${pfExec.nom||''}${pfExec.societe?'\nSociété: '+pfExec.societe:''}\nDate: ${pfExec.date||''}`,{width:34})]}),
+      new TableRow({cantSplit:true,children:[_sigCell(pf.signatureEU,33),_sigCell(pf.signatureEE,33),_sigCell(pf.signatureExec,34)]})
     ]}));
 
     // Saut de page + Validations quotidiennes EU + Rondes par période
@@ -11364,9 +11365,9 @@ const App = {
         // Validation EU + Exécutant
         const rExec = r.signatureExec||{};
         const vRows = [
-          new TableRow({children:[hCell('Représentant EU',50),hCell('Exécutant travaux',50)]}),
-          new TableRow({children:[cell(`Nom : ${r.signatureEU?.nom||''}\nDate : ${r.signatureEU?.date||''}`,{width:50}),cell(`Nom : ${rExec.nom||''}\nDate : ${rExec.date||''}`,{width:50})]}),
-          new TableRow({children:[
+          new TableRow({cantSplit:true,children:[hCell('Représentant EU',50),hCell('Exécutant travaux',50)]}),
+          new TableRow({cantSplit:true,children:[cell(`Nom : ${r.signatureEU?.nom||''}\nDate : ${r.signatureEU?.date||''}`,{width:50}),cell(`Nom : ${rExec.nom||''}\nDate : ${rExec.date||''}`,{width:50})]}),
+          new TableRow({cantSplit:true,children:[
             new TableCell({children:[new Paragraph({children:[new TextRun({text:'Signature :',size:18,font:'Calibri',italics:true})],spacing:{before:20,after:150}})],width:{size:50,type:WidthType.PERCENTAGE}}),
             new TableCell({children:[new Paragraph({children:[new TextRun({text:'Signature :',size:18,font:'Calibri',italics:true})],spacing:{before:20,after:150}})],width:{size:50,type:WidthType.PERCENTAGE}})
           ]})
@@ -11375,7 +11376,7 @@ const App = {
         children.push(new Paragraph({children:[],spacing:{before:40}}));
         // Rondes de cette période
         children.push(new Paragraph({children:[new TextRun({text:`Rondes de surveillance — Période n°${i+1}`,size:20,font:'Calibri',bold:true,italics:true})],spacing:{before:40,after:30}}));
-        const rRows = [new TableRow({children:[hCell('Heure',14),hCell('Inspecteur',22),hCell('Observations',36),hCell('RAS',10),hCell('Émargement',18)]})];
+        const rRows = [new TableRow({cantSplit:true,children:[hCell('Heure',14),hCell('Inspecteur',22),hCell('Observations',36),hCell('RAS',10),hCell('Émargement',18)]})];
         if (rondes.length) {
           rondes.forEach(rd => {
             let sigCellRonde;
@@ -11388,17 +11389,17 @@ const App = {
             } else {
               sigCellRonde = cell('', {width:18});
             }
-            rRows.push(new TableRow({children:[cell(rd.heure||'',{width:14}),cell(rd.inspecteur||'',{width:22}),cell(rd.observations||'',{width:36}),cell(rd.conforme?'Oui':'Non',{width:10,align:AlignmentType.CENTER}),sigCellRonde]}));
+            rRows.push(new TableRow({cantSplit:true,children:[cell(rd.heure||'',{width:14}),cell(rd.inspecteur||'',{width:22}),cell(rd.observations||'',{width:36}),cell(rd.conforme?'Oui':'Non',{width:10,align:AlignmentType.CENTER}),sigCellRonde]}));
           });
         } else {
-          for(let j=0;j<3;j++) rRows.push(new TableRow({children:[cell('',{width:14}),cell('',{width:22}),cell('',{width:36}),cell('',{width:10}),cell('',{width:18})]}));
+          for(let j=0;j<3;j++) rRows.push(new TableRow({cantSplit:true,children:[cell('',{width:14}),cell('',{width:22}),cell('',{width:36}),cell('',{width:10}),cell('',{width:18})]}));
         }
         children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
       });
     } else {
       children.push(new Paragraph({children:[new TextRun({text:'Remplir ci-dessous si la durée des travaux excède 24h.',size:20,font:'Calibri',italics:true})],spacing:{after:60}}));
-      const renRows = [new TableRow({children:[hCell('Période',10),hCell('Du',20),hCell('Au',20),hCell('Validé par (EU)',20),hCell('Date',13),hCell('Signature',17)]})];
-      for (let i=1;i<=3;i++) renRows.push(new TableRow({children:[cell(String(i),{width:10,align:AlignmentType.CENTER}),cell('',{width:20}),cell('',{width:20}),cell('',{width:20}),cell('',{width:13}),new TableCell({children:[new Paragraph({children:[],spacing:{before:40,after:200}})],width:{size:17,type:WidthType.PERCENTAGE}})]}));
+      const renRows = [new TableRow({cantSplit:true,children:[hCell('Période',10),hCell('Du',20),hCell('Au',20),hCell('Validé par (EU)',20),hCell('Date',13),hCell('Signature',17)]})];
+      for (let i=1;i<=3;i++) renRows.push(new TableRow({cantSplit:true,children:[cell(String(i),{width:10,align:AlignmentType.CENTER}),cell('',{width:20}),cell('',{width:20}),cell('',{width:20}),cell('',{width:13}),new TableCell({children:[new Paragraph({children:[],spacing:{before:40,after:200}})],width:{size:17,type:WidthType.PERCENTAGE}})]}));
       children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:renRows}));
     }
 
@@ -11433,7 +11434,7 @@ const App = {
     let y = 0;
 
     const checkPage = (need=20) => { if(y>290-need){doc.addPage();y=15;} };
-    const secTitle = (txt) => { checkPage(25); doc.setFillColor(...GREEN); doc.rect(m,y,pw,8,'F'); doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255); doc.text(txt,m+2,y+5.5); y+=12; doc.setTextColor(0,0,0); };
+    const secTitle = (txt) => { checkPage(60); doc.setFillColor(...GREEN); doc.rect(m,y,pw,8,'F'); doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255); doc.text(txt,m+2,y+5.5); y+=12; doc.setTextColor(0,0,0); };
     const addTable = (head,body,opts={}) => { doc.autoTable({ startY:y, margin:{left:m,right:m}, head:head?[head]:undefined, body, theme:'grid', headStyles:{fillColor:GREEN,textColor:[255,255,255],fontStyle:'bold',fontSize:8,cellPadding:2}, bodyStyles:{fontSize:8,cellPadding:2,font:'helvetica'}, alternateRowStyles:{fillColor:[245,246,248]}, tableWidth:pw, ...opts }); y=doc.lastAutoTable.finalY+4; };
     const labelTable = (rows) => { addTable(null, rows.map(([l,v])=>[ {content:l,styles:{fontStyle:'bold',cellWidth:55}}, v||'' ]) ); };
 
@@ -11514,7 +11515,7 @@ const App = {
       [`Nom: ${(pf.signatureEU||{}).nom||''}`,`Nom: ${(pf.signatureEE||{}).nom||''}`,`Nom: ${pfExec.nom||''}`],
       [`Date: ${(pf.signatureEU||{}).date||''}`,`Date: ${(pf.signatureEE||{}).date||''}`,`Date: ${pfExec.date||''}${pfExec.societe?'\nSociété: '+pfExec.societe:''}`],
       [{content:'Signature :',styles:{minCellHeight:12}},{content:'Signature :',styles:{minCellHeight:12}},{content:'Signature :',styles:{minCellHeight:12}}]
-    ]);
+    ], {pageBreak:'avoid'});
     // Insérer les images de signature dans le PDF
     const sigY = doc.lastAutoTable.finalY;
     const colW = pw/3;
@@ -11547,7 +11548,7 @@ const App = {
         addTable(['Représentant EU','','Exécutant travaux',''], [
           [`Nom : ${r.signatureEU?.nom||''}`,`Date : ${r.signatureEU?.date||''}`,`Nom : ${rExec.nom||''}`,`Date : ${rExec.date||''}`],
           [{content:'Signature :',styles:{minCellHeight:10}},{content:'',styles:{minCellHeight:10}},{content:'Signature :',styles:{minCellHeight:10}},{content:'',styles:{minCellHeight:10}}]
-        ], {columnStyles:{0:{cellWidth:50},1:{cellWidth:40},2:{cellWidth:50},3:{cellWidth:40}}});
+        ], {columnStyles:{0:{cellWidth:50},1:{cellWidth:40},2:{cellWidth:50},3:{cellWidth:40}}, pageBreak:'avoid'});
         // Rondes de cette période
         const rondes = r.rondes || [];
         if (rondes.length) {
@@ -11564,12 +11565,12 @@ const App = {
             });
         } else {
           const emptyRows = [['','','','',''],['','','','',''],['','','','','']];
-          addTable(['Heure','Inspecteur','Observations','RAS','Émargement'], emptyRows, {columnStyles:{0:{cellWidth:22},3:{cellWidth:14},4:{cellWidth:35}}, bodyStyles:{minCellHeight:12,fontSize:8,cellPadding:2}});
+          addTable(['Heure','Inspecteur','Observations','RAS','Émargement'], emptyRows, {columnStyles:{0:{cellWidth:22},3:{cellWidth:14},4:{cellWidth:35}}, bodyStyles:{minCellHeight:12,fontSize:8,cellPadding:2}, pageBreak:'avoid'});
         }
       });
     } else {
       doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.text('Remplir ci-dessous si la durée des travaux excède 24h.',m,y); y+=5;
-      addTable(['Période','Du','Au','Validé par (EU)','Date','Signature'], [['1','','','','',''],['2','','','','',''],['3','','','','','']], {columnStyles:{0:{cellWidth:18},5:{cellWidth:25}}, bodyStyles:{minCellHeight:10}});
+      addTable(['Période','Du','Au','Validé par (EU)','Date','Signature'], [['1','','','','',''],['2','','','','',''],['3','','','','','']], {columnStyles:{0:{cellWidth:18},5:{cellWidth:25}}, bodyStyles:{minCellHeight:10}, pageBreak:'avoid'});
     }
 
     // Pied de page
@@ -11628,7 +11629,7 @@ const App = {
 
     // Header avec logo à gauche
     const logoBuffer = getLogoBuffer();
-    const headerRow = new Table({ rows:[new TableRow({ children:[
+    const headerRow = new Table({ rows:[new TableRow({ cantSplit:true, children:[
       new TableCell({ children:[logoBuffer ? new Paragraph({ children:[new ImageRun({data:logoBuffer,transformation:{width:100,height:60},type:'jpg'})], spacing:{before:20,after:20} }) : new Paragraph({children:[]})], width:{size:25,type:WidthType.PERCENTAGE}, borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}} }),
       new TableCell({ children:[
         new Paragraph({ children:[new TextRun({text:entityName,size:28,bold:true,font:'Calibri',color:GREEN})], alignment:AlignmentType.LEFT, spacing:{before:40,after:20} }),
@@ -11643,9 +11644,9 @@ const App = {
     // EU
     children.push(new Paragraph({children:[new TextRun({text:'1. ENTREPRISE UTILISATRICE',size:24,bold:true,font:'Calibri',color:GREEN})],spacing:{before:100,after:80}}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
-      new TableRow({children:[cell('Entreprise',{width:30,bold:true}),cell(eu.nom||'')]}),
-      new TableRow({children:[cell('Contact',{width:30,bold:true}),cell(`${eu.responsable||''} — Tél : ${eu.tel||''} — ${eu.email||''}`)]}),
-      new TableRow({children:[cell('Adresse',{width:30,bold:true}),cell(eu.adresse||'')]}),
+      new TableRow({cantSplit:true,children:[cell('Entreprise',{width:30,bold:true}),cell(eu.nom||'')]}),
+      new TableRow({cantSplit:true,children:[cell('Contact',{width:30,bold:true}),cell(`${eu.responsable||''} — Tél : ${eu.tel||''} — ${eu.email||''}`)]}),
+      new TableRow({cantSplit:true,children:[cell('Adresse',{width:30,bold:true}),cell(eu.adresse||'')]}),
     ]}));
     children.push(new Paragraph({children:[],spacing:{before:100}}));
 
@@ -11653,9 +11654,9 @@ const App = {
     if ((p.risques||[]).length) {
       children.push(new Paragraph({children:[new TextRun({text:'2. RISQUES ET MESURES DE PRÉVENTION',size:24,bold:true,font:'Calibri',color:GREEN})],spacing:{before:100,after:80}}));
       const niveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
-      const rRows = [new TableRow({children:[hCell('N°',5),hCell('Danger / Risque',30),hCell('Niveau',10),hCell('Mesures de prévention',40),hCell('Resp.',15)]})];
+      const rRows = [new TableRow({cantSplit:true,children:[hCell('N°',5),hCell('Danger / Risque',30),hCell('Niveau',10),hCell('Mesures de prévention',40),hCell('Resp.',15)]})];
       p.risques.forEach((r,i) => {
-        rRows.push(new TableRow({children:[
+        rRows.push(new TableRow({cantSplit:true,children:[
           cell(String(i+1),{width:5,align:AlignmentType.CENTER}),
           cell(r.danger||'',{width:30}),
           cell(niveauLabels[r.niveau]||'',{width:10,align:AlignmentType.CENTER}),
@@ -11671,25 +11672,25 @@ const App = {
     const urg = p.urgence||{};
     children.push(new Paragraph({children:[new TextRun({text:'3. CONSIGNES DE SÉCURITÉ & URGENCE',size:24,bold:true,font:'Calibri',color:GREEN})],spacing:{before:100,after:80}}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
-      new TableRow({children:[cell('Responsable sécurité',{width:30,bold:true}),cell(`${urg.responsable||''} — Tél : ${urg.telResponsable||''}`)]}),
-      new TableRow({children:[cell('SST',{width:30,bold:true}),cell(`${urg.sst||''} — Tél : ${urg.telSst||''}`)]}),
-      new TableRow({children:[cell('N° urgence',{width:30,bold:true}),cell(urg.numeros||'Pompiers : 18 | SAMU : 15 | Urgences : 112')]}),
-      new TableRow({children:[cell('Consignes',{width:30,bold:true}),cell(urg.consignes||'')]}),
+      new TableRow({cantSplit:true,children:[cell('Responsable sécurité',{width:30,bold:true}),cell(`${urg.responsable||''} — Tél : ${urg.telResponsable||''}`)]}),
+      new TableRow({cantSplit:true,children:[cell('SST',{width:30,bold:true}),cell(`${urg.sst||''} — Tél : ${urg.telSst||''}`)]}),
+      new TableRow({cantSplit:true,children:[cell('N° urgence',{width:30,bold:true}),cell(urg.numeros||'Pompiers : 18 | SAMU : 15 | Urgences : 112')]}),
+      new TableRow({cantSplit:true,children:[cell('Consignes',{width:30,bold:true}),cell(urg.consignes||'')]}),
     ]}));
     children.push(new Paragraph({children:[],spacing:{before:100}}));
 
     // Émargement vierge
     children.push(new Paragraph({children:[new TextRun({text:'4. ÉMARGEMENT — PRISE DE CONNAISSANCE DU PDP',size:24,bold:true,font:'Calibri',color:GREEN})],spacing:{before:100,after:60}}));
     children.push(new Paragraph({children:[new TextRun({text:'En signant, l\'intervenant atteste avoir pris connaissance du plan de prévention et s\'engage à respecter les mesures de prévention.',size:20,font:'Calibri',italics:true})],spacing:{after:80}}));
-    const emRows = [new TableRow({children:[hCell('Nom',18),hCell('Prénom',15),hCell('Fonction',15),hCell('Société',18),hCell('Date',14),hCell('Signature',20)]})];
+    const emRows = [new TableRow({cantSplit:true,children:[hCell('Nom',18),hCell('Prénom',15),hCell('Fonction',15),hCell('Société',18),hCell('Date',14),hCell('Signature',20)]})];
     // Pré-remplir avec les émargements existants
     const emargements = p.emargements||[];
     if (emargements.length) {
-      emargements.forEach(e => emRows.push(new TableRow({children:[cell(e.nom||'',{width:18}),cell(e.prenom||'',{width:15}),cell(e.fonction||'',{width:15}),cell(e.societe||'',{width:18}),cell(e.date||'',{width:14}),new TableCell({children:[new Paragraph({children:[],spacing:{before:40,after:200}})],width:{size:20,type:WidthType.PERCENTAGE}})]})));
+      emargements.forEach(e => emRows.push(new TableRow({cantSplit:true,children:[cell(e.nom||'',{width:18}),cell(e.prenom||'',{width:15}),cell(e.fonction||'',{width:15}),cell(e.societe||'',{width:18}),cell(e.date||'',{width:14}),new TableCell({children:[new Paragraph({children:[],spacing:{before:40,after:200}})],width:{size:20,type:WidthType.PERCENTAGE}})]})));
     }
     // Lignes vierges supplémentaires
     for (let i=0;i<Math.max(6-emargements.length,3);i++) {
-      emRows.push(new TableRow({children:[cell('',{width:18}),cell('',{width:15}),cell('',{width:15}),cell('',{width:18}),cell('',{width:14}),new TableCell({children:[new Paragraph({children:[],spacing:{before:40,after:200}})],width:{size:20,type:WidthType.PERCENTAGE}})]}));
+      emRows.push(new TableRow({cantSplit:true,children:[cell('',{width:18}),cell('',{width:15}),cell('',{width:15}),cell('',{width:18}),cell('',{width:14}),new TableCell({children:[new Paragraph({children:[],spacing:{before:40,after:200}})],width:{size:20,type:WidthType.PERCENTAGE}})]}));
     }
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:emRows}));
 
@@ -11753,7 +11754,7 @@ const App = {
     let y = 0;
 
     const checkPage = (need=20) => { if(y>290-need){doc.addPage();y=15;} };
-    const secTitle = (txt) => { checkPage(25); doc.setFillColor(...GREEN); doc.rect(m,y,pw,8,'F'); doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255); doc.text(txt,m+2,y+5.5); y+=12; doc.setTextColor(0,0,0); };
+    const secTitle = (txt) => { checkPage(60); doc.setFillColor(...GREEN); doc.rect(m,y,pw,8,'F'); doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255); doc.text(txt,m+2,y+5.5); y+=12; doc.setTextColor(0,0,0); };
     const addTable = (head,body,opts={}) => { doc.autoTable({ startY:y, margin:{left:m,right:m}, head:head?[head]:undefined, body, theme:'grid', headStyles:{fillColor:GREEN,textColor:[255,255,255],fontStyle:'bold',fontSize:8,cellPadding:2}, bodyStyles:{fontSize:8,cellPadding:2,font:'helvetica'}, columnStyles:opts.columnStyles||{}, alternateRowStyles:{fillColor:[245,246,248]}, tableWidth:pw, ...opts }); y=doc.lastAutoTable.finalY+4; };
     const labelTable = (rows) => { addTable(null, rows.map(([l,v])=>[ {content:l,styles:{fontStyle:'bold',cellWidth:55}}, v||'' ]) ); };
 
@@ -11993,7 +11994,7 @@ const App = {
       sigCols.map(c=>`Fonction : ${c.sig.fonction||''}`),
       sigCols.map(c=>`Date : ${c.sig.date||''}`),
       sigCols.map(c=>({content:'Signature :',styles:{minCellHeight:25}}))
-    ]);
+    ], {pageBreak:'avoid'});
     // Insérer les images de signature PDP sous le tableau
     const pdpSigColW = pw / sigCols.length;
     let hasPdpSigImg = false;
@@ -12210,7 +12211,7 @@ const App = {
           addTable(['Représentant EU','','Exécutant travaux',''], [
             [`Nom : ${r.signatureEU?.nom||''}`,`Date : ${r.signatureEU?.date||''}`,`Nom : ${rExec.nom||''}`,`Date : ${rExec.date||''}`],
             [{content:'Signature :',styles:{minCellHeight:10}},{content:'',styles:{minCellHeight:10}},{content:'Signature :',styles:{minCellHeight:10}},{content:'',styles:{minCellHeight:10}}]
-          ], {columnStyles:{0:{cellWidth:50},1:{cellWidth:40},2:{cellWidth:50},3:{cellWidth:40}}});
+          ], {columnStyles:{0:{cellWidth:50},1:{cellWidth:40},2:{cellWidth:50},3:{cellWidth:40}}, pageBreak:'avoid'});
           // Rondes
           const rondes = r.rondes || [];
           if (rondes.length) {
