@@ -7059,18 +7059,10 @@ const App = {
     const e = this.currentPDP?.emargementsLibres?.[i];
     if (!e) return;
     e.nom = value;
-    // Remplir automatiquement la date du jour quand un nom est saisi
-    if ((value||'').trim() && !(e.date||'').trim()) {
-      e.date = new Date().toISOString().slice(0,10);
-      const dateInput = document.querySelector(`input[data-libre-date="${i}"]`);
-      if (dateInput) dateInput.value = e.date;
-    }
-    // Si on efface le nom, on efface aussi la date (logique demandee : pas de date sans nom)
-    if (!(value||'').trim()) {
-      e.date = '';
-      const dateInput = document.querySelector(`input[data-libre-date="${i}"]`);
-      if (dateInput) dateInput.value = '';
-    }
+    // La date n'est jamais pre-remplie automatiquement : elle doit refleter
+    // la date reelle de la visite, qui peut etre differente de la date de
+    // saisie du nom. L'utilisateur la renseigne via le date picker, ou la
+    // remplit a la main sur la version papier.
   },
 
   renderEmargementsLibres() {
