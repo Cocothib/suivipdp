@@ -7045,11 +7045,32 @@ const App = {
     const p = this.currentPDP;
     if (!p) return;
     p.emargementsLibres = p.emargementsLibres || [];
-    const today = new Date().toISOString().slice(0,10);
     while (p.emargementsLibres.length < this.EMARGEMENTS_LIBRES_COUNT) {
-      p.emargementsLibres.push({ nom: '', societe: '', date: today, signature: null });
+      p.emargementsLibres.push({ nom: '', societe: '', date: '', signature: null });
     }
+    // Migration : effacer la date des lignes sans nom (anciennes VMC avec date pre-remplie)
+    p.emargementsLibres.forEach(e => {
+      if (!(e.nom||'').trim()) e.date = '';
+    });
     this.renderEmargementsLibres();
+  },
+
+  updateEmargementLibreNom(i, value) {
+    const e = this.currentPDP?.emargementsLibres?.[i];
+    if (!e) return;
+    e.nom = value;
+    // Remplir automatiquement la date du jour quand un nom est saisi
+    if ((value||'').trim() && !(e.date||'').trim()) {
+      e.date = new Date().toISOString().slice(0,10);
+      const dateInput = document.querySelector(`input[data-libre-date="${i}"]`);
+      if (dateInput) dateInput.value = e.date;
+    }
+    // Si on efface le nom, on efface aussi la date (logique demandee : pas de date sans nom)
+    if (!(value||'').trim()) {
+      e.date = '';
+      const dateInput = document.querySelector(`input[data-libre-date="${i}"]`);
+      if (dateInput) dateInput.value = '';
+    }
   },
 
   renderEmargementsLibres() {
@@ -7067,9 +7088,9 @@ const App = {
         </tr></thead>
         <tbody>${em.map((e,i) => `<tr>
           <td class="text-muted small">${i+1}</td>
-          <td><input type="text" class="form-control form-control-sm" placeholder="Nom Prénom" value="${this.esc(e.nom||'')}" onchange="App.currentPDP.emargementsLibres[${i}].nom=this.value"></td>
+          <td><input type="text" class="form-control form-control-sm" placeholder="Nom Prénom" value="${this.esc(e.nom||'')}" onchange="App.updateEmargementLibreNom(${i}, this.value)"></td>
           <td><input type="text" class="form-control form-control-sm" placeholder="Société / Fonction" value="${this.esc(e.societe||'')}" onchange="App.currentPDP.emargementsLibres[${i}].societe=this.value"></td>
-          <td><input type="date" class="form-control form-control-sm" value="${e.date||''}" onchange="App.currentPDP.emargementsLibres[${i}].date=this.value"></td>
+          <td><input type="date" class="form-control form-control-sm" data-libre-date="${i}" value="${e.date||''}" onchange="App.currentPDP.emargementsLibres[${i}].date=this.value"></td>
           <td><div class="signature-pad-wrapper"><canvas id="emarg-libre-canvas-${i}" class="signature-canvas" style="height:50px"></canvas></div></td>
           <td><button class="btn btn-sm btn-outline-secondary" title="Effacer la signature" onclick="App.clearSignature('emarg-libre-canvas-${i}')"><i class="bi bi-eraser"></i></button></td>
         </tr>`).join('')}</tbody>
@@ -7084,9 +7105,8 @@ const App = {
 
   resetEmargementsLibres() {
     if (!confirm('Effacer toutes les lignes visiteurs ? Les noms saisis et signatures seront perdus.')) return;
-    const today = new Date().toISOString().slice(0,10);
     this.currentPDP.emargementsLibres = Array.from({length: this.EMARGEMENTS_LIBRES_COUNT}, () => ({
-      nom: '', societe: '', date: today, signature: null
+      nom: '', societe: '', date: '', signature: null
     }));
     this.renderEmargementsLibres();
     this.toast('Lignes visiteurs réinitialisées');
@@ -10981,11 +11001,12 @@ const App = {
       const libresRows = [new TableRow({tableHeader:true,cantSplit:true,children:[hCell('#',5),hCell('Nom et prénom',30),hCell('Société / Fonction',25),hCell('Date',15),hCell('Signature',25)]})];
       for (let i = 0; i < libresCount; i++) {
         const e = libres[i] || {};
+        const hasName = (e.nom||'').trim();
         libresRows.push(new TableRow({cantSplit:true,height:{value:480,rule:'atLeast'},children:[
           cell(String(i+1),{width:5}),
           cell(e.nom||'',{width:30}),
           cell(e.societe||'',{width:25}),
-          cell(e.date||'',{width:15}),
+          cell(hasName ? (e.date||'') : '',{width:15}),
           _libreSigCell(e.signature,25)
         ]}));
       }
@@ -11713,11 +11734,12 @@ const App = {
     const libresRowsST = [new TableRow({tableHeader:true,cantSplit:true,children:[hCell('#',5),hCell('Nom et prénom',30),hCell('Société / Fonction',25),hCell('Date',15),hCell('Signature',25)]})];
     for (let i = 0; i < libresCountST; i++) {
       const e = libresST[i] || {};
+      const hasNameST = (e.nom||'').trim();
       libresRowsST.push(new TableRow({cantSplit:true,height:{value:480,rule:'atLeast'},children:[
         cell(String(i+1),{width:5,align:AlignmentType.CENTER}),
         cell(e.nom||'',{width:30}),
         cell(e.societe||'',{width:25}),
-        cell(e.date||'',{width:15}),
+        cell(hasNameST ? (e.date||'') : '',{width:15}),
         _libreSigCellST(e.signature)
       ]}));
     }
@@ -12044,7 +12066,8 @@ const App = {
       const libresRows = [];
       for (let i = 0; i < countPDF; i++) {
         const e = libresPDF[i] || {};
-        libresRows.push([String(i+1), e.nom||'', e.societe||'', e.date||'', '']);
+        const hasNamePDF = (e.nom||'').trim();
+        libresRows.push([String(i+1), e.nom||'', e.societe||'', hasNamePDF ? (e.date||'') : '', '']);
         libresSigs.push(e.signature || null);
       }
       addTable(['#','Nom et prénom','Société / Fonction','Date','Signature'], libresRows, {
