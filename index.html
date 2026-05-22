@@ -1188,6 +1188,11 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     body { background: #fff; padding: 0; }
     .card { box-shadow: none; border: 1px solid #ddd; }
 }
+/* ---- Editeur d'aide ---- */
+.help-editing .accordion-body { border: 2px dashed #00693E; background: #f0f8f4; padding: 1rem; outline: none; }
+.help-editing .accordion-body:focus { box-shadow: 0 0 0 .2rem rgba(0,105,62,.25); }
+.help-toolbar { position: sticky; top: 0; z-index: 100; background: white; border-bottom: 1px solid #ddd; padding: .5rem; display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin-bottom: .75rem; border-radius: .25rem; box-shadow: 0 2px 4px rgba(0,0,0,.05); }
+.help-reset-btn { margin-top: .5rem; }
   </style>
 </head>
 <body>
@@ -2415,11 +2420,27 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
 
   <!-- Tutorial -->
   <div id="view-tutoriel" class="view fade-in" style="display:none">
-    <h5 class="mb-3"><i class="bi bi-book me-1"></i>Aide — Guide d'utilisation</h5>
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <h5 class="mb-0"><i class="bi bi-book me-1"></i>Aide — Guide d'utilisation</h5>
+      <button id="btn-help-edit" class="btn btn-sm btn-outline-success" style="display:none" onclick="App.helpEnterEdit()"><i class="bi bi-pencil-square me-1"></i>Modifier l'aide</button>
+    </div>
+    <div id="help-toolbar" class="help-toolbar" style="display:none">
+      <button type="button" class="btn btn-sm btn-light" title="Gras" onmousedown="event.preventDefault()" onclick="App.helpExec('bold')"><strong>B</strong></button>
+      <button type="button" class="btn btn-sm btn-light" title="Italique" onmousedown="event.preventDefault()" onclick="App.helpExec('italic')"><em>I</em></button>
+      <button type="button" class="btn btn-sm btn-light" title="Souligné" onmousedown="event.preventDefault()" onclick="App.helpExec('underline')"><u>U</u></button>
+      <button type="button" class="btn btn-sm btn-light" title="Liste à puces" onmousedown="event.preventDefault()" onclick="App.helpExec('insertUnorderedList')"><i class="bi bi-list-ul"></i></button>
+      <button type="button" class="btn btn-sm btn-light" title="Liste numérotée" onmousedown="event.preventDefault()" onclick="App.helpExec('insertOrderedList')"><i class="bi bi-list-ol"></i></button>
+      <button type="button" class="btn btn-sm btn-light" title="Titre H4" onmousedown="event.preventDefault()" onclick="App.helpExec('formatBlock','h4')">H4</button>
+      <button type="button" class="btn btn-sm btn-light" title="Paragraphe" onmousedown="event.preventDefault()" onclick="App.helpExec('formatBlock','p')">P</button>
+      <button type="button" class="btn btn-sm btn-light" title="Lien" onmousedown="event.preventDefault()" onclick="App.helpInsertLink()"><i class="bi bi-link-45deg"></i></button>
+      <span class="flex-grow-1"></span>
+      <button type="button" class="btn btn-sm btn-success" onclick="App.helpSave()"><i class="bi bi-check-lg me-1"></i>Enregistrer</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" onclick="App.helpCancel()"><i class="bi bi-x-lg me-1"></i>Annuler</button>
+    </div>
     <input type="search" class="form-control mb-3" name="tutorial-search" aria-label="Rechercher dans l'aide" placeholder="Rechercher dans l'aide..." oninput="App.filterTutorial(this.value)">
     <div class="accordion" id="tuto-accordion">
 
-      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-1">1. Présentation générale</button></h2><div id="tuto-1" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-1">1. Présentation générale</button></h2><div id="tuto-1" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-1">
         <p><strong>Suivi PDP</strong> est l'application QSE de gestion des <strong>Plans de Prévention (PDP)</strong>, <strong>Inspections Communes Préalables (ICP)</strong> et <strong>Permis de Feu</strong> pour AGRIWATT et Enersolys.</p>
         <p>L'app fonctionne <strong>hors-ligne</strong> (IndexedDB local) et se synchronise automatiquement avec <strong>SharePoint AGRIWATT</strong> (site QHSE) pour partager les données entre tous les appareils et collègues.</p>
         <p><strong>Vues principales :</strong></p>
@@ -2432,7 +2453,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         </ul>
       </div></div></div>
 
-      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-2">2. Workflow type ICP → PDP (chantier externe)</button></h2><div id="tuto-2" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-2">2. Workflow type ICP → PDP (chantier externe)</button></h2><div id="tuto-2" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-2">
         <ol>
           <li>Sur l'onglet <strong>ICP</strong>, clique sur <strong>Nouvelle ICP</strong></li>
           <li>Dans le champ <strong>N° d'opération</strong> (préfixe OPP- automatique), tape juste les chiffres ou clique 🔍 vert pour <strong>rechercher dans Sellsy</strong></li>
@@ -2445,7 +2466,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         </ol>
       </div></div></div>
 
-      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-3">3. Compléter un PDP</button></h2><div id="tuto-3" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-3">3. Compléter un PDP</button></h2><div id="tuto-3" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-3">
         <p>Les onglets sont organisés selon la barre de progression. Beaucoup de champs sont déjà pré-remplis depuis l'ICP liée :</p>
         <ul>
           <li><strong>Général</strong> — Titre, statut, dates (la <em>Durée prévisionnelle</em> se calcule auto à partir des dates), numéro auto</li>
@@ -2462,7 +2483,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <p><strong>Astuce</strong> : à chaque sauvegarde, les <strong>nouvelles personnes saisies</strong> sont automatiquement ajoutées au répertoire entreprises (sans modifier le contact principal existant) — la base s'enrichit au fil de l'eau.</p>
       </div></div></div>
 
-      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-4">4. Bibliothèque FDS</button></h2><div id="tuto-4" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-4">4. Bibliothèque FDS</button></h2><div id="tuto-4" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-4">
         <p>Les <strong>Fiches de Données de Sécurité</strong> sont gérées dans une bibliothèque centrale partagée — pas de duplication par PDP.</p>
         <ul>
           <li><strong>Réglages → Bibliothèque FDS</strong> : importe les PDF (multi-sélection), coche/décoche "Standard"</li>
@@ -2475,7 +2496,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <p><strong>FDS importées par défaut</strong> : 9 FDS Würth (PURLOGIC CLEAN/DUO, GALVA SPRAY CLAIR, MULTI, NETTOYANT MULTI-USAGE 1L+5L, WNC 50, CARTOUCHE BUTANE/PROPANE) + 1 Polywater AFT-16.</p>
       </div></div></div>
 
-      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-5">5. Entreprises et contacts multiples</button></h2><div id="tuto-5" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-5">5. Entreprises et contacts multiples</button></h2><div id="tuto-5" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-5">
         <p>Chaque entreprise du répertoire peut avoir <strong>plusieurs contacts</strong> (Contact principal + contacts additionnels).</p>
         <ul>
           <li>Onglet <strong>Entreprises</strong> → édite une entreprise → section "Contacts additionnels" → bouton <em>+ Ajouter</em></li>
@@ -2487,7 +2508,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <p><strong>Recherche d'entreprise</strong> dans la modal "Ajouter EE" : tape les premières lettres, recherche live dans 5000+ entreprises Sellsy synchronisées.</p>
       </div></div></div>
 
-      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-6">6. Permis de Feu</button></h2><div id="tuto-6" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-6">6. Permis de Feu</button></h2><div id="tuto-6" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-6">
         <p>Onglet <strong>Permis de Feu</strong> du PDP — activable au cas par cas (déclenché automatiquement si un risque "Soudure", "Incendie", "Échauffement" est identifié).</p>
         <ul>
           <li>Types de travaux : soudage, tronçonnage, meulage, thermosoudure, etc.</li>
@@ -2501,7 +2522,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         </ul>
       </div></div></div>
 
-      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-7">7. Exports (Word, PDF, ZIP)</button></h2><div id="tuto-7" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-7">7. Exports (Word, PDF, ZIP)</button></h2><div id="tuto-7" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-7">
         <p><strong>Boutons d'export</strong> en bas du PDP/ICP :</p>
         <ul>
           <li><strong>Export Word (.docx)</strong> — document seul, mise en forme professionnelle</li>
@@ -2521,7 +2542,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <p><strong>Archivage SharePoint automatique</strong> : tous les exports sont uploadés dans <code>SuiviPDP/PDP/Exports/</code> et <code>SuiviPDP/ICP/Exports/</code> sur le site QHSE.</p>
       </div></div></div>
 
-      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-8">8. Synchronisation SharePoint</button></h2><div id="tuto-8" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-8">8. Synchronisation SharePoint</button></h2><div id="tuto-8" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-8">
         <p>L'app se synchronise automatiquement avec le site SharePoint AGRIWATT QHSE — bibliothèque <strong>Documents partagés</strong>, dossier <code>SuiviPDP/</code>.</p>
         <ul>
           <li><strong>Connexion</strong> : automatique au démarrage (compte Microsoft AGRIWATT). Bouton SharePoint en haut à droite indique le statut</li>
@@ -2539,7 +2560,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         </ul>
       </div></div></div>
 
-      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-9">9. Statuts et auto-archivage</button></h2><div id="tuto-9" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-9">9. Statuts et auto-archivage</button></h2><div id="tuto-9" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-9">
         <p><strong>Statuts PDP :</strong> Brouillon → Visite préalable → Analyse de risque → En signature → Actif → Modifié → Clôturé</p>
         <p><strong>Statuts ICP :</strong> Effectuée → Validée (signée)</p>
         <ul>
@@ -2550,7 +2571,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         </ul>
       </div></div></div>
 
-      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-10">10. Recherche et filtres dans les listes</button></h2><div id="tuto-10" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-10">10. Recherche et filtres dans les listes</button></h2><div id="tuto-10" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-10">
         <p><strong>Liste PDP :</strong></p>
         <ul>
           <li>Recherche multi-champs : tape "Bayart", "OPP-04", "Seclin", "Bourgeois" — matche sur titre, OPP, n° PDP, site, client</li>
@@ -2564,7 +2585,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <p><strong>Affichage</strong> : chaque carte montre badge statut, badge OPP-XXXX bleu, n° et titre. Format identique aux noms de fichier export.</p>
       </div></div></div>
 
-      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-11">11. Risques et Pictogrammes</button></h2><div id="tuto-11" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-11">11. Risques et Pictogrammes</button></h2><div id="tuto-11" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-11">
         <p><strong>Risques :</strong></p>
         <ul>
           <li>Sélecteur par catégorie : Chutes, Électrique, Incendie, Chimique, Mécanique, Circulation, Environnement, Travaux spécifiques</li>
@@ -2580,7 +2601,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         </ul>
       </div></div></div>
 
-      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-12">12. Géolocalisation ICP</button></h2><div id="tuto-12" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-12">12. Géolocalisation ICP</button></h2><div id="tuto-12" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-12">
         <p>Section <strong>Localisation et date</strong> de l'ICP :</p>
         <ul>
           <li><strong>Site / Adresse</strong> — adresse postale (auto-remplie depuis Sellsy)</li>
@@ -2590,7 +2611,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         </ul>
       </div></div></div>
 
-      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-13">13. Raccourcis et Astuces</button></h2><div id="tuto-13" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small">
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-13">13. Raccourcis et Astuces</button></h2><div id="tuto-13" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-13">
         <ul>
           <li>Le préfixe <strong>OPP-</strong> est automatique : tape juste les chiffres (<em>04146</em>)</li>
           <li>La <strong>barre de progression</strong> en haut du PDP indique le taux de complétion</li>
@@ -4307,6 +4328,7 @@ const App = {
     if (view === 'icps') this.renderICPList();
     if (view === 'entreprises') this.renderEntreprises();
     if (view === 'settings') this.renderSettingsView();
+    if (view === 'tutoriel') this.helpInit();
     // Collapse mobile navbar
     const navCollapse = document.getElementById('navbarMain');
     if (navCollapse?.classList.contains('show')) bootstrap.Collapse.getInstance(navCollapse)?.hide();
@@ -11701,6 +11723,152 @@ const App = {
 
   // ---- UTILS ----
   esc(t) { if(!t)return''; const d=document.createElement('div'); d.textContent=t; return d.innerHTML; },
+
+  // ---- TUTORIEL : editeur d'aide admin ----
+  _helpOriginals: null,   // snapshot du HTML initial (avant overrides) par tuto-id
+  _helpSnapshot: null,    // snapshot pris a l'entree en mode edition
+  _helpEditing: false,
+
+  async helpInit() {
+    const bodies = document.querySelectorAll('#tuto-accordion .accordion-body[data-help-id]');
+    // 1) Capturer le snapshot original (HTML d'origine) au tout premier passage
+    if (!this._helpOriginals) {
+      this._helpOriginals = {};
+      bodies.forEach(b => { this._helpOriginals[b.dataset.helpId] = b.innerHTML; });
+    }
+    // 2) Appliquer les overrides eventuels
+    try {
+      const s = await db.settings.get('helpOverrides');
+      const overrides = (s && s.value) || {};
+      bodies.forEach(b => {
+        const id = b.dataset.helpId;
+        if (overrides[id] != null) b.innerHTML = overrides[id];
+        else b.innerHTML = this._helpOriginals[id];
+      });
+    } catch(e) { console.warn('helpInit overrides', e); }
+    // 3) Afficher le bouton "Modifier l'aide" si admin
+    try {
+      const btn = document.getElementById('btn-help-edit');
+      if (btn) btn.style.display = (await this.isAdmin()) ? '' : 'none';
+    } catch(e) {}
+  },
+
+  async helpEnterEdit() {
+    if (!(await this.isAdmin())) { this.toast("Reserve aux administrateurs", 'warning'); return; }
+    const bodies = document.querySelectorAll('#tuto-accordion .accordion-body[data-help-id]');
+    // Snapshot pour annulation
+    this._helpSnapshot = {};
+    bodies.forEach(b => { this._helpSnapshot[b.dataset.helpId] = b.innerHTML; });
+    // Activer contentEditable + boutons reset par section
+    bodies.forEach(b => {
+      b.setAttribute('contenteditable', 'true');
+      b.spellcheck = true;
+      // Ajout du bouton "Reinitialiser cette section" si absent
+      const parent = b.parentElement; // .accordion-collapse
+      if (parent && !parent.querySelector('.help-reset-btn')) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-sm btn-outline-warning help-reset-btn ms-3 mb-3';
+        btn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Reinitialiser cette section';
+        btn.onclick = () => App.helpResetSection(b.dataset.helpId);
+        parent.appendChild(btn);
+      }
+    });
+    // Ouvrir tous les accordions
+    document.querySelectorAll('#tuto-accordion .accordion-collapse').forEach(c => {
+      if (!c.classList.contains('show')) {
+        try { new bootstrap.Collapse(c, { toggle: true }); } catch(e) { c.classList.add('show'); }
+      }
+    });
+    document.querySelectorAll('#tuto-accordion .accordion-button').forEach(btn => btn.classList.remove('collapsed'));
+    document.getElementById('view-tutoriel')?.classList.add('help-editing');
+    document.getElementById('help-toolbar').style.display = 'flex';
+    document.getElementById('btn-help-edit').style.display = 'none';
+    this._helpEditing = true;
+  },
+
+  helpExec(cmd, arg) {
+    try { document.execCommand(cmd, false, arg || null); } catch(e) { console.warn('execCommand', e); }
+  },
+
+  helpInsertLink() {
+    const url = prompt("URL du lien (https://...) :", "https://");
+    if (!url || url === 'https://') return;
+    try { document.execCommand('createLink', false, url); } catch(e) {}
+  },
+
+  _helpSanitize(html) {
+    // Strip simple : retirer <script>, <iframe>, gestionnaires inline on*
+    if (!html) return '';
+    let h = String(html);
+    h = h.replace(/<script[\s\S]*?<\/script>/gi, '');
+    h = h.replace(/<iframe[\s\S]*?<\/iframe>/gi, '');
+    h = h.replace(/<script[^>]*>/gi, '').replace(/<\/script>/gi, '');
+    h = h.replace(/<iframe[^>]*>/gi, '').replace(/<\/iframe>/gi, '');
+    h = h.replace(/\son\w+\s*=\s*"[^"]*"/gi, '');
+    h = h.replace(/\son\w+\s*=\s*'[^']*'/gi, '');
+    h = h.replace(/javascript:/gi, '');
+    return h;
+  },
+
+  async helpSave() {
+    const bodies = document.querySelectorAll('#tuto-accordion .accordion-body[data-help-id]');
+    const overrides = {};
+    bodies.forEach(b => {
+      const id = b.dataset.helpId;
+      const cleaned = this._helpSanitize(b.innerHTML);
+      b.innerHTML = cleaned; // refleter le HTML sanitise dans la vue
+      // Ne stocker que si different de l'original
+      if (this._helpOriginals && cleaned !== this._helpOriginals[id]) {
+        overrides[id] = cleaned;
+      }
+    });
+    try {
+      await db.settings.put({ key: 'helpOverrides', value: overrides });
+      if (typeof DataSync !== 'undefined' && DataSync.markDirty) DataSync.markDirty();
+      this.toast('Aide enregistrée');
+      if (typeof ActivityLog !== 'undefined') ActivityLog.log('help.save', { sections: Object.keys(overrides).length });
+    } catch(e) {
+      console.error(e);
+      this.toast("Erreur lors de l'enregistrement", 'danger');
+      return;
+    }
+    this._helpExitEditMode();
+  },
+
+  helpCancel() {
+    // Restaurer depuis le snapshot
+    if (this._helpSnapshot) {
+      document.querySelectorAll('#tuto-accordion .accordion-body[data-help-id]').forEach(b => {
+        const id = b.dataset.helpId;
+        if (this._helpSnapshot[id] != null) b.innerHTML = this._helpSnapshot[id];
+      });
+    }
+    this._helpExitEditMode();
+    this.toast('Modifications annulées', 'info');
+  },
+
+  async helpResetSection(id) {
+    if (!id || !this._helpOriginals || this._helpOriginals[id] == null) return;
+    const body = document.querySelector(`#tuto-accordion .accordion-body[data-help-id="${id}"]`);
+    if (!body) return;
+    if (!(await this.confirm(`Reinitialiser le contenu d'origine de la section ${id} ?`))) return;
+    body.innerHTML = this._helpOriginals[id];
+    this.toast('Section réinitialisée', 'info');
+  },
+
+  _helpExitEditMode() {
+    document.querySelectorAll('#tuto-accordion .accordion-body[data-help-id]').forEach(b => {
+      b.removeAttribute('contenteditable');
+    });
+    document.querySelectorAll('#tuto-accordion .help-reset-btn').forEach(b => b.remove());
+    document.getElementById('view-tutoriel')?.classList.remove('help-editing');
+    document.getElementById('help-toolbar').style.display = 'none';
+    const editBtn = document.getElementById('btn-help-edit');
+    if (editBtn) editBtn.style.display = '';
+    this._helpEditing = false;
+    this._helpSnapshot = null;
+  },
 
   // ---- TUTORIEL ----
   filterTutorial(query) {
