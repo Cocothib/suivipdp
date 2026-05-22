@@ -1991,6 +1991,18 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <div id="emargements-list-container"></div>
         </div>
       </div>
+
+      <div class="form-section">
+        <div class="form-section-title"><i class="bi bi-people"></i>Visiteurs / intervenants occasionnels</div>
+        <div class="section-helper"><i class="bi bi-info-circle"></i> 20 lignes vierges pour les personnes arrivant sur le chantier sans être inscrites officiellement dans le PDP. Elles attestent ainsi avoir pris connaissance du PDP avant tout accès au chantier. Disponible en ligne et dans les exports Word/PDF (signature manuscrite possible après impression).</div>
+        <div class="field-group">
+          <div class="d-flex gap-2 mb-2">
+            <button class="btn btn-sm btn-outline-secondary" type="button" onclick="App.resetEmargementsLibres()"><i class="bi bi-eraser me-1"></i>Tout effacer</button>
+            <span class="small text-muted align-self-center">Les lignes vides sont conservées dans les exports pour signature papier.</span>
+          </div>
+          <div id="emargements-libres-container"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Section: Documents joints (annexes) -->
@@ -5208,6 +5220,7 @@ const App = {
       modifications: [], historique: [], documents: [], icpId: null,
 
       emargements: [],
+      emargementsLibres: [],
       pictogrammes: { interdictions: ['vapoter','acces'], epiObligatoires: ['casque','chaussures','vetement','gants','antichute'], remarques: '' },
       permisFeu: { actif: false, types: [], description: '', risqueStructure: '', risqueActivite: '', risqueEnvironnement: '', dateDebut: '', heureDebut: '', dateFin: '', heureFin: '', operateurs: [], consignes: { avant: [], pendant: [], apres: [] }, autresPrescriptions: '', rondes: [], renouvellements: [], signatureEU: { nom: '', date: '', data: null }, signatureEE: { nom: '', date: '', data: null }, signatureExec: { nom: '', societe: '', date: '', data: null } },
       dateCreation: new Date().toISOString(), dateModification: new Date().toISOString()
@@ -5610,7 +5623,7 @@ const App = {
     document.querySelector(`#pdp-section-tabs .section-tab[onclick*="${section}"]`)?.classList.add('active');
     if (section === 'signatures') setTimeout(() => this.initSignatureCanvases(), 100);
     if (section === 'risques') { this._riskPickerCtx = 'pdp'; this.updateRiskCounters(); }
-    if (section === 'emargement') { this.prefillEmargements(); }
+    if (section === 'emargement') { this.prefillEmargements(); this.prefillEmargementsLibres(); }
     if (section === 'signatures') { this.renderSignaturesEE(); this.prefillSignatureEU(); }
     if (section === 'permisfeu') { this.prefillPermisFeuSignataires(); }
     if (section === 'permisfeu') setTimeout(() => { this.initCanvas('pf-sig-eu-canvas'); this.initCanvas('pf-sig-ee-canvas'); this.initCanvas('pf-sig-exec-canvas'); if (this.currentPDP?.permisFeu?.signatureEU?.data) this.loadSigImg('pf-sig-eu-canvas', this.currentPDP.permisFeu.signatureEU.data); if (this.currentPDP?.permisFeu?.signatureEE?.data) this.loadSigImg('pf-sig-ee-canvas', this.currentPDP.permisFeu.signatureEE.data); if (this.currentPDP?.permisFeu?.signatureExec?.data) this.loadSigImg('pf-sig-exec-canvas', this.currentPDP.permisFeu.signatureExec.data); (this.currentPDP?.permisFeu?.renouvellements||[]).forEach((r,i) => { this.initCanvas('pf-renouv-sig-'+i); if (r.signatureEU?.data) this.loadSigImg('pf-renouv-sig-'+i, r.signatureEU.data); }); }, 100);
@@ -7019,6 +7032,64 @@ const App = {
       const cv = document.getElementById('emarg-canvas-' + i);
       if (cv && cv._hasDrawing) e.signature = cv.toDataURL();
     });
+    (this.currentPDP?.emargementsLibres || []).forEach((e, i) => {
+      const cv = document.getElementById('emarg-libre-canvas-' + i);
+      if (cv && cv._hasDrawing) e.signature = cv.toDataURL();
+    });
+  },
+
+  // ---- EMARGEMENTS LIBRES (visiteurs imprévus) ----
+  EMARGEMENTS_LIBRES_COUNT: 20,
+
+  prefillEmargementsLibres() {
+    const p = this.currentPDP;
+    if (!p) return;
+    p.emargementsLibres = p.emargementsLibres || [];
+    const today = new Date().toISOString().slice(0,10);
+    while (p.emargementsLibres.length < this.EMARGEMENTS_LIBRES_COUNT) {
+      p.emargementsLibres.push({ nom: '', societe: '', date: today, signature: null });
+    }
+    this.renderEmargementsLibres();
+  },
+
+  renderEmargementsLibres() {
+    const c = document.getElementById('emargements-libres-container');
+    if (!c) return;
+    const em = this.currentPDP?.emargementsLibres || [];
+    c.innerHTML = `<div class="table-responsive"><table class="table table-sm align-middle mb-0" style="min-width:760px">
+        <thead><tr class="small text-muted">
+          <th style="width:30px">#</th>
+          <th>Nom et prénom</th>
+          <th>Société</th>
+          <th style="width:140px">Date</th>
+          <th style="width:240px">Signature</th>
+          <th style="width:40px"></th>
+        </tr></thead>
+        <tbody>${em.map((e,i) => `<tr>
+          <td class="text-muted small">${i+1}</td>
+          <td><input type="text" class="form-control form-control-sm" placeholder="Nom Prénom" value="${this.esc(e.nom||'')}" onchange="App.currentPDP.emargementsLibres[${i}].nom=this.value"></td>
+          <td><input type="text" class="form-control form-control-sm" placeholder="Société / Fonction" value="${this.esc(e.societe||'')}" onchange="App.currentPDP.emargementsLibres[${i}].societe=this.value"></td>
+          <td><input type="date" class="form-control form-control-sm" value="${e.date||''}" onchange="App.currentPDP.emargementsLibres[${i}].date=this.value"></td>
+          <td><div class="signature-pad-wrapper"><canvas id="emarg-libre-canvas-${i}" class="signature-canvas" style="height:50px"></canvas></div></td>
+          <td><button class="btn btn-sm btn-outline-secondary" title="Effacer la signature" onclick="App.clearSignature('emarg-libre-canvas-${i}')"><i class="bi bi-eraser"></i></button></td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+    setTimeout(() => {
+      em.forEach((e, i) => {
+        this.initCanvas('emarg-libre-canvas-' + i);
+        if (e.signature) this.loadSigImg('emarg-libre-canvas-' + i, e.signature);
+      });
+    }, 100);
+  },
+
+  resetEmargementsLibres() {
+    if (!confirm('Effacer toutes les lignes visiteurs ? Les noms saisis et signatures seront perdus.')) return;
+    const today = new Date().toISOString().slice(0,10);
+    this.currentPDP.emargementsLibres = Array.from({length: this.EMARGEMENTS_LIBRES_COUNT}, () => ({
+      nom: '', societe: '', date: today, signature: null
+    }));
+    this.renderEmargementsLibres();
+    this.toast('Lignes visiteurs réinitialisées');
   },
 
   // ---- PERMIS DE FEU ----
@@ -10867,24 +10938,47 @@ const App = {
     ]}));
 
     // Émargement
-    if ((p.emargements||[]).length) {
+    const hasEmargements = (p.emargements||[]).length > 0;
+    const hasEmargementsLibres = ((p.emargementsLibres||[]).length > 0) || true; // toujours afficher pour les visiteurs
+    if (hasEmargements || hasEmargementsLibres) {
       secNum++;
       children.push(secTitle(String(secNum),'ÉMARGEMENT'));
       children.push(new Paragraph({children:[new TextRun({text:'En signant, l\'intervenant atteste avoir pris connaissance du plan de prévention et avoir mis en œuvre les mesures de prévention nécessaires.',size:20,font:'Calibri',italics:true})],spacing:{after:150}}));
-      const emRows = [new TableRow({children:[hCell('Nom',20),hCell('Prénom',15),hCell('Fonction',15),hCell('Société',20),hCell('Date',15),hCell('Signature',15)]})];
-      const _emSigCell = (sig) => {
+      const _emSigCell = (sig, widthPct) => {
         if (sig) {
           try {
             const raw = atob(sig.split(',')[1]);
             const arr = new Uint8Array(raw.length);
             for (let j = 0; j < raw.length; j++) arr[j] = raw.charCodeAt(j);
-            return new TableCell({children:[new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:90,height:35},type:'png'})]})],width:{size:15,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER});
+            return new TableCell({children:[new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:90,height:35},type:'png'})]})],width:{size:widthPct||15,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER});
           } catch(e) {}
         }
-        return new TableCell({children:[new Paragraph({children:[new TextRun({text:'',size:20})],spacing:{before:200,after:200}})],width:{size:15,type:WidthType.PERCENTAGE}});
+        return new TableCell({children:[new Paragraph({children:[new TextRun({text:'',size:20})],spacing:{before:200,after:200}})],width:{size:widthPct||15,type:WidthType.PERCENTAGE}});
       };
-      p.emargements.forEach(e => emRows.push(new TableRow({children:[cell(e.nom||'',{width:20}),cell(e.prenom||'',{width:15}),cell(e.fonction||'',{width:15}),cell(e.societe||'',{width:20}),cell(e.date||'',{width:15}),_emSigCell(e.signature)]})));
-      children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:emRows}));
+      if (hasEmargements) {
+        const emRows = [new TableRow({children:[hCell('Nom',20),hCell('Prénom',15),hCell('Fonction',15),hCell('Société',20),hCell('Date',15),hCell('Signature',15)]})];
+        p.emargements.forEach(e => emRows.push(new TableRow({children:[cell(e.nom||'',{width:20}),cell(e.prenom||'',{width:15}),cell(e.fonction||'',{width:15}),cell(e.societe||'',{width:20}),cell(e.date||'',{width:15}),_emSigCell(e.signature,15)]})));
+        children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:emRows}));
+      }
+
+      // Visiteurs / intervenants occasionnels — 20 lignes pour personnes non inscrites au PDP
+      const libres = p.emargementsLibres || [];
+      const libresCount = Math.max(libres.length, this.EMARGEMENTS_LIBRES_COUNT);
+      children.push(new Paragraph({children:[new TextRun({text:'',size:20})],spacing:{before:200}}));
+      children.push(new Paragraph({children:[new TextRun({text:'Visiteurs / intervenants occasionnels',size:22,font:'Calibri',bold:true})],spacing:{after:100}}));
+      children.push(new Paragraph({children:[new TextRun({text:'Personnes accédant ponctuellement au chantier sans être inscrites officiellement au PDP. Signature obligatoire avant tout accès.',size:18,font:'Calibri',italics:true})],spacing:{after:150}}));
+      const libresRows = [new TableRow({children:[hCell('#',5),hCell('Nom et prénom',30),hCell('Société / Fonction',25),hCell('Date',15),hCell('Signature',25)]})];
+      for (let i = 0; i < libresCount; i++) {
+        const e = libres[i] || {};
+        libresRows.push(new TableRow({children:[
+          cell(String(i+1),{width:5}),
+          cell(e.nom||'',{width:30}),
+          cell(e.societe||'',{width:25}),
+          cell(e.date||'',{width:15}),
+          _emSigCell(e.signature,25)
+        ]}));
+      }
+      children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:libresRows}));
     }
 
     // Pictogrammes
@@ -11589,6 +11683,25 @@ const App = {
     }
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:emRows}));
 
+    // Visiteurs / intervenants occasionnels — 20 lignes prêtes à signer sur le terrain
+    children.push(new Paragraph({children:[new TextRun({text:'',size:20})],spacing:{before:200}}));
+    children.push(new Paragraph({children:[new TextRun({text:'Visiteurs / intervenants occasionnels',size:22,font:'Calibri',bold:true,color:GREEN})],spacing:{after:80}}));
+    children.push(new Paragraph({children:[new TextRun({text:'Personnes accédant ponctuellement au chantier sans être inscrites au PDP. Signature obligatoire avant tout accès.',size:18,font:'Calibri',italics:true})],spacing:{after:120}}));
+    const libresST = p.emargementsLibres || [];
+    const libresCountST = Math.max(libresST.length, this.EMARGEMENTS_LIBRES_COUNT);
+    const libresRowsST = [new TableRow({children:[hCell('#',5),hCell('Nom et prénom',30),hCell('Société / Fonction',25),hCell('Date',15),hCell('Signature',25)]})];
+    for (let i = 0; i < libresCountST; i++) {
+      const e = libresST[i] || {};
+      libresRowsST.push(new TableRow({children:[
+        cell(String(i+1),{width:5,align:AlignmentType.CENTER}),
+        cell(e.nom||'',{width:30}),
+        cell(e.societe||'',{width:25}),
+        cell(e.date||'',{width:15}),
+        new TableCell({children:[new Paragraph({children:[],spacing:{before:40,after:200}})],width:{size:25,type:WidthType.PERCENTAGE}})
+      ]}));
+    }
+    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:libresRowsST}));
+
     const { Footer: Ft2, PageNumber: PN2 } = docx;
     const footerPara = new Paragraph({ alignment:AlignmentType.CENTER, children:[
       new TextRun({text:`PDP SOUS-TRAITANT — ${p.numero||'PDP'} — ${entityName} — Page `,size:14,font:'Calibri',color:'999999'}),
@@ -11876,7 +11989,8 @@ const App = {
     secNum++;
 
     // Émargement
-    if ((p.emargements||[]).length) {
+    const hasEmPDF = (p.emargements||[]).length > 0;
+    if (hasEmPDF) {
       secTitle(`${secNum}. ÉMARGEMENT`);
       const emSigs = p.emargements.map(e => e.signature || null);
       addTable(['Nom','Prénom','Fonction','Société','Date','Signature'],
@@ -11891,6 +12005,35 @@ const App = {
         }
       );
       secNum++;
+    }
+
+    // Visiteurs / intervenants occasionnels — 20 lignes
+    {
+      const libresPDF = p.emargementsLibres || [];
+      const countPDF = Math.max(libresPDF.length, this.EMARGEMENTS_LIBRES_COUNT);
+      if (!hasEmPDF) { secTitle(`${secNum}. ÉMARGEMENT`); secNum++; }
+      checkPage(20);
+      doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(0,105,62);
+      doc.text('Visiteurs / intervenants occasionnels', m, y); y+=5;
+      doc.setFont('helvetica','italic'); doc.setFontSize(8); doc.setTextColor(80,80,80);
+      doc.text('Personnes accédant ponctuellement au chantier sans être inscrites au PDP. Signature obligatoire avant tout accès.', m, y); y+=4;
+      doc.setTextColor(0,0,0);
+      const libresSigs = [];
+      const libresRows = [];
+      for (let i = 0; i < countPDF; i++) {
+        const e = libresPDF[i] || {};
+        libresRows.push([String(i+1), e.nom||'', e.societe||'', e.date||'', '']);
+        libresSigs.push(e.signature || null);
+      }
+      addTable(['#','Nom et prénom','Société / Fonction','Date','Signature'], libresRows, {
+        columnStyles:{0:{cellWidth:8,halign:'center'},3:{cellWidth:22},4:{cellWidth:40}},
+        bodyStyles:{minCellHeight:10},
+        didDrawCell: (d) => {
+          if (d.section === 'body' && d.column.index === 4 && libresSigs[d.row.index]) {
+            try { doc.addImage(libresSigs[d.row.index], 'PNG', d.cell.x+1, d.cell.y+1, d.cell.width-2, d.cell.height-2); } catch {}
+          }
+        }
+      });
     }
 
     // Pictogrammes
