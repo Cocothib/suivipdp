@@ -1563,7 +1563,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
               <div class="input-icon-wrap"><i class="bi bi-building input-icon"></i><input type="text" class="form-control" id="eu-nom" placeholder="AGRIWATT / ENERSOLYS"></div>
             </div>
             <div class="col-md-6"><label class="form-label" for="eu-adresse">Adresse</label><div class="input-group"><span class="input-group-text"><i class="bi bi-geo-alt"></i></span><input type="text" class="form-control" id="eu-adresse" placeholder="Adresse du siège"><button class="btn btn-outline-success" type="button" onclick="App.geocodeEUAddress()" title="Géolocaliser et normaliser"><i class="bi bi-geo-alt-fill"></i></button></div></div>
-            <div class="col-md-6"><label class="form-label" for="eu-responsable">Contact</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="eu-responsable" placeholder="Nom du contact"></div></div>
+            <div class="col-md-6"><label class="form-label" for="eu-responsable">Contact</label><div class="input-group"><span class="input-group-text"><i class="bi bi-person"></i></span><input type="text" class="form-control" id="eu-responsable" placeholder="Nom du contact"><button class="btn btn-outline-secondary" type="button" onclick="App.openEUContactPicker('pdp')" title="Choisir parmi les contacts de l'entreprise"><i class="bi bi-people"></i></button></div></div>
             <div class="col-md-6"><label class="form-label" for="eu-fonction">Fonction</label><input type="text" class="form-control" id="eu-fonction" placeholder="Ex: Conducteur de travaux"></div>
             <div class="col-md-6"><label class="form-label" for="eu-tel">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="eu-tel" placeholder="06 XX XX XX XX"></div></div>
             <div class="col-md-6"><label class="form-label" for="eu-email">Email</label><div class="input-icon-wrap"><i class="bi bi-envelope input-icon"></i><input type="email" class="form-control" id="eu-email" placeholder="contact@exemple.fr"></div></div>
@@ -2172,7 +2172,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="field-group">
         <div class="field-group-title"><i class="bi bi-person-badge"></i> Représentant du client (EU)</div>
         <div class="row g-2">
-          <div class="col-md-4"><label class="form-label" for="icp-eu-nom">Nom</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-eu-nom" placeholder="Nom" oninput="App.syncICPSignatureNom('eu')"></div></div>
+          <div class="col-md-4"><label class="form-label" for="icp-eu-nom">Nom</label><div class="input-group"><span class="input-group-text"><i class="bi bi-person"></i></span><input type="text" class="form-control" id="icp-eu-nom" placeholder="Nom" oninput="App.syncICPSignatureNom('eu')"><button class="btn btn-outline-secondary" type="button" onclick="App.openEUContactPicker('icp')" title="Choisir parmi les contacts de l'entreprise"><i class="bi bi-people"></i></button></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-eu-fonction">Fonction</label><div class="input-icon-wrap"><i class="bi bi-briefcase input-icon"></i><input type="text" class="form-control" id="icp-eu-fonction" placeholder="Fonction"></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-eu-tel">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="icp-eu-tel" placeholder="Téléphone"></div></div>
           <div class="col-12 mt-1 d-flex justify-content-end"><button type="button" class="btn btn-outline-primary btn-sm" onclick="App.addICPEUParticipantRow()"><i class="bi bi-plus-lg me-1"></i>Ajouter une 2e personne côté client</button></div>
@@ -2859,6 +2859,16 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     <div class="modal-content">
       <div class="modal-header"><h6 class="modal-title"><i class="bi bi-link-45deg me-1"></i>Sélectionner</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body" id="modal-icp-link-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- EU Contact Picker Modal -->
+<div class="modal fade" id="modal-eu-contact-picker" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h6 class="modal-title"><i class="bi bi-people me-2"></i>Choisir un contact EU</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body"><div id="eu-contact-picker-list" class="list-group"></div></div>
     </div>
   </div>
 </div>
@@ -7836,6 +7846,79 @@ const App = {
       data.email = main.email||'';
     }
     return data;
+  },
+
+  // ---- EU CONTACT PICKER (PDP & ICP) ----
+  async _getEUContactsFor(target) {
+    const out = [];
+    const seen = new Set();
+    const push = (c) => {
+      if (!c) return;
+      const nom = (c.nom || c.responsable || '').trim();
+      if (!nom) return;
+      const k = nom.toLowerCase();
+      if (seen.has(k)) return;
+      seen.add(k);
+      out.push({ nom, fonction:(c.fonction||'').trim(), tel:(c.tel||'').trim(), email:(c.email||'').trim() });
+    };
+    let ent = null;
+    try {
+      if (target === 'icp') {
+        const info = this.currentICP?.euInfo;
+        if (info?.localId) ent = await db.entreprises.get(info.localId);
+        if (!ent && info?.nom) {
+          const all = await db.entreprises.toArray();
+          ent = all.find(e => (e.nom||'').toLowerCase() === info.nom.toLowerCase());
+        }
+      } else {
+        const nom = (document.getElementById('eu-nom')?.value || '').trim();
+        if (nom) {
+          const all = await db.entreprises.toArray();
+          ent = all.find(e => (e.nom||'').toLowerCase() === nom.toLowerCase());
+        }
+      }
+    } catch(e) { console.warn('EUContacts:', e); }
+    if (ent) {
+      (ent.contacts || []).forEach(push);
+      if (ent.responsable) push({ nom:ent.responsable, fonction:ent.fonction, tel:ent.tel, email:ent.email });
+    }
+    return out;
+  },
+
+  async openEUContactPicker(target) {
+    this._euContactPickerTarget = target;
+    const contacts = await this._getEUContactsFor(target);
+    this._euContactPickerData = contacts;
+    const el = document.getElementById('eu-contact-picker-list');
+    if (!contacts.length) {
+      el.innerHTML = '<p class="text-muted small mb-0 p-2">Aucun contact disponible. Renseignez d\'abord l\'entreprise EU (recherche Sellsy ou répertoire local) puis ajoutez-y des contacts via Entreprises &rarr; Modifier.</p>';
+    } else {
+      el.innerHTML = contacts.map((c,i) => `<button type="button" class="list-group-item list-group-item-action" onclick="App.applyEUContact(${i})"><div><strong>${this.esc(c.nom)}</strong>${c.fonction?` <span class="text-muted small">— ${this.esc(c.fonction)}</span>`:''}</div>${(c.tel||c.email)?`<div class="small text-muted">${this.esc(c.tel||'')}${c.email?(c.tel?' · ':'')+this.esc(c.email):''}</div>`:''}</button>`).join('');
+    }
+    if (!this._euContactPickerModal) this._euContactPickerModal = new bootstrap.Modal(document.getElementById('modal-eu-contact-picker'));
+    this._euContactPickerModal.show();
+  },
+
+  applyEUContact(index) {
+    const c = (this._euContactPickerData || [])[index];
+    if (!c) return;
+    const target = this._euContactPickerTarget;
+    if (target === 'icp') {
+      const setVal = (id,v) => { const el = document.getElementById(id); if (el) el.value = v||''; };
+      setVal('icp-eu-nom', c.nom);
+      setVal('icp-eu-fonction', c.fonction);
+      setVal('icp-eu-tel', c.tel);
+      this.syncICPSignatureNom && this.syncICPSignatureNom('eu');
+    } else {
+      const setVal = (id,v) => { const el = document.getElementById(id); if (el) el.value = v||''; };
+      setVal('eu-responsable', c.nom);
+      setVal('eu-fonction', c.fonction);
+      setVal('eu-tel', c.tel);
+      setVal('eu-email', c.email);
+      this._markEditing && this._markEditing();
+    }
+    this._euContactPickerModal?.hide();
+    this.toast('Contact sélectionné');
   },
 
   // ---- ENTREPRISES RÉPERTOIRE ----
