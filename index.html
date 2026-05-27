@@ -11023,7 +11023,9 @@ const App = {
     const rRows = [new TableRow({cantSplit:true,children:[hCell('Risque',20),hCell('Niveau',8),hCell('Mesures de prévention',32),hCell('EU',7),hCell('EE',7),hCell('Photos',17)]})];
     (p.risques||[]).forEach(r => {
       const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
-      rRows.push(new TableRow({cantSplit:true,children:[cell(r.danger||'',{width:20}),cell(niveauLabels[r.niveau]||'',{width:8,align:AlignmentType.CENTER,bold:true}),cell(r.prevention||r.situation||'',{width:32}),cell(r.chargeEU?'X':'',{width:7,align:AlignmentType.CENTER}),cell(r.chargeEE?'X':'',{width:7,align:AlignmentType.CENTER}),_pdpPhotoCell(rPhotos,17)]}));
+      const _euOn = r.chargeEU || (r.preventionItems||[]).some(it => it.checked && it.chargeEU);
+      const _eeOn = r.chargeEE || (r.preventionItems||[]).some(it => it.checked && it.chargeEE);
+      rRows.push(new TableRow({cantSplit:true,children:[cell(r.danger||'',{width:20}),cell(niveauLabels[r.niveau]||'',{width:8,align:AlignmentType.CENTER,bold:true}),cell(r.prevention||r.situation||'',{width:32}),cell(_euOn?'X':'',{width:7,align:AlignmentType.CENTER}),cell(_eeOn?'X':'',{width:7,align:AlignmentType.CENTER}),_pdpPhotoCell(rPhotos,17)]}));
     });
     if (!(p.risques||[]).length) rRows.push(new TableRow({cantSplit:true,children:[cell('',{width:20}),cell('',{width:8}),cell('',{width:32}),cell('',{width:7}),cell('',{width:7}),cell('',{width:17})]}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
@@ -12145,7 +12147,9 @@ const App = {
       const rPhotosArrPdp = (p.risques||[]).map(r => (r.photos||[]).filter(p => p && p.data));
       const rBody = (p.risques||[]).map((r, ri) => {
         const nc = niveauColors[r.niveau]||[200,200,200];
-        return [ r.danger||'', {content:niveauLabels[r.niveau]||'',styles:{halign:'center',fontStyle:'bold',fillColor:nc,textColor:r.niveau>=3?[255,255,255]:[0,0,0]}}, r.prevention||r.situation||'', {content:r.chargeEU?'X':'',styles:{halign:'center'}}, {content:r.chargeEE?'X':'',styles:{halign:'center'}}, {content:'', styles:{minCellHeight: rPhotosArrPdp[ri].length ? (rPhotosArrPdp[ri].length>2?32:18) : 6}} ];
+        const _euOnPdf = r.chargeEU || (r.preventionItems||[]).some(it => it.checked && it.chargeEU);
+        const _eeOnPdf = r.chargeEE || (r.preventionItems||[]).some(it => it.checked && it.chargeEE);
+        return [ r.danger||'', {content:niveauLabels[r.niveau]||'',styles:{halign:'center',fontStyle:'bold',fillColor:nc,textColor:r.niveau>=3?[255,255,255]:[0,0,0]}}, r.prevention||r.situation||'', {content:_euOnPdf?'X':'',styles:{halign:'center'}}, {content:_eeOnPdf?'X':'',styles:{halign:'center'}}, {content:'', styles:{minCellHeight: rPhotosArrPdp[ri].length ? (rPhotosArrPdp[ri].length>2?32:18) : 6}} ];
       });
       addTable(['Risque','Niveau','Mesures de prévention','EU','EE','Photos'], rBody, {
         columnStyles:{0:{cellWidth:32},1:{cellWidth:16},2:{cellWidth:60},3:{cellWidth:14},4:{cellWidth:14},5:{cellWidth:44}},
