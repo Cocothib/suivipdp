@@ -6445,7 +6445,7 @@ const App = {
     const pendingList = await this.loadPendingRisks();
     const pendingNames = new Set(pendingList.map(p => p.nom));
     const pendingBadge = nom => pendingNames.has(nom) ? '<span class="badge bg-warning text-dark ms-1" title="En attente de validation"><i class="bi bi-hourglass-split me-1"></i>En attente</span>' : '';
-    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong>${pendingBadge(r.danger)}<select class="form-select form-select-sm" style="width:auto" onchange="App.currentPDP.risques[${i}].niveau=+this.value;App.renderRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentPDP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea>${this._renderPreventionCheckboxes(i, r.preventionItems, 'pdp')}<div class="mt-1"><div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" onchange="App.currentPDP.risques[${i}].chargeEU=this.checked" ${r.chargeEU?'checked':''}><label class="form-check-label small">EU</label></div><div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" onchange="App.currentPDP.risques[${i}].chargeEE=this.checked" ${r.chargeEE?'checked':''}><label class="form-check-label small">EE</label></div></div></div><button class="btn btn-outline-danger btn-sm" onclick="App.currentPDP.risques.splice(${i},1);App.renderRisquesList();App._riskPickerCtx='pdp';App.updateRiskCounters()"><i class="bi bi-trash"></i></button></div></div>`).join('');
+    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong>${pendingBadge(r.danger)}<select class="form-select form-select-sm" style="width:auto" onchange="App.currentPDP.risques[${i}].niveau=+this.value;App.renderRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentPDP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea>${this._renderPreventionCheckboxes(i, r.preventionItems, 'pdp')}<div class="mt-1"><div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" onchange="App.currentPDP.risques[${i}].chargeEU=this.checked" ${r.chargeEU?'checked':''}><label class="form-check-label small">EU</label></div><div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" onchange="App.currentPDP.risques[${i}].chargeEE=this.checked" ${r.chargeEE?'checked':''}><label class="form-check-label small">EE</label></div></div>${this._renderRiskPhotos('pdp', i, r.photos)}</div><button class="btn btn-outline-danger btn-sm" onclick="App.currentPDP.risques.splice(${i},1);App.renderRisquesList();App._riskPickerCtx='pdp';App.updateRiskCounters()"><i class="bi bi-trash"></i></button></div></div>`).join('');
   },
 
   _isInStandardCatalog(name) {
@@ -9024,7 +9024,7 @@ const App = {
     const r = this.currentICP.risques||[];
     if (!r.length) { c.innerHTML = '<p class="text-muted small">Aucun risque identifié.</p>'; return; }
     r.forEach(ri => this._migrateRiskPrevention(ri));
-    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong><select class="form-select form-select-sm" style="width:auto" onchange="App.currentICP.risques[${i}].niveau=+this.value;App.renderICPRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentICP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea>${this._renderPreventionCheckboxes(i, r.preventionItems, 'icp')}<input type="text" class="form-control form-control-sm mt-1" placeholder="Localisation sur site..." onchange="App.currentICP.risques[${i}].localisation=this.value" value="${this.esc(r.localisation||'')}"></div><button class="btn btn-outline-danger btn-sm" onclick="App.currentICP.risques.splice(${i},1);App.renderICPRisquesList();App._riskPickerCtx='icp';App.updateRiskCounters()"><i class="bi bi-trash"></i></button></div></div>`).join('');
+    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong><select class="form-select form-select-sm" style="width:auto" onchange="App.currentICP.risques[${i}].niveau=+this.value;App.renderICPRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentICP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea>${this._renderPreventionCheckboxes(i, r.preventionItems, 'icp')}<input type="text" class="form-control form-control-sm mt-1" placeholder="Localisation sur site..." onchange="App.currentICP.risques[${i}].localisation=this.value" value="${this.esc(r.localisation||'')}">${this._renderRiskPhotos('icp', i, r.photos)}</div><button class="btn btn-outline-danger btn-sm" onclick="App.currentICP.risques.splice(${i},1);App.renderICPRisquesList();App._riskPickerCtx='icp';App.updateRiskCounters()"><i class="bi bi-trash"></i></button></div></div>`).join('');
   },
 
   addICPRisque() {
@@ -9053,6 +9053,37 @@ const App = {
     const def = this._getRiskDefaults(name);
     this.currentICP.risques.push({ danger:name, situation:def.situation, prevention:def.prevention, preventionItems:def.preventionItems, niveau:def.niveau||2, localisation:'' });
     this.renderICPRisquesList(); this.toast('Risque ajouté');
+  },
+
+  // ---- PHOTOS PAR RISQUE (ICP & PDP) ----
+  _renderRiskPhotos(ctx, idx, photos) {
+    const list = photos || [];
+    const thumbs = list.map((p,pi) => `<div class="position-relative" style="display:inline-block"><img src="${p.data}" class="rounded border" style="width:54px;height:54px;object-fit:cover;cursor:pointer" onclick="window.open('${p.data}')"><button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0" style="padding:0 3px;font-size:0.55rem;line-height:1.1" onclick="App.removeRiskPhoto('${ctx}',${idx},${pi})"><i class="bi bi-x"></i></button></div>`).join('');
+    return `<div class="mt-2 d-flex flex-wrap align-items-center gap-1 risk-photos-row">${thumbs}<label class="btn btn-outline-secondary btn-sm mb-0" style="padding:.15rem .4rem" title="Ajouter une photo à ce risque"><i class="bi bi-camera"></i><input type="file" accept="image/*" multiple capture="environment" style="display:none" onchange="App.addRiskPhoto('${ctx}',${idx},event)"></label></div>`;
+  },
+
+  async addRiskPhoto(ctx, idx, ev) {
+    const files = Array.from(ev.target.files || []);
+    ev.target.value = '';
+    if (!files.length) return;
+    const arr = ctx === 'icp' ? this.currentICP.risques : this.currentPDP.risques;
+    if (!arr || !arr[idx]) return;
+    arr[idx].photos = arr[idx].photos || [];
+    let added = 0, errors = 0;
+    for (const f of files) {
+      try { arr[idx].photos.push(await this.compressImage(f)); added++; }
+      catch (e) { console.warn('photo risque:', e); errors++; }
+    }
+    if (ctx === 'icp') this.renderICPRisquesList(); else this.renderRisquesList();
+    if (added) this.toast(`${added} photo${added>1?'s':''} ajoutée${added>1?'s':''}` + (errors?` (${errors} erreur${errors>1?'s':''})`:''));
+    else if (errors) this.toast(`Échec import (${errors})`, 'danger');
+  },
+
+  removeRiskPhoto(ctx, idx, pi) {
+    const arr = ctx === 'icp' ? this.currentICP.risques : this.currentPDP.risques;
+    if (!arr || !arr[idx] || !arr[idx].photos) return;
+    arr[idx].photos.splice(pi, 1);
+    if (ctx === 'icp') this.renderICPRisquesList(); else this.renderRisquesList();
   },
 
   // ---- ICP PHOTOS ----
@@ -9127,7 +9158,7 @@ const App = {
     let added = 0;
     for (const r of icpRisques) {
       if (!existingNames.has(r.danger)) {
-        existing.push({ danger:r.danger, situation:r.situation, prevention:r.prevention, preventionItems:r.preventionItems?JSON.parse(JSON.stringify(r.preventionItems)):this._parsePreventionItems(r.prevention), niveau:r.niveau });
+        existing.push({ danger:r.danger, situation:r.situation, prevention:r.prevention, preventionItems:r.preventionItems?JSON.parse(JSON.stringify(r.preventionItems)):this._parsePreventionItems(r.prevention), niveau:r.niveau, photos:Array.isArray(r.photos)?JSON.parse(JSON.stringify(r.photos)):[] });
         added++;
       }
     }
@@ -9290,7 +9321,7 @@ const App = {
         return common / Math.max(wordsNew.length, wordsEx.length) > 0.6;
       });
       if (!isDuplicate) {
-        existing.push({ danger:r.danger, situation:r.situation, prevention:r.prevention, preventionItems:r.preventionItems?JSON.parse(JSON.stringify(r.preventionItems)):this._parsePreventionItems(r.prevention), niveau:r.niveau });
+        existing.push({ danger:r.danger, situation:r.situation, prevention:r.prevention, preventionItems:r.preventionItems?JSON.parse(JSON.stringify(r.preventionItems)):this._parsePreventionItems(r.prevention), niveau:r.niveau, photos:Array.isArray(r.photos)?JSON.parse(JSON.stringify(r.photos)):[] });
         existingNorm.push(norm);
         added++;
       }
@@ -9645,6 +9676,18 @@ const App = {
         if (r.localisation) addT(`   Localisation: ${r.localisation}`,9);
         if (r.situation) addT(`   Situation: ${r.situation}`,9);
         if (r.prevention) addT(`   Prévention: ${r.prevention}`,9);
+        const rPhotos = (r.photos||[]).filter(p => p && p.data);
+        if (rPhotos.length) {
+          let x = m;
+          const thumbW = 45, thumbH = 34;
+          for (const photo of rPhotos) {
+            if (y + thumbH > 275) { doc.addPage(); y = 15; }
+            if (x + thumbW > m + pw) { x = m; y += thumbH + 2; if (y + thumbH > 275) { doc.addPage(); y = 15; } }
+            try { doc.addImage(photo.data, 'JPEG', x, y, thumbW, thumbH); } catch(e) {}
+            x += thumbW + 2;
+          }
+          y += thumbH + 3;
+        }
       }); addL();
     }
 
@@ -9776,6 +9819,22 @@ const App = {
         cell(r.situation||'',{width:25}),
         cell(r.prevention||'',{width:25})
       ]}));
+      const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
+      if (rPhotos.length) {
+        const imgParas = [];
+        for (const photo of rPhotos) {
+          try {
+            const b64 = photo.data.split(',')[1];
+            const raw = atob(b64);
+            const arr = new Uint8Array(raw.length);
+            for (let i=0;i<raw.length;i++) arr[i] = raw.charCodeAt(i);
+            imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:160,height:120},type:'png'})],spacing:{before:30,after:30}}));
+          } catch(e) {}
+        }
+        if (imgParas.length) {
+          rRows.push(new TableRow({cantSplit:true,children:[new TableCell({children:imgParas,columnSpan:5,width:{size:100,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.TOP})]}));
+        }
+      }
     });
     if (!(v.risques||[]).length) rRows.push(new TableRow({cantSplit:true,children:[cell('Aucun risque identifié',{colSpan:5,width:100,align:AlignmentType.CENTER})]}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
@@ -10800,6 +10859,22 @@ const App = {
               cell(r.situation||'',{width:26}),
               cell(r.prevention||'',{width:26})
             ]}));
+            const rPhotos = (r.photos||[]).filter(p => p && p.data);
+            if (rPhotos.length) {
+              const imgParas = [];
+              for (const photo of rPhotos) {
+                try {
+                  const b64 = photo.data.split(',')[1];
+                  const raw = atob(b64);
+                  const arr = new Uint8Array(raw.length);
+                  for (let i=0;i<raw.length;i++) arr[i] = raw.charCodeAt(i);
+                  imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:160,height:120},type:'png'})],spacing:{before:30,after:30}}));
+                } catch(e) {}
+              }
+              if (imgParas.length) {
+                icpRiskRows.push(new TableRow({cantSplit:true,children:[new TableCell({children:imgParas,columnSpan:5,width:{size:100,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.TOP})]}));
+              }
+            }
           });
           children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:icpRiskRows}));
           children.push(spacer());
@@ -10891,7 +10966,25 @@ const App = {
     // 4. Risques
     children.push(secTitle('4','RISQUES ET MESURES DE PRÉVENTION'));
     const rRows = [new TableRow({cantSplit:true,children:[hCell('Risque',25),hCell('Niveau',10),hCell('Mesures de prévention',40),hCell('EU',8),hCell('EE',8)]})];
-    (p.risques||[]).forEach(r => rRows.push(new TableRow({cantSplit:true,children:[cell(r.danger||'',{width:25}),cell(niveauLabels[r.niveau]||'',{width:10,align:AlignmentType.CENTER,bold:true}),cell(r.prevention||r.situation||'',{width:40}),cell(r.chargeEU?'X':'',{width:8,align:AlignmentType.CENTER}),cell(r.chargeEE?'X':'',{width:8,align:AlignmentType.CENTER})]})));
+    (p.risques||[]).forEach(r => {
+      rRows.push(new TableRow({cantSplit:true,children:[cell(r.danger||'',{width:25}),cell(niveauLabels[r.niveau]||'',{width:10,align:AlignmentType.CENTER,bold:true}),cell(r.prevention||r.situation||'',{width:40}),cell(r.chargeEU?'X':'',{width:8,align:AlignmentType.CENTER}),cell(r.chargeEE?'X':'',{width:8,align:AlignmentType.CENTER})]}));
+      const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
+      if (rPhotos.length) {
+        const imgParas = [];
+        for (const photo of rPhotos) {
+          try {
+            const b64 = photo.data.split(',')[1];
+            const raw = atob(b64);
+            const arr = new Uint8Array(raw.length);
+            for (let i=0;i<raw.length;i++) arr[i] = raw.charCodeAt(i);
+            imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:160,height:120},type:'png'})],spacing:{before:30,after:30}}));
+          } catch(e) {}
+        }
+        if (imgParas.length) {
+          rRows.push(new TableRow({cantSplit:true,children:[new TableCell({children:imgParas,columnSpan:5,width:{size:100,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.TOP})]}));
+        }
+      }
+    });
     if (!(p.risques||[]).length) rRows.push(new TableRow({cantSplit:true,children:[cell('',{width:25}),cell('',{width:10}),cell('',{width:40}),cell('',{width:8}),cell('',{width:8})]}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
 
@@ -11676,6 +11769,22 @@ const App = {
           cell(r.prevention||'',{width:40}),
           cell(r.responsable||'',{width:15})
         ]}));
+        const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
+        if (rPhotos.length) {
+          const imgParas = [];
+          for (const photo of rPhotos) {
+            try {
+              const b64 = photo.data.split(',')[1];
+              const raw = atob(b64);
+              const arr = new Uint8Array(raw.length);
+              for (let j=0;j<raw.length;j++) arr[j] = raw.charCodeAt(j);
+              imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:160,height:120},type:'png'})],spacing:{before:30,after:30}}));
+            } catch(e) {}
+          }
+          if (imgParas.length) {
+            rRows.push(new TableRow({cantSplit:true,children:[new TableCell({children:imgParas,columnSpan:5,width:{size:100,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.TOP})]}));
+          }
+        }
       });
       children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
       children.push(new Paragraph({children:[],spacing:{before:100}}));
@@ -11875,6 +11984,23 @@ const App = {
             r.prevention||''
           ]);
           addTable(['Risque','Niveau','Localisation','Situation','Prévention'], icpRiskBody);
+          // Photos par risque (sous le tableau)
+          icpRisquesPdf.forEach((r, ri) => {
+            const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
+            if (!rPhotos.length) return;
+            checkPage(45);
+            doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(80,80,80);
+            doc.text(`Photos – ${r.danger||('Risque '+(ri+1))} :`, m, y); y += 4;
+            doc.setTextColor(0,0,0);
+            let x = m; const thumbW = 45, thumbH = 34;
+            for (const photo of rPhotos) {
+              if (y + thumbH > 275) { doc.addPage(); y = 15; }
+              if (x + thumbW > m + pw) { x = m; y += thumbH + 2; if (y + thumbH > 275) { doc.addPage(); y = 15; } }
+              try { doc.addImage(photo.data, 'JPEG', x, y, thumbW, thumbH); } catch(e) {}
+              x += thumbW + 2;
+            }
+            y += thumbH + 4;
+          });
         }
 
         // Données visite complémentaires
@@ -11973,6 +12099,23 @@ const App = {
         return [ r.danger||'', {content:niveauLabels[r.niveau]||'',styles:{halign:'center',fontStyle:'bold',fillColor:nc,textColor:r.niveau>=3?[255,255,255]:[0,0,0]}}, r.prevention||r.situation||'', {content:r.chargeEU?'X':'',styles:{halign:'center'}}, {content:r.chargeEE?'X':'',styles:{halign:'center'}} ];
       });
       addTable(['Risque','Niveau','Mesures de prévention','EU','EE'], rBody, {columnStyles:{0:{cellWidth:40},1:{cellWidth:20},2:{cellWidth:80},3:{cellWidth:20},4:{cellWidth:20}}});
+      // Photos par risque (sous le tableau)
+      (p.risques||[]).forEach((r, ri) => {
+        const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
+        if (!rPhotos.length) return;
+        checkPage(45);
+        doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(80,80,80);
+        doc.text(`Photos – ${r.danger||('Risque '+(ri+1))} :`, m, y); y += 4;
+        doc.setTextColor(0,0,0);
+        let x = m; const thumbW = 45, thumbH = 34;
+        for (const photo of rPhotos) {
+          if (y + thumbH > 275) { doc.addPage(); y = 15; }
+          if (x + thumbW > m + pw) { x = m; y += thumbH + 2; if (y + thumbH > 275) { doc.addPage(); y = 15; } }
+          try { doc.addImage(photo.data, 'JPEG', x, y, thumbW, thumbH); } catch(e) {}
+          x += thumbW + 2;
+        }
+        y += thumbH + 4;
+      });
     } else { doc.setFontSize(9); doc.setFont('helvetica','italic'); doc.text('Aucun risque identifié.',m,y); y+=6; }
 
     // 5. Exigences
