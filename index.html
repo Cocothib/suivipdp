@@ -1563,7 +1563,17 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
               <div class="input-icon-wrap"><i class="bi bi-building input-icon"></i><input type="text" class="form-control" id="eu-nom" placeholder="AGRIWATT / ENERSOLYS"></div>
             </div>
             <div class="col-md-6"><label class="form-label" for="eu-adresse">Adresse</label><div class="input-group"><span class="input-group-text"><i class="bi bi-geo-alt"></i></span><input type="text" class="form-control" id="eu-adresse" placeholder="Adresse du siège"><button class="btn btn-outline-success" type="button" onclick="App.geocodeEUAddress()" title="Géolocaliser et normaliser"><i class="bi bi-geo-alt-fill"></i></button></div></div>
-            <div class="col-md-6"><label class="form-label" for="eu-responsable">Contact</label><div class="input-group"><span class="input-group-text"><i class="bi bi-person"></i></span><input type="text" class="form-control" id="eu-responsable" placeholder="Nom du contact"><button class="btn btn-outline-secondary" type="button" onclick="App.openEUContactPicker('pdp')" title="Choisir parmi les contacts de l'entreprise"><i class="bi bi-people"></i></button></div></div>
+            <div class="col-md-6">
+              <label class="form-label" for="eu-responsable">Contact</label>
+              <div class="input-group input-group-sm mb-1">
+                <span class="input-group-text"><i class="bi bi-people"></i></span>
+                <select class="form-select form-select-sm" id="eu-contact-select" onchange="App.applyEUContactFromSelect('pdp', this.value)" onfocus="App.populateEUContactSelect('pdp')" onmousedown="App.populateEUContactSelect('pdp')">
+                  <option value="">— Choisir un contact enregistré —</option>
+                </select>
+                <button class="btn btn-outline-secondary" type="button" onclick="App.editEUEntreprise('pdp')" title="Modifier les contacts de l'entreprise"><i class="bi bi-pencil"></i></button>
+              </div>
+              <div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="eu-responsable" placeholder="Nom du contact"></div>
+            </div>
             <div class="col-md-6"><label class="form-label" for="eu-fonction">Fonction</label><input type="text" class="form-control" id="eu-fonction" placeholder="Ex: Conducteur de travaux"></div>
             <div class="col-md-6"><label class="form-label" for="eu-tel">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="eu-tel" placeholder="06 XX XX XX XX"></div></div>
             <div class="col-md-6"><label class="form-label" for="eu-email">Email</label><div class="input-icon-wrap"><i class="bi bi-envelope input-icon"></i><input type="email" class="form-control" id="eu-email" placeholder="contact@exemple.fr"></div></div>
@@ -2172,7 +2182,17 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="field-group">
         <div class="field-group-title"><i class="bi bi-person-badge"></i> Représentant du client (EU)</div>
         <div class="row g-2">
-          <div class="col-md-4"><label class="form-label" for="icp-eu-nom">Nom</label><div class="input-group"><span class="input-group-text"><i class="bi bi-person"></i></span><input type="text" class="form-control" id="icp-eu-nom" placeholder="Nom" oninput="App.syncICPSignatureNom('eu')"><button class="btn btn-outline-secondary" type="button" onclick="App.openEUContactPicker('icp')" title="Choisir parmi les contacts de l'entreprise"><i class="bi bi-people"></i></button></div></div>
+          <div class="col-md-4">
+            <label class="form-label" for="icp-eu-nom">Nom</label>
+            <div class="input-group input-group-sm mb-1">
+              <span class="input-group-text"><i class="bi bi-people"></i></span>
+              <select class="form-select form-select-sm" id="icp-eu-contact-select" onchange="App.applyEUContactFromSelect('icp', this.value)" onfocus="App.populateEUContactSelect('icp')" onmousedown="App.populateEUContactSelect('icp')">
+                <option value="">— Choisir —</option>
+              </select>
+              <button class="btn btn-outline-secondary" type="button" onclick="App.editEUEntreprise('icp')" title="Modifier les contacts de l'entreprise"><i class="bi bi-pencil"></i></button>
+            </div>
+            <div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-eu-nom" placeholder="Nom" oninput="App.syncICPSignatureNom('eu')"></div>
+          </div>
           <div class="col-md-4"><label class="form-label" for="icp-eu-fonction">Fonction</label><div class="input-icon-wrap"><i class="bi bi-briefcase input-icon"></i><input type="text" class="form-control" id="icp-eu-fonction" placeholder="Fonction"></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-eu-tel">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="icp-eu-tel" placeholder="Téléphone"></div></div>
           <div class="col-12 mt-1 d-flex justify-content-end"><button type="button" class="btn btn-outline-primary btn-sm" onclick="App.addICPEUParticipantRow()"><i class="bi bi-plus-lg me-1"></i>Ajouter une 2e personne côté client</button></div>
@@ -2859,16 +2879,6 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     <div class="modal-content">
       <div class="modal-header"><h6 class="modal-title"><i class="bi bi-link-45deg me-1"></i>Sélectionner</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body" id="modal-icp-link-body"></div>
-    </div>
-  </div>
-</div>
-
-<!-- EU Contact Picker Modal -->
-<div class="modal fade" id="modal-eu-contact-picker" tabindex="-1">
-  <div class="modal-dialog modal-dialog-scrollable">
-    <div class="modal-content">
-      <div class="modal-header"><h6 class="modal-title"><i class="bi bi-people me-2"></i>Choisir un contact EU</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-      <div class="modal-body"><div id="eu-contact-picker-list" class="list-group"></div></div>
     </div>
   </div>
 </div>
@@ -5382,6 +5392,7 @@ const App = {
     document.getElementById('eu-adresse').value = eu.adresse||'';
     document.getElementById('eu-responsable').value = eu.responsable||'';
     document.getElementById('eu-fonction').value = eu.fonction||'';
+    this.populateEUContactSelect('pdp');
     document.getElementById('eu-tel').value = eu.tel||'';
     document.getElementById('eu-email').value = eu.email||'';
     const v = p.visite||{};
@@ -7885,40 +7896,74 @@ const App = {
     return out;
   },
 
-  async openEUContactPicker(target) {
-    this._euContactPickerTarget = target;
+  async populateEUContactSelect(target) {
+    const selId = target === 'icp' ? 'icp-eu-contact-select' : 'eu-contact-select';
+    const sel = document.getElementById(selId);
+    if (!sel) return;
     const contacts = await this._getEUContactsFor(target);
-    this._euContactPickerData = contacts;
-    const el = document.getElementById('eu-contact-picker-list');
+    this._euContactsCache = this._euContactsCache || {};
+    this._euContactsCache[target] = contacts;
+    const currentVal = sel.value;
+    const ph = target === 'icp' ? '— Choisir —' : '— Choisir un contact enregistré —';
     if (!contacts.length) {
-      el.innerHTML = '<p class="text-muted small mb-0 p-2">Aucun contact disponible. Renseignez d\'abord l\'entreprise EU (recherche Sellsy ou répertoire local) puis ajoutez-y des contacts via Entreprises &rarr; Modifier.</p>';
-    } else {
-      el.innerHTML = contacts.map((c,i) => `<button type="button" class="list-group-item list-group-item-action" onclick="App.applyEUContact(${i})"><div><strong>${this.esc(c.nom)}</strong>${c.fonction?` <span class="text-muted small">— ${this.esc(c.fonction)}</span>`:''}</div>${(c.tel||c.email)?`<div class="small text-muted">${this.esc(c.tel||'')}${c.email?(c.tel?' · ':'')+this.esc(c.email):''}</div>`:''}</button>`).join('');
+      sel.innerHTML = `<option value="">${ph}</option><option value="" disabled>(aucun contact dans le répertoire)</option>`;
+      return;
     }
-    if (!this._euContactPickerModal) this._euContactPickerModal = new bootstrap.Modal(document.getElementById('modal-eu-contact-picker'));
-    this._euContactPickerModal.show();
+    sel.innerHTML = `<option value="">${ph}</option>` + contacts.map((c,i) => `<option value="${i}">${this.esc(c.nom)}${c.fonction?` — ${this.esc(c.fonction)}`:''}</option>`).join('');
+    if (currentVal && contacts[+currentVal]) sel.value = currentVal;
   },
 
-  applyEUContact(index) {
-    const c = (this._euContactPickerData || [])[index];
+  applyEUContactFromSelect(target, value) {
+    if (value === '') return;
+    const idx = parseInt(value, 10);
+    const c = ((this._euContactsCache||{})[target] || [])[idx];
     if (!c) return;
-    const target = this._euContactPickerTarget;
+    const setVal = (id,v) => { const el = document.getElementById(id); if (el) el.value = v||''; };
     if (target === 'icp') {
-      const setVal = (id,v) => { const el = document.getElementById(id); if (el) el.value = v||''; };
       setVal('icp-eu-nom', c.nom);
       setVal('icp-eu-fonction', c.fonction);
       setVal('icp-eu-tel', c.tel);
       this.syncICPSignatureNom && this.syncICPSignatureNom('eu');
     } else {
-      const setVal = (id,v) => { const el = document.getElementById(id); if (el) el.value = v||''; };
       setVal('eu-responsable', c.nom);
       setVal('eu-fonction', c.fonction);
       setVal('eu-tel', c.tel);
       setVal('eu-email', c.email);
       this._markEditing && this._markEditing();
     }
-    this._euContactPickerModal?.hide();
     this.toast('Contact sélectionné');
+  },
+
+  async editEUEntreprise(target) {
+    let ent = null;
+    try {
+      if (target === 'icp') {
+        const info = this.currentICP?.euInfo;
+        if (info?.localId) ent = await db.entreprises.get(info.localId);
+        if (!ent && info?.nom) {
+          const all = await db.entreprises.toArray();
+          ent = all.find(e => (e.nom||'').toLowerCase() === info.nom.toLowerCase());
+        }
+      } else {
+        const nom = (document.getElementById('eu-nom')?.value || '').trim();
+        if (!nom) { this.toast('Sélectionnez d\'abord une entreprise EU', 'warning'); return; }
+        const all = await db.entreprises.toArray();
+        ent = all.find(e => (e.nom||'').toLowerCase() === nom.toLowerCase());
+      }
+    } catch(e) { console.warn('editEUEntreprise:', e); }
+    if (!ent) {
+      if (await this.confirm('Cette entreprise n\'est pas encore dans le répertoire local. L\'ajouter maintenant ?')) {
+        const nom = target === 'icp' ? (this.currentICP?.euInfo?.nom||'') : (document.getElementById('eu-nom')?.value||'').trim();
+        if (!nom) return;
+        const newEnt = { nom, adresse:'', siret:'', responsable:'', fonction:'', tel:'', email:'', contacts:[] };
+        try {
+          const id = await db.entreprises.add(newEnt);
+          this.showEntrepriseForm(id);
+        } catch(e) { this.toast('Erreur création entreprise', 'danger'); }
+      }
+      return;
+    }
+    this.showEntrepriseForm(ent.id);
   },
 
   // ---- ENTREPRISES RÉPERTOIRE ----
@@ -7989,6 +8034,8 @@ const App = {
     else { await db.entreprises.add(data); }
     bootstrap.Modal.getInstance(document.getElementById('modal-entreprise')).hide();
     this.renderEntreprises(); this.toast('Enregistré');
+    if (document.getElementById('eu-contact-select')) this.populateEUContactSelect('pdp');
+    if (document.getElementById('icp-eu-contact-select')) this.populateEUContactSelect('icp');
     DataSync.markDirty();
   },
 
@@ -8094,6 +8141,7 @@ const App = {
           }
         }
         this._markEditing && this._markEditing();
+        this.populateEUContactSelect && this.populateEUContactSelect('pdp');
         this.toast(`EU pré-remplie : ${c.nom}`);
       } else if (target === 'ee') {
         this.currentPDP.entreprisesExt = this.currentPDP.entreprisesExt || [];
@@ -8473,6 +8521,7 @@ const App = {
             companyId: companyId,
             localId: euLocalId,
           };
+          this.populateEUContactSelect && this.populateEUContactSelect('icp');
         } catch (err) {
           console.error('[Sellsy] erreur enrichissement company', err);
         }
@@ -8791,6 +8840,7 @@ const App = {
     document.getElementById('icp-eu-nom').value = eu.nom||'';
     document.getElementById('icp-eu-fonction').value = eu.fonction||'';
     document.getElementById('icp-eu-tel').value = eu.tel||'';
+    this.populateEUContactSelect('icp');
     // Représentant EE (recherche dans le répertoire)
     this.populateICPEERepEntreprises();
     const ee = v.eeRepresentant||{};
