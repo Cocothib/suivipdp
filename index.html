@@ -6164,12 +6164,22 @@ const App = {
 
   _parsePreventionItems(str) {
     if (!str) return [];
-    return str.split(' ; ').filter(s => s.trim()).map(s => ({ text: s.trim(), checked: true }));
+    return str.split(' ; ').filter(s => s.trim()).map(s => {
+      const m = s.trim().match(/^(.*?)\s*\[(EU\+EE|EU|EE)\]\s*$/);
+      if (m) {
+        const tag = m[2];
+        return { text: m[1].trim(), checked: true, chargeEU: tag !== 'EE', chargeEE: tag !== 'EU' };
+      }
+      return { text: s.trim(), checked: true };
+    });
   },
 
   _getPreventionString(items) {
     if (!items || !items.length) return '';
-    return items.filter(it => it.checked).map(it => it.text).join(' ; ');
+    return items.filter(it => it.checked).map(it => {
+      const tag = it.chargeEU && it.chargeEE ? ' [EU+EE]' : it.chargeEU ? ' [EU]' : it.chargeEE ? ' [EE]' : '';
+      return it.text + tag;
+    }).join(' ; ');
   },
 
   _migrateRiskPrevention(risk) {
@@ -6212,13 +6222,28 @@ const App = {
     else this.renderRisquesList();
   },
 
+  togglePreventionItemCharge(riskIndex, itemIndex, ctx, type) {
+    const risques = ctx === 'icp' ? this.currentICP.risques : this.currentPDP.risques;
+    const r = risques[riskIndex];
+    if (!r || !r.preventionItems || !r.preventionItems[itemIndex]) return;
+    const it = r.preventionItems[itemIndex];
+    if (type === 'eu') it.chargeEU = !it.chargeEU;
+    else if (type === 'ee') it.chargeEE = !it.chargeEE;
+    r.prevention = this._getPreventionString(r.preventionItems);
+    if (ctx === 'icp') this.renderICPRisquesList();
+    else this.renderRisquesList();
+  },
+
   _renderPreventionCheckboxes(riskIndex, preventionItems, ctx) {
     if (!preventionItems || !preventionItems.length) {
       return `<div class="prevention-items"><div class="text-muted small fst-italic">Aucune mesure</div><div class="mt-1"><button class="btn btn-outline-secondary btn-sm" onclick="App.addPreventionItem(${riskIndex},'${ctx}')" style="font-size:0.7rem;padding:0.1rem 0.4rem"><i class="bi bi-plus"></i> Ajouter</button></div></div>`;
     }
     let html = '<div class="prevention-items">';
     preventionItems.forEach((item, j) => {
-      html += `<div class="form-check form-check-sm"><input class="form-check-input" type="checkbox" ${item.checked ? 'checked' : ''} onchange="App.togglePreventionItem(${riskIndex},${j},'${ctx}')"><label class="form-check-label small ${item.checked ? '' : 'prevention-unchecked'}">${this.esc(item.text)}</label></div>`;
+      const euOn = !!item.chargeEU, eeOn = !!item.chargeEE;
+      const euCls = euOn ? 'bg-primary text-white' : 'bg-light text-muted border';
+      const eeCls = eeOn ? 'bg-success text-white' : 'bg-light text-muted border';
+      html += `<div class="form-check form-check-sm d-flex align-items-center gap-2 flex-wrap"><input class="form-check-input mt-0" type="checkbox" ${item.checked ? 'checked' : ''} onchange="App.togglePreventionItem(${riskIndex},${j},'${ctx}')"><label class="form-check-label small flex-grow-1 ${item.checked ? '' : 'prevention-unchecked'}" style="min-width:0">${this.esc(item.text)}</label><span class="d-inline-flex gap-1"><span class="badge ${euCls}" style="cursor:pointer;font-size:0.65rem" onclick="App.togglePreventionItemCharge(${riskIndex},${j},'${ctx}','eu')" title="A la charge de l'EU">EU</span><span class="badge ${eeCls}" style="cursor:pointer;font-size:0.65rem" onclick="App.togglePreventionItemCharge(${riskIndex},${j},'${ctx}','ee')" title="A la charge de l'EE">EE</span><button type="button" class="btn btn-link btn-sm p-0 text-danger" style="font-size:0.7rem;line-height:1" onclick="App.removePreventionItem(${riskIndex},${j},'${ctx}')" title="Supprimer cette mesure"><i class="bi bi-x-circle"></i></button></span></div>`;
     });
     html += `<div class="mt-1"><button class="btn btn-outline-secondary btn-sm" onclick="App.addPreventionItem(${riskIndex},'${ctx}')" style="font-size:0.7rem;padding:0.1rem 0.4rem"><i class="bi bi-plus"></i> Ajouter</button></div></div>`;
     return html;
@@ -6445,7 +6470,7 @@ const App = {
     const pendingList = await this.loadPendingRisks();
     const pendingNames = new Set(pendingList.map(p => p.nom));
     const pendingBadge = nom => pendingNames.has(nom) ? '<span class="badge bg-warning text-dark ms-1" title="En attente de validation"><i class="bi bi-hourglass-split me-1"></i>En attente</span>' : '';
-    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong>${pendingBadge(r.danger)}<select class="form-select form-select-sm" style="width:auto" onchange="App.currentPDP.risques[${i}].niveau=+this.value;App.renderRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentPDP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea>${this._renderPreventionCheckboxes(i, r.preventionItems, 'pdp')}<div class="mt-1"><div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" onchange="App.currentPDP.risques[${i}].chargeEU=this.checked" ${r.chargeEU?'checked':''}><label class="form-check-label small">EU</label></div><div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" onchange="App.currentPDP.risques[${i}].chargeEE=this.checked" ${r.chargeEE?'checked':''}><label class="form-check-label small">EE</label></div></div>${this._renderRiskPhotos('pdp', i, r.photos)}</div><button class="btn btn-outline-danger btn-sm" onclick="App.currentPDP.risques.splice(${i},1);App.renderRisquesList();App._riskPickerCtx='pdp';App.updateRiskCounters()"><i class="bi bi-trash"></i></button></div></div>`).join('');
+    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1" style="min-width:0"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong>${pendingBadge(r.danger)}<select class="form-select form-select-sm" style="width:auto" onchange="App.currentPDP.risques[${i}].niveau=+this.value;App.renderRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentPDP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea>${this._renderPreventionCheckboxes(i, r.preventionItems, 'pdp')}<div class="mt-1"><div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" onchange="App.currentPDP.risques[${i}].chargeEU=this.checked" ${r.chargeEU?'checked':''}><label class="form-check-label small">EU</label></div><div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" onchange="App.currentPDP.risques[${i}].chargeEE=this.checked" ${r.chargeEE?'checked':''}><label class="form-check-label small">EE</label></div></div></div>${this._renderRiskPhotos('pdp', i, r.photos)}<button class="btn btn-outline-danger btn-sm" onclick="App.currentPDP.risques.splice(${i},1);App.renderRisquesList();App._riskPickerCtx='pdp';App.updateRiskCounters()"><i class="bi bi-trash"></i></button></div></div>`).join('');
   },
 
   _isInStandardCatalog(name) {
@@ -9024,7 +9049,7 @@ const App = {
     const r = this.currentICP.risques||[];
     if (!r.length) { c.innerHTML = '<p class="text-muted small">Aucun risque identifié.</p>'; return; }
     r.forEach(ri => this._migrateRiskPrevention(ri));
-    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong><select class="form-select form-select-sm" style="width:auto" onchange="App.currentICP.risques[${i}].niveau=+this.value;App.renderICPRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentICP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea>${this._renderPreventionCheckboxes(i, r.preventionItems, 'icp')}<input type="text" class="form-control form-control-sm mt-1" placeholder="Localisation sur site..." onchange="App.currentICP.risques[${i}].localisation=this.value" value="${this.esc(r.localisation||'')}">${this._renderRiskPhotos('icp', i, r.photos)}</div><button class="btn btn-outline-danger btn-sm" onclick="App.currentICP.risques.splice(${i},1);App.renderICPRisquesList();App._riskPickerCtx='icp';App.updateRiskCounters()"><i class="bi bi-trash"></i></button></div></div>`).join('');
+    c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1" style="min-width:0"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong><select class="form-select form-select-sm" style="width:auto" onchange="App.currentICP.risques[${i}].niveau=+this.value;App.renderICPRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentICP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea>${this._renderPreventionCheckboxes(i, r.preventionItems, 'icp')}<input type="text" class="form-control form-control-sm mt-1" placeholder="Localisation sur site..." onchange="App.currentICP.risques[${i}].localisation=this.value" value="${this.esc(r.localisation||'')}"></div>${this._renderRiskPhotos('icp', i, r.photos)}<button class="btn btn-outline-danger btn-sm" onclick="App.currentICP.risques.splice(${i},1);App.renderICPRisquesList();App._riskPickerCtx='icp';App.updateRiskCounters()"><i class="bi bi-trash"></i></button></div></div>`).join('');
   },
 
   addICPRisque() {
@@ -9058,8 +9083,8 @@ const App = {
   // ---- PHOTOS PAR RISQUE (ICP & PDP) ----
   _renderRiskPhotos(ctx, idx, photos) {
     const list = photos || [];
-    const thumbs = list.map((p,pi) => `<div class="position-relative" style="display:inline-block"><img src="${p.data}" class="rounded border" style="width:54px;height:54px;object-fit:cover;cursor:pointer" onclick="window.open('${p.data}')"><button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0" style="padding:0 3px;font-size:0.55rem;line-height:1.1" onclick="App.removeRiskPhoto('${ctx}',${idx},${pi})"><i class="bi bi-x"></i></button></div>`).join('');
-    return `<div class="mt-2 d-flex flex-wrap align-items-center gap-1 risk-photos-row">${thumbs}<label class="btn btn-outline-secondary btn-sm mb-0" style="padding:.15rem .4rem" title="Ajouter une photo à ce risque"><i class="bi bi-camera"></i><input type="file" accept="image/*" multiple capture="environment" style="display:none" onchange="App.addRiskPhoto('${ctx}',${idx},event)"></label></div>`;
+    const thumbs = list.map((p,pi) => `<div class="position-relative" style="display:inline-block"><img src="${p.data}" class="rounded border" style="width:60px;height:60px;object-fit:cover;cursor:pointer" onclick="window.open('${p.data}')"><button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0" style="padding:0 3px;font-size:0.55rem;line-height:1.1" onclick="App.removeRiskPhoto('${ctx}',${idx},${pi})"><i class="bi bi-x"></i></button></div>`).join('');
+    return `<div class="risk-photos-col d-flex flex-wrap align-content-start gap-1" style="flex:0 0 auto;width:132px">${thumbs}<label class="btn btn-outline-secondary btn-sm mb-0 d-flex align-items-center justify-content-center" style="padding:.15rem .4rem;width:60px;height:60px" title="Ajouter une photo à ce risque"><i class="bi bi-camera"></i><input type="file" accept="image/*" multiple capture="environment" style="display:none" onchange="App.addRiskPhoto('${ctx}',${idx},event)"></label></div>`;
   },
 
   async addRiskPhoto(ctx, idx, ev) {
