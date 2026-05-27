@@ -6164,7 +6164,8 @@ const App = {
 
   _parsePreventionItems(str) {
     if (!str) return [];
-    return str.split(' ; ').filter(s => s.trim()).map(s => {
+    const parts = str.includes('\n') ? str.split('\n') : str.split(' ; ');
+    return parts.filter(s => s.trim()).map(s => {
       const m = s.trim().match(/^(.*?)\s*\[(EU\+EE|EU|EE)\]\s*$/);
       if (m) {
         const tag = m[2];
@@ -6176,15 +6177,26 @@ const App = {
 
   _getPreventionString(items) {
     if (!items || !items.length) return '';
-    return items.filter(it => it.checked).map(it => {
-      const tag = it.chargeEU && it.chargeEE ? ' [EU+EE]' : it.chargeEU ? ' [EU]' : it.chargeEE ? ' [EE]' : '';
-      return it.text + tag;
-    }).join(' ; ');
+    return items.filter(it => it.checked).map(it => it.text).join('\n');
+  },
+
+  _preventionText(r) {
+    if (r && r.preventionItems && r.preventionItems.length) return this._getPreventionString(r.preventionItems);
+    let s = (r && r.prevention) || '';
+    s = s.replace(/\s*\[(EU\+EE|EU|EE)\]/g, '');
+    if (s.includes(' ; ')) s = s.split(' ; ').filter(x => x.trim()).join('\n');
+    return s;
   },
 
   _migrateRiskPrevention(risk) {
     if (!risk.preventionItems) {
       risk.preventionItems = this._parsePreventionItems(risk.prevention);
+    }
+    if (risk.prevention && /\[(EU\+EE|EU|EE)\]/.test(risk.prevention)) {
+      risk.preventionItems = this._parsePreventionItems(risk.prevention);
+      risk.prevention = this._getPreventionString(risk.preventionItems);
+    } else if (risk.prevention && risk.prevention.includes(' ; ') && !risk.prevention.includes('\n')) {
+      risk.prevention = this._getPreventionString(risk.preventionItems);
     }
     return risk;
   },
@@ -9713,7 +9725,8 @@ const App = {
         addRT(`${i+1}. ${r.danger||'-'} [${niveauL[r.niveau]||'-'}]`,10,'bold');
         if (r.localisation) addRT(`   Localisation: ${r.localisation}`,9);
         if (r.situation) addRT(`   Situation: ${r.situation}`,9);
-        if (r.prevention) addRT(`   Prévention: ${r.prevention}`,9);
+        const _pt = this._preventionText(r);
+        if (_pt) _pt.split('\n').forEach((line, li) => addRT(`   ${li===0?'Prévention: ':'             '}${line}`,9));
         const textEndY = y;
         // Photos à droite à partir de startY
         if (rPhotos.length) {
@@ -9871,7 +9884,7 @@ const App = {
         cell(niveauLabels[r.niveau]||'',{width:8,align:AlignmentType.CENTER,bold:true,shading:niveauColors[r.niveau]}),
         cell(r.localisation||'',{width:14}),
         cell(r.situation||'',{width:20}),
-        cell(r.prevention||'',{width:22}),
+        cell(this._preventionText(r),{width:22}),
         _photoCell(rPhotos, 20)
       ]}));
     });
@@ -10912,7 +10925,7 @@ const App = {
               cell(icpNiveauLabels[r.niveau]||'',{width:8,align:AlignmentType.CENTER,bold:true,shading:nc}),
               cell(r.localisation||'',{width:14}),
               cell(r.situation||'',{width:20}),
-              cell(r.prevention||'',{width:22}),
+              cell(this._preventionText(r),{width:22}),
               _icpPhotoCell(rPhotos, 20)
             ]}));
           });
@@ -11025,7 +11038,7 @@ const App = {
       const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
       const _euOn = r.chargeEU || (r.preventionItems||[]).some(it => it.checked && it.chargeEU);
       const _eeOn = r.chargeEE || (r.preventionItems||[]).some(it => it.checked && it.chargeEE);
-      rRows.push(new TableRow({cantSplit:true,children:[cell(r.danger||'',{width:20}),cell(niveauLabels[r.niveau]||'',{width:8,align:AlignmentType.CENTER,bold:true}),cell(r.prevention||r.situation||'',{width:32}),cell(_euOn?'X':'',{width:7,align:AlignmentType.CENTER}),cell(_eeOn?'X':'',{width:7,align:AlignmentType.CENTER}),_pdpPhotoCell(rPhotos,17)]}));
+      rRows.push(new TableRow({cantSplit:true,children:[cell(r.danger||'',{width:20}),cell(niveauLabels[r.niveau]||'',{width:8,align:AlignmentType.CENTER,bold:true}),cell(this._preventionText(r) || r.situation || '',{width:32}),cell(_euOn?'X':'',{width:7,align:AlignmentType.CENTER}),cell(_eeOn?'X':'',{width:7,align:AlignmentType.CENTER}),_pdpPhotoCell(rPhotos,17)]}));
     });
     if (!(p.risques||[]).length) rRows.push(new TableRow({cantSplit:true,children:[cell('',{width:20}),cell('',{width:8}),cell('',{width:32}),cell('',{width:7}),cell('',{width:7}),cell('',{width:17})]}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
@@ -11824,7 +11837,7 @@ const App = {
           cell(String(i+1),{width:5,align:AlignmentType.CENTER}),
           cell(r.danger||'',{width:25}),
           cell(niveauLabels[r.niveau]||'',{width:8,align:AlignmentType.CENTER}),
-          cell(r.prevention||'',{width:32}),
+          cell(this._preventionText(r),{width:32}),
           cell(r.responsable||'',{width:12}),
           _stPhotoCell(rPhotos, 18)
         ]}));
@@ -12025,7 +12038,7 @@ const App = {
             {content:icpNiveauLabels[r.niveau]||'',styles:{fontStyle:'bold',fillColor:icpNiveauColors[r.niveau]||[255,192,0],halign:'center'}},
             r.localisation||'',
             r.situation||'',
-            r.prevention||'',
+            this._preventionText(r),
             {content:'', styles:{minCellHeight: icpRPhotosArr[ri].length ? (icpRPhotosArr[ri].length>2?32:18) : 6}}
           ]);
           addTable(
@@ -12149,7 +12162,7 @@ const App = {
         const nc = niveauColors[r.niveau]||[200,200,200];
         const _euOnPdf = r.chargeEU || (r.preventionItems||[]).some(it => it.checked && it.chargeEU);
         const _eeOnPdf = r.chargeEE || (r.preventionItems||[]).some(it => it.checked && it.chargeEE);
-        return [ r.danger||'', {content:niveauLabels[r.niveau]||'',styles:{halign:'center',fontStyle:'bold',fillColor:nc,textColor:r.niveau>=3?[255,255,255]:[0,0,0]}}, r.prevention||r.situation||'', {content:_euOnPdf?'X':'',styles:{halign:'center'}}, {content:_eeOnPdf?'X':'',styles:{halign:'center'}}, {content:'', styles:{minCellHeight: rPhotosArrPdp[ri].length ? (rPhotosArrPdp[ri].length>2?32:18) : 6}} ];
+        return [ r.danger||'', {content:niveauLabels[r.niveau]||'',styles:{halign:'center',fontStyle:'bold',fillColor:nc,textColor:r.niveau>=3?[255,255,255]:[0,0,0]}}, this._preventionText(r) || r.situation || '', {content:_euOnPdf?'X':'',styles:{halign:'center'}}, {content:_eeOnPdf?'X':'',styles:{halign:'center'}}, {content:'', styles:{minCellHeight: rPhotosArrPdp[ri].length ? (rPhotosArrPdp[ri].length>2?32:18) : 6}} ];
       });
       addTable(['Risque','Niveau','Mesures de prévention','EU','EE','Photos'], rBody, {
         columnStyles:{0:{cellWidth:32},1:{cellWidth:16},2:{cellWidth:60},3:{cellWidth:14},4:{cellWidth:14},5:{cellWidth:44}},
