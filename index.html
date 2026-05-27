@@ -9696,23 +9696,36 @@ const App = {
     if ((v.risques||[]).length) {
       addT('RISQUES IDENTIFIÉS',12,'bold',[0,105,62]);
       const niveauL = {1:'Faible',2:'Moyen',3:'Élevé',4:'Critique'};
+      const textW = 110, photoX = m + textW + 5, photoMaxW = pw - textW - 5;
+      const addRT = (t,s=9,st='normal',c=[0,0,0]) => {
+        doc.setFontSize(s); doc.setFont('helvetica',st); doc.setTextColor(...c);
+        doc.splitTextToSize(t, textW).forEach(l=>{ if(y>275){doc.addPage();y=15} doc.text(l,m,y); y+=s*0.5 });
+        y+=1;
+      };
       v.risques.forEach((r,i) => {
-        addT(`${i+1}. ${r.danger||'-'} [${niveauL[r.niveau]||'-'}]`,10,'bold');
-        if (r.localisation) addT(`   Localisation: ${r.localisation}`,9);
-        if (r.situation) addT(`   Situation: ${r.situation}`,9);
-        if (r.prevention) addT(`   Prévention: ${r.prevention}`,9);
+        const startY = y;
         const rPhotos = (r.photos||[]).filter(p => p && p.data);
+        // Estimer hauteur des photos (2 colonnes max)
+        const tw = (photoMaxW - 2) / 2, th = tw * 0.75;
+        const photoRows = rPhotos.length ? Math.ceil(rPhotos.length / 2) : 0;
+        const photoEndY = startY + photoRows * (th + 2);
+        // Texte à gauche
+        addRT(`${i+1}. ${r.danger||'-'} [${niveauL[r.niveau]||'-'}]`,10,'bold');
+        if (r.localisation) addRT(`   Localisation: ${r.localisation}`,9);
+        if (r.situation) addRT(`   Situation: ${r.situation}`,9);
+        if (r.prevention) addRT(`   Prévention: ${r.prevention}`,9);
+        const textEndY = y;
+        // Photos à droite à partir de startY
         if (rPhotos.length) {
-          let x = m;
-          const thumbW = 45, thumbH = 34;
-          for (const photo of rPhotos) {
-            if (y + thumbH > 275) { doc.addPage(); y = 15; }
-            if (x + thumbW > m + pw) { x = m; y += thumbH + 2; if (y + thumbH > 275) { doc.addPage(); y = 15; } }
-            try { doc.addImage(photo.data, 'JPEG', x, y, thumbW, thumbH); } catch(e) {}
-            x += thumbW + 2;
+          let px = photoX, py = startY;
+          for (let pi=0; pi<rPhotos.length; pi++) {
+            try { doc.addImage(rPhotos[pi].data, 'JPEG', px, py, tw, th); } catch(e) {}
+            if (pi % 2 === 0) { px += tw + 2; }
+            else { px = photoX; py += th + 2; }
           }
-          y += thumbH + 3;
         }
+        y = Math.max(textEndY, photoEndY) + 2;
+        if (y > 275) { doc.addPage(); y = 15; }
       }); addL();
     }
 
@@ -9835,33 +9848,34 @@ const App = {
 
     // 3. Risques
     children.push(secTitle('3','RISQUES IDENTIFIÉS SUR SITE'));
-    const rRows = [new TableRow({cantSplit:true,children:[hCell('Risque',22),hCell('Niveau',10),hCell('Localisation',18),hCell('Situation',25),hCell('Prévention',25)]})];
-    (v.risques||[]).forEach(r => {
-      rRows.push(new TableRow({cantSplit:true,children:[
-        cell(r.danger||'',{width:22}),
-        cell(niveauLabels[r.niveau]||'',{width:10,align:AlignmentType.CENTER,bold:true,shading:niveauColors[r.niveau]}),
-        cell(r.localisation||'',{width:18}),
-        cell(r.situation||'',{width:25}),
-        cell(r.prevention||'',{width:25})
-      ]}));
-      const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
-      if (rPhotos.length) {
-        const imgParas = [];
-        for (const photo of rPhotos) {
-          try {
-            const b64 = photo.data.split(',')[1];
-            const raw = atob(b64);
-            const arr = new Uint8Array(raw.length);
-            for (let i=0;i<raw.length;i++) arr[i] = raw.charCodeAt(i);
-            imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:160,height:120},type:'png'})],spacing:{before:30,after:30}}));
-          } catch(e) {}
-        }
-        if (imgParas.length) {
-          rRows.push(new TableRow({cantSplit:true,children:[new TableCell({children:imgParas,columnSpan:5,width:{size:100,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.TOP})]}));
-        }
+    const _photoCell = (rPhotos, width) => {
+      const imgParas = [];
+      for (const photo of (rPhotos||[])) {
+        if (!photo || !photo.data) continue;
+        try {
+          const b64 = photo.data.split(',')[1];
+          const raw = atob(b64);
+          const arr = new Uint8Array(raw.length);
+          for (let i=0;i<raw.length;i++) arr[i] = raw.charCodeAt(i);
+          imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:75,height:56},type:'png'})],spacing:{before:10,after:10},alignment:AlignmentType.CENTER}));
+        } catch(e) {}
       }
+      if (!imgParas.length) imgParas.push(new Paragraph({children:[new TextRun({text:'',size:16,font:'Calibri'})]}));
+      return new TableCell({children:imgParas,width:{size:width,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER});
+    };
+    const rRows = [new TableRow({cantSplit:true,children:[hCell('Risque',16),hCell('Niveau',8),hCell('Localisation',14),hCell('Situation',20),hCell('Prévention',22),hCell('Photos',20)]})];
+    (v.risques||[]).forEach(r => {
+      const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
+      rRows.push(new TableRow({cantSplit:true,children:[
+        cell(r.danger||'',{width:16}),
+        cell(niveauLabels[r.niveau]||'',{width:8,align:AlignmentType.CENTER,bold:true,shading:niveauColors[r.niveau]}),
+        cell(r.localisation||'',{width:14}),
+        cell(r.situation||'',{width:20}),
+        cell(r.prevention||'',{width:22}),
+        _photoCell(rPhotos, 20)
+      ]}));
     });
-    if (!(v.risques||[]).length) rRows.push(new TableRow({cantSplit:true,children:[cell('Aucun risque identifié',{colSpan:5,width:100,align:AlignmentType.CENTER})]}));
+    if (!(v.risques||[]).length) rRows.push(new TableRow({cantSplit:true,children:[cell('Aucun risque identifié',{colSpan:6,width:100,align:AlignmentType.CENTER})]}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
     children.push(spacer());
 
@@ -10874,32 +10888,33 @@ const App = {
         if (icpRisques.length) {
           children.push(new Paragraph({children:[new TextRun({text:'Risques identifiés lors de la visite :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
           const icpNiveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
-          const icpRiskRows = [new TableRow({cantSplit:true,children:[hCell('Risque',20),hCell('Niveau',10),hCell('Localisation',18),hCell('Situation',26),hCell('Prévention',26)]})];
+          const _icpPhotoCell = (rPhotos, width) => {
+            const imgParas = [];
+            for (const photo of (rPhotos||[])) {
+              if (!photo || !photo.data) continue;
+              try {
+                const b64 = photo.data.split(',')[1];
+                const raw = atob(b64);
+                const arr = new Uint8Array(raw.length);
+                for (let i=0;i<raw.length;i++) arr[i] = raw.charCodeAt(i);
+                imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:75,height:56},type:'png'})],spacing:{before:10,after:10},alignment:AlignmentType.CENTER}));
+              } catch(e) {}
+            }
+            if (!imgParas.length) imgParas.push(new Paragraph({children:[new TextRun({text:'',size:16,font:'Calibri'})]}));
+            return new TableCell({children:imgParas,width:{size:width,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER});
+          };
+          const icpRiskRows = [new TableRow({cantSplit:true,children:[hCell('Risque',16),hCell('Niveau',8),hCell('Localisation',14),hCell('Situation',20),hCell('Prévention',22),hCell('Photos',20)]})];
           icpRisques.forEach(r => {
             const nc = {1:'92D050',2:'FFC000',3:'FD7E14',4:'FF0000'}[r.niveau]||'FFC000';
-            icpRiskRows.push(new TableRow({cantSplit:true,children:[
-              cell(r.danger||'',{width:20}),
-              cell(icpNiveauLabels[r.niveau]||'',{width:10,align:AlignmentType.CENTER,bold:true,shading:nc}),
-              cell(r.localisation||'',{width:18}),
-              cell(r.situation||'',{width:26}),
-              cell(r.prevention||'',{width:26})
-            ]}));
             const rPhotos = (r.photos||[]).filter(p => p && p.data);
-            if (rPhotos.length) {
-              const imgParas = [];
-              for (const photo of rPhotos) {
-                try {
-                  const b64 = photo.data.split(',')[1];
-                  const raw = atob(b64);
-                  const arr = new Uint8Array(raw.length);
-                  for (let i=0;i<raw.length;i++) arr[i] = raw.charCodeAt(i);
-                  imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:160,height:120},type:'png'})],spacing:{before:30,after:30}}));
-                } catch(e) {}
-              }
-              if (imgParas.length) {
-                icpRiskRows.push(new TableRow({cantSplit:true,children:[new TableCell({children:imgParas,columnSpan:5,width:{size:100,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.TOP})]}));
-              }
-            }
+            icpRiskRows.push(new TableRow({cantSplit:true,children:[
+              cell(r.danger||'',{width:16}),
+              cell(icpNiveauLabels[r.niveau]||'',{width:8,align:AlignmentType.CENTER,bold:true,shading:nc}),
+              cell(r.localisation||'',{width:14}),
+              cell(r.situation||'',{width:20}),
+              cell(r.prevention||'',{width:22}),
+              _icpPhotoCell(rPhotos, 20)
+            ]}));
           });
           children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:icpRiskRows}));
           children.push(spacer());
@@ -10990,27 +11005,27 @@ const App = {
 
     // 4. Risques
     children.push(secTitle('4','RISQUES ET MESURES DE PRÉVENTION'));
-    const rRows = [new TableRow({cantSplit:true,children:[hCell('Risque',25),hCell('Niveau',10),hCell('Mesures de prévention',40),hCell('EU',8),hCell('EE',8)]})];
-    (p.risques||[]).forEach(r => {
-      rRows.push(new TableRow({cantSplit:true,children:[cell(r.danger||'',{width:25}),cell(niveauLabels[r.niveau]||'',{width:10,align:AlignmentType.CENTER,bold:true}),cell(r.prevention||r.situation||'',{width:40}),cell(r.chargeEU?'X':'',{width:8,align:AlignmentType.CENTER}),cell(r.chargeEE?'X':'',{width:8,align:AlignmentType.CENTER})]}));
-      const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
-      if (rPhotos.length) {
-        const imgParas = [];
-        for (const photo of rPhotos) {
-          try {
-            const b64 = photo.data.split(',')[1];
-            const raw = atob(b64);
-            const arr = new Uint8Array(raw.length);
-            for (let i=0;i<raw.length;i++) arr[i] = raw.charCodeAt(i);
-            imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:160,height:120},type:'png'})],spacing:{before:30,after:30}}));
-          } catch(e) {}
-        }
-        if (imgParas.length) {
-          rRows.push(new TableRow({cantSplit:true,children:[new TableCell({children:imgParas,columnSpan:5,width:{size:100,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.TOP})]}));
-        }
+    const _pdpPhotoCell = (rPhotos, width) => {
+      const imgParas = [];
+      for (const photo of (rPhotos||[])) {
+        if (!photo || !photo.data) continue;
+        try {
+          const b64 = photo.data.split(',')[1];
+          const raw = atob(b64);
+          const arr = new Uint8Array(raw.length);
+          for (let i=0;i<raw.length;i++) arr[i] = raw.charCodeAt(i);
+          imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:75,height:56},type:'png'})],spacing:{before:10,after:10},alignment:AlignmentType.CENTER}));
+        } catch(e) {}
       }
+      if (!imgParas.length) imgParas.push(new Paragraph({children:[new TextRun({text:'',size:16,font:'Calibri'})]}));
+      return new TableCell({children:imgParas,width:{size:width,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER});
+    };
+    const rRows = [new TableRow({cantSplit:true,children:[hCell('Risque',20),hCell('Niveau',8),hCell('Mesures de prévention',32),hCell('EU',7),hCell('EE',7),hCell('Photos',17)]})];
+    (p.risques||[]).forEach(r => {
+      const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
+      rRows.push(new TableRow({cantSplit:true,children:[cell(r.danger||'',{width:20}),cell(niveauLabels[r.niveau]||'',{width:8,align:AlignmentType.CENTER,bold:true}),cell(r.prevention||r.situation||'',{width:32}),cell(r.chargeEU?'X':'',{width:7,align:AlignmentType.CENTER}),cell(r.chargeEE?'X':'',{width:7,align:AlignmentType.CENTER}),_pdpPhotoCell(rPhotos,17)]}));
     });
-    if (!(p.risques||[]).length) rRows.push(new TableRow({cantSplit:true,children:[cell('',{width:25}),cell('',{width:10}),cell('',{width:40}),cell('',{width:8}),cell('',{width:8})]}));
+    if (!(p.risques||[]).length) rRows.push(new TableRow({cantSplit:true,children:[cell('',{width:20}),cell('',{width:8}),cell('',{width:32}),cell('',{width:7}),cell('',{width:7}),cell('',{width:17})]}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
 
     // 5. Exigences
@@ -11785,31 +11800,32 @@ const App = {
     if ((p.risques||[]).length) {
       children.push(new Paragraph({children:[new TextRun({text:'2. RISQUES ET MESURES DE PRÉVENTION',size:24,bold:true,font:'Calibri',color:GREEN})],spacing:{before:100,after:80}}));
       const niveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
-      const rRows = [new TableRow({cantSplit:true,children:[hCell('N°',5),hCell('Danger / Risque',30),hCell('Niveau',10),hCell('Mesures de prévention',40),hCell('Resp.',15)]})];
+      const _stPhotoCell = (rPhotos, width) => {
+        const imgParas = [];
+        for (const photo of (rPhotos||[])) {
+          if (!photo || !photo.data) continue;
+          try {
+            const b64 = photo.data.split(',')[1];
+            const raw = atob(b64);
+            const arr = new Uint8Array(raw.length);
+            for (let j=0;j<raw.length;j++) arr[j] = raw.charCodeAt(j);
+            imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:75,height:56},type:'png'})],spacing:{before:10,after:10},alignment:AlignmentType.CENTER}));
+          } catch(e) {}
+        }
+        if (!imgParas.length) imgParas.push(new Paragraph({children:[new TextRun({text:'',size:16,font:'Calibri'})]}));
+        return new TableCell({children:imgParas,width:{size:width,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER});
+      };
+      const rRows = [new TableRow({cantSplit:true,children:[hCell('N°',5),hCell('Danger / Risque',25),hCell('Niveau',8),hCell('Mesures de prévention',32),hCell('Resp.',12),hCell('Photos',18)]})];
       p.risques.forEach((r,i) => {
+        const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
         rRows.push(new TableRow({cantSplit:true,children:[
           cell(String(i+1),{width:5,align:AlignmentType.CENTER}),
-          cell(r.danger||'',{width:30}),
-          cell(niveauLabels[r.niveau]||'',{width:10,align:AlignmentType.CENTER}),
-          cell(r.prevention||'',{width:40}),
-          cell(r.responsable||'',{width:15})
+          cell(r.danger||'',{width:25}),
+          cell(niveauLabels[r.niveau]||'',{width:8,align:AlignmentType.CENTER}),
+          cell(r.prevention||'',{width:32}),
+          cell(r.responsable||'',{width:12}),
+          _stPhotoCell(rPhotos, 18)
         ]}));
-        const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
-        if (rPhotos.length) {
-          const imgParas = [];
-          for (const photo of rPhotos) {
-            try {
-              const b64 = photo.data.split(',')[1];
-              const raw = atob(b64);
-              const arr = new Uint8Array(raw.length);
-              for (let j=0;j<raw.length;j++) arr[j] = raw.charCodeAt(j);
-              imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:160,height:120},type:'png'})],spacing:{before:30,after:30}}));
-            } catch(e) {}
-          }
-          if (imgParas.length) {
-            rRows.push(new TableRow({cantSplit:true,children:[new TableCell({children:imgParas,columnSpan:5,width:{size:100,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.TOP})]}));
-          }
-        }
       });
       children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
       children.push(new Paragraph({children:[],spacing:{before:100}}));
@@ -12001,31 +12017,38 @@ const App = {
           doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Risques identifiés lors de la visite :',m,y); y+=4;
           const icpNiveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
           const icpNiveauColors = {1:[146,208,80],2:[255,192,0],3:[253,126,20],4:[255,0,0]};
-          const icpRiskBody = icpRisquesPdf.map(r => [
+          const icpRPhotosArr = icpRisquesPdf.map(r => (r.photos||[]).filter(p => p && p.data));
+          const icpRiskBody = icpRisquesPdf.map((r, ri) => [
             r.danger||'',
             {content:icpNiveauLabels[r.niveau]||'',styles:{fontStyle:'bold',fillColor:icpNiveauColors[r.niveau]||[255,192,0],halign:'center'}},
             r.localisation||'',
             r.situation||'',
-            r.prevention||''
+            r.prevention||'',
+            {content:'', styles:{minCellHeight: icpRPhotosArr[ri].length ? (icpRPhotosArr[ri].length>2?32:18) : 6}}
           ]);
-          addTable(['Risque','Niveau','Localisation','Situation','Prévention'], icpRiskBody);
-          // Photos par risque (sous le tableau)
-          icpRisquesPdf.forEach((r, ri) => {
-            const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
-            if (!rPhotos.length) return;
-            checkPage(45);
-            doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(80,80,80);
-            doc.text(`Photos – ${r.danger||('Risque '+(ri+1))} :`, m, y); y += 4;
-            doc.setTextColor(0,0,0);
-            let x = m; const thumbW = 45, thumbH = 34;
-            for (const photo of rPhotos) {
-              if (y + thumbH > 275) { doc.addPage(); y = 15; }
-              if (x + thumbW > m + pw) { x = m; y += thumbH + 2; if (y + thumbH > 275) { doc.addPage(); y = 15; } }
-              try { doc.addImage(photo.data, 'JPEG', x, y, thumbW, thumbH); } catch(e) {}
-              x += thumbW + 2;
+          addTable(
+            ['Risque','Niveau','Localisation','Situation','Prévention','Photos'],
+            icpRiskBody,
+            {
+              columnStyles:{0:{cellWidth:30},1:{cellWidth:16},2:{cellWidth:22},3:{cellWidth:30},4:{cellWidth:42},5:{cellWidth:40}},
+              didDrawCell: (data) => {
+                if (data.section !== 'body' || data.column.index !== 5) return;
+                const photos = icpRPhotosArr[data.row.index] || [];
+                if (!photos.length) return;
+                const pad = 1;
+                const cx = data.cell.x + pad, cy = data.cell.y + pad;
+                const cw = data.cell.width - 2*pad, ch = data.cell.height - 2*pad;
+                const cols = Math.min(2, photos.length);
+                const rows = Math.ceil(photos.length / 2);
+                const tw = (cw - (cols-1)*1) / cols;
+                const th = (ch - (rows-1)*1) / rows;
+                photos.slice(0, cols*rows).forEach((p, idx) => {
+                  const rIdx = Math.floor(idx/cols), cIdx = idx%cols;
+                  try { doc.addImage(p.data, 'JPEG', cx + cIdx*(tw+1), cy + rIdx*(th+1), tw, th); } catch(e) {}
+                });
+              }
             }
-            y += thumbH + 4;
-          });
+          );
         }
 
         // Données visite complémentaires
@@ -12119,27 +12142,29 @@ const App = {
     // 4. Risques
     secTitle('4. RISQUES ET MESURES DE PRÉVENTION');
     if ((p.risques||[]).length) {
-      const rBody = (p.risques||[]).map(r => {
+      const rPhotosArrPdp = (p.risques||[]).map(r => (r.photos||[]).filter(p => p && p.data));
+      const rBody = (p.risques||[]).map((r, ri) => {
         const nc = niveauColors[r.niveau]||[200,200,200];
-        return [ r.danger||'', {content:niveauLabels[r.niveau]||'',styles:{halign:'center',fontStyle:'bold',fillColor:nc,textColor:r.niveau>=3?[255,255,255]:[0,0,0]}}, r.prevention||r.situation||'', {content:r.chargeEU?'X':'',styles:{halign:'center'}}, {content:r.chargeEE?'X':'',styles:{halign:'center'}} ];
+        return [ r.danger||'', {content:niveauLabels[r.niveau]||'',styles:{halign:'center',fontStyle:'bold',fillColor:nc,textColor:r.niveau>=3?[255,255,255]:[0,0,0]}}, r.prevention||r.situation||'', {content:r.chargeEU?'X':'',styles:{halign:'center'}}, {content:r.chargeEE?'X':'',styles:{halign:'center'}}, {content:'', styles:{minCellHeight: rPhotosArrPdp[ri].length ? (rPhotosArrPdp[ri].length>2?32:18) : 6}} ];
       });
-      addTable(['Risque','Niveau','Mesures de prévention','EU','EE'], rBody, {columnStyles:{0:{cellWidth:40},1:{cellWidth:20},2:{cellWidth:80},3:{cellWidth:20},4:{cellWidth:20}}});
-      // Photos par risque (sous le tableau)
-      (p.risques||[]).forEach((r, ri) => {
-        const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
-        if (!rPhotos.length) return;
-        checkPage(45);
-        doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(80,80,80);
-        doc.text(`Photos – ${r.danger||('Risque '+(ri+1))} :`, m, y); y += 4;
-        doc.setTextColor(0,0,0);
-        let x = m; const thumbW = 45, thumbH = 34;
-        for (const photo of rPhotos) {
-          if (y + thumbH > 275) { doc.addPage(); y = 15; }
-          if (x + thumbW > m + pw) { x = m; y += thumbH + 2; if (y + thumbH > 275) { doc.addPage(); y = 15; } }
-          try { doc.addImage(photo.data, 'JPEG', x, y, thumbW, thumbH); } catch(e) {}
-          x += thumbW + 2;
+      addTable(['Risque','Niveau','Mesures de prévention','EU','EE','Photos'], rBody, {
+        columnStyles:{0:{cellWidth:32},1:{cellWidth:16},2:{cellWidth:60},3:{cellWidth:14},4:{cellWidth:14},5:{cellWidth:44}},
+        didDrawCell: (data) => {
+          if (data.section !== 'body' || data.column.index !== 5) return;
+          const photos = rPhotosArrPdp[data.row.index] || [];
+          if (!photos.length) return;
+          const pad = 1;
+          const cx = data.cell.x + pad, cy = data.cell.y + pad;
+          const cw = data.cell.width - 2*pad, ch = data.cell.height - 2*pad;
+          const cols = Math.min(2, photos.length);
+          const rows = Math.ceil(photos.length / 2);
+          const tw = (cw - (cols-1)*1) / cols;
+          const th = (ch - (rows-1)*1) / rows;
+          photos.slice(0, cols*rows).forEach((ph, idx) => {
+            const rIdx = Math.floor(idx/cols), cIdx = idx%cols;
+            try { doc.addImage(ph.data, 'JPEG', cx + cIdx*(tw+1), cy + rIdx*(th+1), tw, th); } catch(e) {}
+          });
         }
-        y += thumbH + 4;
       });
     } else { doc.setFontSize(9); doc.setFont('helvetica','italic'); doc.text('Aucun risque identifié.',m,y); y+=6; }
 
