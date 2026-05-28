@@ -4258,7 +4258,7 @@ const DataSync = {
             if (_msalAccount) {
                 this._connected = true;
                 const loaded = await this._loadFromRemote();
-                else if (_msalInstance._fromRedirect) { await this.save(); }
+                if (!loaded && _msalInstance._fromRedirect) { await this.save(); }
                 this._registerPresence();
                 if (_msalInstance._fromRedirect) App.toast('Connecté à SharePoint — '+(_msalAccount.name||''));
                 return 'connected';
