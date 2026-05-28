@@ -4166,7 +4166,6 @@ const DataSync = {
 
             // 2. Si un autre utilisateur a sauvegarde entre-temps : fusionner
             if (conflict) {
-                console.log('DataSync: fusion (conflit detecte)', { remoteVers, lastSyncedVers });
                 const merged = await this._mergeAllWithRemote({ pdp: remotePdp, icp: remoteIcp, shared: remoteShared });
                 await this._writeLocalData(merged);
                 const savedBy = remotePdp?._meta?.savedBy || remoteIcp?._meta?.savedBy || remoteShared?._meta?.savedBy || 'un collegue';
@@ -4193,7 +4192,6 @@ const DataSync = {
             if (typeof ActivityLog !== 'undefined') ActivityLog.log('sauvegarde', {
                 vPdp: pdpData._meta.version, vIcp: icpData._meta.version, vShared: sharedData._meta.version, merged: conflict
             });
-            console.log('DataSync: sauvegarde SharePoint OK');
         } catch (e) {
             console.error('DataSync: erreur sauvegarde SharePoint', e);
             App.toast('Erreur sauvegarde SharePoint. Données conservées localement.', 'warning');
@@ -4260,7 +4258,6 @@ const DataSync = {
             if (_msalAccount) {
                 this._connected = true;
                 const loaded = await this._loadFromRemote();
-                if (loaded) console.log('DataSync: auto-connect + sync OK');
                 else if (_msalInstance._fromRedirect) { await this.save(); }
                 this._registerPresence();
                 if (_msalInstance._fromRedirect) App.toast('Connecté à SharePoint — '+(_msalAccount.name||''));
@@ -4397,7 +4394,6 @@ const DataSync = {
         const folder = subfolder === 'icp' ? SP_CONFIG.ICP_FOLDER : SP_CONFIG.PDP_FOLDER;
         try {
             const result = await _uploadBinaryFile(`${folder}/Exports/${filename}`, blob);
-            console.log(`DataSync: ${filename} uploadé sur SharePoint`);
             return result;
         } catch (e) { console.warn('DataSync: upload export échoué', e); return null; }
     },
@@ -5960,8 +5956,8 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     if (signataireChoisi) await this.upsertSignataire({ nom: signataireChoisi.nom, fonction: signataireChoisi.fonction, signature: signataireChoisi.signature, tampon: signataireChoisi.tampon, incrementUsage: true });
 
     // Sauvegarde et rafraîchissement
-    if (typeof App.savePDP === 'function') { try { await App.savePDP(); } catch(e){} }
-    if (typeof App.renderDocuments === 'function') { try { App.renderDocuments(); } catch(e){} }
+    try { await App.savePDP(); } catch(e) { console.warn('savePDP:', e); }
+    try { App.renderDocuments(); } catch(e) { console.warn('renderDocuments:', e); }
     if (status) {
       status.style.display='block';
       status.className = missingCount ? 'small mt-1 text-warning' : 'small mt-1 text-success';
@@ -6075,8 +6071,8 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
       date: new Date().toISOString(), categorie: 'autorisation_interne', genere_auto: true
     });
     if (sig) await this.upsertSignataire({ nom: sig.nom, fonction: sig.fonction, signature: sig.signature, tampon: sig.tampon, incrementUsage: true });
-    if (typeof App.savePDP === 'function') { try { await App.savePDP(); } catch(e){} }
-    if (typeof App.renderDocuments === 'function') { try { App.renderDocuments(); } catch(e){} }
+    try { await App.savePDP(); } catch(e) { console.warn('savePDP:', e); }
+    try { App.renderDocuments(); } catch(e) { console.warn('renderDocuments:', e); }
     await this.renderPDPSection();
     this._toast(`Autorisation générée pour ${sal.nom} ${sal.prenom}`, 'success');
   },
@@ -6112,8 +6108,8 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
       ok++;
     }
     if (sig) await this.upsertSignataire({ nom: sig.nom, fonction: sig.fonction, signature: sig.signature, tampon: sig.tampon, incrementUsage: true });
-    if (typeof App.savePDP === 'function') { try { await App.savePDP(); } catch(e){} }
-    if (typeof App.renderDocuments === 'function') { try { App.renderDocuments(); } catch(e){} }
+    try { await App.savePDP(); } catch(e) { console.warn('savePDP:', e); }
+    try { App.renderDocuments(); } catch(e) { console.warn('renderDocuments:', e); }
     await this.renderPDPSection();
     this._toast(`${ok} autorisation(s) générée(s)${miss?`, ${miss} intervenant(s) non trouvé(s) en base`:''}`, miss?'warning':'success');
   },
@@ -7943,25 +7939,6 @@ const App = {
     else if (this._riskPickerSelectedCat) this._riskPickerView = 'risks';
     else this._riskPickerView = 'categories';
     this.renderRiskPickerContent();
-    // Le code ci-dessous n'est jamais execute (ancien filtrage DOM, conserve pour trace)
-    if (false) { const q = (query || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    if (query && query.trim()) this._riskPickerView = 'search';
-    else if (this._riskPickerSelectedCat) this._riskPickerView = 'risks';
-    else this._riskPickerView = 'categories';
-    this.renderRiskPickerContent();
-    return;
-    // legacy unused
-    document.querySelectorAll('#risk-picker-categories .risk-cat-section').forEach(sec => {
-      let anyVisible = false;
-      sec.querySelectorAll('.risk-chip').forEach(chip => {
-        const name = (chip.dataset.risk || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const match = !q || name.includes(q);
-        chip.style.display = match ? '' : 'none';
-        if (match) anyVisible = true;
-      });
-      sec.style.display = anyVisible ? '' : 'none';
-    });
-    }
   },
 
   async addCustomRiskFromPicker() {
@@ -8888,8 +8865,8 @@ const App = {
       <div class="card-body p-2">
         <!-- Validation EU -->
         <div class="row g-2 align-items-end mb-2">
-          <div class="col-md-5"><label class="form-label small fw-bold" for="pf-renouv-eu-nom-${i}"><i class="bi bi-pen me-1"></i>Représentant EU — Nom</label><input type="text" class="form-control form-control-sm" id="pf-renouv-eu-nom-${i}" name="pf-renouv-eu-nom-${i}" placeholder="Nom du représentant EU" value="${this.esc(r.signatureEU?.nom||'')}" onchange="App.currentPDP.permisFeu.renouvellements[${i}].signatureEU=App.currentPDP.permisFeu.renouvellements[${i}].signatureEU||{};App.currentPDP.permisFeu.renouvellements[${i}].signatureEU.nom=this.value;App.renderPFRenouvellements()"></div>
-          <div class="col-md-3"><label class="form-label small fw-bold" for="pf-renouv-eu-date-${i}">Date</label><input type="date" class="form-control form-control-sm" id="pf-renouv-eu-date-${i}" name="pf-renouv-eu-date-${i}" value="${this.esc(r.signatureEU?.date||'')}" onchange="App.currentPDP.permisFeu.renouvellements[${i}].signatureEU=App.currentPDP.permisFeu.renouvellements[${i}].signatureEU||{};App.currentPDP.permisFeu.renouvellements[${i}].signatureEU.date=this.value;App.renderPFRenouvellements()"></div>
+          <div class="col-md-5"><label class="form-label small fw-bold" for="pf-renouv-eu-nom-${i}"><i class="bi bi-pen me-1"></i>Représentant EU — Nom</label><input type="text" class="form-control form-control-sm" id="pf-renouv-eu-nom-${i}" name="pf-renouv-eu-nom-${i}" placeholder="Nom du représentant EU" value="${this.esc(r.signatureEU?.nom||'')}" onchange="App.currentPDP.permisFeu.renouvellements[${i}].signatureEU=App.currentPDP.permisFeu.renouvellements[${i}].signatureEU||{};App.currentPDP.permisFeu.renouvellements[${i}].signatureEU.nom=this.value"></div>
+          <div class="col-md-3"><label class="form-label small fw-bold" for="pf-renouv-eu-date-${i}">Date</label><input type="date" class="form-control form-control-sm" id="pf-renouv-eu-date-${i}" name="pf-renouv-eu-date-${i}" value="${this.esc(r.signatureEU?.date||'')}" onchange="App.currentPDP.permisFeu.renouvellements[${i}].signatureEU=App.currentPDP.permisFeu.renouvellements[${i}].signatureEU||{};App.currentPDP.permisFeu.renouvellements[${i}].signatureEU.date=this.value"></div>
           <div class="col-md-4"><span class="form-label small fw-bold d-block">Signature</span><div class="signature-pad-wrapper"><canvas id="pf-renouv-sig-eu-${i}" class="signature-canvas" style="height:60px" aria-label="Signature représentant EU"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-renouv-sig-eu-${i}')"><i class="bi bi-eraser"></i></button></div>
         </div>
         <!-- Validation Exécutant -->
