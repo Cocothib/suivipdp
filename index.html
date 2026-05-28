@@ -2443,7 +2443,22 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <button class="btn btn-sm btn-primary" onclick="App.showView('habilitations')"><i class="bi bi-arrow-right me-1"></i>Gérer</button>
       </div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Base de référence des salariés AGRIWATT, de leurs habilitations et des signataires utilisés pour les autorisations internes. Alimente automatiquement l'onglet « Autorisations » des PDP.</div>
-      <div id="habilitations-summary" class="small text-muted"></div>
+      <div id="habilitations-summary" class="small text-muted mb-2"></div>
+      <div class="field-group">
+        <div class="field-group-title"><i class="bi bi-cloud-arrow-down"></i> Synchronisation automatique depuis SharePoint</div>
+        <div class="small text-muted mb-2">Colle l'URL du fichier Excel RH partagé. L'app le lira automatiquement avant chaque génération d'autorisations dans un PDP.</div>
+        <div class="row g-2 align-items-end">
+          <div class="col-md-9">
+            <label class="form-label small mb-1">URL du fichier Excel source (SharePoint / OneDrive)</label>
+            <input type="url" class="form-control form-control-sm" id="habilitations-source-url" placeholder="https://sasagriwatt.sharepoint.com/sites/.../formations.xlsx">
+          </div>
+          <div class="col-md-3 d-flex gap-1">
+            <button class="btn btn-primary btn-sm flex-fill" onclick="AutorisationInterne.saveSourceUrl()"><i class="bi bi-save"></i></button>
+            <button class="btn btn-success btn-sm flex-fill" onclick="AutorisationInterne.syncFromSharePoint({silent:false})" title="Synchroniser maintenant"><i class="bi bi-arrow-repeat"></i></button>
+          </div>
+        </div>
+        <div id="habilitations-sync-status" class="small mt-2"></div>
+      </div>
     </div>
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-cloud"></i>Synchronisation SharePoint</div>
@@ -5485,6 +5500,141 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     XLSX.writeFile(wb, 'modele_habilitations_AGRIWATT.xlsx');
   },
 
+  // === SYNCHRONISATION SHAREPOINT ===
+  async _loadSourceConfig() {
+    const s = await db.settings.get('habilitations_source');
+    return s ? s.value || {} : {};
+  },
+  async _saveSourceConfig(patch) {
+    const cur = await this._loadSourceConfig();
+    const next = { ...cur, ...patch };
+    await db.settings.put({ key: 'habilitations_source', value: next });
+    return next;
+  },
+  async saveSourceUrl() {
+    const url = (document.getElementById('habilitations-source-url').value||'').trim();
+    if (!url) { alert('URL vide.'); return; }
+    if (!/^https?:\/\//i.test(url)) { alert('URL invalide (doit commencer par https://).'); return; }
+    await this._saveSourceConfig({ url });
+    this._renderSyncStatus();
+    this._toast('Source enregistrée', 'success');
+  },
+  _encodeShareUrl(url) {
+    // Microsoft Graph share encoding : "u!" + base64url(url) sans padding
+    const b64 = btoa(unescape(encodeURIComponent(url))).replace(/=+$/,'').replace(/\//g,'_').replace(/\+/g,'-');
+    return 'u!' + b64;
+  },
+  async syncFromSharePoint({ silent=true } = {}) {
+    const cfg = await this._loadSourceConfig();
+    if (!cfg.url) { if (!silent) alert('Aucune URL source configurée dans Paramètres.'); return { ok:false, reason:'no_url' }; }
+    if (typeof _graphFetch !== 'function' || typeof _getToken !== 'function') {
+      if (!silent) alert('Module SharePoint non chargé.'); return { ok:false, reason:'no_graph' };
+    }
+    let token;
+    try { token = await _getToken(); } catch(e) { token = null; }
+    if (!token) {
+      if (!silent) alert('Non connecté à SharePoint. Connectez-vous d\'abord depuis l\'icône Microsoft en haut.');
+      await this._saveSourceConfig({ last_status:'error', last_error:'Non authentifié', last_sync: Date.now() });
+      this._renderSyncStatus();
+      return { ok:false, reason:'not_authenticated' };
+    }
+    try {
+      const shareId = this._encodeShareUrl(cfg.url);
+      const resp = await _graphFetch(`https://graph.microsoft.com/v1.0/shares/${shareId}/driveItem/content`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const buf = await resp.arrayBuffer();
+      if (typeof XLSX === 'undefined') throw new Error('SheetJS non chargé');
+      const wb = XLSX.read(buf, { type:'array', cellDates:true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval:'', raw:false });
+      if (!rows.length) throw new Error('Fichier vide');
+
+      // Mapping colonnes (insensible accents/casse) — même logique que importExcel
+      const colMap = {};
+      Object.keys(rows[0]).forEach(k => { colMap[this._norm(k)] = k; });
+      const get = (row, ...keys) => {
+        for (const k of keys) { const real = colMap[this._norm(k)]; if (real && row[real] != null && row[real] !== '') return row[real]; }
+        return '';
+      };
+
+      const byKey = new Map();
+      for (const r of rows) {
+        const nom = String(get(r,'nom','name','last name','lastname')).trim();
+        const prenom = String(get(r,'prenom','prénom','firstname','first name')).trim();
+        if (!nom || !prenom) continue;
+        const key = nom.toUpperCase()+'|'+prenom.toUpperCase();
+        let s = byKey.get(key);
+        if (!s) {
+          s = {
+            nom, prenom,
+            service: String(get(r,'service','département','department')).trim(),
+            poste: String(get(r,'poste','fonction','job','position')).trim(),
+            statut: String(get(r,'statut','contrat')).trim() || 'CDI',
+            dateVisiteMedicale: this._fmtDate(get(r,'visite medicale','visite médicale','derniere visite medicale','dvm')),
+            medecineTravail: String(get(r,'medecine du travail','médecine du travail','medecine travail')).trim(),
+            habilitations: []
+          };
+          byKey.set(key, s);
+        }
+        const type = String(get(r,'type habilitation','type','habilitation','formation')).trim();
+        const symbole = String(get(r,'symbole','symbol','code')).trim();
+        if (type || symbole) {
+          s.habilitations.push({
+            type, symbole,
+            domaine: String(get(r,'domaine','tension','domaine de tension')).trim(),
+            ouvrages: String(get(r,'ouvrages','installations')).trim(),
+            dateFormation: this._fmtDate(get(r,'date formation','date de formation','formation')),
+            dateValidite: this._fmtDate(get(r,'date validite','date de validite','validité','date validité','expiration')),
+            indications: String(get(r,'indications','indications supplementaires','note','remarque')).trim(),
+            perimetre: String(get(r,'perimetre','périmètre')).trim()
+          });
+        }
+      }
+
+      // SharePoint = source de vérité → on remplace toute la base
+      await db.salaries_habilitations.clear();
+      for (const s of byKey.values()) {
+        s.dateModification = new Date().toISOString();
+        await db.salaries_habilitations.add(s);
+      }
+
+      await this._saveSourceConfig({ last_status:'ok', last_error:'', last_sync: Date.now(), last_count: byKey.size });
+      this._renderSyncStatus();
+      if (document.getElementById('salaries-list-container')) await this._refreshSalariesList();
+      if (!silent) this._toast(`${byKey.size} salarié(s) synchronisé(s) depuis SharePoint`, 'success');
+      return { ok:true, count: byKey.size };
+    } catch(e) {
+      console.warn('Sync SharePoint KO:', e);
+      await this._saveSourceConfig({ last_status:'error', last_error: String(e.message||e), last_sync: Date.now() });
+      this._renderSyncStatus();
+      if (!silent) alert('Échec sync : ' + (e.message||e));
+      return { ok:false, reason:'error', error: e.message||String(e) };
+    }
+  },
+  async _renderSyncStatus() {
+    const el = document.getElementById('habilitations-sync-status');
+    if (!el) return;
+    const cfg = await this._loadSourceConfig();
+    if (!cfg.url) { el.innerHTML = '<i class="bi bi-info-circle text-muted"></i> Aucune source configurée'; return; }
+    const input = document.getElementById('habilitations-source-url');
+    if (input && !input.value) input.value = cfg.url;
+    if (!cfg.last_sync) { el.innerHTML = '<i class="bi bi-clock text-muted"></i> Jamais synchronisé'; return; }
+    const d = new Date(cfg.last_sync);
+    const ago = this._timeAgo(cfg.last_sync);
+    if (cfg.last_status === 'ok') {
+      el.innerHTML = `<span class="text-success"><i class="bi bi-check-circle"></i> Dernière sync : ${ago} — ${cfg.last_count||0} salarié(s)</span>`;
+    } else {
+      el.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle"></i> Échec sync (${ago}) : ${this._esc(cfg.last_error||'inconnu')}</span>`;
+    }
+  },
+  _timeAgo(ts) {
+    const s = Math.floor((Date.now()-ts)/1000);
+    if (s < 60) return 'à l\'instant';
+    if (s < 3600) return `il y a ${Math.floor(s/60)} min`;
+    if (s < 86400) return `il y a ${Math.floor(s/3600)} h`;
+    return `le ${new Date(ts).toLocaleDateString('fr-FR')} à ${new Date(ts).toLocaleTimeString('fr-FR').slice(0,5)}`;
+  },
+
   // === GÉNÉRATION PDF ===
   async generateBlobForSalarie(sal, sig) {
     if (typeof html2canvas === 'undefined' || !window.jspdf) { throw new Error('Libs PDF pas chargées'); }
@@ -5697,6 +5847,8 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
 
   async generateOneFromPDPSection(salId) {
     if (!App.currentPDP) return;
+    // Sync silencieuse depuis SharePoint avant génération
+    try { await this.syncFromSharePoint({ silent:true }); } catch(e) { console.warn('sync pre-generation:', e); }
     const sal = await db.salaries_habilitations.get(salId);
     if (!sal) return;
     const sigId = +document.getElementById('autorisation-pdp-signataire').value;
@@ -5721,6 +5873,8 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
 
   async generateAllFromPDPSection() {
     if (!App.currentPDP) return;
+    // Sync silencieuse depuis SharePoint avant génération
+    try { await this.syncFromSharePoint({ silent:true }); } catch(e) { console.warn('sync pre-generation:', e); }
     const sigId = +document.getElementById('autorisation-pdp-signataire').value;
     const sig = sigId ? await db.signataires.get(sigId) : null;
     const emargements = Array.isArray(App.currentPDP.emargements) ? App.currentPDP.emargements : [];
@@ -11254,6 +11408,7 @@ const App = {
         const nbSig = await db.signataires.count();
         sum.innerHTML = `<i class="bi bi-people me-1"></i><b>${nbSal}</b> salarié(s) enregistré(s) &nbsp;·&nbsp; <i class="bi bi-pen me-1"></i><b>${nbSig}</b> signataire(s)`;
       }
+      await AutorisationInterne._renderSyncStatus();
     } catch (e) { console.warn('habilitations-summary:', e); }
     try { await ActivityLog.render(document.getElementById('activity-log-container')); } catch (e) { console.warn('ActivityLog.render:', e); }
     const proxyInput = document.getElementById('sellsy-proxy-url');
