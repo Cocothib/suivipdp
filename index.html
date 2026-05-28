@@ -1465,13 +1465,13 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
                 </button>
               </div>
             </div>
-            <div class="col-12">
-              <span class="form-label d-block">Entité concernée</span>
+            <div class="col-md-6">
+              <label class="form-label" for="pdp-agence-select">Entité concernée (agence)</label>
               <input type="hidden" id="pdp-entite" value="agriwatt">
+              <select class="form-select form-select-sm" id="pdp-agence-select" onchange="App.selectAgence(this.value)">
+                <option value="">— Choisir une agence —</option>
+              </select>
               <input type="hidden" id="pdp-agence-id" value="">
-              <div class="entite-chantier-group" role="radiogroup" aria-label="Entité" id="pdp-agences-buttons">
-                <!-- Boutons générés dynamiquement à partir des agences en base -->
-              </div>
             </div>
           </div>
         </div>
@@ -2251,8 +2251,10 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="field-group">
         <div class="field-group-title"><i class="bi bi-buildings"></i> Entité concernée (agence)</div>
         <input type="hidden" id="icp-entite" value="agriwatt">
+        <select class="form-select form-select-sm" id="icp-agence-select" onchange="App.selectICPAgence(this.value)">
+          <option value="">— Choisir une agence —</option>
+        </select>
         <input type="hidden" id="icp-agence-id" value="">
-        <div class="entite-chantier-group" role="radiogroup" aria-label="Agence" id="icp-agences-buttons"></div>
         <div id="icp-agence-inherited" class="small text-muted mt-1" style="display:none"><i class="bi bi-link-45deg me-1"></i>Agence héritée du PDP lié.</div>
       </div>
       <div class="field-group">
@@ -8498,39 +8500,31 @@ const App = {
 
   // Sélection d'une agence précise (qui détermine aussi la marque entite)
   selectAgence(agenceId) {
-    const a = getAgenceById(agenceId);
-    if (!a) return;
     const inp = document.getElementById('pdp-agence-id');
-    if (inp) inp.value = agenceId;
+    if (inp) inp.value = agenceId || '';
     const ent = document.getElementById('pdp-entite');
-    if (ent) ent.value = a.marque;
-    document.querySelectorAll('#pdp-agences-buttons .entite-chantier-card').forEach(c => {
-      const isActive = c.dataset.agenceId === agenceId;
-      c.classList.toggle('active', isActive);
-      c.setAttribute('aria-checked', isActive ? 'true' : 'false');
-    });
+    if (agenceId) {
+      const a = getAgenceById(agenceId);
+      if (a && ent) ent.value = a.marque;
+    }
     this.onTypeEntiteChange();
   },
 
-  // === Agences sur formulaire ICP ===
+  // === Agence ICP ===
   selectICPAgence(agenceId) {
-    const a = getAgenceById(agenceId);
-    if (!a) return;
     const inp = document.getElementById('icp-agence-id');
-    if (inp) inp.value = agenceId;
+    if (inp) inp.value = agenceId || '';
     const ent = document.getElementById('icp-entite');
-    if (ent) ent.value = a.marque;
-    document.querySelectorAll('#icp-agences-buttons .entite-chantier-card').forEach(c => {
-      const isActive = c.dataset.agenceId === agenceId;
-      c.classList.toggle('active', isActive);
-      c.setAttribute('aria-checked', isActive ? 'true' : 'false');
-    });
+    if (agenceId) {
+      const a = getAgenceById(agenceId);
+      if (a && ent) ent.value = a.marque;
+    }
   },
 
-  // Si l'ICP a un PDP lié, hérite son agenceId (lecture seule). Sinon ne touche rien.
+  // Si l'ICP a un PDP lié, hérite son agenceId (select disabled). Sinon ne touche rien.
   async _loadICPAgenceFromPDPIfNeeded(v) {
     const banner = document.getElementById('icp-agence-inherited');
-    const container = document.getElementById('icp-agences-buttons');
+    const sel = document.getElementById('icp-agence-select');
     if (!v) return;
     if (v.pdpId) {
       try {
@@ -8541,50 +8535,43 @@ const App = {
           const inp = document.getElementById('icp-agence-id'); if (inp) inp.value = pdp.agenceId;
           const ent = document.getElementById('icp-entite'); if (ent) ent.value = pdp.entite || 'agriwatt';
           if (banner) banner.style.display = '';
-          if (container) container.style.pointerEvents = 'none';
-          if (container) container.style.opacity = '0.55';
+          if (sel) sel.disabled = true;
           return;
         }
       } catch(e) { console.warn('inherit agence from pdp:', e); }
     }
     if (banner) banner.style.display = 'none';
-    if (container) { container.style.pointerEvents = ''; container.style.opacity = ''; }
+    if (sel) sel.disabled = false;
   },
 
+  // Helpers de peuplement select (PDP et ICP)
+  _buildAgenceOptions(agences, selectedId) {
+    const sorted = [...agences].sort((a,b) => {
+      if (a.marque !== b.marque) return a.marque === 'agriwatt' ? -1 : 1;
+      return (a.ville||a.nomComplet||'').localeCompare(b.ville||b.nomComplet||'','fr',{sensitivity:'base'});
+    });
+    // Groupé par marque (optgroup) pour lisibilité
+    const groups = {};
+    sorted.forEach(a => { (groups[a.marque] = groups[a.marque] || []).push(a); });
+    let html = '<option value="">— Choisir une agence —</option>';
+    Object.keys(groups).forEach(marque => {
+      html += `<optgroup label="${marque === 'enersolys' ? 'Enersolys' : 'Agriwatt'}">`;
+      html += groups[marque].map(a => `<option value="${this.esc(a.id)}"${a.id === selectedId ? ' selected' : ''}>${this.esc(a.nomComplet||a.ville||a.id)}</option>`).join('');
+      html += '</optgroup>';
+    });
+    return html;
+  },
   async renderICPAgencesButtons(selectedId) {
-    const container = document.getElementById('icp-agences-buttons');
-    if (!container) return;
+    const sel = document.getElementById('icp-agence-select');
+    if (!sel) return;
     const agences = await loadAgences();
-    const sorted = [...agences].sort((a,b) => {
-      if (a.marque !== b.marque) return a.marque === 'agriwatt' ? -1 : 1;
-      return (a.ville||a.nomComplet||'').localeCompare(b.ville||b.nomComplet||'','fr',{sensitivity:'base'});
-    });
-    container.innerHTML = sorted.map(a => {
-      const isActive = a.id === selectedId;
-      const iconColor = a.marque === 'enersolys' ? 'text-info' : 'text-success';
-      return `<button type="button" class="entite-chantier-card${isActive?' active':''}" data-agence-id="${this.esc(a.id)}" data-entite="${this.esc(a.marque)}" role="radio" aria-checked="${isActive}" onclick="App.selectICPAgence('${this.esc(a.id)}')">
-        <i class="bi bi-buildings ${iconColor}"></i> ${this.esc(a.nomComplet||a.ville||a.id)}
-      </button>`;
-    }).join('');
+    sel.innerHTML = this._buildAgenceOptions(agences, selectedId);
   },
-
-  // (Re)construit dynamiquement les boutons d'agences dans le formulaire PDP
   async renderAgencesButtons(selectedId) {
-    const container = document.getElementById('pdp-agences-buttons');
-    if (!container) return;
+    const sel = document.getElementById('pdp-agence-select');
+    if (!sel) return;
     const agences = await loadAgences();
-    // Tri : agriwatt d'abord (par ville), puis enersolys
-    const sorted = [...agences].sort((a,b) => {
-      if (a.marque !== b.marque) return a.marque === 'agriwatt' ? -1 : 1;
-      return (a.ville||a.nomComplet||'').localeCompare(b.ville||b.nomComplet||'','fr',{sensitivity:'base'});
-    });
-    container.innerHTML = sorted.map(a => {
-      const isActive = a.id === selectedId;
-      const iconColor = a.marque === 'enersolys' ? 'text-info' : 'text-success';
-      return `<button type="button" class="entite-chantier-card${isActive?' active':''}" data-agence-id="${this.esc(a.id)}" data-entite="${this.esc(a.marque)}" role="radio" aria-checked="${isActive}" onclick="App.selectAgence('${this.esc(a.id)}')">
-        <i class="bi bi-buildings ${iconColor}"></i> ${this.esc(a.nomComplet||a.ville||a.id)}
-      </button>`;
-    }).join('');
+    sel.innerHTML = this._buildAgenceOptions(agences, selectedId);
   },
 
   syncTypeEntiteUI() {
