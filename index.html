@@ -5134,6 +5134,44 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     else console.log('[Autorisation]', msg);
   },
 
+  // Recherche tolérante d'un salarié dans la base par nom/prénom (échange autorisé, ordre indifférent)
+  _findSalarie(sals, nom, prenom) {
+    const nNom = this._norm(nom), nPrenom = this._norm(prenom);
+    if (!nNom && !nPrenom) return null;
+    // 1) match strict nom + prénom
+    let hit = sals.find(s => this._norm(s.nom) === nNom && this._norm(s.prenom) === nPrenom);
+    if (hit) return hit;
+    // 2) match inversé (l'utilisateur a interverti nom et prénom)
+    hit = sals.find(s => this._norm(s.nom) === nPrenom && this._norm(s.prenom) === nNom);
+    if (hit) return hit;
+    // 3) match nom uniquement si prénom vide
+    if (!nPrenom) hit = sals.find(s => this._norm(s.nom) === nNom);
+    if (hit) return hit;
+    if (!nNom) hit = sals.find(s => this._norm(s.prenom) === nPrenom);
+    if (hit) return hit;
+    // 4) match concaténé nom+prénom dans n'importe quel ordre
+    const fullA = (nNom + ' ' + nPrenom).trim();
+    const fullB = (nPrenom + ' ' + nNom).trim();
+    hit = sals.find(s => {
+      const t = (this._norm(s.nom) + ' ' + this._norm(s.prenom)).trim();
+      const tInv = (this._norm(s.prenom) + ' ' + this._norm(s.nom)).trim();
+      return t === fullA || t === fullB || tInv === fullA || tInv === fullB;
+    });
+    if (hit) return hit;
+    // 5) split d'un champ unique (ex: "Franck Huleux" en nom seul)
+    const tryParts = (full) => {
+      if (!full || !full.includes(' ')) return null;
+      const parts = full.split(' ').filter(Boolean);
+      for (let i = 1; i < parts.length; i++) {
+        const a = parts.slice(0, i).join(' '), b = parts.slice(i).join(' ');
+        const h = sals.find(s => (this._norm(s.nom) === a && this._norm(s.prenom) === b) || (this._norm(s.nom) === b && this._norm(s.prenom) === a));
+        if (h) return h;
+      }
+      return null;
+    };
+    return tryParts(nNom) || tryParts(nPrenom) || tryParts(fullA);
+  },
+
   // === Init et rendu vue ===
   async init() {
     await this._refreshSalariesList();
@@ -5817,30 +5855,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     }
     // Charger tous les salariés de la base + n'inclure que les intervenants AGRIWATT
     const sals = await db.salaries_habilitations.toArray();
-    const findSal = (nom, prenom) => {
-      const nNom = this._norm(nom), nPrenom = this._norm(prenom);
-      // 1) match strict nom+prenom
-      let hit = sals.find(s => this._norm(s.nom) === nNom && (!nPrenom || this._norm(s.prenom) === nPrenom));
-      if (hit) return hit;
-      // 2) match contains : nom contenu dans nom complet
-      const full = (nNom + ' ' + nPrenom).trim();
-      hit = sals.find(s => {
-        const target = (this._norm(s.nom) + ' ' + this._norm(s.prenom)).trim();
-        return target === full || target.includes(nNom) && nNom.length > 2;
-      });
-      if (hit) return hit;
-      // 3) si nom est en fait "NOM Prenom" concaténé
-      if (!nPrenom && nNom.includes(' ')) {
-        const parts = nNom.split(' ');
-        for (let i=1;i<parts.length;i++) {
-          const tryNom = parts.slice(0,i).join(' ');
-          const tryPrenom = parts.slice(i).join(' ');
-          hit = sals.find(s => this._norm(s.nom) === tryNom && this._norm(s.prenom) === tryPrenom);
-          if (hit) return hit;
-        }
-      }
-      return null;
-    };
+    const findSal = (nom, prenom) => this._findSalarie(sals, nom, prenom);
     // Ne considérer que les intervenants AGRIWATT (société contient agriwatt, ou société vide)
     const intervenantsAgriwatt = emargements.filter(em => {
       const soc = this._norm(em.societe||'');
@@ -5929,24 +5944,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     }
 
     const sals = await db.salaries_habilitations.toArray();
-    const findSal = (nom, prenom) => {
-      const nNom = this._norm(nom), nPrenom = this._norm(prenom);
-      let hit = sals.find(s => this._norm(s.nom) === nNom && (!nPrenom || this._norm(s.prenom) === nPrenom));
-      if (hit) return hit;
-      const full = (nNom + ' ' + nPrenom).trim();
-      hit = sals.find(s => (this._norm(s.nom) + ' ' + this._norm(s.prenom)).trim() === full);
-      if (hit) return hit;
-      if (!nPrenom && nNom.includes(' ')) {
-        const parts = nNom.split(' ');
-        for (let i=1;i<parts.length;i++) {
-          const tryNom = parts.slice(0,i).join(' ');
-          const tryPrenom = parts.slice(i).join(' ');
-          hit = sals.find(s => this._norm(s.nom) === tryNom && this._norm(s.prenom) === tryPrenom);
-          if (hit) return hit;
-        }
-      }
-      return null;
-    };
+    const findSal = (nom, prenom) => this._findSalarie(sals, nom, prenom);
 
     // Index des autorisations déjà jointes
     const documents = Array.isArray(pdp.documents) ? pdp.documents : [];
@@ -6034,15 +6032,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     });
     if (!intervenants.length) { alert('Aucun intervenant AGRIWATT à traiter.'); return; }
     const sals = await db.salaries_habilitations.toArray();
-    const findSal = (nom, prenom) => {
-      const nNom = this._norm(nom), nPrenom = this._norm(prenom);
-      let hit = sals.find(s => this._norm(s.nom) === nNom && (!nPrenom || this._norm(s.prenom) === nPrenom));
-      if (hit) return hit;
-      const full = (nNom + ' ' + nPrenom).trim();
-      hit = sals.find(s => (this._norm(s.nom) + ' ' + this._norm(s.prenom)).trim() === full);
-      if (hit) return hit;
-      return null;
-    };
+    const findSal = (nom, prenom) => this._findSalarie(sals, nom, prenom);
     if (!Array.isArray(App.currentPDP.documents)) App.currentPDP.documents = [];
     App.currentPDP.documents = App.currentPDP.documents.filter(d => !(d.categorie === 'autorisation_interne' && d.genere_auto));
     let ok=0, miss=0;
