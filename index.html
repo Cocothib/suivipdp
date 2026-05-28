@@ -2118,7 +2118,6 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-hab-salaries">Salariés &amp; habilitations</a></li>
       <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-hab-signataires">Signataires</a></li>
       <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-hab-import">Import Excel RH</a></li>
-      <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-hab-preview">Aperçu &amp; génération</a></li>
     </ul>
     <div class="tab-content border border-top-0 p-3">
 
@@ -2155,26 +2154,6 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <button class="btn btn-outline-secondary btn-sm" onclick="AutorisationInterne.downloadExcelTemplate()"><i class="bi bi-download me-1"></i>Télécharger modèle vierge</button>
         </div>
         <div id="import-excel-preview"></div>
-      </div>
-
-      <!-- Onglet Aperçu -->
-      <div class="tab-pane fade" id="tab-hab-preview">
-        <div class="row g-2">
-          <div class="col-md-4">
-            <label class="form-label small mb-1">Salarié</label>
-            <select class="form-select form-select-sm" id="preview-salarie-select" onchange="AutorisationInterne.renderPreview()"></select>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label small mb-1">Signataire</label>
-            <select class="form-select form-select-sm" id="preview-signataire-select" onchange="AutorisationInterne.renderPreview()"></select>
-          </div>
-          <div class="col-md-4 d-flex align-items-end gap-2">
-            <button class="btn btn-primary btn-sm" onclick="AutorisationInterne.generateOnePDF()"><i class="bi bi-file-earmark-pdf me-1"></i>Générer le PDF</button>
-            <button class="btn btn-outline-secondary btn-sm" onclick="AutorisationInterne.renderPreview()"><i class="bi bi-arrow-clockwise me-1"></i>Rafraîchir</button>
-          </div>
-        </div>
-        <hr>
-        <div id="autorisation-preview-container" style="background:#eee; padding:10px; overflow:auto; max-height:75vh;"></div>
       </div>
 
     </div>
@@ -5126,7 +5105,6 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
   async init() {
     await this._refreshSalariesList();
     await this._refreshSignatairesList();
-    await this._refreshPreviewSelects();
   },
 
   // === SALARIÉS ===
@@ -5168,13 +5146,11 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     if (!confirm('Supprimer ce salarié et ses habilitations ?')) return;
     await db.salaries_habilitations.delete(id);
     await this._refreshSalariesList();
-    await this._refreshPreviewSelects();
   },
   async clearAllSalaries() {
     if (!confirm('⚠️ Supprimer TOUS les salariés enregistrés ? Cette action est irréversible.')) return;
     await db.salaries_habilitations.clear();
     await this._refreshSalariesList();
-    await this._refreshPreviewSelects();
     this._toast('Base salariés vidée', 'warning');
   },
   async openSalarieForm(id) {
@@ -5237,8 +5213,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
         if (id) await db.salaries_habilitations.update(id, data);
         else await db.salaries_habilitations.add(data);
         await this._refreshSalariesList();
-        await this._refreshPreviewSelects();
-        return true;
+            return true;
       }
     });
   },
@@ -5296,7 +5271,6 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     if (!confirm('Supprimer ce signataire ?')) return;
     await db.signataires.delete(id);
     await this._refreshSignatairesList();
-    await this._refreshPreviewSelects();
   },
   async openSignataireForm(id) {
     const sig = id ? await db.signataires.get(id) : { nom:'', fonction:'', signature:'', tampon:'' };
@@ -5361,8 +5335,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
         const tampon = (tamponPrev && tamponPrev.src && tamponPrev.style.display !== 'none' && tamponPrev.src.startsWith('data:')) ? tamponPrev.src : (sig.tampon||'');
         await this.upsertSignataire({ nom, fonction, signature, tampon });
         await this._refreshSignatairesList();
-        await this._refreshPreviewSelects();
-        return true;
+            return true;
       }
     });
   },
@@ -5485,8 +5458,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
       }
       preview.innerHTML = `<div class="alert alert-success">Import terminé : ${added} ajouté(s), ${updated} mis à jour.</div>`;
       await this._refreshSalariesList();
-      await this._refreshPreviewSelects();
-    };
+      };
     event.target.value = '';
   },
   downloadExcelTemplate() {
@@ -5503,40 +5475,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     XLSX.writeFile(wb, 'modele_habilitations_AGRIWATT.xlsx');
   },
 
-  // === PREVIEW & GÉNÉRATION ===
-  async _refreshPreviewSelects() {
-    const selS = document.getElementById('preview-salarie-select');
-    const selG = document.getElementById('preview-signataire-select');
-    if (!selS || !selG) return;
-    const sals = await db.salaries_habilitations.orderBy('nom').toArray();
-    const sigs = await db.signataires.orderBy('updated_at').reverse().toArray();
-    selS.innerHTML = '<option value="">— Choisir un salarié —</option>' + sals.map(s => `<option value="${s.id}">${this._esc(s.nom)} ${this._esc(s.prenom)}</option>`).join('');
-    selG.innerHTML = '<option value="">— Choisir un signataire —</option>' + sigs.map(s => `<option value="${s.id}">${this._esc(s.nom)} (${this._esc(s.fonction)})</option>`).join('');
-    this.renderPreview();
-  },
-  async renderPreview() {
-    const c = document.getElementById('autorisation-preview-container');
-    if (!c) return;
-    const salId = +document.getElementById('preview-salarie-select').value;
-    const sigId = +document.getElementById('preview-signataire-select').value;
-    if (!salId) { c.innerHTML = '<div class="text-muted p-4 text-center">Sélectionnez un salarié pour voir l\'aperçu.</div>'; return; }
-    const sal = await db.salaries_habilitations.get(salId);
-    const sig = sigId ? await db.signataires.get(sigId) : {};
-    c.innerHTML = `<style>${this.CSS}</style>` + this.buildHTML(sal, sig, this._getLogo());
-  },
-  async generateOnePDF() {
-    const salId = +document.getElementById('preview-salarie-select').value;
-    const sigId = +document.getElementById('preview-signataire-select').value;
-    if (!salId) { alert('Sélectionnez un salarié.'); return; }
-    const sal = await db.salaries_habilitations.get(salId);
-    const sig = sigId ? await db.signataires.get(sigId) : null;
-    const blob = await this.generateBlobForSalarie(sal, sig);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `Autorisation_Interne_${(sal.nom+'_'+sal.prenom).replace(/\s+/g,'_')}.pdf`;
-    a.click(); URL.revokeObjectURL(url);
-    if (sig) await this.upsertSignataire({ nom: sig.nom, fonction: sig.fonction, signature: sig.signature, tampon: sig.tampon, incrementUsage: true });
-  },
+  // === GÉNÉRATION PDF ===
   async generateBlobForSalarie(sal, sig) {
     if (typeof html2canvas === 'undefined' || !window.jspdf) { throw new Error('Libs PDF pas chargées'); }
     // Rendu offscreen
