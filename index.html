@@ -1343,6 +1343,12 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <select class="form-select form-select-sm" style="width:auto" id="filter-client" onchange="App.filterPDPList()">
           <option value="">Tous clients</option>
         </select>
+        <select class="form-select form-select-sm" style="width:auto" id="filter-site" onchange="App.filterPDPList()">
+          <option value="">Tous sites</option>
+        </select>
+        <select class="form-select form-select-sm" style="width:auto" id="filter-conducteur" onchange="App.filterPDPList()">
+          <option value="">Tous conducteurs</option>
+        </select>
         <select class="form-select form-select-sm" style="width:auto" id="filter-annee" onchange="App.filterPDPList()">
           <option value="">Toutes années</option>
         </select>
@@ -2174,6 +2180,12 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <option value="">Tous statuts</option>
         <option value="effectuee">Effectuée</option>
         <option value="validee">Validée</option>
+      </select>
+      <select class="form-select form-select-sm" style="width:auto" id="filter-icp-site" onchange="App.filterICPs()">
+        <option value="">Tous sites</option>
+      </select>
+      <select class="form-select form-select-sm" style="width:auto" id="filter-icp-conducteur" onchange="App.filterICPs()">
+        <option value="">Tous conducteurs</option>
       </select>
       <select class="form-select form-select-sm" style="width:auto" id="filter-icp-annee" onchange="App.filterICPs()">
         <option value="">Toutes années</option>
@@ -6625,7 +6637,8 @@ const App = {
     const annee = (p.dateDebut||p.dateCreation||'').slice(0,4);
     const editors = (this._pdpEditorsMap||{})[String(p.id)] || [];
     const editingBadge = editors.length ? `<span class="badge bg-warning text-dark" style="font-size:0.7rem" title="${this.esc(editors.join(', '))} édite${editors.length>1?'nt':''} en ce moment"><i class="bi bi-pencil-square me-1"></i>${this.esc(editors[0])}${editors.length>1?` +${editors.length-1}`:''}</span>` : '';
-    return `<div class="card pdp-card" onclick="App.openPDP(${p.id})" data-statut="${p.statut}" data-titre="${(p.titre||'').toLowerCase()}" data-ref="${(refOp||'').toLowerCase()}" data-numero="${(p.numero||'').toLowerCase()}" data-site="${(p.site||'').toLowerCase()}" data-client="${(p.eu?.nom||'').toLowerCase()}" data-annee="${annee}" data-datefin="${p.dateFin||''}">
+    const conducteur = this._getConducteurAgriwatt(p);
+    return `<div class="card pdp-card" onclick="App.openPDP(${p.id})" data-statut="${p.statut}" data-titre="${(p.titre||'').toLowerCase()}" data-ref="${(refOp||'').toLowerCase()}" data-numero="${(p.numero||'').toLowerCase()}" data-site="${(p.site||'').toLowerCase()}" data-client="${(p.eu?.nom||'').toLowerCase()}" data-conducteur="${(conducteur||'').toLowerCase()}" data-annee="${annee}" data-datefin="${p.dateFin||''}">
       <div class="card-body p-2">
         <div class="d-flex align-items-start gap-2">
           <div class="flex-grow-1">
@@ -6655,22 +6668,39 @@ const App = {
     this.showView('list');
   },
 
+  // Retourne le nom du responsable AGRIWATT/ENERSOLYS (côté EE pour PDP/ICP externes, côté EU pour PDP interne)
+  _getConducteurAgriwatt(p) {
+    if (!p) return '';
+    const isOurs = (nom) => /agriwatt|enersolys/i.test(nom||'');
+    if (p.typePdp === 'interne' && isOurs(p.eu?.nom)) return p.eu?.responsable || '';
+    const ees = p.entreprisesExt || [];
+    const nous = ees.find(ee => isOurs(ee.nom));
+    if (nous?.responsable) return nous.responsable;
+    // Fallback : si typePdp non défini, essayer aussi EU
+    if (isOurs(p.eu?.nom)) return p.eu?.responsable || '';
+    return '';
+  },
+
   filterPDPList(multiStatuts) {
     const s = (document.getElementById('search-pdp').value||'').toLowerCase().trim();
     const st = multiStatuts || document.getElementById('filter-status').value;
     const statuts = Array.isArray(st) ? st : (st ? [st] : []);
     const client = (document.getElementById('filter-client')?.value||'').toLowerCase();
+    const site = (document.getElementById('filter-site')?.value||'').toLowerCase();
+    const conducteur = (document.getElementById('filter-conducteur')?.value||'').toLowerCase();
     const annee = document.getElementById('filter-annee')?.value || '';
     let visible = 0, total = 0;
     document.querySelectorAll('#pdp-list-container .pdp-card').forEach(c => {
       total++;
-      // Match search dans tous les champs : titre, OPP, numero, site, client
-      const haystack = [c.dataset.titre, c.dataset.ref, c.dataset.numero, c.dataset.site, c.dataset.client].filter(Boolean).join(' ');
+      // Match search dans tous les champs : titre, OPP, numero, site, client, conducteur
+      const haystack = [c.dataset.titre, c.dataset.ref, c.dataset.numero, c.dataset.site, c.dataset.client, c.dataset.conducteur].filter(Boolean).join(' ');
       const matchSearch = !s || haystack.includes(s);
       const matchStatut = !statuts.length || statuts.includes(c.dataset.statut);
       const matchClient = !client || (c.dataset.client||'').includes(client);
+      const matchSite = !site || (c.dataset.site||'') === site;
+      const matchConducteur = !conducteur || (c.dataset.conducteur||'') === conducteur;
       const matchAnnee = !annee || c.dataset.annee === annee;
-      const show = matchSearch && matchStatut && matchClient && matchAnnee;
+      const show = matchSearch && matchStatut && matchClient && matchSite && matchConducteur && matchAnnee;
       c.style.display = show ? '' : 'none';
       if (show) visible++;
     });
@@ -6679,35 +6709,40 @@ const App = {
   },
 
   resetPDPFilters() {
-    const ids = ['search-pdp','filter-status','filter-client','filter-annee'];
+    const ids = ['search-pdp','filter-status','filter-client','filter-site','filter-conducteur','filter-annee'];
     ids.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     this.filterPDPList();
   },
 
-  // Peuple les filtres déroulants client et année à partir des PDP
+  // Peuple les filtres déroulants client / site / conducteur / année à partir des PDP
   populatePDPFilters(pdps) {
     const clients = new Set();
+    const sites = new Set();
+    const conducteurs = new Set();
     const annees = new Set();
     const refs = new Set();
     pdps.forEach(p => {
       if (p.eu?.nom) clients.add(p.eu.nom);
+      if (p.site) sites.add(p.site);
+      const cond = this._getConducteurAgriwatt(p);
+      if (cond) conducteurs.add(cond);
       const a = (p.dateDebut||p.dateCreation||'').slice(0,4);
       if (a) annees.add(a);
       const r = p.refOperation || ((p.icpId && this._icpRefByIdCache) ? this._icpRefByIdCache.get(p.icpId) : '') || '';
       if (r) refs.add(r);
     });
-    const clientSel = document.getElementById('filter-client');
-    if (clientSel) {
-      const cur = clientSel.value;
-      clientSel.innerHTML = '<option value="">Tous clients</option>' + [...clients].sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'})).map(n => `<option value="${this.esc(n)}">${this.esc(n)}</option>`).join('');
-      clientSel.value = cur;
-    }
-    const anneeSel = document.getElementById('filter-annee');
-    if (anneeSel) {
-      const cur = anneeSel.value;
-      anneeSel.innerHTML = '<option value="">Toutes années</option>' + [...annees].sort((a,b)=>b.localeCompare(a)).map(a => `<option value="${a}">${a}</option>`).join('');
-      anneeSel.value = cur;
-    }
+    const setOptions = (id, placeholder, values, sortDesc=false) => {
+      const sel = document.getElementById(id);
+      if (!sel) return;
+      const cur = sel.value;
+      const sorted = sortDesc ? [...values].sort((a,b)=>b.localeCompare(a)) : [...values].sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
+      sel.innerHTML = `<option value="">${placeholder}</option>` + sorted.map(v => `<option value="${this.esc(v.toLowerCase())}">${this.esc(v)}</option>`).join('');
+      sel.value = cur;
+    };
+    setOptions('filter-client',     'Tous clients',     clients);
+    setOptions('filter-site',       'Tous sites',       sites);
+    setOptions('filter-conducteur', 'Tous conducteurs', conducteurs);
+    setOptions('filter-annee',      'Toutes années',    annees, true);
     const dl = document.getElementById('search-pdp-list');
     if (dl) dl.innerHTML = [...refs, ...clients].slice(0, 100).map(v => `<option value="${this.esc(v)}"></option>`).join('');
   },
@@ -10496,7 +10531,8 @@ const App = {
       const annee = (v.dateVisite||v.dateCreation||'').slice(0,4);
       const editors = editorsMap[String(v.id)] || [];
       const editingBadge = editors.length ? `<span class="badge bg-warning text-dark" style="font-size:0.7rem" title="${this.esc(editors.join(', '))} édite${editors.length>1?'nt':''} en ce moment"><i class="bi bi-pencil-square me-1"></i>${this.esc(editors[0])}${editors.length>1?` +${editors.length-1}`:''}</span>` : '';
-      return `<div class="card pdp-card" data-statut="${v.statut||''}" data-site="${(v.site||'').toLowerCase()}" data-ref="${(v.refOperation||'').toLowerCase()}" data-numero="${(v.numero||'').toLowerCase()}" data-objet="${(v.objet||'').toLowerCase()}" data-annee="${annee}" onclick="App.openICP(${v.id})">
+      const conducteurICP = this._getConducteurAgriwatt(v);
+      return `<div class="card pdp-card" data-statut="${v.statut||''}" data-site="${(v.site||'').toLowerCase()}" data-ref="${(v.refOperation||'').toLowerCase()}" data-numero="${(v.numero||'').toLowerCase()}" data-objet="${(v.objet||'').toLowerCase()}" data-conducteur="${(conducteurICP||'').toLowerCase()}" data-annee="${annee}" onclick="App.openICP(${v.id})">
       <div class="card-body p-2">
         <div class="d-flex justify-content-between align-items-start">
           <div class="flex-grow-1">
@@ -10525,15 +10561,19 @@ const App = {
   filterICPs() {
     const s = (document.getElementById('search-icp').value||'').toLowerCase().trim();
     const st = document.getElementById('filter-icp-statut')?.value || '';
+    const site = (document.getElementById('filter-icp-site')?.value||'').toLowerCase();
+    const conducteur = (document.getElementById('filter-icp-conducteur')?.value||'').toLowerCase();
     const annee = document.getElementById('filter-icp-annee')?.value || '';
     let visible = 0, total = 0;
     document.querySelectorAll('#icps-list-container .pdp-card').forEach(c => {
       total++;
-      const haystack = [c.dataset.site, c.dataset.ref, c.dataset.numero, c.dataset.objet].filter(Boolean).join(' ');
+      const haystack = [c.dataset.site, c.dataset.ref, c.dataset.numero, c.dataset.objet, c.dataset.conducteur].filter(Boolean).join(' ');
       const matchSearch = !s || haystack.includes(s);
       const matchStatut = !st || c.dataset.statut === st;
+      const matchSite = !site || (c.dataset.site||'') === site;
+      const matchConducteur = !conducteur || (c.dataset.conducteur||'') === conducteur;
       const matchAnnee = !annee || c.dataset.annee === annee;
-      const show = matchSearch && matchStatut && matchAnnee;
+      const show = matchSearch && matchStatut && matchSite && matchConducteur && matchAnnee;
       c.style.display = show ? '' : 'none';
       if (show) visible++;
     });
@@ -10542,7 +10582,7 @@ const App = {
   },
 
   resetICPFilters() {
-    ['search-icp','filter-icp-statut','filter-icp-annee'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['search-icp','filter-icp-statut','filter-icp-site','filter-icp-conducteur','filter-icp-annee'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     this.filterICPs();
   },
 
@@ -10550,18 +10590,26 @@ const App = {
     const annees = new Set();
     const refs = new Set();
     const sites = new Set();
+    const conducteurs = new Set();
     icps.forEach(v => {
       const a = (v.dateVisite||v.dateCreation||'').slice(0,4);
       if (a) annees.add(a);
       if (v.refOperation) refs.add(v.refOperation);
       if (v.site) sites.add(v.site);
+      const cond = this._getConducteurAgriwatt(v);
+      if (cond) conducteurs.add(cond);
     });
-    const anneeSel = document.getElementById('filter-icp-annee');
-    if (anneeSel) {
-      const cur = anneeSel.value;
-      anneeSel.innerHTML = '<option value="">Toutes années</option>' + [...annees].sort((a,b)=>b.localeCompare(a)).map(a => `<option value="${a}">${a}</option>`).join('');
-      anneeSel.value = cur;
-    }
+    const setOptions = (id, placeholder, values, sortDesc=false) => {
+      const sel = document.getElementById(id);
+      if (!sel) return;
+      const cur = sel.value;
+      const sorted = sortDesc ? [...values].sort((a,b)=>b.localeCompare(a)) : [...values].sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
+      sel.innerHTML = `<option value="">${placeholder}</option>` + sorted.map(v => `<option value="${this.esc(v.toLowerCase())}">${this.esc(v)}</option>`).join('');
+      sel.value = cur;
+    };
+    setOptions('filter-icp-site',       'Tous sites',       sites);
+    setOptions('filter-icp-conducteur', 'Tous conducteurs', conducteurs);
+    setOptions('filter-icp-annee',      'Toutes années',    annees, true);
     const dl = document.getElementById('search-icp-list');
     if (dl) dl.innerHTML = [...refs, ...sites].slice(0, 100).map(v => `<option value="${this.esc(v)}"></option>`).join('');
   },
