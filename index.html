@@ -5500,6 +5500,199 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     XLSX.writeFile(wb, 'modele_habilitations_AGRIWATT.xlsx');
   },
 
+  // === PARSER FORMAT LONG GÉNÉRIQUE (1 ligne / habilitation) ===
+  _parseGenericLong(buf) {
+    const wb = XLSX.read(buf, { type:'array', cellDates:true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval:'', raw:false });
+    if (!rows.length) return [];
+    const colMap = {};
+    Object.keys(rows[0]).forEach(k => { colMap[this._norm(k)] = k; });
+    const get = (row, ...keys) => {
+      for (const k of keys) { const real = colMap[this._norm(k)]; if (real && row[real] != null && row[real] !== '') return row[real]; }
+      return '';
+    };
+    if (!colMap[this._norm('nom')] || (!colMap[this._norm('type habilitation')] && !colMap[this._norm('habilitation')])) return [];
+    const byKey = new Map();
+    for (const r of rows) {
+      const nom = String(get(r,'nom')).trim();
+      const prenom = String(get(r,'prenom','prénom')).trim();
+      if (!nom || !prenom) continue;
+      const key = nom.toUpperCase()+'|'+prenom.toUpperCase();
+      let s = byKey.get(key);
+      if (!s) {
+        s = {
+          nom, prenom,
+          service: String(get(r,'service','département','department')).trim(),
+          poste: String(get(r,'poste','fonction')).trim(),
+          statut: String(get(r,'statut','contrat')).trim() || 'CDI',
+          dateVisiteMedicale: this._fmtDate(get(r,'visite medicale','visite médicale')),
+          medecineTravail: String(get(r,'medecine du travail','médecine du travail')).trim(),
+          habilitations: []
+        };
+        byKey.set(key, s);
+      }
+      const type = String(get(r,'type habilitation','habilitation','formation')).trim();
+      const symbole = String(get(r,'symbole','code')).trim();
+      if (type || symbole) {
+        s.habilitations.push({
+          type, symbole,
+          domaine: String(get(r,'domaine','tension')).trim(),
+          ouvrages: String(get(r,'ouvrages','installations')).trim(),
+          dateFormation: this._fmtDate(get(r,'date formation','date de formation')),
+          dateValidite: this._fmtDate(get(r,'date validite','date de validité','expiration')),
+          indications: String(get(r,'indications','note','remarque')).trim()
+        });
+      }
+    }
+    return [...byKey.values()];
+  },
+
+  // === PARSER FORMAT WIDE AGRIWATT (1 ligne / salarié, colonnes par habilitation) ===
+  _parseAgriwattWide(buf) {
+    const wb = XLSX.read(buf, { type:'array', cellDates:true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:false });
+
+    // Trouver la ligne contenant "Nom" et "Prénom" (en-tête détaillée)
+    let hRow = -1;
+    for (let i = 0; i < Math.min(25, rows.length); i++) {
+      const r = (rows[i]||[]).map(c => this._norm(c));
+      if (r.includes('nom') && (r.includes('prenom') || r.includes('prénom'))) { hRow = i; break; }
+    }
+    if (hRow < 0) return null;
+
+    const catsRow = rows[hRow - 1] || [];  // catégories (HABILITATION ELECTRIQUE, AIPR, …)
+    const subRow  = rows[hRow + 1] || [];  // sous-catégories (3a/3b, niveau 1/2, Fixe/Roulant…)
+    const headers = rows[hRow];
+
+    // Propagation des catégories (cellules fusionnées laissent du vide à droite)
+    let lastCat = '';
+    const colCat = headers.map((_, i) => {
+      const v = catsRow[i];
+      if (v && String(v).trim()) lastCat = String(v).trim();
+      return lastCat;
+    });
+
+    // Mapping catégorie SharePoint → type interne
+    const catMap = (cat) => {
+      const n = this._norm(cat);
+      if (n.includes('habilitation electrique') || n.includes('habilitation électrique')) return 'electrique';
+      if (n === 'aipr' || n.startsWith('aipr')) return 'aipr';
+      if (n.includes('travail en hauteur')) return 'travail en hauteur';
+      if (n.includes('caces r486') || n.includes('r386') || n.includes('nacelle')) return 'caces r486';
+      if (n.includes('caces r482') || n.includes('telescopique') || n.includes('télescopique') || n.includes('r382') || n.includes('r372')) return 'caces r482 f';
+      if (n.includes('cariste frontal') || n.includes('r489') || n.includes('r389')) return 'caces r489';
+      if (n.includes('cariste gerbeur') || n.includes('r485')) return 'caces r485';
+      if (n.includes('permis e')) return 'permis e';
+      if (n === 'epi') return 'epi';
+      if (n === 'sst') return 'sst';
+      if (n === 'irve') return 'irve';
+      if (n.includes('echafaudage') || n.includes('échafaudage')) return 'echafaudage';
+      if (n.includes('autorisation interne')) return '__autorisation_signee__';
+      return null;
+    };
+
+    // Index colonnes identité
+    const findCol = (...names) => {
+      for (let i = 0; i < headers.length; i++) {
+        const h = this._norm(headers[i]);
+        if (names.some(n => h === this._norm(n))) return i;
+      }
+      return -1;
+    };
+    const cNom = findCol('nom');
+    const cPrenom = findCol('prenom','prénom');
+    const cDept = findCol('departement','département');
+    const cFct = findCol('fonction');
+    const cSite = findCol('site');
+
+    if (cNom < 0 || cPrenom < 0) return null;
+
+    // Pour chaque colonne, classer par type interne + nature (formation/recyclage/validite)
+    const colInfo = headers.map((h, i) => {
+      const cat = colCat[i];
+      const internal = catMap(cat);
+      if (!internal) return null;
+      const hn = this._norm(h);
+      const sub = this._norm(subRow[i] || '');
+      let nature = null;
+      if (hn.includes('formation initiale')) nature = 'init';
+      else if (hn.includes('dernier recyclage')) nature = 'recyclage';
+      else if (hn.includes('validite') || hn.includes('validité')) nature = 'validite';
+      else if (hn.includes('lancer le recyclage')) nature = 'next';
+      else if (hn.includes('habilitation bp') || hn.includes('bp / pv') || hn.includes('bp pv')) nature = 'symbole_bppv';
+      if (!nature) return null;
+      // sous-variante (3a/3b, niveau 1/2, Fixe/Roulant)
+      let variant = null;
+      if (sub === '3a' || sub === '3b' || sub === 'fixe' || sub === 'roulant') variant = sub;
+      // niveau dans le nom de colonne
+      if (hn.includes('niveau 1')) variant = 'niveau 1';
+      if (hn.includes('niveau 2')) variant = 'niveau 2';
+      return { internal, nature, variant };
+    });
+
+    // Boucle sur les salariés
+    const salaries = [];
+    for (let r = hRow + 1; r < rows.length; r++) {
+      const row = rows[r] || [];
+      const nom = String(row[cNom]||'').trim();
+      const prenom = String(row[cPrenom]||'').trim();
+      if (!nom || !prenom) continue;
+      // Skip ligne sub-header (3a/3b) si elle est passée
+      if (this._norm(nom).startsWith('nom') && this._norm(prenom).startsWith('pre')) continue;
+
+      const sal = {
+        nom, prenom,
+        service: String(row[cDept]||'').trim(),
+        poste: String(row[cFct]||'').trim(),
+        site: cSite >= 0 ? String(row[cSite]||'').trim() : '',
+        statut: 'CDI',
+        habilitations: []
+      };
+
+      // Agréger par type interne (et variant si applicable)
+      const byKey = {};
+      for (let c = 0; c < headers.length; c++) {
+        const info = colInfo[c]; if (!info) continue;
+        const val = row[c];
+        if (val == null || val === '') continue;
+        const key = info.internal + (info.variant ? '|' + info.variant : '');
+        if (!byKey[key]) byKey[key] = { type: info.internal, variant: info.variant };
+        byKey[key][info.nature] = val;
+      }
+
+      // Convertir en habilitations exploitables (dateFormation = recyclage si présent, sinon init)
+      Object.values(byKey).forEach(h => {
+        const dateFormation = this._fmtDate(h.recyclage || h.init);
+        const dateValidite  = this._fmtDate(h.validite);
+        if (!dateFormation && !dateValidite) return;
+        // Pour CACES R486 : variant 3a => "caces r486 a", 3b => "caces r486 b"
+        let type = h.type;
+        let symbole = '';
+        if (type === 'caces r486') {
+          if (h.variant === '3a') type = 'caces r486 a';
+          else if (h.variant === '3b') type = 'caces r486 b';
+        }
+        if (type === 'caces r485' && h.variant) symbole = h.variant; // Fixe / Roulant
+        if (type === 'travail en hauteur' && h.variant) symbole = h.variant; // niveau 1/2
+        if (type === 'electrique' && byKey['electrique'] && byKey['electrique'].symbole_bppv) {
+          symbole = 'BP PV';
+        }
+        sal.habilitations.push({
+          type, symbole,
+          domaine: '', ouvrages: '',
+          dateFormation, dateValidite,
+          indications: ''
+        });
+      });
+
+      salaries.push(sal);
+    }
+
+    return salaries;
+  },
+
   // === SYNCHRONISATION SHAREPOINT ===
   async _loadSourceConfig() {
     const s = await db.settings.get('habilitations_source');
@@ -5544,65 +5737,28 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const buf = await resp.arrayBuffer();
       if (typeof XLSX === 'undefined') throw new Error('SheetJS non chargé');
-      const wb = XLSX.read(buf, { type:'array', cellDates:true });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { defval:'', raw:false });
-      if (!rows.length) throw new Error('Fichier vide');
 
-      // Mapping colonnes (insensible accents/casse) — même logique que importExcel
-      const colMap = {};
-      Object.keys(rows[0]).forEach(k => { colMap[this._norm(k)] = k; });
-      const get = (row, ...keys) => {
-        for (const k of keys) { const real = colMap[this._norm(k)]; if (real && row[real] != null && row[real] !== '') return row[real]; }
-        return '';
-      };
+      // 1) Essai parser AGRIWATT (format wide : 1 ligne = 1 salarié)
+      let salaries = this._parseAgriwattWide(buf);
 
-      const byKey = new Map();
-      for (const r of rows) {
-        const nom = String(get(r,'nom','name','last name','lastname')).trim();
-        const prenom = String(get(r,'prenom','prénom','firstname','first name')).trim();
-        if (!nom || !prenom) continue;
-        const key = nom.toUpperCase()+'|'+prenom.toUpperCase();
-        let s = byKey.get(key);
-        if (!s) {
-          s = {
-            nom, prenom,
-            service: String(get(r,'service','département','department')).trim(),
-            poste: String(get(r,'poste','fonction','job','position')).trim(),
-            statut: String(get(r,'statut','contrat')).trim() || 'CDI',
-            dateVisiteMedicale: this._fmtDate(get(r,'visite medicale','visite médicale','derniere visite medicale','dvm')),
-            medecineTravail: String(get(r,'medecine du travail','médecine du travail','medecine travail')).trim(),
-            habilitations: []
-          };
-          byKey.set(key, s);
-        }
-        const type = String(get(r,'type habilitation','type','habilitation','formation')).trim();
-        const symbole = String(get(r,'symbole','symbol','code')).trim();
-        if (type || symbole) {
-          s.habilitations.push({
-            type, symbole,
-            domaine: String(get(r,'domaine','tension','domaine de tension')).trim(),
-            ouvrages: String(get(r,'ouvrages','installations')).trim(),
-            dateFormation: this._fmtDate(get(r,'date formation','date de formation','formation')),
-            dateValidite: this._fmtDate(get(r,'date validite','date de validite','validité','date validité','expiration')),
-            indications: String(get(r,'indications','indications supplementaires','note','remarque')).trim(),
-            perimetre: String(get(r,'perimetre','périmètre')).trim()
-          });
-        }
+      // 2) Fallback parser générique (format long : 1 ligne = 1 habilitation)
+      if (!salaries || !salaries.length) {
+        salaries = this._parseGenericLong(buf);
       }
+      if (!salaries || !salaries.length) throw new Error('Aucune donnée exploitable trouvée');
 
       // SharePoint = source de vérité → on remplace toute la base
       await db.salaries_habilitations.clear();
-      for (const s of byKey.values()) {
+      for (const s of salaries) {
         s.dateModification = new Date().toISOString();
         await db.salaries_habilitations.add(s);
       }
 
-      await this._saveSourceConfig({ last_status:'ok', last_error:'', last_sync: Date.now(), last_count: byKey.size });
+      await this._saveSourceConfig({ last_status:'ok', last_error:'', last_sync: Date.now(), last_count: salaries.length });
       this._renderSyncStatus();
       if (document.getElementById('salaries-list-container')) await this._refreshSalariesList();
-      if (!silent) this._toast(`${byKey.size} salarié(s) synchronisé(s) depuis SharePoint`, 'success');
-      return { ok:true, count: byKey.size };
+      if (!silent) this._toast(`${salaries.length} salarié(s) synchronisé(s) depuis SharePoint`, 'success');
+      return { ok:true, count: salaries.length };
     } catch(e) {
       console.warn('Sync SharePoint KO:', e);
       await this._saveSourceConfig({ last_status:'error', last_error: String(e.message||e), last_sync: Date.now() });
