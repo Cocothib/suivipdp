@@ -5416,74 +5416,31 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     const file = event.target.files && event.target.files[0];
     if (!file) return;
     if (typeof XLSX === 'undefined') { alert('SheetJS pas encore chargé, réessayez dans 1s.'); return; }
-    const data = await file.arrayBuffer();
-    const wb = XLSX.read(data, { type: 'array', cellDates: true });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { defval:'', raw:false });
-    if (!rows.length) { alert('Fichier vide.'); return; }
+    const buf = await file.arrayBuffer();
 
-    // Mapping colonnes (insensible accents/casse)
-    const colMap = {};
-    const firstRow = rows[0];
-    Object.keys(firstRow).forEach(k => { colMap[this._norm(k)] = k; });
-    const get = (row, ...keys) => {
-      for (const k of keys) {
-        const real = colMap[this._norm(k)];
-        if (real && row[real] != null && row[real] !== '') return row[real];
-      }
-      return '';
-    };
-
-    // Regroupement par salarié (nom+prenom)
-    const byKey = new Map();
-    for (const r of rows) {
-      const nom = String(get(r,'nom','name','last name','lastname')).trim();
-      const prenom = String(get(r,'prenom','prénom','firstname','first name')).trim();
-      if (!nom || !prenom) continue;
-      const key = nom.toUpperCase()+'|'+prenom.toUpperCase();
-      let s = byKey.get(key);
-      if (!s) {
-        s = {
-          nom, prenom,
-          service: String(get(r,'service','département','department')).trim(),
-          poste: String(get(r,'poste','fonction','job','position')).trim(),
-          statut: String(get(r,'statut','contrat')).trim() || 'CDI',
-          dateVisiteMedicale: this._fmtDate(get(r,'visite medicale','visite médicale','derniere visite medicale','dvm')),
-          medecineTravail: String(get(r,'medecine du travail','médecine du travail','medecine travail')).trim(),
-          habilitations: []
-        };
-        byKey.set(key, s);
-      }
-      const type = String(get(r,'type habilitation','type','habilitation','formation')).trim();
-      const symbole = String(get(r,'symbole','symbol','code')).trim();
-      if (type || symbole) {
-        s.habilitations.push({
-          type,
-          symbole,
-          domaine: String(get(r,'domaine','tension','domaine de tension')).trim(),
-          ouvrages: String(get(r,'ouvrages','installations')).trim(),
-          dateFormation: this._fmtDate(get(r,'date formation','date de formation','formation')),
-          dateValidite: this._fmtDate(get(r,'date validite','date de validite','validité','date validité','expiration')),
-          indications: String(get(r,'indications','indications supplementaires','note','remarque')).trim(),
-          perimetre: String(get(r,'perimetre','périmètre')).trim()
-        });
-      }
+    // Essai parser AGRIWATT (wide), fallback parser générique (long)
+    let salaries = this._parseAgriwattWide(buf);
+    let format = 'AGRIWATT (wide)';
+    if (!salaries || !salaries.length) {
+      salaries = this._parseGenericLong(buf);
+      format = 'générique (long)';
     }
+    if (!salaries || !salaries.length) { alert('Aucune donnée exploitable trouvée dans le fichier.'); return; }
 
     // Aperçu + confirmation
     const preview = document.getElementById('import-excel-preview');
-    const total = byKey.size;
+    const totalHabs = salaries.reduce((a,s)=>a+(s.habilitations||[]).length,0);
     preview.innerHTML = `
-      <div class="alert alert-success">${total} salarié(s) détecté(s), ${[...byKey.values()].reduce((a,s)=>a+s.habilitations.length,0)} habilitation(s) au total.</div>
+      <div class="alert alert-success">Format détecté : <b>${format}</b><br>${salaries.length} salarié(s), ${totalHabs} habilitation(s) au total.</div>
       <div class="mb-2"><button class="btn btn-success btn-sm" id="btn-confirm-import"><i class="bi bi-check-lg"></i> Confirmer l'import (remplace les fiches existantes)</button>
       <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('import-excel-preview').innerHTML=''">Annuler</button></div>
       <div class="table-responsive" style="max-height:300px;overflow:auto"><table class="table table-sm"><thead><tr><th>Nom</th><th>Prénom</th><th>Service</th><th>Habilitations</th></tr></thead><tbody>${
-        [...byKey.values()].map(s => `<tr><td>${this._esc(s.nom)}</td><td>${this._esc(s.prenom)}</td><td>${this._esc(s.service)}</td><td>${s.habilitations.length}</td></tr>`).join('')
+        salaries.map(s => `<tr><td>${this._esc(s.nom)}</td><td>${this._esc(s.prenom)}</td><td>${this._esc(s.service||'')}</td><td>${(s.habilitations||[]).length}</td></tr>`).join('')
       }</tbody></table></div>
     `;
     document.getElementById('btn-confirm-import').onclick = async () => {
       let updated = 0, added = 0;
-      for (const s of byKey.values()) {
+      for (const s of salaries) {
         s.dateModification = new Date().toISOString();
         const existing = await db.salaries_habilitations.where('[nom+prenom]').equals([s.nom, s.prenom]).first();
         if (existing) { await db.salaries_habilitations.update(existing.id, s); updated++; }
