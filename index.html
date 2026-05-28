@@ -5890,7 +5890,8 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     for (const em of intervenantsAgriwatt) {
       const sal = findSal(em.nom, em.prenom);
       if (!sal) { missingCount++; missing.push(`${em.nom||''} ${em.prenom||''}`.trim()); continue; }
-      const blob = await this.generateBlobForSalarie(sal, signataireChoisi);
+      const salWithSig = { ...sal, signatureTitulaire: em.signature || sal.signatureTitulaire || '' };
+      const blob = await this.generateBlobForSalarie(salWithSig, signataireChoisi);
       const dataURL = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
       pdp.documents.push({
         nom: `Autorisation_Interne_${sal.nom}_${sal.prenom}.pdf`,
@@ -6001,7 +6002,15 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     if (!sal) return;
     const sigId = +document.getElementById('autorisation-pdp-signataire').value;
     const sig = sigId ? await db.signataires.get(sigId) : null;
-    const blob = await this.generateBlobForSalarie(sal, sig);
+    // Récupérer la signature de l'émargement correspondant à ce salarié
+    const emargements = Array.isArray(App.currentPDP.emargements) ? App.currentPDP.emargements : [];
+    let emSig = '';
+    for (const em of emargements) {
+      const matched = this._findSalarie([sal], em.nom, em.prenom);
+      if (matched && em.signature) { emSig = em.signature; break; }
+    }
+    const salWithSig = { ...sal, signatureTitulaire: emSig || sal.signatureTitulaire || '' };
+    const blob = await this.generateBlobForSalarie(salWithSig, sig);
     const dataURL = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
 
     if (!Array.isArray(App.currentPDP.documents)) App.currentPDP.documents = [];
@@ -6039,7 +6048,8 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     for (const em of intervenants) {
       const sal = findSal(em.nom, em.prenom);
       if (!sal) { miss++; continue; }
-      const blob = await this.generateBlobForSalarie(sal, sig);
+      const salWithSig = { ...sal, signatureTitulaire: em.signature || sal.signatureTitulaire || '' };
+      const blob = await this.generateBlobForSalarie(salWithSig, sig);
       const dataURL = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
       const docName = `Autorisation_Interne_${sal.nom}_${sal.prenom}.pdf`.replace(/\s+/g,'_');
       App.currentPDP.documents.push({
