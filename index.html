@@ -8506,8 +8506,44 @@ const App = {
     if (agenceId) {
       const a = getAgenceById(agenceId);
       if (a && ent) ent.value = a.marque;
+      // Auto-remplir EU (PDP interne) ou EE AGRIWATT/ENERSOLYS (PDP externe)
+      this._applyAgenceToPDPParties(a);
     }
     this.onTypeEntiteChange();
+  },
+
+  // Injecte les infos d'agence dans le bloc EU (PDP interne) ou EE Agriwatt/Enersolys (PDP externe)
+  _applyAgenceToPDPParties(a) {
+    if (!a || !this.currentPDP) return;
+    const p = this.currentPDP;
+    const typePdp = (document.getElementById('pdp-type')||{}).value || p.typePdp || 'client';
+    const infos = { nom: a.nomComplet||'', adresse: a.adresse||'', siret: a.siret||'', tel: a.tel||'' };
+    if (typePdp === 'interne') {
+      // EU = AGRIWATT/ENERSOLYS
+      p.eu = p.eu || {};
+      p.eu.nom = infos.nom;
+      p.eu.adresse = infos.adresse;
+      p.eu.siret = infos.siret;
+      p.eu.tel = infos.tel;
+      // Reflet UI immédiat (champs visibles uniquement, SIRET stocké dans le modèle)
+      const ids = { 'eu-nom': infos.nom, 'eu-adresse': infos.adresse, 'eu-tel': infos.tel };
+      Object.entries(ids).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val; });
+    } else {
+      // EE AGRIWATT/ENERSOLYS dans entreprisesExt[]
+      p.entreprisesExt = p.entreprisesExt || [];
+      const isOurs = (nom) => /agriwatt|enersolys/i.test(nom||'');
+      let ee = p.entreprisesExt.find(e => isOurs(e.nom));
+      if (!ee) {
+        ee = { nom:'', adresse:'', siret:'', responsable:'', tel:'', email:'', fonction:'', activite:'' };
+        p.entreprisesExt.push(ee);
+      }
+      ee.nom = infos.nom;
+      ee.adresse = infos.adresse;
+      ee.siret = infos.siret;
+      ee.tel = infos.tel;
+      // Refresh visuel de la liste EE si fonction existe
+      if (typeof this.renderEEList === 'function') { try { this.renderEEList(); } catch(e){} }
+    }
   },
 
   // === Agence ICP ===
@@ -8518,6 +8554,32 @@ const App = {
     if (agenceId) {
       const a = getAgenceById(agenceId);
       if (a && ent) ent.value = a.marque;
+      // Auto-remplir EU ICP si chantier interne, sinon EE AGRIWATT/ENERSOLYS
+      this._applyAgenceToICPParties(a);
+    }
+  },
+
+  _applyAgenceToICPParties(a) {
+    if (!a || !this.currentICP) return;
+    const v = this.currentICP;
+    const isInterne = !!document.getElementById('icp-chantier-interne')?.checked;
+    if (isInterne) {
+      // EU = AGRIWATT/ENERSOLYS : on remplit euInfo (utilisé à la création du PDP) + l'adresse site
+      v.euInfo = v.euInfo || {};
+      v.euInfo.nom = a.nomComplet||''; v.euInfo.adresse = a.adresse||''; v.euInfo.siret = a.siret||''; v.euInfo.tel = a.tel||'';
+      const siteEl = document.getElementById('icp-site');
+      if (siteEl && !siteEl.value.trim() && a.adresse) siteEl.value = a.adresse;
+    } else {
+      // EE : trouver/créer l'EE AGRIWATT/ENERSOLYS dans l'ICP
+      v.entreprisesExt = v.entreprisesExt || [];
+      const isOurs = (nom) => /agriwatt|enersolys/i.test(nom||'');
+      let ee = v.entreprisesExt.find(e => isOurs(e.nom));
+      if (!ee) {
+        ee = { nom:'', adresse:'', siret:'', responsable:'', fonction:'', tel:'', activite:'' };
+        v.entreprisesExt.push(ee);
+      }
+      ee.nom = a.nomComplet||''; ee.adresse = a.adresse||''; ee.siret = a.siret||''; ee.tel = a.tel||'';
+      if (typeof this.renderICPEEList === 'function') { try { this.renderICPEEList(); } catch(e){} }
     }
   },
 
@@ -11613,6 +11675,15 @@ const App = {
       if (pdp) { addL(); addT(`PDP associé: ${pdp.numero||''} — ${pdp.titre||''}`,9,'italic',[100,100,100]); }
     }
 
+    // Pagination "Page X / Y" en pied de page
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(150,150,150);
+      doc.text(`ICP ${v.numero||''} — Page ${i}/${totalPages}`, 105, 292, { align: 'center' });
+    }
+    doc.setTextColor(0,0,0);
+
     const icpPdfFn = this.buildICPFilename(v, 'pdf');
     if (this._returnICPPDFBlob) { this._icpPdfBlobResult = doc.output('blob'); return; }
     doc.save(icpPdfFn);
@@ -11797,7 +11868,18 @@ const App = {
       }
     }
 
-    const doc2 = new Document({sections:[{properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},children}]});
+    // Pied de page avec pagination
+    const { Footer: FtI, PageNumber: PNI } = docx;
+    const icpFooter = new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [
+        new TextRun({ text: `ICP ${v.numero||''} — Page `, size: 14, font: 'Calibri', color: '999999' }),
+        new TextRun({ children: [PNI.CURRENT], size: 14, font: 'Calibri', color: '999999' }),
+        new TextRun({ text: ' / ', size: 14, font: 'Calibri', color: '999999' }),
+        new TextRun({ children: [PNI.TOTAL_PAGES], size: 14, font: 'Calibri', color: '999999' })
+      ]
+    });
+    const doc2 = new Document({sections:[{properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},footers:{default:new FtI({children:[icpFooter]})},children}]});
     const blob = await Packer.toBlob(doc2);
     const icpDocxFn = this.buildICPFilename(v, 'docx');
     if (this._returnICPDOCXBlob) { this._icpDocxBlobResult = blob; return; }
