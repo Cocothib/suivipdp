@@ -5093,14 +5093,22 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
   _norm(s) { return String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); },
   _parseDate(str) {
     if (!str) return null;
-    if (str instanceof Date) return str;
+    if (str instanceof Date) {
+      // SheetJS peut retourner "minuit moins quelques heures de la veille" : arrondir
+      let day = str.getUTCDate(), month = str.getUTCMonth(), year = str.getUTCFullYear();
+      if (str.getUTCHours() >= 12) {
+        const d2 = new Date(Date.UTC(year, month, day + 1));
+        day = d2.getUTCDate(); month = d2.getUTCMonth(); year = d2.getUTCFullYear();
+      }
+      return new Date(Date.UTC(year, month, day));
+    }
     const s = String(str).trim();
     // dd/mm/yyyy
     let m = s.match(/^(\d{1,2})[\/\-\.\s](\d{1,2})[\/\-\.\s](\d{2,4})$/);
-    if (m) { const y = m[3].length === 2 ? '20'+m[3] : m[3]; return new Date(+y, +m[2]-1, +m[1]); }
+    if (m) { const y = m[3].length === 2 ? '20'+m[3] : m[3]; return new Date(Date.UTC(+y, +m[2]-1, +m[1])); }
     // yyyy-mm-dd
     m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
-    if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+    if (m) return new Date(Date.UTC(+m[1], +m[2]-1, +m[3]));
     // Excel serial
     if (/^\d+$/.test(s)) {
       const n = +s;
@@ -5116,7 +5124,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     const dt = this._parseDate(d);
     if (!dt) return '';
     const pad = n => String(n).padStart(2,'0');
-    return `${pad(dt.getDate())}/${pad(dt.getMonth()+1)}/${dt.getFullYear()}`;
+    return `${pad(dt.getUTCDate())}/${pad(dt.getUTCMonth()+1)}/${dt.getUTCFullYear()}`;
   },
   _getLogo() {
     try { return getLogoDataURL(); } catch(e) { return ''; }
@@ -5552,7 +5560,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
   _parseAgriwattWide(buf) {
     const wb = XLSX.read(buf, { type:'array', cellDates:true });
     const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:false });
+    const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'', raw:true });
 
     // Trouver la ligne contenant "Nom" et "Prénom" (en-tête détaillée)
     let hRow = -1;
@@ -5572,6 +5580,20 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
       const v = catsRow[i];
       if (v && String(v).trim()) lastCat = String(v).trim();
       return lastCat;
+    });
+
+    // Propagation des en-têtes détaillés vides dans la même catégorie (gère fusions horizontales)
+    let lastH = '', lastHCat = '';
+    const headersExpanded = headers.map((h, i) => {
+      const curCat = colCat[i];
+      if (h != null && String(h).trim()) {
+        lastH = String(h).trim();
+        lastHCat = curCat;
+        return lastH;
+      }
+      if (curCat === lastHCat) return lastH;
+      lastH = '';
+      return '';
     });
 
     // Mapping catégorie SharePoint → type interne
@@ -5606,11 +5628,12 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     const cDept = findCol('departement','département');
     const cFct = findCol('fonction');
     const cSite = findCol('site');
+    const cVM = findCol('date de vm','vm','date vm','visite medicale','visite médicale');
 
     if (cNom < 0 || cPrenom < 0) return null;
 
     // Pour chaque colonne, classer par type interne + nature (formation/recyclage/validite)
-    const colInfo = headers.map((h, i) => {
+    const colInfo = headersExpanded.map((h, i) => {
       const cat = colCat[i];
       const internal = catMap(cat);
       if (!internal) return null;
@@ -5648,43 +5671,57 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
         poste: String(row[cFct]||'').trim(),
         site: cSite >= 0 ? String(row[cSite]||'').trim() : '',
         statut: 'CDI',
+        dateVisiteMedicale: cVM >= 0 ? this._fmtDate(row[cVM]) : '',
         habilitations: []
       };
 
-      // Agréger par type interne (et variant si applicable)
-      const byKey = {};
+      // Agrégation : validité/recyclage globaux par type, dates init par variant
+      const agg = {};
       for (let c = 0; c < headers.length; c++) {
         const info = colInfo[c]; if (!info) continue;
         const val = row[c];
         if (val == null || val === '') continue;
-        const key = info.internal + (info.variant ? '|' + info.variant : '');
-        if (!byKey[key]) byKey[key] = { type: info.internal, variant: info.variant };
-        byKey[key][info.nature] = val;
+        if (!agg[info.internal]) agg[info.internal] = { type: info.internal, inits: {}, validite: null, recyclage: null, bppv: null };
+        const a = agg[info.internal];
+        if (info.nature === 'init') a.inits[info.variant || '_default'] = val;
+        else if (info.nature === 'recyclage') a.recyclage = val;
+        else if (info.nature === 'validite') a.validite = val;
+        else if (info.nature === 'symbole_bppv') a.bppv = val;
       }
 
-      // Convertir en habilitations exploitables (dateFormation = recyclage si présent, sinon init)
-      Object.values(byKey).forEach(h => {
-        const dateFormation = this._fmtDate(h.recyclage || h.init);
-        const dateValidite  = this._fmtDate(h.validite);
-        if (!dateFormation && !dateValidite) return;
-        // Pour CACES R486 : variant 3a => "caces r486 a", 3b => "caces r486 b"
-        let type = h.type;
-        let symbole = '';
-        if (type === 'caces r486') {
-          if (h.variant === '3a') type = 'caces r486 a';
-          else if (h.variant === '3b') type = 'caces r486 b';
+      // Convertir en habilitations finales
+      Object.values(agg).forEach(a => {
+        const validite = this._fmtDate(a.validite);
+        const variantKeys = Object.keys(a.inits);
+        if (!variantKeys.length && !validite) return;
+
+        if (a.type === 'caces r486') {
+          // 3a -> R486 cat A, 3b -> R486 cat B (validité partagée)
+          variantKeys.forEach(v => {
+            const df = this._fmtDate(a.recyclage || a.inits[v]);
+            let type = 'caces r486';
+            if (v === '3a') type = 'caces r486 a';
+            else if (v === '3b') type = 'caces r486 b';
+            sal.habilitations.push({ type, symbole:'', dateFormation:df, dateValidite:validite });
+          });
+          if (!variantKeys.length && validite) sal.habilitations.push({ type:'caces r486', symbole:'', dateFormation:'', dateValidite:validite });
+        } else if (a.type === 'caces r485') {
+          variantKeys.forEach(v => {
+            const df = this._fmtDate(a.recyclage || a.inits[v]);
+            sal.habilitations.push({ type:'caces r485', symbole:v, dateFormation:df, dateValidite:validite });
+          });
+        } else if (a.type === 'travail en hauteur') {
+          // Fusion niveau 1 + niveau 2 : on garde la date la plus récente
+          const dates = variantKeys.map(v => a.inits[v]).filter(Boolean).map(d => new Date(d));
+          const init = dates.length ? new Date(Math.max(...dates.map(d => d.getTime()))) : null;
+          const df = this._fmtDate(a.recyclage || init);
+          sal.habilitations.push({ type:'travail en hauteur', symbole:'', dateFormation:df, dateValidite:validite });
+        } else {
+          const init = variantKeys.length ? a.inits[variantKeys[0]] : null;
+          const df = this._fmtDate(a.recyclage || init);
+          const sym = (a.type === 'electrique' && a.bppv) ? 'BP PV' : '';
+          sal.habilitations.push({ type: a.type, symbole: sym, dateFormation: df, dateValidite: validite });
         }
-        if (type === 'caces r485' && h.variant) symbole = h.variant; // Fixe / Roulant
-        if (type === 'travail en hauteur' && h.variant) symbole = h.variant; // niveau 1/2
-        if (type === 'electrique' && byKey['electrique'] && byKey['electrique'].symbole_bppv) {
-          symbole = 'BP PV';
-        }
-        sal.habilitations.push({
-          type, symbole,
-          domaine: '', ouvrages: '',
-          dateFormation, dateValidite,
-          indications: ''
-        });
       });
 
       salaries.push(sal);
