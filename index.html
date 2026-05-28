@@ -1230,6 +1230,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <li class="nav-item"><a class="nav-link" href="#" data-page="icps" onclick="App.showView('icps')"><i class="bi bi-clipboard-check me-1"></i>ICP</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-page="list" onclick="App.showView('list')"><i class="bi bi-list-ul me-1"></i>PDP</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-page="entreprises" onclick="App.showView('entreprises')"><i class="bi bi-building me-1"></i>Entreprises</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-page="habilitations" onclick="App.showView('habilitations')"><i class="bi bi-patch-check me-1"></i>Habilitations</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-page="settings" onclick="App.showView('settings')"><i class="bi bi-gear me-1"></i>Paramètres</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-page="tutoriel" onclick="App.showView('tutoriel')"><i class="bi bi-book me-1"></i>Aide</a></li>
       </ul>
@@ -2039,7 +2040,9 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
             </div>
             <label class="btn btn-outline-primary btn-sm"><i class="bi bi-upload me-1"></i>Ajouter<input type="file" class="d-none" onchange="App.addDocument(event)" multiple></label>
             <button class="btn btn-outline-success btn-sm" onclick="App.attachStandardFDSManually()" title="Rattacher les FDS marquées Standard depuis la bibliothèque"><i class="bi bi-file-earmark-pdf me-1"></i>Importer FDS standard</button>
+            <button class="btn btn-outline-warning btn-sm" onclick="AutorisationInterne.generateForPDPIntervenants()" title="Génère un PDF d'autorisation interne pour chaque intervenant AGRIWATT du PDP et l'attache aux documents joints"><i class="bi bi-patch-check me-1"></i>Générer autorisations internes</button>
           </div>
+          <div id="autorisation-interne-status" class="small mt-1 text-muted" style="display:none"></div>
         </div>
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-folder2-open"></i> Documents attachés</div>
@@ -2085,6 +2088,77 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     </div>
     <input type="search" class="form-control form-control-sm search-bar mb-3" placeholder="Rechercher..." id="search-entreprise" oninput="App.filterEntreprises()">
     <div id="entreprises-list-container"></div>
+  </div>
+
+  <!-- ==================== HABILITATIONS ==================== -->
+  <div id="view-habilitations" class="view fade-in" style="display:none">
+    <div class="d-flex justify-content-between flex-wrap align-items-center gap-2 mb-3">
+      <h5 class="mb-0"><i class="bi bi-patch-check me-1"></i>Habilitations &amp; Signataires</h5>
+    </div>
+    <ul class="nav nav-tabs" role="tablist">
+      <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-hab-salaries">Salariés &amp; habilitations</a></li>
+      <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-hab-signataires">Signataires</a></li>
+      <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-hab-import">Import Excel RH</a></li>
+      <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-hab-preview">Aperçu &amp; génération</a></li>
+    </ul>
+    <div class="tab-content border border-top-0 p-3">
+
+      <!-- Onglet Salariés -->
+      <div class="tab-pane fade show active" id="tab-hab-salaries">
+        <div class="d-flex justify-content-between mb-2 flex-wrap gap-2">
+          <input type="search" class="form-control form-control-sm" style="max-width:300px" placeholder="Rechercher salarié..." oninput="AutorisationInterne.filterSalaries(this.value)">
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary btn-sm" onclick="AutorisationInterne.openSalarieForm()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
+            <button class="btn btn-outline-danger btn-sm" onclick="AutorisationInterne.clearAllSalaries()" title="Vider toute la base salariés"><i class="bi bi-trash me-1"></i>Vider</button>
+          </div>
+        </div>
+        <div id="salaries-list-container"></div>
+      </div>
+
+      <!-- Onglet Signataires -->
+      <div class="tab-pane fade" id="tab-hab-signataires">
+        <div class="d-flex justify-content-between mb-2 flex-wrap gap-2">
+          <div class="small text-muted">Les signataires sont enregistrés automatiquement lors de la première génération d'autorisation. Vous pouvez aussi les pré-enregistrer ici.</div>
+          <button class="btn btn-primary btn-sm" onclick="AutorisationInterne.openSignataireForm()"><i class="bi bi-plus-lg me-1"></i>Ajouter signataire</button>
+        </div>
+        <div id="signataires-list-container"></div>
+      </div>
+
+      <!-- Onglet Import -->
+      <div class="tab-pane fade" id="tab-hab-import">
+        <div class="alert alert-info small">
+          <strong>Format attendu :</strong> fichier Excel (.xlsx) avec une ligne par habilitation/salarié.<br>
+          Colonnes reconnues automatiquement : <code>Nom</code>, <code>Prénom</code>, <code>Service</code>, <code>Poste</code>, <code>Statut</code> (CDI/CDD/Intérimaire), <code>Visite médicale</code>, <code>Médecine du travail</code>, <code>Type habilitation</code>, <code>Symbole</code>, <code>Domaine</code>, <code>Date formation</code>, <code>Date validité</code>, <code>Périmètre</code>.<br>
+          Le mapping des colonnes est automatique (insensible à la casse et aux accents).
+        </div>
+        <div class="d-flex gap-2 flex-wrap mb-3">
+          <label class="btn btn-success btn-sm mb-0"><i class="bi bi-file-earmark-excel me-1"></i>Choisir un fichier Excel<input type="file" accept=".xlsx,.xls,.csv" class="d-none" onchange="AutorisationInterne.importExcel(event)"></label>
+          <button class="btn btn-outline-secondary btn-sm" onclick="AutorisationInterne.downloadExcelTemplate()"><i class="bi bi-download me-1"></i>Télécharger modèle vierge</button>
+        </div>
+        <div id="import-excel-preview"></div>
+      </div>
+
+      <!-- Onglet Aperçu -->
+      <div class="tab-pane fade" id="tab-hab-preview">
+        <div class="row g-2">
+          <div class="col-md-4">
+            <label class="form-label small mb-1">Salarié</label>
+            <select class="form-select form-select-sm" id="preview-salarie-select" onchange="AutorisationInterne.renderPreview()"></select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small mb-1">Signataire</label>
+            <select class="form-select form-select-sm" id="preview-signataire-select" onchange="AutorisationInterne.renderPreview()"></select>
+          </div>
+          <div class="col-md-4 d-flex align-items-end gap-2">
+            <button class="btn btn-primary btn-sm" onclick="AutorisationInterne.generateOnePDF()"><i class="bi bi-file-earmark-pdf me-1"></i>Générer le PDF</button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="AutorisationInterne.renderPreview()"><i class="bi bi-arrow-clockwise me-1"></i>Rafraîchir</button>
+          </div>
+        </div>
+        <hr>
+        <div id="autorisation-preview-container" style="background:#eee; padding:10px; overflow:auto; max-height:75vh;"></div>
+      </div>
+
+    </div>
   </div>
 
   <!-- ==================== ICP LIST ==================== -->
@@ -3090,6 +3164,8 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
 <script defer src="https://alcdn.msauth.net/browser/2.28.1/js/msal-browser.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script defer src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -3147,6 +3223,18 @@ db.version(32).stores({
       e.contacts.push({ nom: e.responsable||'', fonction: e.fonction||'', tel: e.tel||'', email: e.email||'', isMain: true });
     }
   });
+});
+
+// v34 : tables habilitations (salariés AGRIWATT + signataires d'autorisations internes)
+db.version(34).stores({
+  pdps: '++id, numero, titre, statut, dateDebut, dateFin, dateCreation, dateModification',
+  entreprises: '++id, nom, siret',
+  icps: '++id, numero, site, dateVisite, pdpId, dateCreation',
+  sites: '++id, nom, entite',
+  fds: '++id, nom, standard',
+  salaries_habilitations: '++id, &[nom+prenom], nom, prenom, service, poste, dateModification',
+  signataires: '++id, &[nom+fonction], nom, fonction, updated_at, usage_count',
+  settings: 'key'
 });
 
 // ========================================
@@ -4762,6 +4850,817 @@ const SellsyAPI = {
 };
 
 // ========================================
+// AUTORISATION INTERNE (habilitations + signataires)
+// ========================================
+const AutorisationInterne = {
+
+  // === CSS du template (modifiable indépendamment) ===
+  CSS: `
+.ai-doc{width:297mm;min-height:210mm;padding:8mm 10mm;background:#fff;box-sizing:border-box;font-family:Arial,Helvetica,sans-serif;font-size:9pt;color:#000;position:relative;margin:0 auto}
+.ai-doc *{box-sizing:border-box}
+.ai-header{display:flex;align-items:center;margin-bottom:6px}
+.ai-header .ai-logo{width:60px;height:auto;margin-right:12px}
+.ai-header .ai-title{font-size:18pt;font-weight:bold;letter-spacing:1px;flex:1;text-align:center}
+.ai-header .ai-maj{font-size:7pt;color:#555;text-align:right;min-width:100px}
+.ai-row{display:flex;gap:6px;margin-bottom:4px}
+.ai-col{flex:1}
+.ai-bloc{border:1px solid #000;padding:0}
+.ai-bloc-title{background:#f2f2f2;font-weight:bold;padding:3px 6px;border-bottom:1px solid #000;font-size:9pt}
+.ai-bloc-body{padding:4px 6px}
+.ai-ligne{display:flex;margin-bottom:2px;font-size:8.5pt}
+.ai-ligne label{font-weight:bold;min-width:130px}
+.ai-ligne .ai-val{flex:1}
+table.ai-hab{width:100%;border-collapse:collapse;font-size:7.5pt;margin-top:4px}
+table.ai-hab th,table.ai-hab td{border:1px solid #000;padding:2px 4px;vertical-align:middle;text-align:center}
+table.ai-hab thead th{background:#ffd966;font-weight:bold}
+table.ai-hab .ai-grp-head{background:#fff2cc;font-weight:bold}
+table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
+.ai-mini-blocs{display:grid;grid-template-columns:repeat(2,1fr);gap:4px;margin-top:4px}
+.ai-mini-bloc{border:1px solid #000;padding:4px 6px;font-size:8pt}
+.ai-mini-bloc .ai-mb-title{font-weight:bold;text-transform:uppercase;background:#ffd966;padding:2px 4px;margin:-4px -6px 4px;border-bottom:1px solid #000;font-size:8.5pt}
+.ai-mini-bloc .ai-mb-row{display:flex;gap:8px;margin-bottom:2px}
+.ai-mini-bloc .ai-mb-row label{font-weight:bold}
+.ai-mini-bloc .ai-mb-note{font-style:italic;font-size:7pt;color:#444;margin-top:2px}
+.ai-mini-bloc.ai-expired{background:#fee;border-color:#c00}
+.ai-mini-bloc.ai-warn{background:#fff3cd}
+.ai-signatures{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.ai-sig-bloc{border:1px solid #000;padding:4px 6px;min-height:70px;position:relative}
+.ai-sig-bloc .ai-sig-title{font-weight:bold;background:#f2f2f2;padding:2px 4px;margin:-4px -6px 4px;border-bottom:1px solid #000;text-align:center}
+.ai-sig-bloc .ai-sig-img{max-height:50px;max-width:200px;display:block;margin:auto}
+.ai-urgence{margin-top:6px;border:2px solid #c00;padding:4px 6px;display:flex;align-items:center;gap:8px;background:#fdecec}
+.ai-urgence .ai-u-title{color:#c00;font-weight:bold;font-size:9pt;flex:0 0 200px}
+.ai-urgence .ai-u-text{font-size:7.5pt;flex:1}
+.ai-urgence .ai-u-nums{display:flex;gap:6px}
+.ai-urgence .ai-u-num{background:#c00;color:#fff;font-weight:bold;padding:2px 6px;border-radius:3px;font-size:11pt;min-width:28px;text-align:center}
+.ai-urgence .ai-u-num small{display:block;font-size:6pt;font-weight:normal}
+.ai-perimetre{margin-top:4px;font-size:8pt}
+.ai-perimetre .ai-label{font-weight:bold}
+.ai-perimetre .ai-note{font-style:italic;font-size:7pt;color:#555}
+  `,
+
+  // === Builder du template (modifiable indépendamment) ===
+  // salarie = {nom, prenom, service, poste, statut, dateVisiteMedicale, medecineTravail, habilitations:[{type, symbole, domaine, ouvrages, indications, dateFormation, dateValidite, perimetre}]}
+  // signataire = {nom, fonction, signature (dataURL), tampon (dataURL optionnel)}
+  buildHTML(salarie, signataire, logoDataURL) {
+    const s = salarie || {};
+    const sig = signataire || {};
+    const habs = Array.isArray(s.habilitations) ? s.habilitations : [];
+    const today = new Date();
+    const todayStr = today.toLocaleDateString('fr-FR');
+
+    // Helpers locaux
+    const find = (typeNorm) => habs.find(h => this._norm(h.type) === typeNorm) || {};
+    const findSymbol = (sym) => habs.find(h => this._norm(h.symbole) === this._norm(sym)) || {};
+    const statutCheck = (val) => this._norm(s.statut) === this._norm(val) ? '☒' : '☐';
+    const expClass = (dateStr) => {
+      if (!dateStr) return '';
+      const d = this._parseDate(dateStr);
+      if (!d) return '';
+      const diff = (d - today) / (1000*60*60*24);
+      if (diff < 0) return 'ai-expired';
+      if (diff < 60) return 'ai-warn';
+      return '';
+    };
+
+    // Habilitations électriques (lignes du tableau NF C 18-510)
+    const elecRow = (rowtitle, sym) => {
+      const h = findSymbol(sym);
+      return `<tr><td class="ai-rowtitle">${rowtitle}</td><td>${this._esc(h.symbole||sym||'')}</td><td>${this._esc(h.domaine||'')}</td><td>${this._esc(h.ouvrages||'')}</td><td>—</td><td>${this._esc(h.indications||'')}</td></tr>`;
+    };
+    const elec = find('electrique') || find('nf c 18-510') || {};
+    const electriValidite = elec.dateValidite || habs.filter(h => /^B/i.test(h.symbole||'')).map(h=>h.dateValidite).filter(Boolean).sort().pop() || '';
+
+    const hauteur = find('travail en hauteur') || find('hauteur') || {};
+    const aipr = find('aipr') || {};
+    const sst = find('sst') || find('sauveteur secouriste du travail') || {};
+    const cacesB = find('caces r486 b') || find('caces r.486 b') || {};
+    const cacesA = find('caces r486 a') || find('caces r.486 a') || {};
+    const cacesF = find('caces r482 f') || find('caces r.482 f') || {};
+
+    return `
+<div class="ai-doc" id="ai-doc-render">
+  <div class="ai-header">
+    ${logoDataURL ? `<img class="ai-logo" src="${logoDataURL}" alt="AGRIWATT">` : ''}
+    <div class="ai-title">AUTORISATIONS INTERNES</div>
+    <div class="ai-maj">Mis à jour, le ${this._esc(todayStr)}</div>
+  </div>
+
+  <div class="ai-row">
+    <div class="ai-col">
+      <div class="ai-bloc">
+        <div class="ai-bloc-title">TITULAIRE</div>
+        <div class="ai-bloc-body">
+          <div class="ai-ligne"><label>NOM :</label><span class="ai-val">${this._esc(s.nom||'')}</span></div>
+          <div class="ai-ligne"><label>Prénom :</label><span class="ai-val">${this._esc(s.prenom||'')}</span></div>
+          <div class="ai-ligne"><label>Service :</label><span class="ai-val">${this._esc(s.service||'')}</span></div>
+          <div class="ai-ligne"><label>Poste :</label><span class="ai-val">${this._esc(s.poste||'')}</span></div>
+          <div class="ai-ligne"><label>Statut :</label><span class="ai-val">${statutCheck('CDI')} CDI &nbsp; ${statutCheck('CDD')} CDD &nbsp; ${statutCheck('Intérimaire')} Intérimaire</span></div>
+          <div class="ai-ligne"><label>Dernière visite médicale :</label><span class="ai-val">${this._esc(s.dateVisiteMedicale||'')}</span></div>
+          <div class="ai-ligne"><label>Médecine du Travail :</label><span class="ai-val">${this._esc(s.medecineTravail||'')}</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="ai-col">
+      <div class="ai-bloc">
+        <div class="ai-bloc-title">POUR L'EMPLOYEUR</div>
+        <div class="ai-bloc-body" style="min-height:115px;position:relative">
+          <div class="ai-ligne"><label>NOM Prénom :</label><span class="ai-val">${this._esc(sig.nom||'')}</span></div>
+          <div class="ai-ligne"><label>Fonction :</label><span class="ai-val">${this._esc(sig.fonction||'')}</span></div>
+          <div class="ai-ligne"><label>Visa :</label><span class="ai-val">${sig.signature ? `<img src="${sig.signature}" style="max-height:40px;max-width:180px">` : ''}</span></div>
+          ${sig.tampon ? `<img src="${sig.tampon}" style="position:absolute;right:8px;bottom:4px;max-height:50px;max-width:90px;opacity:.85">` : ''}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <table class="ai-hab">
+    <thead>
+      <tr><th colspan="6" style="background:#00693e;color:#fff;font-size:9pt">TITRE D'HABILITATION ÉLECTRIQUE NF C 18-510 (3 ans)</th></tr>
+      <tr>
+        <th rowspan="2" style="width:140px">Personnel</th>
+        <th rowspan="2" style="width:110px">Symbole d'habilitation et attribut</th>
+        <th colspan="3">Champ d'application</th>
+        <th rowspan="2" style="width:130px">Indications supplémentaires</th>
+      </tr>
+      <tr><th>Domaine de tension</th><th>Ouvrages / installations</th><th>—</th></tr>
+    </thead>
+    <tbody>
+      <tr><td colspan="6" class="ai-grp-head">Travaux d'ordre non électrique</td></tr>
+      ${elecRow('Exécutant','B0 H0V')}
+      <tr><td colspan="6" class="ai-grp-head">Travaux d'ordre électrique</td></tr>
+      ${elecRow('Exécutant','B1 V')}
+      ${elecRow('Chargé de travaux','B2V')}
+      ${elecRow("Chargé d'interventions",'BR')}
+      ${elecRow('Chargé de consignation','BC')}
+      ${elecRow("Chargé d'opérations",'')}
+      ${elecRow('Habilité spécial','BP PV')}
+      <tr><td colspan="6" style="text-align:left;background:#f2f2f2"><b>Validité :</b> ${this._esc(electriValidite||'—')}</td></tr>
+    </tbody>
+  </table>
+
+  <div class="ai-mini-blocs">
+    <div class="ai-mini-bloc ${expClass(hauteur.dateValidite)}">
+      <div class="ai-mb-title">TRAVAIL EN HAUTEUR et Port du Harnais (3 ans)</div>
+      <div class="ai-mb-row"><label>Dates de formation :</label><span>${this._esc(hauteur.dateFormation||'—')}</span></div>
+      <div class="ai-mb-row"><label>Validité :</label><span>${this._esc(hauteur.dateValidite||'—')}</span></div>
+      <div class="ai-mb-note">* Accéder en sécurité à un poste de travail en hauteur. Utiliser les EPI contre les chutes de hauteur à disposition.</div>
+    </div>
+    <div class="ai-mini-bloc ${expClass(aipr.dateValidite)}">
+      <div class="ai-mb-title">AIPR Opérateur (5 ans)</div>
+      <div class="ai-mb-row"><label>Date de formation :</label><span>${this._esc(aipr.dateFormation||'—')}</span></div>
+      <div class="ai-mb-row"><label>Validité :</label><span>${this._esc(aipr.dateValidite||'—')}</span></div>
+    </div>
+    <div class="ai-mini-bloc ${expClass(sst.dateValidite)}">
+      <div class="ai-mb-title">SAUVETEUR SECOURISTE DU TRAVAIL (2 ans)</div>
+      <div class="ai-mb-row"><label>Date de formation :</label><span>${this._esc(sst.dateFormation||'—')}</span></div>
+      <div class="ai-mb-row"><label>Validité :</label><span>${this._esc(sst.dateValidite||'—')}</span></div>
+    </div>
+    <div class="ai-mini-bloc ${expClass(cacesB.dateValidite)}">
+      <div class="ai-mb-title">AUTORISATION DE CONDUITE — CACES R.486 cat. B (5 ans)</div>
+      <div class="ai-mb-note">* Plates-formes Élévatrices Mobiles de Personnes, élévation multidirectionnelle</div>
+      <div class="ai-mb-row"><label>Date de formation :</label><span>${this._esc(cacesB.dateFormation||'—')}</span></div>
+      <div class="ai-mb-row"><label>Validité :</label><span>${this._esc(cacesB.dateValidite||'—')}</span></div>
+    </div>
+    <div class="ai-mini-bloc ${expClass(cacesA.dateValidite)}">
+      <div class="ai-mb-title">AUTORISATION DE CONDUITE — CACES R.486 cat. A (5 ans)</div>
+      <div class="ai-mb-note">* Plates-formes Élévatrices Mobiles de Personnes, élévation verticale</div>
+      <div class="ai-mb-row"><label>Date de formation :</label><span>${this._esc(cacesA.dateFormation||'—')}</span></div>
+      <div class="ai-mb-row"><label>Validité :</label><span>${this._esc(cacesA.dateValidite||'—')}</span></div>
+    </div>
+    <div class="ai-mini-bloc ${expClass(cacesF.dateValidite)}">
+      <div class="ai-mb-title">AUTORISATION DE CONDUITE — CACES R.482 cat. F (10 ans)</div>
+      <div class="ai-mb-note">* Chariot de manutention télescopique</div>
+      <div class="ai-mb-row"><label>Date de formation :</label><span>${this._esc(cacesF.dateFormation||'—')}</span></div>
+      <div class="ai-mb-row"><label>Validité :</label><span>${this._esc(cacesF.dateValidite||'—')}</span></div>
+    </div>
+  </div>
+
+  <div class="ai-perimetre">
+    <span class="ai-label">Périmètre :</span> ${this._esc(s.perimetre || 'Tous les chantiers AGRIWATT')}
+    <span class="ai-note"> — Sous réserve de la validité des formations indiquées ci-contre.</span>
+  </div>
+
+  <div class="ai-urgence">
+    <div class="ai-u-title">EN CAS D'ACCIDENT OU PRESQUE ACCIDENT</div>
+    <div class="ai-u-text">1) Prévenir mon responsable hiérarchique.<br>2) Selon la gravité, appeler les Secours en contactant un médecin.</div>
+    <div class="ai-u-nums">
+      <div class="ai-u-num">18<small>Pompiers</small></div>
+      <div class="ai-u-num">112<small>Urgences</small></div>
+      <div class="ai-u-num">17<small>Police</small></div>
+      <div class="ai-u-num">15<small>SAMU</small></div>
+    </div>
+  </div>
+
+  <div class="ai-signatures">
+    <div class="ai-sig-bloc">
+      <div class="ai-sig-title">Visa du titulaire</div>
+      ${s.signatureTitulaire ? `<img class="ai-sig-img" src="${s.signatureTitulaire}">` : '<div style="height:50px"></div>'}
+    </div>
+    <div class="ai-sig-bloc">
+      <div class="ai-sig-title">VALIDITÉ</div>
+      <div style="font-size:8pt">Document valable tant que les habilitations ci-dessus sont en cours de validité.<br>Date d'édition : ${this._esc(todayStr)}</div>
+    </div>
+  </div>
+</div>
+    `;
+  },
+
+  // === Helpers ===
+  _esc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); },
+  _norm(s) { return String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); },
+  _parseDate(str) {
+    if (!str) return null;
+    if (str instanceof Date) return str;
+    const s = String(str).trim();
+    // dd/mm/yyyy
+    let m = s.match(/^(\d{1,2})[\/\-\.\s](\d{1,2})[\/\-\.\s](\d{2,4})$/);
+    if (m) { const y = m[3].length === 2 ? '20'+m[3] : m[3]; return new Date(+y, +m[2]-1, +m[1]); }
+    // yyyy-mm-dd
+    m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+    if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+    // Excel serial
+    if (/^\d+$/.test(s)) {
+      const n = +s;
+      if (n > 20000 && n < 80000) {
+        const epoch = new Date(Date.UTC(1899,11,30));
+        return new Date(epoch.getTime() + n*86400000);
+      }
+    }
+    const d = new Date(s);
+    return isNaN(d) ? null : d;
+  },
+  _fmtDate(d) {
+    const dt = this._parseDate(d);
+    if (!dt) return '';
+    const pad = n => String(n).padStart(2,'0');
+    return `${pad(dt.getDate())}/${pad(dt.getMonth()+1)}/${dt.getFullYear()}`;
+  },
+  _getLogo() {
+    try { return getLogoDataURL(); } catch(e) { return ''; }
+  },
+  _toast(msg, type='info') {
+    if (window.App && typeof App.toast === 'function') App.toast(msg, type);
+    else console.log('[Autorisation]', msg);
+  },
+
+  // === Init et rendu vue ===
+  async init() {
+    await this._refreshSalariesList();
+    await this._refreshSignatairesList();
+    await this._refreshPreviewSelects();
+  },
+
+  // === SALARIÉS ===
+  async _refreshSalariesList(filter='') {
+    const list = document.getElementById('salaries-list-container');
+    if (!list) return;
+    const all = await db.salaries_habilitations.orderBy('nom').toArray();
+    const f = this._norm(filter);
+    const filtered = f ? all.filter(s => this._norm(s.nom+' '+s.prenom+' '+(s.service||'')+' '+(s.poste||'')).includes(f)) : all;
+    if (!filtered.length) {
+      list.innerHTML = `<div class="text-muted text-center p-4">Aucun salarié enregistré. Importez votre fichier Excel RH ou ajoutez manuellement.</div>`;
+      return;
+    }
+    list.innerHTML = `<div class="table-responsive"><table class="table table-sm table-hover align-middle"><thead><tr><th>Nom</th><th>Prénom</th><th>Service</th><th>Poste</th><th>Statut</th><th>Habilitations</th><th>Visite médicale</th><th></th></tr></thead><tbody>${
+      filtered.map(s => {
+        const habs = Array.isArray(s.habilitations) ? s.habilitations : [];
+        const today = new Date();
+        const expired = habs.filter(h => { const d = this._parseDate(h.dateValidite); return d && d < today; }).length;
+        const warn = habs.filter(h => { const d = this._parseDate(h.dateValidite); if (!d) return false; const dd = (d-today)/86400000; return dd>=0 && dd<60; }).length;
+        const badge = expired ? `<span class="badge bg-danger">${expired} expirée(s)</span>` : warn ? `<span class="badge bg-warning text-dark">${warn} bientôt expir.</span>` : `<span class="badge bg-success">${habs.length} OK</span>`;
+        return `<tr>
+          <td><b>${this._esc(s.nom||'')}</b></td>
+          <td>${this._esc(s.prenom||'')}</td>
+          <td>${this._esc(s.service||'')}</td>
+          <td>${this._esc(s.poste||'')}</td>
+          <td><small>${this._esc(s.statut||'')}</small></td>
+          <td>${badge}</td>
+          <td><small>${this._esc(s.dateVisiteMedicale||'')}</small></td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-primary" onclick="AutorisationInterne.openSalarieForm(${s.id})" title="Éditer"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-danger" onclick="AutorisationInterne.deleteSalarie(${s.id})" title="Supprimer"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>`;
+      }).join('')
+    }</tbody></table></div>`;
+  },
+  filterSalaries(q) { this._refreshSalariesList(q); },
+  async deleteSalarie(id) {
+    if (!confirm('Supprimer ce salarié et ses habilitations ?')) return;
+    await db.salaries_habilitations.delete(id);
+    await this._refreshSalariesList();
+    await this._refreshPreviewSelects();
+  },
+  async clearAllSalaries() {
+    if (!confirm('⚠️ Supprimer TOUS les salariés enregistrés ? Cette action est irréversible.')) return;
+    await db.salaries_habilitations.clear();
+    await this._refreshSalariesList();
+    await this._refreshPreviewSelects();
+    this._toast('Base salariés vidée', 'warning');
+  },
+  async openSalarieForm(id) {
+    const sal = id ? await db.salaries_habilitations.get(id) : { nom:'', prenom:'', service:'', poste:'', statut:'CDI', dateVisiteMedicale:'', medecineTravail:'', habilitations:[] };
+    if (!sal) return;
+    this._openModal({
+      title: id ? `Éditer ${sal.nom} ${sal.prenom}` : 'Nouveau salarié',
+      size: 'modal-xl',
+      body: `
+        <div class="row g-2 mb-3">
+          <div class="col-md-3"><label class="form-label small">Nom *</label><input class="form-control form-control-sm" id="sal-nom" value="${this._esc(sal.nom)}"></div>
+          <div class="col-md-3"><label class="form-label small">Prénom *</label><input class="form-control form-control-sm" id="sal-prenom" value="${this._esc(sal.prenom)}"></div>
+          <div class="col-md-3"><label class="form-label small">Service</label><input class="form-control form-control-sm" id="sal-service" value="${this._esc(sal.service)}"></div>
+          <div class="col-md-3"><label class="form-label small">Poste</label><input class="form-control form-control-sm" id="sal-poste" value="${this._esc(sal.poste)}"></div>
+          <div class="col-md-3"><label class="form-label small">Statut</label>
+            <select class="form-select form-select-sm" id="sal-statut">
+              <option ${sal.statut==='CDI'?'selected':''}>CDI</option>
+              <option ${sal.statut==='CDD'?'selected':''}>CDD</option>
+              <option ${sal.statut==='Intérimaire'?'selected':''}>Intérimaire</option>
+            </select>
+          </div>
+          <div class="col-md-3"><label class="form-label small">Dernière visite médicale</label><input class="form-control form-control-sm" id="sal-vm" value="${this._esc(sal.dateVisiteMedicale)}" placeholder="JJ/MM/AAAA"></div>
+          <div class="col-md-6"><label class="form-label small">Médecine du Travail</label><input class="form-control form-control-sm" id="sal-mt" value="${this._esc(sal.medecineTravail||'')}"></div>
+        </div>
+        <hr>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <strong>Habilitations</strong>
+          <button class="btn btn-sm btn-outline-primary" onclick="AutorisationInterne._addHabRow()"><i class="bi bi-plus-lg"></i> Ajouter</button>
+        </div>
+        <div id="hab-rows-container"></div>
+      `,
+      onShow: () => {
+        const habs = Array.isArray(sal.habilitations) ? sal.habilitations : [];
+        if (!habs.length) habs.push({});
+        habs.forEach(h => this._addHabRow(h));
+      },
+      onSave: async () => {
+        const nom = document.getElementById('sal-nom').value.trim();
+        const prenom = document.getElementById('sal-prenom').value.trim();
+        if (!nom || !prenom) { alert('Nom et prénom obligatoires'); return false; }
+        const habilitations = Array.from(document.querySelectorAll('#hab-rows-container .hab-row')).map(r => ({
+          type: r.querySelector('[data-f=type]').value.trim(),
+          symbole: r.querySelector('[data-f=symbole]').value.trim(),
+          domaine: r.querySelector('[data-f=domaine]').value.trim(),
+          ouvrages: r.querySelector('[data-f=ouvrages]').value.trim(),
+          dateFormation: r.querySelector('[data-f=dateFormation]').value.trim(),
+          dateValidite: r.querySelector('[data-f=dateValidite]').value.trim(),
+          indications: r.querySelector('[data-f=indications]').value.trim()
+        })).filter(h => h.type || h.symbole);
+        const data = {
+          nom, prenom,
+          service: document.getElementById('sal-service').value.trim(),
+          poste: document.getElementById('sal-poste').value.trim(),
+          statut: document.getElementById('sal-statut').value,
+          dateVisiteMedicale: document.getElementById('sal-vm').value.trim(),
+          medecineTravail: document.getElementById('sal-mt').value.trim(),
+          habilitations,
+          dateModification: new Date().toISOString()
+        };
+        if (id) await db.salaries_habilitations.update(id, data);
+        else await db.salaries_habilitations.add(data);
+        await this._refreshSalariesList();
+        await this._refreshPreviewSelects();
+        return true;
+      }
+    });
+  },
+  _addHabRow(h={}) {
+    const c = document.getElementById('hab-rows-container');
+    if (!c) return;
+    const div = document.createElement('div');
+    div.className = 'hab-row row g-1 mb-1 align-items-center';
+    div.innerHTML = `
+      <div class="col"><input class="form-control form-control-sm" placeholder="Type" data-f="type" value="${this._esc(h.type||'')}"></div>
+      <div class="col"><input class="form-control form-control-sm" placeholder="Symbole" data-f="symbole" value="${this._esc(h.symbole||'')}"></div>
+      <div class="col"><input class="form-control form-control-sm" placeholder="Domaine" data-f="domaine" value="${this._esc(h.domaine||'')}"></div>
+      <div class="col"><input class="form-control form-control-sm" placeholder="Ouvrages" data-f="ouvrages" value="${this._esc(h.ouvrages||'')}"></div>
+      <div class="col"><input class="form-control form-control-sm" placeholder="Date form." data-f="dateFormation" value="${this._esc(h.dateFormation||'')}"></div>
+      <div class="col"><input class="form-control form-control-sm" placeholder="Validité" data-f="dateValidite" value="${this._esc(h.dateValidite||'')}"></div>
+      <div class="col"><input class="form-control form-control-sm" placeholder="Indications" data-f="indications" value="${this._esc(h.indications||'')}"></div>
+      <div class="col-auto"><button class="btn btn-sm btn-outline-danger" onclick="this.closest('.hab-row').remove()"><i class="bi bi-x"></i></button></div>
+    `;
+    c.appendChild(div);
+  },
+
+  // === SIGNATAIRES ===
+  async _refreshSignatairesList() {
+    const list = document.getElementById('signataires-list-container');
+    if (!list) return;
+    const all = await db.signataires.orderBy('updated_at').reverse().toArray();
+    if (!all.length) {
+      list.innerHTML = `<div class="text-muted text-center p-4">Aucun signataire enregistré. Ajoutez-en un manuellement ou il sera créé automatiquement à la première génération.</div>`;
+      return;
+    }
+    list.innerHTML = `<div class="row g-2">${
+      all.map(sig => `
+        <div class="col-md-4">
+          <div class="border rounded p-2 h-100">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <div>
+                <div><b>${this._esc(sig.nom)}</b></div>
+                <div class="small text-muted">${this._esc(sig.fonction||'')}</div>
+                <div class="small text-muted">Utilisé ${sig.usage_count||0} fois</div>
+              </div>
+              <div>
+                <button class="btn btn-sm btn-outline-primary" onclick="AutorisationInterne.openSignataireForm(${sig.id})" title="Modifier"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-sm btn-outline-danger" onclick="AutorisationInterne.deleteSignataire(${sig.id})" title="Supprimer"><i class="bi bi-trash"></i></button>
+              </div>
+            </div>
+            <div style="background:#f7f7f7;padding:6px;border-radius:4px;min-height:60px;display:flex;align-items:center;justify-content:center">
+              ${sig.signature ? `<img src="${sig.signature}" style="max-height:60px;max-width:100%">` : '<small class="text-muted">Pas de signature</small>'}
+            </div>
+          </div>
+        </div>
+      `).join('')
+    }</div>`;
+  },
+  async deleteSignataire(id) {
+    if (!confirm('Supprimer ce signataire ?')) return;
+    await db.signataires.delete(id);
+    await this._refreshSignatairesList();
+    await this._refreshPreviewSelects();
+  },
+  async openSignataireForm(id) {
+    const sig = id ? await db.signataires.get(id) : { nom:'', fonction:'', signature:'', tampon:'' };
+    this._openModal({
+      title: id ? `Modifier ${sig.nom}` : 'Nouveau signataire',
+      size: 'modal-lg',
+      body: `
+        <div class="row g-2 mb-3">
+          <div class="col-md-6"><label class="form-label small">Nom Prénom *</label><input class="form-control form-control-sm" id="sig-nom" value="${this._esc(sig.nom)}"></div>
+          <div class="col-md-6"><label class="form-label small">Fonction *</label><input class="form-control form-control-sm" id="sig-fct" value="${this._esc(sig.fonction)}" placeholder="ex: Directeur Travaux"></div>
+        </div>
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label small">Signature</label>
+            <ul class="nav nav-pills nav-sm mb-2">
+              <li class="nav-item"><a class="nav-link active small py-1" data-bs-toggle="tab" href="#sig-draw">Dessiner</a></li>
+              <li class="nav-item"><a class="nav-link small py-1" data-bs-toggle="tab" href="#sig-upload">Importer image</a></li>
+            </ul>
+            <div class="tab-content">
+              <div class="tab-pane fade show active" id="sig-draw">
+                <canvas id="sig-canvas" width="350" height="120" style="border:1px solid #ccc;background:#fff;cursor:crosshair"></canvas>
+                <div class="mt-1"><button class="btn btn-sm btn-outline-secondary" onclick="AutorisationInterne._clearCanvas('sig-canvas')"><i class="bi bi-eraser"></i> Effacer</button></div>
+              </div>
+              <div class="tab-pane fade" id="sig-upload">
+                <input type="file" class="form-control form-control-sm" id="sig-file" accept="image/*" onchange="AutorisationInterne._previewSigFile(event,'sig-preview')">
+                <div class="mt-2"><img id="sig-preview" style="max-height:120px;max-width:100%;display:${sig.signature?'block':'none'}" src="${sig.signature||''}"></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small">Tampon (optionnel)</label>
+            <input type="file" class="form-control form-control-sm" id="tampon-file" accept="image/*" onchange="AutorisationInterne._previewSigFile(event,'tampon-preview')">
+            <div class="mt-2"><img id="tampon-preview" style="max-height:100px;max-width:100%;display:${sig.tampon?'block':'none'}" src="${sig.tampon||''}"></div>
+          </div>
+        </div>
+      `,
+      onShow: () => {
+        const cv = document.getElementById('sig-canvas');
+        if (cv) {
+          this._initCanvas(cv);
+          if (sig.signature) {
+            const img = new Image();
+            img.onload = () => { cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height); };
+            img.src = sig.signature;
+          }
+        }
+      },
+      onSave: async () => {
+        const nom = document.getElementById('sig-nom').value.trim();
+        const fonction = document.getElementById('sig-fct').value.trim();
+        if (!nom || !fonction) { alert('Nom et fonction obligatoires'); return false; }
+        let signature = '';
+        const preview = document.getElementById('sig-preview');
+        if (preview && preview.src && preview.style.display !== 'none' && preview.src.startsWith('data:')) {
+          signature = preview.src;
+        } else {
+          const cv = document.getElementById('sig-canvas');
+          if (cv && this._canvasHasContent(cv)) signature = cv.toDataURL('image/png');
+        }
+        if (!signature && sig.signature) signature = sig.signature;
+        const tamponPrev = document.getElementById('tampon-preview');
+        const tampon = (tamponPrev && tamponPrev.src && tamponPrev.style.display !== 'none' && tamponPrev.src.startsWith('data:')) ? tamponPrev.src : (sig.tampon||'');
+        await this.upsertSignataire({ nom, fonction, signature, tampon });
+        await this._refreshSignatairesList();
+        await this._refreshPreviewSelects();
+        return true;
+      }
+    });
+  },
+  async upsertSignataire({ nom, fonction, signature, tampon, incrementUsage=false }) {
+    const existing = await db.signataires.where('[nom+fonction]').equals([nom, fonction]).first();
+    const data = {
+      nom, fonction,
+      signature: signature || (existing ? existing.signature : ''),
+      tampon: tampon || (existing ? existing.tampon : ''),
+      updated_at: Date.now(),
+      usage_count: (existing ? existing.usage_count||0 : 0) + (incrementUsage ? 1 : 0)
+    };
+    if (existing) { await db.signataires.update(existing.id, data); return existing.id; }
+    return await db.signataires.add(data);
+  },
+  _initCanvas(canvas) {
+    const ctx = canvas.getContext('2d');
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    let drawing = false, last = null;
+    const pos = e => {
+      const r = canvas.getBoundingClientRect();
+      const p = e.touches ? e.touches[0] : e;
+      return { x: (p.clientX-r.left) * (canvas.width/r.width), y: (p.clientY-r.top) * (canvas.height/r.height) };
+    };
+    const start = e => { e.preventDefault(); drawing = true; last = pos(e); };
+    const move = e => { if (!drawing) return; e.preventDefault(); const p = pos(e); ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(p.x,p.y); ctx.stroke(); last = p; };
+    const end = () => { drawing = false; last = null; };
+    canvas.addEventListener('mousedown', start); canvas.addEventListener('mousemove', move); canvas.addEventListener('mouseup', end); canvas.addEventListener('mouseleave', end);
+    canvas.addEventListener('touchstart', start, {passive:false}); canvas.addEventListener('touchmove', move, {passive:false}); canvas.addEventListener('touchend', end);
+  },
+  _clearCanvas(id) { const c = document.getElementById(id); if (!c) return; c.getContext('2d').clearRect(0,0,c.width,c.height); },
+  _canvasHasContent(c) {
+    const ctx = c.getContext('2d');
+    const d = ctx.getImageData(0,0,c.width,c.height).data;
+    for (let i=3;i<d.length;i+=4) if (d[i] !== 0) return true;
+    return false;
+  },
+  _previewSigFile(event, previewId) {
+    const f = event.target.files && event.target.files[0]; if (!f) return;
+    const r = new FileReader(); r.onload = () => { const img = document.getElementById(previewId); img.src = r.result; img.style.display = 'block'; }; r.readAsDataURL(f);
+  },
+
+  // === IMPORT EXCEL ===
+  async importExcel(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    if (typeof XLSX === 'undefined') { alert('SheetJS pas encore chargé, réessayez dans 1s.'); return; }
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data, { type: 'array', cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval:'', raw:false });
+    if (!rows.length) { alert('Fichier vide.'); return; }
+
+    // Mapping colonnes (insensible accents/casse)
+    const colMap = {};
+    const firstRow = rows[0];
+    Object.keys(firstRow).forEach(k => { colMap[this._norm(k)] = k; });
+    const get = (row, ...keys) => {
+      for (const k of keys) {
+        const real = colMap[this._norm(k)];
+        if (real && row[real] != null && row[real] !== '') return row[real];
+      }
+      return '';
+    };
+
+    // Regroupement par salarié (nom+prenom)
+    const byKey = new Map();
+    for (const r of rows) {
+      const nom = String(get(r,'nom','name','last name','lastname')).trim();
+      const prenom = String(get(r,'prenom','prénom','firstname','first name')).trim();
+      if (!nom || !prenom) continue;
+      const key = nom.toUpperCase()+'|'+prenom.toUpperCase();
+      let s = byKey.get(key);
+      if (!s) {
+        s = {
+          nom, prenom,
+          service: String(get(r,'service','département','department')).trim(),
+          poste: String(get(r,'poste','fonction','job','position')).trim(),
+          statut: String(get(r,'statut','contrat')).trim() || 'CDI',
+          dateVisiteMedicale: this._fmtDate(get(r,'visite medicale','visite médicale','derniere visite medicale','dvm')),
+          medecineTravail: String(get(r,'medecine du travail','médecine du travail','medecine travail')).trim(),
+          habilitations: []
+        };
+        byKey.set(key, s);
+      }
+      const type = String(get(r,'type habilitation','type','habilitation','formation')).trim();
+      const symbole = String(get(r,'symbole','symbol','code')).trim();
+      if (type || symbole) {
+        s.habilitations.push({
+          type,
+          symbole,
+          domaine: String(get(r,'domaine','tension','domaine de tension')).trim(),
+          ouvrages: String(get(r,'ouvrages','installations')).trim(),
+          dateFormation: this._fmtDate(get(r,'date formation','date de formation','formation')),
+          dateValidite: this._fmtDate(get(r,'date validite','date de validite','validité','date validité','expiration')),
+          indications: String(get(r,'indications','indications supplementaires','note','remarque')).trim(),
+          perimetre: String(get(r,'perimetre','périmètre')).trim()
+        });
+      }
+    }
+
+    // Aperçu + confirmation
+    const preview = document.getElementById('import-excel-preview');
+    const total = byKey.size;
+    preview.innerHTML = `
+      <div class="alert alert-success">${total} salarié(s) détecté(s), ${[...byKey.values()].reduce((a,s)=>a+s.habilitations.length,0)} habilitation(s) au total.</div>
+      <div class="mb-2"><button class="btn btn-success btn-sm" id="btn-confirm-import"><i class="bi bi-check-lg"></i> Confirmer l'import (remplace les fiches existantes)</button>
+      <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('import-excel-preview').innerHTML=''">Annuler</button></div>
+      <div class="table-responsive" style="max-height:300px;overflow:auto"><table class="table table-sm"><thead><tr><th>Nom</th><th>Prénom</th><th>Service</th><th>Habilitations</th></tr></thead><tbody>${
+        [...byKey.values()].map(s => `<tr><td>${this._esc(s.nom)}</td><td>${this._esc(s.prenom)}</td><td>${this._esc(s.service)}</td><td>${s.habilitations.length}</td></tr>`).join('')
+      }</tbody></table></div>
+    `;
+    document.getElementById('btn-confirm-import').onclick = async () => {
+      let updated = 0, added = 0;
+      for (const s of byKey.values()) {
+        s.dateModification = new Date().toISOString();
+        const existing = await db.salaries_habilitations.where('[nom+prenom]').equals([s.nom, s.prenom]).first();
+        if (existing) { await db.salaries_habilitations.update(existing.id, s); updated++; }
+        else { await db.salaries_habilitations.add(s); added++; }
+      }
+      preview.innerHTML = `<div class="alert alert-success">Import terminé : ${added} ajouté(s), ${updated} mis à jour.</div>`;
+      await this._refreshSalariesList();
+      await this._refreshPreviewSelects();
+    };
+    event.target.value = '';
+  },
+  downloadExcelTemplate() {
+    if (typeof XLSX === 'undefined') { alert('SheetJS pas encore chargé.'); return; }
+    const data = [
+      ['Nom','Prénom','Service','Poste','Statut','Visite médicale','Médecine du travail','Type habilitation','Symbole','Domaine','Ouvrages','Date formation','Date validité','Indications','Périmètre'],
+      ['AIRECHE','Samir Youcef','Travaux','Électricien','CDI','19/08/2024','SST de Montigny-les-Metz','Électrique','B1 V','TBT - BT','Chantiers AGRIWATT','03/07/2024','03/07/2027','','Tous chantiers AGRIWATT'],
+      ['AIRECHE','Samir Youcef','Travaux','Électricien','CDI','19/08/2024','SST de Montigny-les-Metz','Travail en hauteur','','','','14/06/2024','13/06/2027','',''],
+      ['AIRECHE','Samir Youcef','Travaux','Électricien','CDI','19/08/2024','SST de Montigny-les-Metz','AIPR','Opérateur','','','17/06/2024','16/06/2029','','']
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Habilitations');
+    XLSX.writeFile(wb, 'modele_habilitations_AGRIWATT.xlsx');
+  },
+
+  // === PREVIEW & GÉNÉRATION ===
+  async _refreshPreviewSelects() {
+    const selS = document.getElementById('preview-salarie-select');
+    const selG = document.getElementById('preview-signataire-select');
+    if (!selS || !selG) return;
+    const sals = await db.salaries_habilitations.orderBy('nom').toArray();
+    const sigs = await db.signataires.orderBy('updated_at').reverse().toArray();
+    selS.innerHTML = '<option value="">— Choisir un salarié —</option>' + sals.map(s => `<option value="${s.id}">${this._esc(s.nom)} ${this._esc(s.prenom)}</option>`).join('');
+    selG.innerHTML = '<option value="">— Choisir un signataire —</option>' + sigs.map(s => `<option value="${s.id}">${this._esc(s.nom)} (${this._esc(s.fonction)})</option>`).join('');
+    this.renderPreview();
+  },
+  async renderPreview() {
+    const c = document.getElementById('autorisation-preview-container');
+    if (!c) return;
+    const salId = +document.getElementById('preview-salarie-select').value;
+    const sigId = +document.getElementById('preview-signataire-select').value;
+    if (!salId) { c.innerHTML = '<div class="text-muted p-4 text-center">Sélectionnez un salarié pour voir l\'aperçu.</div>'; return; }
+    const sal = await db.salaries_habilitations.get(salId);
+    const sig = sigId ? await db.signataires.get(sigId) : {};
+    c.innerHTML = `<style>${this.CSS}</style>` + this.buildHTML(sal, sig, this._getLogo());
+  },
+  async generateOnePDF() {
+    const salId = +document.getElementById('preview-salarie-select').value;
+    const sigId = +document.getElementById('preview-signataire-select').value;
+    if (!salId) { alert('Sélectionnez un salarié.'); return; }
+    const sal = await db.salaries_habilitations.get(salId);
+    const sig = sigId ? await db.signataires.get(sigId) : null;
+    const blob = await this.generateBlobForSalarie(sal, sig);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `Autorisation_Interne_${(sal.nom+'_'+sal.prenom).replace(/\s+/g,'_')}.pdf`;
+    a.click(); URL.revokeObjectURL(url);
+    if (sig) await this.upsertSignataire({ nom: sig.nom, fonction: sig.fonction, signature: sig.signature, tampon: sig.tampon, incrementUsage: true });
+  },
+  async generateBlobForSalarie(sal, sig) {
+    if (typeof html2canvas === 'undefined' || !window.jspdf) { throw new Error('Libs PDF pas chargées'); }
+    // Rendu offscreen
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:fixed;left:-99999px;top:0;width:297mm;background:#fff';
+    wrap.innerHTML = `<style>${this.CSS}</style>` + this.buildHTML(sal, sig||{}, this._getLogo());
+    document.body.appendChild(wrap);
+    try {
+      const node = wrap.querySelector('.ai-doc');
+      const canvas = await html2canvas(node, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight());
+      return pdf.output('blob');
+    } finally {
+      wrap.remove();
+    }
+  },
+
+  // === GÉNÉRATION DEPUIS UN PDP ===
+  async generateForPDPIntervenants() {
+    if (!App.currentPDP) { alert('Ouvrez un PDP d\'abord.'); return; }
+    const pdp = App.currentPDP;
+    const emargements = Array.isArray(pdp.emargements) ? pdp.emargements : [];
+    const status = document.getElementById('autorisation-interne-status');
+    if (!emargements.length) {
+      if (status) { status.style.display='block'; status.className='small mt-1 text-warning'; status.innerText = 'Aucun intervenant dans la liste d\'émargement.'; }
+      return;
+    }
+    // Charger tous les salariés de la base + n'inclure que les intervenants AGRIWATT
+    const sals = await db.salaries_habilitations.toArray();
+    const findSal = (nom, prenom) => {
+      const nNom = this._norm(nom), nPrenom = this._norm(prenom);
+      // 1) match strict nom+prenom
+      let hit = sals.find(s => this._norm(s.nom) === nNom && (!nPrenom || this._norm(s.prenom) === nPrenom));
+      if (hit) return hit;
+      // 2) match contains : nom contenu dans nom complet
+      const full = (nNom + ' ' + nPrenom).trim();
+      hit = sals.find(s => {
+        const target = (this._norm(s.nom) + ' ' + this._norm(s.prenom)).trim();
+        return target === full || target.includes(nNom) && nNom.length > 2;
+      });
+      if (hit) return hit;
+      // 3) si nom est en fait "NOM Prenom" concaténé
+      if (!nPrenom && nNom.includes(' ')) {
+        const parts = nNom.split(' ');
+        for (let i=1;i<parts.length;i++) {
+          const tryNom = parts.slice(0,i).join(' ');
+          const tryPrenom = parts.slice(i).join(' ');
+          hit = sals.find(s => this._norm(s.nom) === tryNom && this._norm(s.prenom) === tryPrenom);
+          if (hit) return hit;
+        }
+      }
+      return null;
+    };
+    // Ne considérer que les intervenants AGRIWATT (société contient agriwatt, ou société vide)
+    const intervenantsAgriwatt = emargements.filter(em => {
+      const soc = this._norm(em.societe||'');
+      return !soc || soc.includes('agriwatt');
+    });
+    if (!intervenantsAgriwatt.length) {
+      if (status) { status.style.display='block'; status.className='small mt-1 text-warning'; status.innerText = 'Aucun intervenant AGRIWATT identifié dans la liste d\'émargement.'; }
+      return;
+    }
+
+    // Choisir signataire commun
+    const sigs = await db.signataires.orderBy('updated_at').reverse().toArray();
+    if (!sigs.length) {
+      if (!confirm('Aucun signataire enregistré. Continuer sans signature ? (Cliquez Annuler pour aller en créer un dans l\'onglet Habilitations)')) return;
+    }
+    let signataireChoisi = null;
+    if (sigs.length) {
+      const choice = prompt('Signataire à utiliser pour toutes les autorisations :\n\n' + sigs.map((s,i)=>`${i+1}. ${s.nom} (${s.fonction})`).join('\n') + '\n\nEntrez le numéro :', '1');
+      if (choice === null) return;
+      const idx = parseInt(choice,10) - 1;
+      if (idx >= 0 && idx < sigs.length) signataireChoisi = sigs[idx];
+    }
+
+    let okCount = 0, missingCount = 0;
+    const missing = [];
+    if (status) { status.style.display='block'; status.className='small mt-1 text-info'; status.innerText = 'Génération en cours…'; }
+
+    if (!Array.isArray(pdp.documents)) pdp.documents = [];
+    // Retirer les anciennes autorisations auto-générées
+    pdp.documents = pdp.documents.filter(d => d.categorie !== 'autorisation_interne' || !d.genere_auto);
+
+    for (const em of intervenantsAgriwatt) {
+      const sal = findSal(em.nom, em.prenom);
+      if (!sal) { missingCount++; missing.push(`${em.nom||''} ${em.prenom||''}`.trim()); continue; }
+      const blob = await this.generateBlobForSalarie(sal, signataireChoisi);
+      const dataURL = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
+      pdp.documents.push({
+        nom: `Autorisation_Interne_${sal.nom}_${sal.prenom}.pdf`,
+        type: 'application/pdf',
+        taille: blob.size,
+        data: dataURL,
+        date: new Date().toISOString(),
+        categorie: 'autorisation_interne',
+        genere_auto: true
+      });
+      okCount++;
+    }
+    if (signataireChoisi) await this.upsertSignataire({ nom: signataireChoisi.nom, fonction: signataireChoisi.fonction, signature: signataireChoisi.signature, tampon: signataireChoisi.tampon, incrementUsage: true });
+
+    // Sauvegarde et rafraîchissement
+    if (typeof App.savePDP === 'function') { try { await App.savePDP(); } catch(e){} }
+    if (typeof App.renderDocuments === 'function') { try { App.renderDocuments(); } catch(e){} }
+    if (status) {
+      status.style.display='block';
+      status.className = missingCount ? 'small mt-1 text-warning' : 'small mt-1 text-success';
+      status.innerHTML = `${okCount} autorisation(s) générée(s) et jointe(s) au PDP.` + (missingCount ? ` ⚠️ ${missingCount} intervenant(s) sans fiche en base : ${missing.join(', ')}.` : '');
+    }
+  },
+
+  // === MODAL UTILITAIRE ===
+  _openModal({ title, body, size='modal-md', onShow, onSave }) {
+    let modalEl = document.getElementById('autorisation-modal');
+    if (!modalEl) {
+      modalEl = document.createElement('div');
+      modalEl.id = 'autorisation-modal';
+      modalEl.className = 'modal fade';
+      modalEl.tabIndex = -1;
+      modalEl.innerHTML = `<div class="modal-dialog modal-dialog-scrollable" id="autorisation-modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"></div><div class="modal-footer"><button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuler</button><button type="button" class="btn btn-primary btn-sm" id="autorisation-modal-save">Enregistrer</button></div></div></div>`;
+      document.body.appendChild(modalEl);
+    }
+    modalEl.querySelector('#autorisation-modal-dialog').className = 'modal-dialog modal-dialog-scrollable ' + size;
+    modalEl.querySelector('.modal-title').innerText = title;
+    modalEl.querySelector('.modal-body').innerHTML = body;
+    const saveBtn = modalEl.querySelector('#autorisation-modal-save');
+    const newBtn = saveBtn.cloneNode(true); saveBtn.parentNode.replaceChild(newBtn, saveBtn);
+    const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    newBtn.onclick = async () => {
+      try {
+        const ok = onSave ? await onSave() : true;
+        if (ok !== false) bsModal.hide();
+      } catch(e) { console.error(e); alert('Erreur : '+e.message); }
+    };
+    modalEl.addEventListener('shown.bs.modal', () => { if (onShow) onShow(); }, { once: true });
+    bsModal.show();
+  }
+};
+
+// ========================================
 // APP
 // ========================================
 const App = {
@@ -4858,6 +5757,7 @@ const App = {
     if (view === 'list') this.renderPDPList();
     if (view === 'icps') this.renderICPList();
     if (view === 'entreprises') this.renderEntreprises();
+    if (view === 'habilitations') AutorisationInterne.init();
     if (view === 'settings') this.renderSettingsView();
     if (view === 'tutoriel') this.helpInit();
     // Collapse mobile navbar
