@@ -2445,6 +2445,13 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Base de référence des salariés AGRIWATT, de leurs habilitations et des signataires utilisés pour les autorisations internes. Alimente automatiquement l'onglet « Autorisations » des PDP.</div>
       <div id="habilitations-summary" class="small text-muted mb-2"></div>
       <div class="field-group">
+        <div class="field-group-title d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-file-earmark-richtext"></i> Template autorisation interne</span>
+          <button class="btn btn-sm btn-outline-primary" onclick="AutorisationInterne.openTemplateEditor()"><i class="bi bi-pencil me-1"></i>Modifier</button>
+        </div>
+        <div class="small text-muted">Valeurs par défaut du tableau d'habilitation électrique (NF C 18-510) et du périmètre. Utilisées si l'habilitation du salarié ne contient pas ces champs.</div>
+      </div>
+      <div class="field-group">
         <div class="field-group-title"><i class="bi bi-cloud-arrow-down"></i> Synchronisation automatique depuis SharePoint</div>
         <div class="small text-muted mb-2">Colle l'URL du fichier Excel RH partagé. L'app le lira automatiquement avant chaque génération d'autorisations dans un PDP.</div>
         <div class="row g-2 align-items-end">
@@ -4921,10 +4928,44 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
 .ai-perimetre .ai-note{font-style:italic;font-size:7pt;color:#555}
   `,
 
+  // === Valeurs par défaut du template (cf. NF C 18-510 et amendement A1 pour PV) ===
+  DEFAULT_TEMPLATE: {
+    perimetre: 'Tous les chantiers AGRIWATT',
+    electriqueTable: [
+      { rowtitle:'Exécutant',              symbole:'B0 H0V',            domaine:'TBT - BT', ouvrages:'Chantiers AGRIWATT — installations photovoltaïques', indications:'Accès en zone de voisinage électrique sans intervention', groupe:'non_elec' },
+      { rowtitle:'Exécutant',              symbole:'B1 V',              domaine:'TBT - BT', ouvrages:'Installations PV — DC ≤ 1500V, AC BT',                indications:"Travaux d'ordre électrique sous responsabilité d'un chargé de travaux", groupe:'elec' },
+      { rowtitle:'Chargé de travaux',      symbole:'B2 / B2V / BZV ESSAI', domaine:'TBT - BT', ouvrages:'Installations PV — DC ≤ 1500V, AC BT',                indications:'Direction des travaux et essais sur installations PV', groupe:'elec' },
+      { rowtitle:"Chargé d'interventions", symbole:'BR',                domaine:'TBT - BT', ouvrages:'Installations PV — coffrets DC/AC, onduleurs',         indications:"Interventions générales d'entretien et dépannage BT", groupe:'elec' },
+      { rowtitle:'Chargé de consignation', symbole:'BC',                domaine:'TBT - BT', ouvrages:'Chantiers AGRIWATT — postes BT et tableaux DC/AC',    indications:'Consignation des installations PV avant travaux', groupe:'elec' },
+      { rowtitle:"Chargé d'opérations",    symbole:'',                  domaine:'',         ouvrages:'',                                                      indications:'', groupe:'elec' },
+      { rowtitle:'Habilité spécial',       symbole:'BP PV',             domaine:'TBT - BT (DC ≤ 1500V)', ouvrages:'Installations de panneaux photovoltaïques', indications:'Habilitation spécifique PV (NF C 18-510 amdt A1, 2020)', groupe:'elec' }
+    ]
+  },
+
+  _templateCache: null,
+  async loadTemplate() {
+    if (this._templateCache) return this._templateCache;
+    const s = await db.settings.get('autorisation_template');
+    const stored = s ? s.value : null;
+    this._templateCache = stored || JSON.parse(JSON.stringify(this.DEFAULT_TEMPLATE));
+    return this._templateCache;
+  },
+  async saveTemplate(tpl) {
+    await db.settings.put({ key: 'autorisation_template', value: tpl });
+    this._templateCache = tpl;
+  },
+  async resetTemplate() {
+    await db.settings.delete('autorisation_template');
+    this._templateCache = null;
+    return this.loadTemplate();
+  },
+
   // === Builder du template (modifiable indépendamment) ===
   // salarie = {nom, prenom, service, poste, statut, dateVisiteMedicale, medecineTravail, habilitations:[{type, symbole, domaine, ouvrages, indications, dateFormation, dateValidite, perimetre}]}
   // signataire = {nom, fonction, signature (dataURL), tampon (dataURL optionnel)}
-  buildHTML(salarie, signataire, logoDataURL) {
+  // template = config issu de loadTemplate (sinon DEFAULT_TEMPLATE utilisé)
+  buildHTML(salarie, signataire, logoDataURL, template) {
+    const tpl = template || this._templateCache || this.DEFAULT_TEMPLATE;
     const s = salarie || {};
     const sig = signataire || {};
     const habs = Array.isArray(s.habilitations) ? s.habilitations : [];
@@ -5008,15 +5049,26 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
       <tr><th>Domaine de tension</th><th>Ouvrages / installations</th><th>—</th></tr>
     </thead>
     <tbody>
-      <tr><td colspan="6" class="ai-grp-head">Travaux d'ordre non électrique</td></tr>
-      ${elecRow('Exécutant','B0 H0V')}
-      <tr><td colspan="6" class="ai-grp-head">Travaux d'ordre électrique</td></tr>
-      ${elecRow('Exécutant','B1 V')}
-      ${elecRow('Chargé de travaux','B2V')}
-      ${elecRow("Chargé d'interventions",'BR')}
-      ${elecRow('Chargé de consignation','BC')}
-      ${elecRow("Chargé d'opérations",'')}
-      ${elecRow('Habilité spécial','BP PV')}
+      ${(() => {
+        const rows = tpl.electriqueTable || this.DEFAULT_TEMPLATE.electriqueTable;
+        let lastGroup = '';
+        return rows.map(r => {
+          let out = '';
+          if (r.groupe !== lastGroup) {
+            const label = r.groupe === 'non_elec' ? "Travaux d'ordre non électrique" : "Travaux d'ordre électrique";
+            out += `<tr><td colspan="6" class="ai-grp-head">${label}</td></tr>`;
+            lastGroup = r.groupe;
+          }
+          // Tente d'utiliser les valeurs spécifiques du salarié si elles existent, sinon valeurs du template
+          const h = findSymbol(r.symbole) || {};
+          const sym = h.symbole || r.symbole || '';
+          const dom = h.domaine || r.domaine || '';
+          const ouv = h.ouvrages || r.ouvrages || '';
+          const ind = h.indications || r.indications || '';
+          out += `<tr><td class="ai-rowtitle">${this._esc(r.rowtitle)}</td><td>${this._esc(sym)}</td><td>${this._esc(dom)}</td><td>${this._esc(ouv)}</td><td>—</td><td>${this._esc(ind)}</td></tr>`;
+          return out;
+        }).join('');
+      })()}
       <tr><td colspan="6" style="text-align:left;background:#f2f2f2"><b>Validité :</b> ${this._esc(electriValidite||'—')}</td></tr>
     </tbody>
   </table>
@@ -5059,7 +5111,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
   </div>
 
   <div class="ai-perimetre">
-    <span class="ai-label">Périmètre :</span> ${this._esc(s.perimetre || 'Tous les chantiers AGRIWATT')}
+    <span class="ai-label">Périmètre :</span> ${this._esc(s.perimetre || tpl.perimetre || 'Tous les chantiers AGRIWATT')}
     <span class="ai-note"> — Sous réserve de la validité des formations indiquées ci-contre.</span>
   </div>
 
@@ -5826,10 +5878,11 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
   // === GÉNÉRATION PDF ===
   async generateBlobForSalarie(sal, sig) {
     if (typeof html2canvas === 'undefined' || !window.jspdf) { throw new Error('Libs PDF pas chargées'); }
+    const tpl = await this.loadTemplate();
     // Rendu offscreen
     const wrap = document.createElement('div');
     wrap.style.cssText = 'position:fixed;left:-99999px;top:0;width:297mm;background:#fff';
-    wrap.innerHTML = `<style>${this.CSS}</style>` + this.buildHTML(sal, sig||{}, this._getLogo());
+    wrap.innerHTML = `<style>${this.CSS}</style>` + this.buildHTML(sal, sig||{}, this._getLogo(), tpl);
     document.body.appendChild(wrap);
     try {
       const node = wrap.querySelector('.ai-doc');
@@ -6070,6 +6123,115 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     if (!d) return;
     const w = window.open();
     if (w) w.document.write(`<iframe src="${d.data}" style="width:100vw;height:100vh;border:0"></iframe><title>${d.nom}</title>`);
+  },
+
+  // === ÉDITEUR DE TEMPLATE (Paramètres) ===
+  async openTemplateEditor() {
+    const tpl = await this.loadTemplate();
+    // Clone profond pour édition isolée
+    const draft = JSON.parse(JSON.stringify(tpl));
+    const renderRows = () => draft.electriqueTable.map((r, i) => `
+      <tr>
+        <td><input class="form-control form-control-sm" data-i="${i}" data-f="rowtitle" value="${this._esc(r.rowtitle)}"></td>
+        <td><input class="form-control form-control-sm" data-i="${i}" data-f="symbole"  value="${this._esc(r.symbole)}"></td>
+        <td><input class="form-control form-control-sm" data-i="${i}" data-f="domaine"  value="${this._esc(r.domaine)}"></td>
+        <td><input class="form-control form-control-sm" data-i="${i}" data-f="ouvrages" value="${this._esc(r.ouvrages)}"></td>
+        <td><input class="form-control form-control-sm" data-i="${i}" data-f="indications" value="${this._esc(r.indications)}"></td>
+        <td>
+          <select class="form-select form-select-sm" data-i="${i}" data-f="groupe">
+            <option value="non_elec" ${r.groupe==='non_elec'?'selected':''}>Non élec.</option>
+            <option value="elec" ${r.groupe==='elec'?'selected':''}>Élec.</option>
+          </select>
+        </td>
+      </tr>
+    `).join('');
+
+    const body = `
+      <div class="row g-2 mb-3">
+        <div class="col-12">
+          <label class="form-label small mb-1">Périmètre par défaut</label>
+          <input type="text" class="form-control form-control-sm" id="tpl-perimetre" value="${this._esc(draft.perimetre)}">
+        </div>
+      </div>
+      <hr>
+      <div class="d-flex justify-content-between mb-2">
+        <strong>Tableau habilitation électrique NF C 18-510</strong>
+        <div>
+          <button class="btn btn-sm btn-outline-primary" id="tpl-add-row"><i class="bi bi-plus-lg"></i> Ligne</button>
+          <button class="btn btn-sm btn-outline-warning" id="tpl-reset"><i class="bi bi-arrow-counterclockwise"></i> Réinitialiser</button>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle" style="font-size:11px">
+          <thead><tr><th style="width:140px">Personnel</th><th style="width:120px">Symbole</th><th style="width:120px">Domaine</th><th>Ouvrages / Installations</th><th>Indications</th><th style="width:90px">Groupe</th></tr></thead>
+          <tbody id="tpl-rows">${renderRows()}</tbody>
+        </table>
+      </div>
+      <hr>
+      <div class="d-flex justify-content-between mb-1">
+        <strong>Aperçu</strong>
+        <button class="btn btn-sm btn-outline-secondary" id="tpl-refresh-preview"><i class="bi bi-arrow-clockwise"></i> Rafraîchir aperçu</button>
+      </div>
+      <div id="tpl-preview" style="background:#eee;padding:8px;overflow:auto;max-height:55vh;border:1px solid #ddd;border-radius:4px"></div>
+    `;
+
+    this._openModal({
+      title: 'Template autorisation interne',
+      size: 'modal-xl',
+      body,
+      onShow: () => {
+        const collectDraft = () => {
+          draft.perimetre = document.getElementById('tpl-perimetre').value;
+          document.querySelectorAll('#tpl-rows tr').forEach((tr, idx) => {
+            const row = {};
+            tr.querySelectorAll('[data-f]').forEach(el => row[el.dataset.f] = el.value);
+            draft.electriqueTable[idx] = row;
+          });
+        };
+
+        const refreshPreview = async () => {
+          collectDraft();
+          const sals = await db.salaries_habilitations.toArray();
+          const exempleSal = sals[0] || { nom:'AIRECHE', prenom:'Samir Youcef', service:'Travaux', poste:'Électricien', statut:'CDI', dateVisiteMedicale:'19/08/2024', medecineTravail:'SST de Montigny-les-Metz', habilitations:[] };
+          const sigs = await db.signataires.orderBy('updated_at').reverse().toArray();
+          const sig = sigs[0] || {};
+          const preview = document.getElementById('tpl-preview');
+          preview.innerHTML = `<style>${this.CSS}</style><div style="transform:scale(0.55);transform-origin:top left;width:182%">` + this.buildHTML(exempleSal, sig, this._getLogo(), draft) + '</div>';
+        };
+
+        document.getElementById('tpl-refresh-preview').onclick = refreshPreview;
+        document.getElementById('tpl-add-row').onclick = () => {
+          draft.electriqueTable.push({ rowtitle:'Nouveau', symbole:'', domaine:'', ouvrages:'', indications:'', groupe:'elec' });
+          document.getElementById('tpl-rows').innerHTML = renderRows();
+          refreshPreview();
+        };
+        document.getElementById('tpl-reset').onclick = async () => {
+          if (!confirm('Réinitialiser aux valeurs par défaut ?')) return;
+          const def = JSON.parse(JSON.stringify(this.DEFAULT_TEMPLATE));
+          draft.perimetre = def.perimetre; draft.electriqueTable = def.electriqueTable;
+          document.getElementById('tpl-perimetre').value = draft.perimetre;
+          document.getElementById('tpl-rows').innerHTML = renderRows();
+          refreshPreview();
+        };
+
+        // Auto-refresh quand l'utilisateur modifie un champ (debounce léger)
+        let t = null;
+        document.querySelector('.modal-body').addEventListener('input', () => { clearTimeout(t); t = setTimeout(refreshPreview, 400); });
+        refreshPreview();
+      },
+      onSave: async () => {
+        // Collecter une dernière fois
+        const finalTpl = { perimetre: document.getElementById('tpl-perimetre').value, electriqueTable: [] };
+        document.querySelectorAll('#tpl-rows tr').forEach(tr => {
+          const row = {};
+          tr.querySelectorAll('[data-f]').forEach(el => row[el.dataset.f] = el.value);
+          finalTpl.electriqueTable.push(row);
+        });
+        await this.saveTemplate(finalTpl);
+        this._toast('Template enregistré', 'success');
+        return true;
+      }
+    });
   },
 
   // === MODAL UTILITAIRE ===
