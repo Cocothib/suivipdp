@@ -1230,7 +1230,6 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <li class="nav-item"><a class="nav-link" href="#" data-page="icps" onclick="App.showView('icps')"><i class="bi bi-clipboard-check me-1"></i>ICP</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-page="list" onclick="App.showView('list')"><i class="bi bi-list-ul me-1"></i>PDP</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-page="entreprises" onclick="App.showView('entreprises')"><i class="bi bi-building me-1"></i>Entreprises</a></li>
-        <li class="nav-item"><a class="nav-link" href="#" data-page="habilitations" onclick="App.showView('habilitations')"><i class="bi bi-patch-check me-1"></i>Habilitations</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-page="settings" onclick="App.showView('settings')"><i class="bi bi-gear me-1"></i>Paramètres</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-page="tutoriel" onclick="App.showView('tutoriel')"><i class="bi bi-book me-1"></i>Aide</a></li>
       </ul>
@@ -2112,7 +2111,10 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
   <!-- ==================== HABILITATIONS ==================== -->
   <div id="view-habilitations" class="view fade-in" style="display:none">
     <div class="d-flex justify-content-between flex-wrap align-items-center gap-2 mb-3">
-      <h5 class="mb-0"><i class="bi bi-patch-check me-1"></i>Habilitations &amp; Signataires</h5>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-outline-secondary btn-sm" onclick="App.showView('settings')" title="Retour aux paramètres"><i class="bi bi-arrow-left"></i></button>
+        <h5 class="mb-0"><i class="bi bi-patch-check me-1"></i>Habilitations &amp; Signataires</h5>
+      </div>
     </div>
     <ul class="nav nav-tabs" role="tablist">
       <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-hab-salaries">Salariés &amp; habilitations</a></li>
@@ -2434,6 +2436,14 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       </div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Les FDS marquées « Standard » sont automatiquement rattachées à chaque nouveau PDP. Ajout/retrait depuis l'onglet Annexes.</div>
       <div id="fds-list-container"></div>
+    </div>
+    <div class="form-section">
+      <div class="form-section-title d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-patch-check"></i>Habilitations &amp; Signataires</span>
+        <button class="btn btn-sm btn-primary" onclick="App.showView('habilitations')"><i class="bi bi-arrow-right me-1"></i>Gérer</button>
+      </div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Base de référence des salariés AGRIWATT, de leurs habilitations et des signataires utilisés pour les autorisations internes. Alimente automatiquement l'onglet « Autorisations » des PDP.</div>
+      <div id="habilitations-summary" class="small text-muted"></div>
     </div>
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-cloud"></i>Synchronisation SharePoint</div>
@@ -11237,6 +11247,14 @@ const App = {
     try { await this.renderAdminsSection(); } catch (e) { console.warn('renderAdminsSection:', e); }
     try { await this.renderNotifyEmails(); } catch (e) { console.warn('renderNotifyEmails:', e); }
     try { await this.renderPendingRisksSection(); } catch (e) { console.warn('renderPendingRisksSection:', e); }
+    try {
+      const sum = document.getElementById('habilitations-summary');
+      if (sum) {
+        const nbSal = await db.salaries_habilitations.count();
+        const nbSig = await db.signataires.count();
+        sum.innerHTML = `<i class="bi bi-people me-1"></i><b>${nbSal}</b> salarié(s) enregistré(s) &nbsp;·&nbsp; <i class="bi bi-pen me-1"></i><b>${nbSig}</b> signataire(s)`;
+      }
+    } catch (e) { console.warn('habilitations-summary:', e); }
     try { await ActivityLog.render(document.getElementById('activity-log-container')); } catch (e) { console.warn('ActivityLog.render:', e); }
     const proxyInput = document.getElementById('sellsy-proxy-url');
     if (proxyInput) proxyInput.value = SellsyAPI.getProxyUrl() === 'sellsy-proxy.php' ? '' : SellsyAPI.getProxyUrl();
