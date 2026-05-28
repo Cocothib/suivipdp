@@ -2180,6 +2180,9 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <option value="effectuee">Effectuée</option>
         <option value="validee">Validée</option>
       </select>
+      <select class="form-select form-select-sm" style="width:auto" id="filter-icp-agence" onchange="App.filterICPs()">
+        <option value="">Toutes agences</option>
+      </select>
       <select class="form-select form-select-sm" style="width:auto" id="filter-icp-site" onchange="App.filterICPs()">
         <option value="">Tous sites</option>
       </select>
@@ -2244,6 +2247,13 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <div class="col-md-6"><label class="form-label" for="icp-site">Site / Adresse</label><div class="input-icon-wrap"><i class="bi bi-geo-alt input-icon"></i><input type="text" class="form-control" id="icp-site" placeholder="Ex: 20 rue du 11 novembre 59169 FERIN"></div></div>
           <div class="col-md-6"><label class="form-label" for="icp-lieu">Coordonnées GPS</label><div class="input-group"><span class="input-group-text"><i class="bi bi-pin-map"></i></span><input type="text" class="form-control" id="icp-lieu" placeholder="Ex: 50.34521, 3.10274" oninput="App.updateMapsLink()"><button class="btn btn-outline-success" type="button" onclick="App.geocodeICPSite()" title="Géolocaliser depuis l'adresse Site"><i class="bi bi-geo-alt-fill"></i></button><a id="icp-gps-maps-link" href="#" target="_blank" rel="noopener" class="btn btn-outline-secondary" style="display:none" title="OpenStreetMap (rapide)"><i class="bi bi-map"></i></a><a id="icp-gps-gmaps-link" href="#" target="_blank" rel="noopener" class="btn btn-outline-danger" style="display:none" title="Google Maps"><i class="bi bi-google"></i></a></div></div>
         </div>
+      </div>
+      <div class="field-group">
+        <div class="field-group-title"><i class="bi bi-buildings"></i> Entité concernée (agence)</div>
+        <input type="hidden" id="icp-entite" value="agriwatt">
+        <input type="hidden" id="icp-agence-id" value="">
+        <div class="entite-chantier-group" role="radiogroup" aria-label="Agence" id="icp-agences-buttons"></div>
+        <div id="icp-agence-inherited" class="small text-muted mt-1" style="display:none"><i class="bi bi-link-45deg me-1"></i>Agence héritée du PDP lié.</div>
       </div>
       <div class="field-group">
         <div class="field-group-title"><i class="bi bi-card-text"></i> Objet</div>
@@ -8502,6 +8512,62 @@ const App = {
     this.onTypeEntiteChange();
   },
 
+  // === Agences sur formulaire ICP ===
+  selectICPAgence(agenceId) {
+    const a = getAgenceById(agenceId);
+    if (!a) return;
+    const inp = document.getElementById('icp-agence-id');
+    if (inp) inp.value = agenceId;
+    const ent = document.getElementById('icp-entite');
+    if (ent) ent.value = a.marque;
+    document.querySelectorAll('#icp-agences-buttons .entite-chantier-card').forEach(c => {
+      const isActive = c.dataset.agenceId === agenceId;
+      c.classList.toggle('active', isActive);
+      c.setAttribute('aria-checked', isActive ? 'true' : 'false');
+    });
+  },
+
+  // Si l'ICP a un PDP lié, hérite son agenceId (lecture seule). Sinon ne touche rien.
+  async _loadICPAgenceFromPDPIfNeeded(v) {
+    const banner = document.getElementById('icp-agence-inherited');
+    const container = document.getElementById('icp-agences-buttons');
+    if (!v) return;
+    if (v.pdpId) {
+      try {
+        const pdp = await db.pdps.get(v.pdpId);
+        if (pdp && pdp.agenceId) {
+          v.agenceId = pdp.agenceId;
+          v.entite = pdp.entite || v.entite;
+          const inp = document.getElementById('icp-agence-id'); if (inp) inp.value = pdp.agenceId;
+          const ent = document.getElementById('icp-entite'); if (ent) ent.value = pdp.entite || 'agriwatt';
+          if (banner) banner.style.display = '';
+          if (container) container.style.pointerEvents = 'none';
+          if (container) container.style.opacity = '0.55';
+          return;
+        }
+      } catch(e) { console.warn('inherit agence from pdp:', e); }
+    }
+    if (banner) banner.style.display = 'none';
+    if (container) { container.style.pointerEvents = ''; container.style.opacity = ''; }
+  },
+
+  async renderICPAgencesButtons(selectedId) {
+    const container = document.getElementById('icp-agences-buttons');
+    if (!container) return;
+    const agences = await loadAgences();
+    const sorted = [...agences].sort((a,b) => {
+      if (a.marque !== b.marque) return a.marque === 'agriwatt' ? -1 : 1;
+      return (a.ville||a.nomComplet||'').localeCompare(b.ville||b.nomComplet||'','fr',{sensitivity:'base'});
+    });
+    container.innerHTML = sorted.map(a => {
+      const isActive = a.id === selectedId;
+      const iconColor = a.marque === 'enersolys' ? 'text-info' : 'text-success';
+      return `<button type="button" class="entite-chantier-card${isActive?' active':''}" data-agence-id="${this.esc(a.id)}" data-entite="${this.esc(a.marque)}" role="radio" aria-checked="${isActive}" onclick="App.selectICPAgence('${this.esc(a.id)}')">
+        <i class="bi bi-buildings ${iconColor}"></i> ${this.esc(a.nomComplet||a.ville||a.id)}
+      </button>`;
+    }).join('');
+  },
+
   // (Re)construit dynamiquement les boutons d'agences dans le formulaire PDP
   async renderAgencesButtons(selectedId) {
     const container = document.getElementById('pdp-agences-buttons');
@@ -10222,6 +10288,7 @@ const App = {
     this.currentICP = {
       numero:'', refOperation:'', statut:'effectuee',
       dateVisite:'', heure:'', site:'', lieu:'', objet:'',
+      agenceId:'', entite:'agriwatt',
       euParticipant: { nom:s.euResponsable||'', fonction:'Contact EU', tel:s.euTel||'' },
       entreprisesExt: [],
       risques: [],
@@ -10448,6 +10515,8 @@ const App = {
     document.getElementById('icp-lieu').value = v.lieu||'';
     this.updateMapsLink();
     document.getElementById('icp-objet').value = v.objet||'';
+    // Agence : si l'ICP a un PDP lié, hériter de son agence (lecture seule). Sinon laisser sélection libre.
+    this._loadICPAgenceFromPDPIfNeeded(v).then(() => this.renderICPAgencesButtons(v.agenceId||''));
     const eu = v.euParticipant||{};
     document.getElementById('icp-eu-nom').value = eu.nom||'';
     document.getElementById('icp-eu-fonction').value = eu.fonction||'';
@@ -10510,6 +10579,8 @@ const App = {
     v.site = document.getElementById('icp-site').value.trim();
     v.lieu = document.getElementById('icp-lieu').value.trim();
     v.objet = document.getElementById('icp-objet').value.trim();
+    v.agenceId = document.getElementById('icp-agence-id')?.value || '';
+    v.entite = document.getElementById('icp-entite')?.value || 'agriwatt';
     v.euParticipant = {
       nom: document.getElementById('icp-eu-nom').value.trim(),
       fonction: document.getElementById('icp-eu-fonction').value.trim(),
@@ -10629,7 +10700,9 @@ const App = {
       const editors = editorsMap[String(v.id)] || [];
       const editingBadge = editors.length ? `<span class="badge bg-warning text-dark" style="font-size:0.7rem" title="${this.esc(editors.join(', '))} édite${editors.length>1?'nt':''} en ce moment"><i class="bi bi-pencil-square me-1"></i>${this.esc(editors[0])}${editors.length>1?` +${editors.length-1}`:''}</span>` : '';
       const conducteurICP = this._getConducteurAgriwatt(v);
-      return `<div class="card pdp-card" data-statut="${v.statut||''}" data-site="${(v.site||'').toLowerCase()}" data-ref="${(v.refOperation||'').toLowerCase()}" data-numero="${(v.numero||'').toLowerCase()}" data-objet="${(v.objet||'').toLowerCase()}" data-conducteur="${(conducteurICP||'').toLowerCase()}" data-annee="${annee}" onclick="App.openICP(${v.id})">
+      const agenceICP = (v.agenceId && getAgenceById(v.agenceId)) ? getAgenceById(v.agenceId) : null;
+      const agenceICPLabel = agenceICP ? agenceICP.nomComplet : '';
+      return `<div class="card pdp-card" data-statut="${v.statut||''}" data-site="${(v.site||'').toLowerCase()}" data-ref="${(v.refOperation||'').toLowerCase()}" data-numero="${(v.numero||'').toLowerCase()}" data-objet="${(v.objet||'').toLowerCase()}" data-conducteur="${(conducteurICP||'').toLowerCase()}" data-agence="${(v.agenceId||'').toLowerCase()}" data-annee="${annee}" onclick="App.openICP(${v.id})">
       <div class="card-body p-2">
         <div class="d-flex justify-content-between align-items-start">
           <div class="flex-grow-1">
@@ -10658,6 +10731,7 @@ const App = {
   filterICPs() {
     const s = (document.getElementById('search-icp').value||'').toLowerCase().trim();
     const st = document.getElementById('filter-icp-statut')?.value || '';
+    const agence = (document.getElementById('filter-icp-agence')?.value||'').toLowerCase();
     const site = (document.getElementById('filter-icp-site')?.value||'').toLowerCase();
     const conducteur = (document.getElementById('filter-icp-conducteur')?.value||'').toLowerCase();
     const annee = document.getElementById('filter-icp-annee')?.value || '';
@@ -10667,10 +10741,11 @@ const App = {
       const haystack = [c.dataset.site, c.dataset.ref, c.dataset.numero, c.dataset.objet, c.dataset.conducteur].filter(Boolean).join(' ');
       const matchSearch = !s || haystack.includes(s);
       const matchStatut = !st || c.dataset.statut === st;
+      const matchAgence = !agence || (c.dataset.agence||'') === agence;
       const matchSite = !site || (c.dataset.site||'') === site;
       const matchConducteur = !conducteur || (c.dataset.conducteur||'') === conducteur;
       const matchAnnee = !annee || c.dataset.annee === annee;
-      const show = matchSearch && matchStatut && matchSite && matchConducteur && matchAnnee;
+      const show = matchSearch && matchStatut && matchAgence && matchSite && matchConducteur && matchAnnee;
       c.style.display = show ? '' : 'none';
       if (show) visible++;
     });
@@ -10679,7 +10754,7 @@ const App = {
   },
 
   resetICPFilters() {
-    ['search-icp','filter-icp-statut','filter-icp-site','filter-icp-conducteur','filter-icp-annee'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['search-icp','filter-icp-statut','filter-icp-agence','filter-icp-site','filter-icp-conducteur','filter-icp-annee'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     this.filterICPs();
   },
 
@@ -10707,6 +10782,14 @@ const App = {
     setOptions('filter-icp-site',       'Tous sites',       sites);
     setOptions('filter-icp-conducteur', 'Tous conducteurs', conducteurs);
     setOptions('filter-icp-annee',      'Toutes années',    annees, true);
+    // Filtre Agence (alimenté depuis la liste configurée)
+    const selA = document.getElementById('filter-icp-agence');
+    if (selA) {
+      const cur = selA.value;
+      const agences = _agencesCache || [];
+      selA.innerHTML = '<option value="">Toutes agences</option>' + agences.map(a => `<option value="${this.esc(a.id.toLowerCase())}">${this.esc(a.nomComplet||a.ville||a.id)}</option>`).join('');
+      selA.value = cur;
+    }
     const dl = document.getElementById('search-icp-list');
     if (dl) dl.innerHTML = [...refs, ...sites].slice(0, 100).map(v => `<option value="${this.esc(v)}"></option>`).join('');
   },
@@ -10995,6 +11078,7 @@ const App = {
     const s = this._settings || {};
     const pdp = {
       titre: v.objet||'PDP issu ICP '+(v.numero||''), numero:'', statut:'visite_prealable', version:'01',
+      typePdp: 'client', entite: v.entite || 'agriwatt', agenceId: v.agenceId || '',
       dateDebut:'', dateFin:'', site:v.site||'', lieu:'', gps:v.lieu||'', description:v.objet||'',
       materiel:'', nbSalaries:'', horaires:'',
       eu: {
