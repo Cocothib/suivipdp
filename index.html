@@ -1393,6 +1393,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <span class="section-tab" onclick="App.showPDPSection('pictogrammes')"><i class="bi bi-sign-stop me-1"></i>Pictogrammes</span>
       <span class="section-tab" onclick="App.showPDPSection('permisfeu')" id="tab-permisfeu" style="display:none"><i class="bi bi-fire me-1"></i>Permis de feu</span>
       <span class="section-tab" onclick="App.showPDPSection('emargement')"><i class="bi bi-person-check me-1"></i>Émargement</span>
+      <span class="section-tab" onclick="App.showPDPSection('autorisations')"><i class="bi bi-patch-check me-1"></i>Autorisations</span>
       <span class="section-tab" onclick="App.showPDPSection('annexes')"><i class="bi bi-paperclip me-1"></i>Documents joints</span>
       <span class="section-tab" onclick="App.showPDPSection('documents')"><i class="bi bi-download me-1"></i>Export</span>
     </div>
@@ -2016,6 +2017,25 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       </div>
     </div>
 
+    <!-- Section: Autorisations internes des intervenants -->
+    <div id="section-autorisations" class="pdp-section" style="display:none">
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Génère les autorisations internes AGRIWATT pour chaque intervenant. Les PDF sont automatiquement attachés aux documents joints du PDP.</div>
+      <div class="form-section">
+        <div class="form-section-title"><i class="bi bi-patch-check"></i>Autorisations internes</div>
+        <div class="d-flex justify-content-between flex-wrap gap-2 mb-2">
+          <div class="small text-muted">Une autorisation est générée pour chaque intervenant AGRIWATT identifié en base habilitations.</div>
+          <div class="d-flex gap-2">
+            <select class="form-select form-select-sm" id="autorisation-pdp-signataire" style="max-width:280px">
+              <option value="">— Signataire commun (optionnel) —</option>
+            </select>
+            <button class="btn btn-success btn-sm" onclick="AutorisationInterne.generateAllFromPDPSection()"><i class="bi bi-files me-1"></i>Tout générer</button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="AutorisationInterne.renderPDPSection()"><i class="bi bi-arrow-clockwise me-1"></i>Rafraîchir</button>
+          </div>
+        </div>
+        <div id="autorisations-pdp-list" class="mt-2"></div>
+      </div>
+    </div>
+
     <!-- Section: Documents joints (annexes) -->
     <div id="section-annexes" class="pdp-section" style="display:none">
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Joignez les documents nécessaires au PDP : plans, habilitations, fiches de données de sécurité, analyses de risques...</div>
@@ -2040,9 +2060,8 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
             </div>
             <label class="btn btn-outline-primary btn-sm"><i class="bi bi-upload me-1"></i>Ajouter<input type="file" class="d-none" onchange="App.addDocument(event)" multiple></label>
             <button class="btn btn-outline-success btn-sm" onclick="App.attachStandardFDSManually()" title="Rattacher les FDS marquées Standard depuis la bibliothèque"><i class="bi bi-file-earmark-pdf me-1"></i>Importer FDS standard</button>
-            <button class="btn btn-outline-warning btn-sm" onclick="AutorisationInterne.generateForPDPIntervenants()" title="Génère un PDF d'autorisation interne pour chaque intervenant AGRIWATT du PDP et l'attache aux documents joints"><i class="bi bi-patch-check me-1"></i>Générer autorisations internes</button>
           </div>
-          <div id="autorisation-interne-status" class="small mt-1 text-muted" style="display:none"></div>
+          <div class="small text-muted mt-1"><i class="bi bi-info-circle me-1"></i>Pour générer les autorisations internes des intervenants AGRIWATT, utilisez l'onglet <b>Autorisations</b>.</div>
         </div>
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-folder2-open"></i> Documents attachés</div>
@@ -5632,6 +5651,174 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     }
   },
 
+  // === SECTION PDP : liste intervenants + génération individuelle ===
+  async renderPDPSection() {
+    const container = document.getElementById('autorisations-pdp-list');
+    if (!container) return;
+    if (!App.currentPDP) { container.innerHTML = '<div class="text-muted p-3">Aucun PDP ouvert.</div>'; return; }
+    const pdp = App.currentPDP;
+    const emargements = Array.isArray(pdp.emargements) ? pdp.emargements : [];
+
+    // Peupler le dropdown signataire
+    const sel = document.getElementById('autorisation-pdp-signataire');
+    if (sel) {
+      const sigs = await db.signataires.orderBy('updated_at').reverse().toArray();
+      const current = sel.value;
+      sel.innerHTML = '<option value="">— Aucun signataire —</option>' + sigs.map(s => `<option value="${s.id}">${this._esc(s.nom)} (${this._esc(s.fonction)})</option>`).join('');
+      if (current) sel.value = current;
+      else if (sigs.length === 1) sel.value = sigs[0].id;
+    }
+
+    // Filtre AGRIWATT
+    const intervenants = emargements.filter(em => {
+      const soc = this._norm(em.societe||'');
+      return !soc || soc.includes('agriwatt');
+    });
+    if (!intervenants.length) {
+      container.innerHTML = '<div class="alert alert-info">Aucun intervenant AGRIWATT dans la section Émargement de ce PDP. Ajoutez-les d\'abord.</div>';
+      return;
+    }
+
+    const sals = await db.salaries_habilitations.toArray();
+    const findSal = (nom, prenom) => {
+      const nNom = this._norm(nom), nPrenom = this._norm(prenom);
+      let hit = sals.find(s => this._norm(s.nom) === nNom && (!nPrenom || this._norm(s.prenom) === nPrenom));
+      if (hit) return hit;
+      const full = (nNom + ' ' + nPrenom).trim();
+      hit = sals.find(s => (this._norm(s.nom) + ' ' + this._norm(s.prenom)).trim() === full);
+      if (hit) return hit;
+      if (!nPrenom && nNom.includes(' ')) {
+        const parts = nNom.split(' ');
+        for (let i=1;i<parts.length;i++) {
+          const tryNom = parts.slice(0,i).join(' ');
+          const tryPrenom = parts.slice(i).join(' ');
+          hit = sals.find(s => this._norm(s.nom) === tryNom && this._norm(s.prenom) === tryPrenom);
+          if (hit) return hit;
+        }
+      }
+      return null;
+    };
+
+    // Index des autorisations déjà jointes
+    const documents = Array.isArray(pdp.documents) ? pdp.documents : [];
+    const docByName = new Map();
+    documents.forEach((d, idx) => { if (d.categorie === 'autorisation_interne') docByName.set(d.nom, { doc: d, idx }); });
+
+    const today = new Date();
+    const rows = intervenants.map((em, emIdx) => {
+      const sal = findSal(em.nom, em.prenom);
+      const fullName = `${em.nom||''} ${em.prenom||''}`.trim();
+      if (!sal) {
+        return `<tr>
+          <td>${this._esc(fullName)}</td>
+          <td><small class="text-muted">${this._esc(em.fonction||'')}</small></td>
+          <td><span class="badge bg-secondary">Non trouvé en base</span></td>
+          <td></td>
+          <td class="text-end"><button class="btn btn-sm btn-outline-primary" onclick="App.showView('habilitations')"><i class="bi bi-plus-lg me-1"></i>Créer fiche</button></td>
+        </tr>`;
+      }
+      const habs = Array.isArray(sal.habilitations) ? sal.habilitations : [];
+      const expired = habs.filter(h => { const d = this._parseDate(h.dateValidite); return d && d < today; });
+      const warn = habs.filter(h => { const d = this._parseDate(h.dateValidite); if (!d) return false; const dd = (d-today)/86400000; return dd>=0 && dd<60; });
+      let statusBadge;
+      if (expired.length) statusBadge = `<span class="badge bg-danger" title="${expired.map(h=>h.type||h.symbole).join(', ')}">${expired.length} expirée(s)</span>`;
+      else if (warn.length) statusBadge = `<span class="badge bg-warning text-dark">${warn.length} bientôt expir.</span>`;
+      else statusBadge = `<span class="badge bg-success">${habs.length} OK</span>`;
+
+      const docName = `Autorisation_Interne_${sal.nom}_${sal.prenom}.pdf`.replace(/\s+/g,'_');
+      const existing = docByName.get(docName);
+      const generatedBadge = existing
+        ? `<span class="badge bg-info"><i class="bi bi-check2"></i> PDF joint</span>`
+        : `<span class="badge bg-light text-muted">Pas encore généré</span>`;
+
+      return `<tr>
+        <td><b>${this._esc(sal.nom)}</b> ${this._esc(sal.prenom)}</td>
+        <td><small class="text-muted">${this._esc(sal.poste||em.fonction||'')}</small></td>
+        <td>${statusBadge}</td>
+        <td>${generatedBadge}</td>
+        <td class="text-end">
+          <button class="btn btn-sm btn-primary" onclick="AutorisationInterne.generateOneFromPDPSection(${sal.id})" title="Générer / régénérer ce PDF"><i class="bi bi-file-earmark-pdf me-1"></i>${existing?'Régénérer':'Générer'}</button>
+          ${existing ? `<button class="btn btn-sm btn-outline-secondary" onclick="AutorisationInterne._previewJoinedDoc(${existing.idx})" title="Aperçu"><i class="bi bi-eye"></i></button>` : ''}
+        </td>
+      </tr>`;
+    }).join('');
+
+    container.innerHTML = `<div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Intervenant</th><th>Poste</th><th>Habilitations</th><th>Statut PDF</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  },
+
+  async generateOneFromPDPSection(salId) {
+    if (!App.currentPDP) return;
+    const sal = await db.salaries_habilitations.get(salId);
+    if (!sal) return;
+    const sigId = +document.getElementById('autorisation-pdp-signataire').value;
+    const sig = sigId ? await db.signataires.get(sigId) : null;
+    const blob = await this.generateBlobForSalarie(sal, sig);
+    const dataURL = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
+
+    if (!Array.isArray(App.currentPDP.documents)) App.currentPDP.documents = [];
+    const docName = `Autorisation_Interne_${sal.nom}_${sal.prenom}.pdf`.replace(/\s+/g,'_');
+    // Remplacer si existe
+    App.currentPDP.documents = App.currentPDP.documents.filter(d => !(d.categorie === 'autorisation_interne' && d.nom === docName));
+    App.currentPDP.documents.push({
+      nom: docName, type: 'application/pdf', taille: blob.size, data: dataURL,
+      date: new Date().toISOString(), categorie: 'autorisation_interne', genere_auto: true
+    });
+    if (sig) await this.upsertSignataire({ nom: sig.nom, fonction: sig.fonction, signature: sig.signature, tampon: sig.tampon, incrementUsage: true });
+    if (typeof App.savePDP === 'function') { try { await App.savePDP(); } catch(e){} }
+    if (typeof App.renderDocuments === 'function') { try { App.renderDocuments(); } catch(e){} }
+    await this.renderPDPSection();
+    this._toast(`Autorisation générée pour ${sal.nom} ${sal.prenom}`, 'success');
+  },
+
+  async generateAllFromPDPSection() {
+    if (!App.currentPDP) return;
+    const sigId = +document.getElementById('autorisation-pdp-signataire').value;
+    const sig = sigId ? await db.signataires.get(sigId) : null;
+    const emargements = Array.isArray(App.currentPDP.emargements) ? App.currentPDP.emargements : [];
+    const intervenants = emargements.filter(em => {
+      const soc = this._norm(em.societe||'');
+      return !soc || soc.includes('agriwatt');
+    });
+    if (!intervenants.length) { alert('Aucun intervenant AGRIWATT à traiter.'); return; }
+    const sals = await db.salaries_habilitations.toArray();
+    const findSal = (nom, prenom) => {
+      const nNom = this._norm(nom), nPrenom = this._norm(prenom);
+      let hit = sals.find(s => this._norm(s.nom) === nNom && (!nPrenom || this._norm(s.prenom) === nPrenom));
+      if (hit) return hit;
+      const full = (nNom + ' ' + nPrenom).trim();
+      hit = sals.find(s => (this._norm(s.nom) + ' ' + this._norm(s.prenom)).trim() === full);
+      if (hit) return hit;
+      return null;
+    };
+    if (!Array.isArray(App.currentPDP.documents)) App.currentPDP.documents = [];
+    App.currentPDP.documents = App.currentPDP.documents.filter(d => !(d.categorie === 'autorisation_interne' && d.genere_auto));
+    let ok=0, miss=0;
+    for (const em of intervenants) {
+      const sal = findSal(em.nom, em.prenom);
+      if (!sal) { miss++; continue; }
+      const blob = await this.generateBlobForSalarie(sal, sig);
+      const dataURL = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
+      const docName = `Autorisation_Interne_${sal.nom}_${sal.prenom}.pdf`.replace(/\s+/g,'_');
+      App.currentPDP.documents.push({
+        nom: docName, type: 'application/pdf', taille: blob.size, data: dataURL,
+        date: new Date().toISOString(), categorie: 'autorisation_interne', genere_auto: true
+      });
+      ok++;
+    }
+    if (sig) await this.upsertSignataire({ nom: sig.nom, fonction: sig.fonction, signature: sig.signature, tampon: sig.tampon, incrementUsage: true });
+    if (typeof App.savePDP === 'function') { try { await App.savePDP(); } catch(e){} }
+    if (typeof App.renderDocuments === 'function') { try { App.renderDocuments(); } catch(e){} }
+    await this.renderPDPSection();
+    this._toast(`${ok} autorisation(s) générée(s)${miss?`, ${miss} intervenant(s) non trouvé(s) en base`:''}`, miss?'warning':'success');
+  },
+
+  _previewJoinedDoc(idx) {
+    const d = App.currentPDP.documents[idx];
+    if (!d) return;
+    const w = window.open();
+    if (w) w.document.write(`<iframe src="${d.data}" style="width:100vw;height:100vh;border:0"></iframe><title>${d.nom}</title>`);
+  },
+
   // === MODAL UTILITAIRE ===
   _openModal({ title, body, size='modal-md', onShow, onSave }) {
     let modalEl = document.getElementById('autorisation-modal');
@@ -6535,7 +6722,7 @@ const App = {
   },
 
   // Liste ordonnée des sections pour navigation
-  _sectionOrder: ['general','entreprises','visite','risques','mesures','exigences','urgence','signatures','modifications','pictogrammes','permisfeu','emargement','annexes','documents'],
+  _sectionOrder: ['general','entreprises','visite','risques','mesures','exigences','urgence','signatures','modifications','pictogrammes','permisfeu','emargement','autorisations','annexes','documents'],
 
   showPDPSection(section) {
     document.querySelectorAll('.pdp-section').forEach(s => s.style.display = 'none');
@@ -6545,6 +6732,7 @@ const App = {
     if (section === 'signatures') setTimeout(() => this.initSignatureCanvases(), 100);
     if (section === 'risques') { this._riskPickerCtx = 'pdp'; this.updateRiskCounters(); }
     if (section === 'emargement') { this.prefillEmargements(); this.prefillEmargementsLibres(); }
+    if (section === 'autorisations') AutorisationInterne.renderPDPSection();
     if (section === 'signatures') { this.renderSignaturesEE(); this.prefillSignatureEU(); }
     if (section === 'permisfeu') { this.prefillPermisFeuSignataires(); }
     if (section === 'permisfeu') setTimeout(() => { this.initCanvas('pf-sig-eu-canvas'); this.initCanvas('pf-sig-ee-canvas'); this.initCanvas('pf-sig-exec-canvas'); if (this.currentPDP?.permisFeu?.signatureEU?.data) this.loadSigImg('pf-sig-eu-canvas', this.currentPDP.permisFeu.signatureEU.data); if (this.currentPDP?.permisFeu?.signatureEE?.data) this.loadSigImg('pf-sig-ee-canvas', this.currentPDP.permisFeu.signatureEE.data); if (this.currentPDP?.permisFeu?.signatureExec?.data) this.loadSigImg('pf-sig-exec-canvas', this.currentPDP.permisFeu.signatureExec.data); (this.currentPDP?.permisFeu?.renouvellements||[]).forEach((r,i) => { this.initCanvas('pf-renouv-sig-'+i); if (r.signatureEU?.data) this.loadSigImg('pf-renouv-sig-'+i, r.signatureEU.data); }); }, 100);
@@ -8562,7 +8750,7 @@ const App = {
   },
 
   // ---- DOCUMENTS ----
-  _docCatLabels: {plan:'Plan / Schéma',mode_operatoire:'Mode opératoire',habilitations:'Habilitations',fds:'FDS',analyse_risques:'Analyse de risques',permis_feu:'Permis de feu',attestation:'Attestation',photo:'Photo',autre:'Autre'},
+  _docCatLabels: {plan:'Plan / Schéma',mode_operatoire:'Mode opératoire',habilitations:'Habilitations',autorisation_interne:'Autorisation interne',fds:'FDS',analyse_risques:'Analyse de risques',permis_feu:'Permis de feu',attestation:'Attestation',photo:'Photo',autre:'Autre'},
 
   addDocument(ev) {
     this.currentPDP.documents = this.currentPDP.documents||[];
