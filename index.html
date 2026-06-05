@@ -4285,6 +4285,19 @@ const DataSync = {
                 _readJsonFile(SP_CONFIG.ICP_DATA_FILE),
                 _readJsonFile(SP_CONFIG.SHARED_DATA_FILE),
             ]);
+            // Modifs locales en attente (ex. saisies hors-ligne avant reconnexion) :
+            // fusionner avec le distant au lieu d'écraser la base locale, puis
+            // re-pousser via markDirty() — évite la perte des saisies non synchronisées.
+            if (this._dirty) {
+                const merged = await this._mergeAllWithRemote({ pdp: pdpData, icp: icpData, shared: sharedData });
+                await this._writeLocalData(merged);
+                if (pdpData?._meta) this._loadedMeta.pdp = pdpData._meta;
+                if (icpData?._meta) this._loadedMeta.icp = icpData._meta;
+                if (sharedData?._meta) this._loadedMeta.shared = sharedData._meta;
+                await this._captureSnapshot();
+                this.markDirty();
+                return true;
+            }
             let loaded = false;
             if (pdpData?._meta) {
                 await db.pdps.clear();
@@ -4362,6 +4375,10 @@ const DataSync = {
         if (this._pollTimer) clearInterval(this._pollTimer);
         this._pollTimer = setInterval(async () => {
             if (!this._connected || this._saving) return;
+            // Modifs locales non sauvegardées : déclencher une sauvegarde fusionnante
+            // (save() relit + merge anti-conflit) plutôt que d'écraser la base locale
+            // par le distant — sinon perte silencieuse des saisies en attente.
+            if (this._dirty) { try { await this.save(); } catch(_) {} return; }
             try {
                 const [pdpData, icpData, sharedData] = await Promise.all([
                     _readJsonFile(SP_CONFIG.PDP_DATA_FILE),
@@ -4808,7 +4825,8 @@ const SellsyAPI = {
   },
   async _call(params) {
     const url = this.getProxyUrl() + '?' + new URLSearchParams(params).toString();
-    const res = await fetch(url, { method: 'GET', credentials: 'omit' });
+    const _key = localStorage.getItem('sellsyProxyKey');
+    const res = await fetch(url, { method: 'GET', credentials: 'omit', headers: _key ? { 'X-Api-Key': _key } : {} });
     const text = await res.text();
     let data;
     try { data = JSON.parse(text); } catch { throw new Error('Réponse non-JSON du proxy : ' + text.slice(0,120)); }
@@ -9770,7 +9788,7 @@ const App = {
     const c = document.getElementById('entreprises-list-container');
     const ents = await db.entreprises.toArray();
     if (!ents.length) { c.innerHTML = '<p class="text-muted text-center mt-4">Aucune entreprise.</p>'; return; }
-    c.innerHTML = ents.map(e => `<div class="card pdp-card" data-nom="${(e.nom||'').toLowerCase()}" data-activite="${(e.activite||'').toLowerCase()}"><div class="card-body p-2"><div class="d-flex align-items-center gap-2"><div class="flex-grow-1"><strong>${this.esc(e.nom)}</strong>${e.activite?` <span class="text-muted small">— ${this.esc(e.activite)}</span>`:''}<div class="small text-muted">${e.responsable?`${this.esc(e.responsable)} `:''} ${e.tel?`· ${this.esc(e.tel)}`:''}</div></div><button class="btn btn-outline-primary btn-sm" onclick="event.stopPropagation();App.showEntrepriseForm(${e.id})"><i class="bi bi-pencil"></i></button><button class="btn btn-outline-danger btn-sm" onclick="event.stopPropagation();App.deleteEntreprise(${e.id})"><i class="bi bi-trash"></i></button></div></div></div>`).join('');
+    c.innerHTML = ents.map(e => `<div class="card pdp-card" data-nom="${this.esc((e.nom||'').toLowerCase())}" data-activite="${this.esc((e.activite||'').toLowerCase())}"><div class="card-body p-2"><div class="d-flex align-items-center gap-2"><div class="flex-grow-1"><strong>${this.esc(e.nom)}</strong>${e.activite?` <span class="text-muted small">— ${this.esc(e.activite)}</span>`:''}<div class="small text-muted">${e.responsable?`${this.esc(e.responsable)} `:''} ${e.tel?`· ${this.esc(e.tel)}`:''}</div></div><button class="btn btn-outline-primary btn-sm" onclick="event.stopPropagation();App.showEntrepriseForm(${e.id})"><i class="bi bi-pencil"></i></button><button class="btn btn-outline-danger btn-sm" onclick="event.stopPropagation();App.deleteEntreprise(${e.id})"><i class="bi bi-trash"></i></button></div></div></div>`).join('');
   },
 
   filterEntreprises() {
@@ -9821,7 +9839,7 @@ const App = {
       if (!items.length) { statusEl.textContent = 'Aucun résultat.'; return; }
       statusEl.textContent = `${items.length} résultat(s)`;
       resEl.innerHTML = items.map(c => `
-        <div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.applySellsyCompany('${target}', ${c.id})">
+        <div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.applySellsyCompany('${this.esc(target)}', ${Number(c.id)||0})">
           <i class="bi bi-buildings"></i>
           <div class="flex-grow-1">
             <strong>${this.esc(c.nom||'')}</strong>
@@ -10035,7 +10053,7 @@ const App = {
       const montant = (o.montant != null) ? `${(+o.montant).toLocaleString('fr-FR')} ${o.devise||''}` : '';
       const meta = [o.etape, montant, o.dateCloture ? `clôture ${o.dateCloture}` : ''].filter(Boolean).join(' · ');
       return `
-      <div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.applySellsyOpp(${o.id})">
+      <div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.applySellsyOpp(${Number(o.id)||0})">
         <i class="bi bi-bookmark-star text-success"></i>
         <div class="flex-grow-1">
           <strong>${this.esc(o.ref)}</strong> — ${this.esc(o.nom)}
@@ -10145,8 +10163,6 @@ const App = {
       // Récupère le payload brut + le mapping
       const raw = await SellsyAPI._call({ action: 'opportunity', id: oppId });
       const o = SellsyAPI._mapOpportunity(raw);
-      console.log('[Sellsy] opp brute:', raw);
-      console.log('[Sellsy] opp mappée:', o);
       const setIfEmpty = (id, v) => { const el = document.getElementById(id); if (el && !el.value.trim()) el.value = v||''; };
       const setForce = (id, v) => { const el = document.getElementById(id); if (el) el.value = v||''; };
       const setForceIfValue = (id, v) => { if (v && v.trim()) { const el = document.getElementById(id); if (el) el.value = v; } };
@@ -10181,9 +10197,6 @@ const App = {
           this._icpEUContactsCache = allContacts || [];
           const dl = document.getElementById('icp-eu-contacts-list');
           if (dl) dl.innerHTML = (allContacts||[]).map(c => `<option value="${this.esc(c.nom||'')}"></option>`).join('');
-          console.log('[Sellsy] company:', c);
-          console.log('[Sellsy] addresses:', addresses);
-          console.log('[Sellsy] contact:', contact);
           const mainAddr = (addresses || []).find(a => a.is_main) || (addresses || [])[0] || null;
           // Écrase les champs si Sellsy renvoie une valeur (clic sur opp = volonté
           // de remplacer). Mais on ne vide pas un champ saisi manuellement avec une
@@ -11562,7 +11575,8 @@ const App = {
   // ---- ICP EXPORT PDF ----
   async exportICPPDF() {
     if (!this.currentICP) return;
-    this.collectICPForm();
+    // En mode batch/blob (archivage) : ne pas relire le DOM (corruption croisée).
+    if (!this._returnICPPDFBlob) this.collectICPForm();
     const v = this.currentICP;
     const {jsPDF} = window.jspdf;
     const doc = new jsPDF({orientation:'p',unit:'mm',format:'a4',compress:true});
@@ -11694,7 +11708,8 @@ const App = {
   // ---- ICP EXPORT DOCX ----
   async exportICPDOCX() {
     if (!this.currentICP) return;
-    this.collectICPForm();
+    // En mode batch/blob (archivage) : ne pas relire le DOM (corruption croisée).
+    if (!this._returnICPDOCXBlob) this.collectICPForm();
     const v = this.currentICP;
     const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, VerticalAlign, ShadingType, ImageRun } = docx;
     const niveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
@@ -11770,7 +11785,7 @@ const App = {
           const raw = atob(b64);
           const arr = new Uint8Array(raw.length);
           for (let i=0;i<raw.length;i++) arr[i] = raw.charCodeAt(i);
-          imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:75,height:56},type:'png'})],spacing:{before:10,after:10},alignment:AlignmentType.CENTER}));
+          imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:75,height:56},type:(/^data:image\/png/i.test(photo.data)?'png':'jpg')})],spacing:{before:10,after:10},alignment:AlignmentType.CENTER}));
         } catch(e) {}
       }
       if (!imgParas.length) imgParas.push(new Paragraph({children:[new TextRun({text:'',size:16,font:'Calibri'})]}));
@@ -12719,19 +12734,24 @@ const App = {
     reader.onload = async e => {
       try {
         const data = JSON.parse(e.target.result);
-        if (isReplace) {
-          await db.pdps.clear();
-          await db.entreprises.clear();
-          await db.icps.clear();
-          await db.sites.clear();
-          await db.settings.clear();
-        }
-        if (data.pdps) for (const p of data.pdps) { delete p.id; await db.pdps.add(p); }
-        if (data.entreprises) for (const ent of data.entreprises) { delete ent.id; await db.entreprises.add(ent); }
-        if (data.icps) for (const v of data.icps) { delete v.id; await db.icps.add(v); }
-        if (data.sites) for (const s of data.sites) { delete s.id; await db.sites.add(s); }
-        if (data.settings) for (const s of data.settings) await db.settings.put(s);
+        // Transaction atomique : un échec en cours d'import ne laisse pas la base à moitié vidée.
+        await db.transaction('rw', db.pdps, db.entreprises, db.icps, db.sites, db.settings, async () => {
+          if (isReplace) {
+            await db.pdps.clear();
+            await db.entreprises.clear();
+            await db.icps.clear();
+            await db.sites.clear();
+            await db.settings.clear();
+          }
+          if (data.pdps) for (const p of data.pdps) { delete p.id; await db.pdps.add(p); }
+          if (data.entreprises) for (const ent of data.entreprises) { delete ent.id; await db.entreprises.add(ent); }
+          if (data.icps) for (const v of data.icps) { delete v.id; await db.icps.add(v); }
+          if (data.sites) for (const s of data.sites) { delete s.id; await db.sites.add(s); }
+          if (data.settings) for (const s of data.settings) await db.settings.put(s);
+        });
         await this.loadSettings(); this.updateDashboard(); this.renderEntreprises(); this.populateSiteSelects();
+        // Pousser l'import vers SharePoint, sinon le prochain poll écrase l'import local.
+        if (typeof DataSync !== 'undefined' && DataSync._connected) DataSync.markDirty();
         const label = isReplace ? 'Remplacement' : 'Ajout';
         this.toast(`${label} : ${data.pdps?.length||0} PDP, ${data.icps?.length||0} ICP, ${data.entreprises?.length||0} entreprises`);
       } catch(err) { this.toast('Erreur import : ' + err.message,'danger'); }
@@ -12742,7 +12762,9 @@ const App = {
   async resetData() {
     if (!await this.confirm('Supprimer TOUTES les données ?')) return;
     await db.pdps.clear(); await db.entreprises.clear(); await db.icps.clear(); await db.sites.clear(); await db.settings.clear();
-    this._settings = {}; this.applySettings(); this.updateDashboard(); await this.seedDefaultSites(); await this.populateSiteSelects(); this.renderSitesList(); this.toast('Réinitialisé','warning');
+    this._settings = {}; this.applySettings(); this.updateDashboard(); await this.seedDefaultSites(); await this.populateSiteSelects(); this.renderSitesList();
+    if (typeof DataSync !== 'undefined' && DataSync._connected) DataSync.markDirty();
+    this.toast('Réinitialisé','warning');
   },
 
   // ========================================
@@ -12751,7 +12773,9 @@ const App = {
   async exportDOCX() {
     if (!this.currentPDP) return;
     if (typeof docx === 'undefined' || typeof saveAs === 'undefined') { this.toast('Chargement en cours, réessayez dans quelques secondes','warning'); return; }
-    this.collectForm(); this.captureAllSigs();
+    // En mode batch/blob (archivage), currentPDP vient de la base et n'est PAS affiché :
+    // ne pas relire le DOM (collectForm/captureAllSigs liraient le PDP affiché → corruption croisée).
+    if (!this._returnDOCXBlob) { this.collectForm(); this.captureAllSigs(); }
     const p = this.currentPDP;
     const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle, VerticalAlign, ShadingType, PageBreak, Footer, PageNumber, ImageRun } = docx;
     const niveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
@@ -12909,7 +12933,7 @@ const App = {
                 const raw = atob(b64);
                 const arr = new Uint8Array(raw.length);
                 for (let i=0;i<raw.length;i++) arr[i] = raw.charCodeAt(i);
-                imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:75,height:56},type:'png'})],spacing:{before:10,after:10},alignment:AlignmentType.CENTER}));
+                imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:75,height:56},type:(/^data:image\/png/i.test(photo.data)?'png':'jpg')})],spacing:{before:10,after:10},alignment:AlignmentType.CENTER}));
               } catch(e) {}
             }
             if (!imgParas.length) imgParas.push(new Paragraph({children:[new TextRun({text:'',size:16,font:'Calibri'})]}));
@@ -12971,7 +12995,7 @@ const App = {
               const raw = atob(b64);
               const arr = new Uint8Array(raw.length);
               for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-              children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:350,height:260},type:'png'})],spacing:{before:60,after:40}}));
+              children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:350,height:260},type:(/^data:image\/png/i.test(imgData)?'png':'jpg')})],spacing:{before:60,after:40}}));
               if (photo.label) children.push(new Paragraph({children:[new TextRun({text:photo.label,size:16,font:'Calibri',italics:true,color:'888888'})]}));
             } catch(e) {
               children.push(new Paragraph({children:[new TextRun({text:'[Photo non intégrée]',size:18,font:'Calibri',italics:true,color:'999999'})]}));
@@ -13026,7 +13050,7 @@ const App = {
           const raw = atob(b64);
           const arr = new Uint8Array(raw.length);
           for (let i=0;i<raw.length;i++) arr[i] = raw.charCodeAt(i);
-          imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:75,height:56},type:'png'})],spacing:{before:10,after:10},alignment:AlignmentType.CENTER}));
+          imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:75,height:56},type:(/^data:image\/png/i.test(photo.data)?'png':'jpg')})],spacing:{before:10,after:10},alignment:AlignmentType.CENTER}));
         } catch(e) {}
       }
       if (!imgParas.length) imgParas.push(new Paragraph({children:[new TextRun({text:'',size:16,font:'Calibri'})]}));
@@ -13823,7 +13847,7 @@ const App = {
             const raw = atob(b64);
             const arr = new Uint8Array(raw.length);
             for (let j=0;j<raw.length;j++) arr[j] = raw.charCodeAt(j);
-            imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:75,height:56},type:'png'})],spacing:{before:10,after:10},alignment:AlignmentType.CENTER}));
+            imgParas.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:75,height:56},type:(/^data:image\/png/i.test(photo.data)?'png':'jpg')})],spacing:{before:10,after:10},alignment:AlignmentType.CENTER}));
           } catch(e) {}
         }
         if (!imgParas.length) imgParas.push(new Paragraph({children:[new TextRun({text:'',size:16,font:'Calibri'})]}));
@@ -13919,7 +13943,8 @@ const App = {
   async exportPDF() {
     if (!this.currentPDP) return;
     if (typeof window.jspdf === 'undefined') { this.toast('Chargement en cours, réessayez dans quelques secondes','warning'); return; }
-    this.collectForm(); this.captureAllSigs();
+    // En mode batch/blob (archivage) : ne pas relire le DOM (cf. exportDOCX).
+    if (!this._returnPDFBlob) { this.collectForm(); this.captureAllSigs(); }
     const p = this.currentPDP;
     const {jsPDF} = window.jspdf;
     const doc = new jsPDF({orientation:'p',unit:'mm',format:'a4',compress:true});
@@ -14612,7 +14637,7 @@ const App = {
   },
 
   // ---- UTILS ----
-  esc(t) { if(!t)return''; const d=document.createElement('div'); d.textContent=t; return d.innerHTML; },
+  esc(t) { if(!t)return''; const d=document.createElement('div'); d.textContent=t; return d.innerHTML.replace(/"/g,'&quot;').replace(/'/g,'&#39;'); },
 
   // ---- TUTORIEL : editeur d'aide admin ----
   _helpOriginals: null,   // snapshot du HTML initial (avant overrides) par tuto-id

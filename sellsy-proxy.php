@@ -17,22 +17,31 @@
  * Credentials are read from sellsy-config.php (NOT committed).
  */
 
-// ---- CORS ----
-$allowedOrigins = ['*']; // tighten to your OVH domain in production
-$origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
-if (in_array('*', $allowedOrigins, true) || in_array($origin, $allowedOrigins, true)) {
-    header('Access-Control-Allow-Origin: ' . ($origin !== '' ? $origin : '*'));
-    header('Vary: Origin');
-}
-header('Access-Control-Allow-Methods: GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
-header('Content-Type: application/json; charset=utf-8');
-if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') { http_response_code(204); exit; }
-
-// ---- Config ----
+// ---- Config (chargee tot pour la liste blanche CORS) ----
 $configFile = __DIR__ . '/sellsy-config.php';
 $cfg = file_exists($configFile) ? (require $configFile) : null;
 $hasCreds = is_array($cfg) && !empty($cfg['client_id']) && !empty($cfg['client_secret']);
+
+// ---- CORS ----
+// L'app SuiviPDP appelle ce proxy en same-origin (sellsy-proxy.php relatif) :
+// aucune en-tete CORS n'est alors necessaire. On n'autorise explicitement que les
+// origines listees dans sellsy-config.php (allowed_origins) ; sinon aucun en-tete
+// Access-Control-Allow-Origin n'est emis -> un site tiers ne peut PAS lire la reponse.
+$allowedOrigins = (is_array($cfg) && !empty($cfg['allowed_origins']) && is_array($cfg['allowed_origins'])) ? $cfg['allowed_origins'] : [];
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+if ($origin !== '' && in_array($origin, $allowedOrigins, true)) {
+    header('Access-Control-Allow-Origin: ' . $origin);
+    header('Vary: Origin');
+}
+header('Access-Control-Allow-Methods: GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, X-Api-Key');
+header('Content-Type: application/json; charset=utf-8');
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') { http_response_code(204); exit; }
+
+// ---- Cle d'acces optionnelle (defense-in-depth) ----
+// Si 'proxy_access_key' est defini dans sellsy-config.php, toute requete (sauf
+// healthcheck) doit fournir la cle via l'en-tete X-Api-Key (ou ?key= en repli).
+$accessKey = is_array($cfg) ? ($cfg['proxy_access_key'] ?? null) : null;
 
 $action = $_GET['action'] ?? '';
 
@@ -43,8 +52,18 @@ if ($action === 'healthcheck') {
         try { sellsy_get_token($cfg); $tokenOk = true; }
         catch (Exception $e) { $err = $e->getMessage(); }
     }
-    echo json_encode(['ok' => true, 'has_credentials' => $hasCreds, 'token_ok' => $tokenOk, 'error' => $err]);
+    echo json_encode(['ok' => true, 'has_credentials' => $hasCreds, 'token_ok' => $tokenOk, 'access_key_required' => !empty($accessKey), 'error' => $err]);
     exit;
+}
+
+// ---- Verif cle d'acces (si configuree) — apres le healthcheck ----
+if (!empty($accessKey)) {
+    $provided = $_SERVER['HTTP_X_API_KEY'] ?? ($_GET['key'] ?? '');
+    if (!hash_equals((string)$accessKey, (string)$provided)) {
+        http_response_code(401);
+        echo json_encode(['error' => 'cle d acces invalide ou manquante']);
+        exit;
+    }
 }
 
 if (!$hasCreds) {
