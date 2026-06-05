@@ -3318,7 +3318,10 @@ const SP_CONFIG = {
     ACTIVITY_LOG_FILE:'SuiviPDP/activity-log.json',
     SCOPES: ['Files.ReadWrite.All', 'User.Read', 'Sites.ReadWrite.All'],
     MAIL_SCOPES: ['Mail.Send'],
-    REDIRECT_URI: window.location.origin + window.location.pathname,
+    // Normalisé SANS index.html : l'URI de redirection doit être identique quelle que
+    // soit la façon d'ouvrir l'app (PC : .../suivipdp/ , PWA mobile : .../suivipdp/index.html)
+    // et correspondre EXACTEMENT à celle enregistrée dans Azure AD (sinon AADSTS50011).
+    REDIRECT_URI: window.location.origin + window.location.pathname.replace(/index\.html$/i, ''),
     POLL_INTERVAL_MS:  15000,
     PRESENCE_INTERVAL_MS: 30000,
     SAVE_DEBOUNCE_MS:  2000,
