@@ -3670,8 +3670,11 @@ const DataSync = {
         const settings = await db.settings.toArray();
         const fdsRaw = db.fds ? await db.fds.toArray() : [];
         const fds = fdsRaw.map(f => { const { data, ...meta } = f; return meta; });
+        const sites = await db.sites.toArray();
+        const salaries_habilitations = await db.salaries_habilitations.toArray();
+        const signataires = await db.signataires.toArray();
         const version = ((this._loadedMeta.shared?.version)||0)+1;
-        return { _meta:{ version, lastSaved:new Date().toISOString(), savedBy:this.getUserName()||'inconnu' }, entreprises, settings, fds };
+        return { _meta:{ version, lastSaved:new Date().toISOString(), savedBy:this.getUserName()||'inconnu' }, entreprises, settings, fds, sites, salaries_habilitations, signataires };
     },
 
     /* ---- Snapshot & merge : evite les pertes en saisie concurrente ---- */
@@ -3686,6 +3689,9 @@ const DataSync = {
             entreprises: await db.entreprises.toArray(),
             settings:    await db.settings.toArray(),
             fds:         fdsMeta,
+            sites:                   await db.sites.toArray(),
+            salaries_habilitations:  await db.salaries_habilitations.toArray(),
+            signataires:             await db.signataires.toArray(),
         };
     },
 
@@ -4095,6 +4101,45 @@ const DataSync = {
         return { merged: Array.from(remoteById.values()), remap, conflicts };
     },
 
+    // Fusion par CLÉ NATURELLE (pas par id) pour les stores à index unique
+    // (sites, salaries_habilitations [nom+prenom], signataires [nom+fonction]).
+    // Les id étant locaux à chaque poste, un merge par id créerait des doublons
+    // de clé / violations d'unicité. Ici : union dédupliquée par clé, on garde la
+    // version la plus récente (dateModification/updated_at), on conserve l'id local
+    // quand le record existe en local (références stables), et on réattribue tout
+    // id manquant ou en collision pour garantir un bulkPut sans erreur.
+    _mergeByKey(localArr, remoteArr, keyFn) {
+        const ts = r => { const v = r && (r.dateModification || r.updated_at); if (v == null) return 0; const n = typeof v === 'number' ? v : Date.parse(v); return Number.isFinite(n) ? n : 0; };
+        const byKey = new Map();
+        for (const r of (localArr || [])) {
+            const k = keyFn(r); const ex = byKey.get(k);
+            if (!ex || ts(r) >= ts(ex)) byKey.set(k, r);
+        }
+        for (const r of (remoteArr || [])) {
+            const k = keyFn(r); const ex = byKey.get(k);
+            if (!ex) byKey.set(k, r);
+            else if (ts(r) > ts(ex)) byKey.set(k, { ...r, id: ex.id }); // garde l'id local
+        }
+        const result = []; const usedIds = new Set(); let nextId = 1;
+        for (const r of byKey.values()) { if (typeof r.id === 'number' && r.id >= nextId) nextId = r.id + 1; }
+        for (const r of byKey.values()) {
+            let rec = r;
+            if (rec.id == null || usedIds.has(rec.id)) rec = { ...rec, id: nextId++ };
+            usedIds.add(rec.id);
+            result.push(rec);
+        }
+        return result;
+    },
+
+    // Applique sites / habilitations / signataires depuis un objet shared.
+    // Ne touche PAS un store dont le champ est absent (compat anciens fichiers).
+    async _applySharedAuxStores(shared) {
+        if (!shared) return;
+        if (shared.sites) { await db.sites.clear(); if (shared.sites.length) await db.sites.bulkPut(shared.sites); }
+        if (shared.salaries_habilitations) { await db.salaries_habilitations.clear(); if (shared.salaries_habilitations.length) await db.salaries_habilitations.bulkPut(shared.salaries_habilitations); }
+        if (shared.signataires) { await db.signataires.clear(); if (shared.signataires.length) await db.signataires.bulkPut(shared.signataires); }
+    },
+
     /**
      * Fusionne les 3 fichiers distants avec l'etat local. Retourne les 3 objets
      * a ecrire. Propage les remappings d'ids entre fichiers (icps.pdpId,
@@ -4178,12 +4223,18 @@ const DataSync = {
         return {
             pdp:    { _meta: remotes.pdp?._meta    || null, pdps:        pdpRes.merged },
             icp:    { _meta: remotes.icp?._meta    || null, icps:        icpRes.merged },
-            shared: { _meta: remotes.shared?._meta || null, entreprises: entRes.merged, settings: setRes.merged, fds: current.fds },
+            shared: {
+                _meta: remotes.shared?._meta || null,
+                entreprises: entRes.merged, settings: setRes.merged, fds: current.fds,
+                sites:                  this._mergeByKey(current.sites,                  remotes.shared?.sites                  || [], r => (r.nom||'').toLowerCase().trim()+'|'+(r.entite||'').toLowerCase().trim()),
+                salaries_habilitations: this._mergeByKey(current.salaries_habilitations, remotes.shared?.salaries_habilitations || [], r => (r.nom||'').toUpperCase().trim()+'|'+(r.prenom||'').toUpperCase().trim()),
+                signataires:            this._mergeByKey(current.signataires,            remotes.shared?.signataires            || [], r => (r.nom||'').toLowerCase().trim()+'|'+(r.fonction||'').toLowerCase().trim()),
+            },
         };
     },
 
     async _writeLocalData({ pdp, icp, shared }) {
-        await db.transaction('rw', db.pdps, db.icps, db.entreprises, db.settings, db.fds, async () => {
+        await db.transaction('rw', db.pdps, db.icps, db.entreprises, db.settings, db.fds, db.sites, db.salaries_habilitations, db.signataires, async () => {
             await db.pdps.clear();
             if (pdp?.pdps?.length) await db.pdps.bulkPut(pdp.pdps);
             await db.icps.clear();
@@ -4205,6 +4256,7 @@ const DataSync = {
                 await db.fds.bulkPut(merged);
               }
             }
+            await this._applySharedAuxStores(shared);
         });
     },
 
@@ -4327,6 +4379,7 @@ const DataSync = {
                     await db.fds.bulkPut(merged);
                   }
                 }
+                await this._applySharedAuxStores(sharedData);
                 this._loadedMeta.shared = sharedData._meta; loaded = true;
             }
             if (loaded) { this._dirty = false; this._updateBadge(false); await this._captureSnapshot(); }
@@ -4397,6 +4450,14 @@ const DataSync = {
                 if (sharedData?._meta && (sharedData._meta.version||0) > (this._loadedMeta.shared?.version||0)) {
                     await db.entreprises.clear(); if (sharedData.entreprises?.length) await db.entreprises.bulkPut(sharedData.entreprises);
                     await db.settings.clear(); if (sharedData.settings?.length) await db.settings.bulkPut(sharedData.settings);
+                    if (sharedData.fds) {
+                      // Préserve les `data` base64 locaux (le poll ne les rechargeait pas du tout avant)
+                      const localFDS = await db.fds.toArray();
+                      const localDataById = new Map(localFDS.map(f => [f.id, f.data]));
+                      await db.fds.clear();
+                      if (sharedData.fds.length) await db.fds.bulkPut(sharedData.fds.map(remote => ({ ...remote, data: remote.data || localDataById.get(remote.id) || null })));
+                    }
+                    await this._applySharedAuxStores(sharedData);
                     this._loadedMeta.shared = sharedData._meta; updated = true;
                 }
                 if (updated) {
@@ -5352,11 +5413,13 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
   async deleteSalarie(id) {
     if (!confirm('Supprimer ce salarié et ses habilitations ?')) return;
     await db.salaries_habilitations.delete(id);
+    if (typeof DataSync !== 'undefined') DataSync.markDirty();
     await this._refreshSalariesList();
   },
   async clearAllSalaries() {
     if (!confirm('⚠️ Supprimer TOUS les salariés enregistrés ? Cette action est irréversible.')) return;
     await db.salaries_habilitations.clear();
+    if (typeof DataSync !== 'undefined') DataSync.markDirty();
     await this._refreshSalariesList();
     this._toast('Base salariés vidée', 'warning');
   },
@@ -5419,6 +5482,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
         };
         if (id) await db.salaries_habilitations.update(id, data);
         else await db.salaries_habilitations.add(data);
+        if (typeof DataSync !== 'undefined') DataSync.markDirty();
         await this._refreshSalariesList();
             return true;
       }
@@ -5477,6 +5541,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
   async deleteSignataire(id) {
     if (!confirm('Supprimer ce signataire ?')) return;
     await db.signataires.delete(id);
+    if (typeof DataSync !== 'undefined') DataSync.markDirty();
     await this._refreshSignatairesList();
   },
   async openSignataireForm(id) {
@@ -5555,8 +5620,11 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
       updated_at: Date.now(),
       usage_count: (existing ? existing.usage_count||0 : 0) + (incrementUsage ? 1 : 0)
     };
-    if (existing) { await db.signataires.update(existing.id, data); return existing.id; }
-    return await db.signataires.add(data);
+    let _sid;
+    if (existing) { await db.signataires.update(existing.id, data); _sid = existing.id; }
+    else { _sid = await db.signataires.add(data); }
+    if (typeof DataSync !== 'undefined') DataSync.markDirty();
+    return _sid;
   },
   _initCanvas(canvas) {
     const ctx = canvas.getContext('2d');
@@ -5620,6 +5688,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
         if (existing) { await db.salaries_habilitations.update(existing.id, s); updated++; }
         else { await db.salaries_habilitations.add(s); added++; }
       }
+      if (typeof DataSync !== 'undefined') DataSync.markDirty();
       preview.innerHTML = `<div class="alert alert-success">Import terminé : ${added} ajouté(s), ${updated} mis à jour.</div>`;
       await this._refreshSalariesList();
       };
@@ -5937,6 +6006,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
         await db.salaries_habilitations.clear();
         await db.salaries_habilitations.bulkPut(uniqSalaries);
       });
+      if (typeof DataSync !== 'undefined') DataSync.markDirty();
 
       await this._saveSourceConfig({ last_status:'ok', last_error:'', last_sync: Date.now(), last_count: salaries.length });
       this._renderSyncStatus();
@@ -12696,6 +12766,7 @@ const App = {
     const editId = document.getElementById('site-edit-id').value;
     if (editId) { data.id = parseInt(editId); await db.sites.put(data); }
     else { await db.sites.add(data); }
+    if (typeof DataSync !== 'undefined') DataSync.markDirty();
     bootstrap.Modal.getInstance(document.getElementById('modal-site')).hide();
     this.renderSitesList();
     this.populateSiteSelects();
@@ -12705,6 +12776,7 @@ const App = {
   async deleteSite(id) {
     if (!await this.confirm('Supprimer ce site ?')) return;
     await db.sites.delete(id);
+    if (typeof DataSync !== 'undefined') DataSync.markDirty();
     this.renderSitesList();
     this.populateSiteSelects();
     this.toast('Site supprimé');
