@@ -4537,13 +4537,21 @@ const DataSync = {
     },
 
     // ---- Upload PDF/DOCX sur SharePoint ----
-    async uploadExport(blob, filename, subfolder) {
-        if (!this._connected) { console.warn('DataSync: pas connecté, export non uploadé'); return null; }
+    async uploadExport(blob, filename, subfolder, opts = {}) {
+        if (!this._connected) {
+            if (opts.notify) App.toast('Export local OK — non archivé (SharePoint non connecté)', 'warning');
+            console.warn('DataSync: pas connecté, export non uploadé'); return null;
+        }
         const folder = subfolder === 'icp' ? SP_CONFIG.ICP_FOLDER : SP_CONFIG.PDP_FOLDER;
         try {
             const result = await _uploadBinaryFile(`${folder}/Exports/${filename}`, blob);
+            if (opts.notify) App.toast('Archivé sur SharePoint ✓', 'success');
             return result;
-        } catch (e) { console.warn('DataSync: upload export échoué', e); return null; }
+        } catch (e) {
+            console.warn('DataSync: upload export échoué', e);
+            if (opts.notify) App.toast('Échec archivage SharePoint ⚠️ (export local OK)', 'danger');
+            return null;
+        }
     },
 
     // ---- UI ----
@@ -11802,7 +11810,7 @@ const App = {
     const icpPdfFn = this.buildICPFilename(v, 'pdf');
     if (this._returnICPPDFBlob) { this._icpPdfBlobResult = doc.output('blob'); return; }
     doc.save(icpPdfFn);
-    doc.output('blob').then(blob => DataSync.uploadExport(blob, icpPdfFn, 'icp')).catch(()=>{});
+    doc.output('blob').then(blob => DataSync.uploadExport(blob, icpPdfFn, 'icp', {notify:true})).catch(()=>{});
     this.toast('PDF ICP généré');
   },
 
@@ -12000,7 +12008,7 @@ const App = {
     const icpDocxFn = this.buildICPFilename(v, 'docx');
     if (this._returnICPDOCXBlob) { this._icpDocxBlobResult = blob; return; }
     saveAs(blob, icpDocxFn);
-    DataSync.uploadExport(blob, icpDocxFn, 'icp');
+    DataSync.uploadExport(blob, icpDocxFn, 'icp', {notify:true});
     this.toast('Word ICP généré');
   },
 
@@ -13522,7 +13530,7 @@ const App = {
       return;
     }
     saveAs(blob, fn);
-    DataSync.uploadExport(blob, fn, 'pdp');
+    DataSync.uploadExport(blob, fn, 'pdp', {notify:true});
     this.toast('Word généré');
   },
 
@@ -14646,7 +14654,7 @@ const App = {
     const pdfBlob = doc.output('blob');
     // Export PDF seul (sans annexes). Pour le ZIP avec annexes, utiliser exportZIP('pdf').
     doc.save(pdfFn);
-    try { DataSync.uploadExport(pdfBlob, pdfFn, 'pdp'); } catch(e) {}
+    try { DataSync.uploadExport(pdfBlob, pdfFn, 'pdp', {notify:true}); } catch(e) {}
     this.toast('PDF généré');
   },
 
