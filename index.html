@@ -5917,8 +5917,11 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
 
       // SharePoint = source de vérité → on remplace toute la base.
       // Dédup par nom+prénom (l'index &[nom+prenom] est unique) pour éviter un
-      // ConstraintError qui laisserait la base à moitié vidée, et transaction
-      // atomique (rollback automatique du clear si une insertion échoue).
+      // ConstraintError, ET on RÉUTILISE l'id existant de chaque salarié afin que
+      // les références par id (boutons "Générer", documents liés) restent valides
+      // d'une sync à l'autre. Transaction atomique (rollback du clear si échec).
+      const _existing = await db.salaries_habilitations.toArray();
+      const _idByKey = new Map(_existing.map(s => [((s.nom||'')+'|'+(s.prenom||'')).toUpperCase(), s.id]));
       const _seen = new Set();
       const uniqSalaries = [];
       for (const s of salaries) {
@@ -5926,11 +5929,13 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
         if (_seen.has(k)) continue;
         _seen.add(k);
         s.dateModification = new Date().toISOString();
+        const _id = _idByKey.get(k);
+        if (_id != null) s.id = _id; // stabilité des id entre deux synchronisations
         uniqSalaries.push(s);
       }
       await db.transaction('rw', db.salaries_habilitations, async () => {
         await db.salaries_habilitations.clear();
-        await db.salaries_habilitations.bulkAdd(uniqSalaries);
+        await db.salaries_habilitations.bulkPut(uniqSalaries);
       });
 
       await this._saveSourceConfig({ last_status:'ok', last_error:'', last_sync: Date.now(), last_count: salaries.length });
