@@ -3510,6 +3510,19 @@ async function _readJsonFile(filePath) {
     return resp.json();
 }
 
+// Comme _readJsonFile mais renvoie aussi l'ETag du fichier, pour l'écriture
+// conditionnelle (If-Match) qui ferme la fenêtre de course read-merge-write.
+// etag=null si le fichier n'existe pas ou si l'en-tête est absent → écriture
+// normale (repli sûr, comportement identique à avant).
+async function _readJsonFileMeta(filePath) {
+    const driveId = await _getDriveId();
+    const resp = await _graphFetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${filePath}:/content`);
+    if (resp.status === 404) return { data: null, etag: null };
+    if (!resp.ok) throw new Error('Erreur lecture: ' + resp.status);
+    const etag = resp.headers.get('ETag') || resp.headers.get('etag') || null;
+    return { data: await resp.json(), etag };
+}
+
 // Upload binaire (PDF) sur SharePoint
 async function _uploadBinaryFromDataURL(filePath, dataUrl, mime) {
     const driveId = await _getDriveId();
@@ -3570,16 +3583,21 @@ function _fdsFilePath(fds) {
     return `${SP_CONFIG.FDS_FOLDER}/${fds.id}_${slug}`;
 }
 
-async function _writeJsonFile(filePath, data) {
+async function _writeJsonFile(filePath, data, etag = null) {
     const driveId = await _getDriveId();
     const body = JSON.stringify(data);
     const bytes = new TextEncoder().encode(body);
     const totalSize = bytes.length;
     const SIMPLE_LIMIT = 4 * 1024 * 1024; // Graph API : PUT simple jusqu'à 4 Mo
     if (totalSize < SIMPLE_LIMIT) {
+        const headers = { 'Content-Type': 'application/json' };
+        // Écriture conditionnelle : si le fichier a changé depuis la lecture, Graph
+        // renvoie 412 → on relance un cycle read-merge-write (cf. save()).
+        if (etag) headers['if-match'] = etag;
         const resp = await _graphFetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${filePath}:/content`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' }, body
+            method: 'PUT', headers, body
         });
+        if (resp.status === 412) { const err = new Error('Conflit de version concurrente (412)'); err._precondition = true; throw err; }
         if (!resp.ok) throw new Error('Erreur écriture: ' + resp.status);
         return resp.json();
     }
@@ -4265,59 +4283,79 @@ const DataSync = {
         if (this._saving || !this._connected) return;
         this._saving = true;
         try {
-            // 1. Relire les fichiers distants pour detecter des versions concurrentes
-            const [remotePdp, remoteIcp, remoteShared] = await Promise.all([
-                _readJsonFile(SP_CONFIG.PDP_DATA_FILE).catch(() => null),
-                _readJsonFile(SP_CONFIG.ICP_DATA_FILE).catch(() => null),
-                _readJsonFile(SP_CONFIG.SHARED_DATA_FILE).catch(() => null),
-            ]);
-
-            const remoteVers = {
-                pdp:    remotePdp?._meta?.version    || 0,
-                icp:    remoteIcp?._meta?.version    || 0,
-                shared: remoteShared?._meta?.version || 0,
-            };
-            const lastSyncedVers = {
-                pdp:    this._loadedMeta.pdp?.version    || 0,
-                icp:    this._loadedMeta.icp?.version    || 0,
-                shared: this._loadedMeta.shared?.version || 0,
-            };
-            const conflict = remoteVers.pdp    > lastSyncedVers.pdp
-                          || remoteVers.icp    > lastSyncedVers.icp
-                          || remoteVers.shared > lastSyncedVers.shared;
-
-            // 2. Si un autre utilisateur a sauvegarde entre-temps : fusionner
-            if (conflict) {
-                const merged = await this._mergeAllWithRemote({ pdp: remotePdp, icp: remoteIcp, shared: remoteShared });
-                await this._writeLocalData(merged);
-                const savedBy = remotePdp?._meta?.savedBy || remoteIcp?._meta?.savedBy || remoteShared?._meta?.savedBy || 'un collegue';
-                App.toast(`Fusion avec les données de ${savedBy}`, 'info');
+            // Boucle de retry : si une écriture concurrente survient entre la lecture
+            // et l'écriture (412 If-Match), on relance un cycle read-merge-write.
+            for (let attempt = 0; attempt < 3; attempt++) {
+                // Dernière tentative : écriture inconditionnelle (repli sûr si l'ETag
+                // n'est pas exploitable par Graph → jamais de blocage des sauvegardes).
+                const useEtag = attempt < 2;
+                try { await this._saveOnce(useEtag); return; }
+                catch (e) {
+                    if (e && e._precondition && attempt < 2) {
+                        console.warn('DataSync: conflit concurrent (412), nouvelle tentative ' + (attempt + 1));
+                        continue;
+                    }
+                    throw e;
+                }
             }
-
-            // 3. Collecter les donnees locales (post-merge) et forcer version > remote
-            const [pdpData, icpData, sharedData] = await Promise.all([
-                this._collectPDPData(), this._collectICPData(), this._collectSharedData()
-            ]);
-            pdpData._meta.version    = Math.max(remoteVers.pdp,    lastSyncedVers.pdp)    + 1;
-            icpData._meta.version    = Math.max(remoteVers.icp,    lastSyncedVers.icp)    + 1;
-            sharedData._meta.version = Math.max(remoteVers.shared, lastSyncedVers.shared) + 1;
-
-            await Promise.all([
-                _writeJsonFile(SP_CONFIG.PDP_DATA_FILE, pdpData),
-                _writeJsonFile(SP_CONFIG.ICP_DATA_FILE, icpData),
-                _writeJsonFile(SP_CONFIG.SHARED_DATA_FILE, sharedData),
-            ]);
-            this._loadedMeta = { pdp:pdpData._meta, icp:icpData._meta, shared:sharedData._meta };
-            this._dirty = false;
-            this._updateBadge(false);
-            await this._captureSnapshot();
-            if (typeof ActivityLog !== 'undefined') ActivityLog.log('sauvegarde', {
-                vPdp: pdpData._meta.version, vIcp: icpData._meta.version, vShared: sharedData._meta.version, merged: conflict
-            });
         } catch (e) {
             console.error('DataSync: erreur sauvegarde SharePoint', e);
             App.toast('Erreur sauvegarde SharePoint. Données conservées localement.', 'warning');
         } finally { this._saving = false; }
+    },
+
+    async _saveOnce(useEtag = true) {
+        // 1. Relire les fichiers distants (+ ETags) pour detecter des versions concurrentes
+        const [rp, ri, rs] = await Promise.all([
+            _readJsonFileMeta(SP_CONFIG.PDP_DATA_FILE).catch(() => ({ data:null, etag:null })),
+            _readJsonFileMeta(SP_CONFIG.ICP_DATA_FILE).catch(() => ({ data:null, etag:null })),
+            _readJsonFileMeta(SP_CONFIG.SHARED_DATA_FILE).catch(() => ({ data:null, etag:null })),
+        ]);
+        const remotePdp = rp.data, remoteIcp = ri.data, remoteShared = rs.data;
+
+        const remoteVers = {
+            pdp:    remotePdp?._meta?.version    || 0,
+            icp:    remoteIcp?._meta?.version    || 0,
+            shared: remoteShared?._meta?.version || 0,
+        };
+        const lastSyncedVers = {
+            pdp:    this._loadedMeta.pdp?.version    || 0,
+            icp:    this._loadedMeta.icp?.version    || 0,
+            shared: this._loadedMeta.shared?.version || 0,
+        };
+        const conflict = remoteVers.pdp    > lastSyncedVers.pdp
+                      || remoteVers.icp    > lastSyncedVers.icp
+                      || remoteVers.shared > lastSyncedVers.shared;
+
+        // 2. Si un autre utilisateur a sauvegarde entre-temps : fusionner
+        if (conflict) {
+            const merged = await this._mergeAllWithRemote({ pdp: remotePdp, icp: remoteIcp, shared: remoteShared });
+            await this._writeLocalData(merged);
+            const savedBy = remotePdp?._meta?.savedBy || remoteIcp?._meta?.savedBy || remoteShared?._meta?.savedBy || 'un collegue';
+            App.toast(`Fusion avec les données de ${savedBy}`, 'info');
+        }
+
+        // 3. Collecter les donnees locales (post-merge) et forcer version > remote
+        const [pdpData, icpData, sharedData] = await Promise.all([
+            this._collectPDPData(), this._collectICPData(), this._collectSharedData()
+        ]);
+        pdpData._meta.version    = Math.max(remoteVers.pdp,    lastSyncedVers.pdp)    + 1;
+        icpData._meta.version    = Math.max(remoteVers.icp,    lastSyncedVers.icp)    + 1;
+        sharedData._meta.version = Math.max(remoteVers.shared, lastSyncedVers.shared) + 1;
+
+        // 4. Écriture conditionnelle (If-Match sur l'ETag lu) : 412 si modifié entre-temps
+        await Promise.all([
+            _writeJsonFile(SP_CONFIG.PDP_DATA_FILE, pdpData, useEtag ? rp.etag : null),
+            _writeJsonFile(SP_CONFIG.ICP_DATA_FILE, icpData, useEtag ? ri.etag : null),
+            _writeJsonFile(SP_CONFIG.SHARED_DATA_FILE, sharedData, useEtag ? rs.etag : null),
+        ]);
+        this._loadedMeta = { pdp:pdpData._meta, icp:icpData._meta, shared:sharedData._meta };
+        this._dirty = false;
+        this._updateBadge(false);
+        await this._captureSnapshot();
+        if (typeof ActivityLog !== 'undefined') ActivityLog.log('sauvegarde', {
+            vPdp: pdpData._meta.version, vIcp: icpData._meta.version, vShared: sharedData._meta.version, merged: conflict
+        });
     },
 
     markDirty() {
