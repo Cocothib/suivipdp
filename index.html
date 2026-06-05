@@ -11810,7 +11810,8 @@ const App = {
     const icpPdfFn = this.buildICPFilename(v, 'pdf');
     if (this._returnICPPDFBlob) { this._icpPdfBlobResult = doc.output('blob'); return; }
     doc.save(icpPdfFn);
-    doc.output('blob').then(blob => DataSync.uploadExport(blob, icpPdfFn, 'icp', {notify:true})).catch(()=>{});
+    const icpPdfBlob = doc.output('blob');
+    DataSync.uploadExport(icpPdfBlob, icpPdfFn, 'icp', {notify:true});
     this.toast('PDF ICP généré');
   },
 
