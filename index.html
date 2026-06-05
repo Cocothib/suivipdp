@@ -14959,7 +14959,22 @@ const App = {
 // INIT
 // ========================================
 document.addEventListener('DOMContentLoaded', () => App.init());
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+if ('serviceWorker' in navigator) {
+  const _hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('./sw.js').then(reg => { try { reg.update(); } catch(_){} }).catch(()=>{});
+  // Vérifie les MAJ quand l'app repasse au premier plan (utile sur mobile / PWA installée).
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(()=>{});
+  });
+  // Un nouveau service worker a pris le contrôle (nouvelle version déployée) :
+  // recharger pour servir le index.html à jour. Ignoré au tout premier install.
+  let _swRefreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (_swRefreshing || !_hadController) return;
+    _swRefreshing = true;
+    location.reload();
+  });
+}
 
 // ========================================
 // MODALES DEPLAÇABLES — drag sur l'en-tête
