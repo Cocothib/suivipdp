@@ -11200,8 +11200,14 @@ const App = {
     this.collectICPForm();
     const pdps = await db.pdps.orderBy('dateCreation').reverse().toArray();
     if (!pdps.length) { this.toast('Aucun PDP existant','warning'); return; }
+    const _icps = await db.icps.toArray();
+    const _refById = new Map(_icps.map(v => [v.id, v.refOperation || '']));
     let html = '<p class="fw-bold small">Sélectionnez un PDP :</p>';
-    html += pdps.map(p => `<div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.doLinkICPToPDP(${p.id})"><i class="bi bi-file-text"></i><span class="small"><strong>${this.esc(p.numero||'')}</strong> ${this.esc(p.titre||'')}</span><span class="badge bg-secondary ms-auto">${this.esc(p.site||'')}</span></div>`).join('');
+    html += pdps.map(p => {
+      const ref = p.refOperation || (p.icpId ? _refById.get(p.icpId) : '') || '';
+      const meta = [ref, p.eu?.nom, p.site].filter(Boolean).map(x => this.esc(x)).join(' · ');
+      return `<div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.doLinkICPToPDP(${p.id})"><i class="bi bi-file-text"></i><span class="small"><strong>${this.esc(p.numero||'')}</strong> ${this.esc(p.titre||'')}${meta?`<br><span class="text-muted">${meta}</span>`:''}</span></div>`;
+    }).join('');
     document.getElementById('modal-icp-link-body').innerHTML = html;
     document.querySelector('#modal-icp-link .modal-title').innerHTML = '<i class="bi bi-link-45deg me-1"></i>Lier à un PDP';
     new bootstrap.Modal(document.getElementById('modal-icp-link')).show();
@@ -11302,7 +11308,11 @@ const App = {
     const icpList = await db.icps.orderBy('dateCreation').reverse().toArray();
     if (!icpList.length) { this.toast('Aucune ICP existante','warning'); return; }
     let html = '<p class="fw-bold small">Sélectionnez une ICP :</p>';
-    html += icpList.map(v => `<div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.doLinkPDPToICP(${v.id})"><i class="bi bi-clipboard-check"></i><span class="small"><strong>${this.esc(v.numero||'')}</strong> ${this.esc(v.site||'')} ${v.dateVisite||''}</span>${v.pdpId?'<span class="badge bg-warning ms-auto">Déjà liée</span>':''}</div>`).join('');
+    html += icpList.map(v => {
+      const head = [v.refOperation, v.numero || ('ICP #'+v.id)].filter(Boolean).map(x => this.esc(x)).join(' — ');
+      const meta = [v.euInfo?.nom, v.objet, v.site, v.dateVisite].filter(Boolean).map(x => this.esc(x)).join(' · ');
+      return `<div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.doLinkPDPToICP(${v.id})"><i class="bi bi-clipboard-check"></i><span class="small"><strong>${head}</strong>${meta?`<br><span class="text-muted">${meta}</span>`:''}</span>${v.pdpId?'<span class="badge bg-warning ms-auto">Déjà liée</span>':''}</div>`;
+    }).join('');
     document.getElementById('modal-icp-link-body').innerHTML = html;
     document.querySelector('#modal-icp-link .modal-title').innerHTML = '<i class="bi bi-link-45deg me-1"></i>Lier une ICP';
     new bootstrap.Modal(document.getElementById('modal-icp-link')).show();
