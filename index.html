@@ -5915,12 +5915,23 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
       }
       if (!salaries || !salaries.length) throw new Error('Aucune donnée exploitable trouvée');
 
-      // SharePoint = source de vérité → on remplace toute la base
-      await db.salaries_habilitations.clear();
+      // SharePoint = source de vérité → on remplace toute la base.
+      // Dédup par nom+prénom (l'index &[nom+prenom] est unique) pour éviter un
+      // ConstraintError qui laisserait la base à moitié vidée, et transaction
+      // atomique (rollback automatique du clear si une insertion échoue).
+      const _seen = new Set();
+      const uniqSalaries = [];
       for (const s of salaries) {
+        const k = ((s.nom||'') + '|' + (s.prenom||'')).toUpperCase();
+        if (_seen.has(k)) continue;
+        _seen.add(k);
         s.dateModification = new Date().toISOString();
-        await db.salaries_habilitations.add(s);
+        uniqSalaries.push(s);
       }
+      await db.transaction('rw', db.salaries_habilitations, async () => {
+        await db.salaries_habilitations.clear();
+        await db.salaries_habilitations.bulkAdd(uniqSalaries);
+      });
 
       await this._saveSourceConfig({ last_status:'ok', last_error:'', last_sync: Date.now(), last_count: salaries.length });
       this._renderSyncStatus();
@@ -11169,6 +11180,7 @@ const App = {
     await db.pdps.put(pdp);
     // Link ICP → PDP
     if (v.id) { v.pdpId = pdpId; await db.icps.put(v); }
+    if (typeof DataSync !== 'undefined') DataSync.markDirty();
     this.toast('PDP créé depuis l\'ICP');
     this.currentPDP = pdp;
     this.populateForm();
@@ -11198,6 +11210,7 @@ const App = {
     // Also set icpId on the PDP
     const pdp = await db.pdps.get(pdpId);
     if (pdp) { pdp.icpId = v.id; await db.pdps.put(pdp); }
+    if (typeof DataSync !== 'undefined') DataSync.markDirty();
     this.renderICPPDPLink();
     this.toast('ICP liée au PDP');
   },
@@ -11209,6 +11222,7 @@ const App = {
     this.currentICP.pdpId = null;
     if (this.currentICP.id) await db.icps.put(this.currentICP);
     if (oldPdpId) { const pdp = await db.pdps.get(oldPdpId); if (pdp) { pdp.icpId = null; await db.pdps.put(pdp); } }
+    if (typeof DataSync !== 'undefined') DataSync.markDirty();
     this.renderICPPDPLink();
     this.toast('Lien supprimé');
   },
@@ -11295,6 +11309,7 @@ const App = {
     // Also link the ICP back
     const icp = await db.icps.get(icpId);
     if (icp) { icp.pdpId = this.currentPDP.id; await db.icps.put(icp); }
+    if (typeof DataSync !== 'undefined') DataSync.markDirty();
     this.renderPDPICPLink();
     this.toast('ICP liée au PDP');
   },
@@ -11321,6 +11336,7 @@ const App = {
     // Link PDP → ICP
     p.icpId = icpId;
     if (p.id) await db.pdps.put(p);
+    if (typeof DataSync !== 'undefined') DataSync.markDirty();
     this.toast('ICP créée et liée au PDP');
     this._returnToPDPId = p.id;
     this.currentICP = newIcp;
@@ -14574,6 +14590,7 @@ const App = {
     // 2. Ajouter tous les documents joints (résout les fdsRef vers la bibliothèque)
     const docs = p.documents||[];
     const catLabels = {plan:'Plan-Schema',mode_operatoire:'Mode-operatoire',habilitations:'Habilitations',fds:'FDS',analyse_risques:'Analyse-risques',permis_feu:'Permis-feu',attestation:'Attestation',photo:'Photo',autre:'Autre'};
+    const skipped = []; // pièces non incluses (FDS introuvable / hors-ligne) → alerte utilisateur
     if (docs.length) {
       let i = 0;
       for (const d of docs) {
@@ -14586,7 +14603,7 @@ const App = {
             if (f?.data) { dataUrl = f.data; nm = f.nom||nm; }
           } catch (e) { console.warn('FDS ref non résolue:', d.fdsRef, e); }
         }
-        if (!dataUrl || !dataUrl.startsWith('data:')) continue;
+        if (!dataUrl || !dataUrl.startsWith('data:')) { skipped.push(nm || d.nom || ('FDS#'+(d.fdsRef||'?'))); continue; }
         const cat = catLabels[d.categorie]||'Autre';
         const safeName = (nm||'document').replace(/[<>:"/\\|?*]/g,'_');
         const fileName = `${String(i).padStart(2,'0')}_${cat}_${safeName}`;
@@ -14596,10 +14613,12 @@ const App = {
     }
 
     // 3. Générer et télécharger le ZIP
+    if (skipped.length) zip.file('Documents_joints/_PIECES_MANQUANTES.txt', 'Pièces non incluses dans ce ZIP (FDS introuvable ou hors-ligne) :\n' + skipped.join('\n') + '\n\nReconnectez-vous à SharePoint puis régénérez le ZIP pour les inclure.');
     try {
       const zipBlob = await zip.generateAsync({type:'blob'});
       saveAs(zipBlob, `${baseName}_complet.zip`);
-      this.toast('ZIP complet téléchargé');
+      if (skipped.length) this.toast(`ZIP téléchargé — ${skipped.length} pièce(s) MANQUANTE(S) : ${skipped.join(', ')}`, 'warning');
+      else this.toast('ZIP complet téléchargé');
     } catch(e) {
       console.error('ZIP generation error:', e);
       this.toast('Erreur génération ZIP: '+e.message,'danger');
