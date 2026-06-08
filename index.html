@@ -2327,6 +2327,34 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div id="icp-ee-list-container" class="icp-advanced"></div>
     </div>
 
+    <!-- ICP Délimitation, circulation & consignes (Code du travail R4512-3 / R4512-4) -->
+    <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-cone-striped"></i>Délimitation, circulation &amp; consignes</div>
+      <div class="section-helper"><i class="bi bi-info-circle"></i> Points obligatoires de l'inspection commune (art. R4512-3 &amp; R4512-4). Cochez ce qui a été réalisé/abordé avec le client ; précisez si besoin.</div>
+      <div id="icp-conformite">
+        <div class="row g-2 align-items-center mb-2">
+          <div class="col-12 col-md-5"><label class="check-card mb-0"><input class="form-check-input" type="checkbox" id="icp-conf-secteur-ok"> Secteur d'intervention délimité</label></div>
+          <div class="col-12 col-md-7"><input type="text" class="form-control form-control-sm" id="icp-conf-secteur-note" placeholder="Précision (optionnel)…"></div>
+        </div>
+        <div class="row g-2 align-items-center mb-2">
+          <div class="col-12 col-md-5"><label class="check-card mb-0"><input class="form-check-input" type="checkbox" id="icp-conf-zonesDanger-ok"> Zones de danger matérialisées</label></div>
+          <div class="col-12 col-md-7"><input type="text" class="form-control form-control-sm" id="icp-conf-zonesDanger-note" placeholder="Précision (optionnel)…"></div>
+        </div>
+        <div class="row g-2 align-items-center mb-2">
+          <div class="col-12 col-md-5"><label class="check-card mb-0"><input class="form-check-input" type="checkbox" id="icp-conf-circulation-ok"> Voies de circulation indiquées (piétons + engins)</label></div>
+          <div class="col-12 col-md-7"><input type="text" class="form-control form-control-sm" id="icp-conf-circulation-note" placeholder="Précision (optionnel)…"></div>
+        </div>
+        <div class="row g-2 align-items-center mb-2">
+          <div class="col-12 col-md-5"><label class="check-card mb-0"><input class="form-check-input" type="checkbox" id="icp-conf-acces-ok"> Voies d'accès définies</label></div>
+          <div class="col-12 col-md-7"><input type="text" class="form-control form-control-sm" id="icp-conf-acces-note" placeholder="Précision (optionnel)…"></div>
+        </div>
+        <div class="row g-2 align-items-center mb-2">
+          <div class="col-12 col-md-5"><label class="check-card mb-0"><input class="form-check-input" type="checkbox" id="icp-conf-consignes-ok"> Consignes de sécurité communiquées</label></div>
+          <div class="col-12 col-md-7"><input type="text" class="form-control form-control-sm" id="icp-conf-consignes-note" placeholder="Précision (optionnel)…"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- ICP Risques identifiés -->
     <div class="form-section">
       <div class="form-section-title d-flex justify-content-between align-items-center">
@@ -10489,6 +10517,7 @@ const App = {
       euParticipant: { nom:s.euResponsable||'', fonction:'Contact EU', tel:s.euTel||'' },
       entreprisesExt: [],
       risques: [],
+      conformite: { secteur:{ok:false,note:''}, zonesDanger:{ok:false,note:''}, circulation:{ok:false,note:''}, acces:{ok:false,note:''}, consignes:{ok:false,note:''} },
       observations:'', photos: [],
       signatureEU: { nom:'', date:'', data:null }, signaturesEE: [],
       pdpId: null,
@@ -10736,6 +10765,14 @@ const App = {
     (v.euParticipants||[]).forEach(p => this.addICPEUParticipantRow(p));
     (v.eeParticipants||[]).forEach(p => this.addICPEEParticipantRow(p));
     document.getElementById('icp-observations').value = v.observations||'';
+    // Conformité ICP (délimitation, circulation, accès, consignes — R4512-3/4)
+    const conf = v.conformite || {};
+    ['secteur','zonesDanger','circulation','acces','consignes'].forEach(k => {
+      const okEl = document.getElementById(`icp-conf-${k}-ok`);
+      const noteEl = document.getElementById(`icp-conf-${k}-note`);
+      if (okEl) okEl.checked = !!(conf[k] && conf[k].ok);
+      if (noteEl) noteEl.value = (conf[k] && conf[k].note) || '';
+    });
     this.renderICPEEList();
     this.renderICPRisquesList();
     this._riskPickerCtx = 'icp'; this.updateRiskCounters();
@@ -10795,6 +10832,14 @@ const App = {
     v.euParticipants = this.collectICPEUParticipants();
     v.eeParticipants = this.collectICPEEParticipants();
     v.observations = document.getElementById('icp-observations').value.trim();
+    // Conformité ICP (délimitation, circulation, accès, consignes — R4512-3/4)
+    v.conformite = {};
+    ['secteur','zonesDanger','circulation','acces','consignes'].forEach(k => {
+      v.conformite[k] = {
+        ok: !!document.getElementById(`icp-conf-${k}-ok`)?.checked,
+        note: document.getElementById(`icp-conf-${k}-note`)?.value.trim() || ''
+      };
+    });
     // Capture signatures additionnelles (canvas + nom/date déjà mis à jour via onchange)
     v.signaturesEUAdd = v.signaturesEUAdd || [];
     v.signaturesEEAdd = v.signaturesEEAdd || [];
@@ -11797,6 +11842,16 @@ const App = {
       }); addL();
     }
 
+    // Délimitation, circulation & consignes (R4512-3/4)
+    {
+      const confItems = [['secteur',"Secteur d'intervention délimité"],['zonesDanger','Zones de danger matérialisées'],['circulation','Voies de circulation indiquées (piétons + engins)'],['acces',"Voies d'accès définies"],['consignes','Consignes de sécurité communiquées']];
+      const conf = v.conformite||{};
+      addT('DÉLIMITATION, CIRCULATION & CONSIGNES',12,'bold',[0,105,62]);
+      addT('Inspection commune — art. R4512-3 & R4512-4',8,'italic',[120,120,120]);
+      confItems.forEach(([k,lab]) => { const c = conf[k]||{}; addT(`${c.ok?'[X]':'[  ]'} ${lab}${c.note?' — '+c.note:''}`,9); });
+      addL();
+    }
+
     // Observations
     if (v.observations) { addT('OBSERVATIONS',12,'bold',[0,105,62]); addT(v.observations,9); addL(); }
 
@@ -11958,8 +12013,27 @@ const App = {
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
     children.push(spacer());
 
-    // 4. Observations
-    let secNum = 4;
+    // 4. Délimitation, circulation & consignes (R4512-3/4)
+    children.push(secTitle('4','DÉLIMITATION, CIRCULATION & CONSIGNES'));
+    children.push(new Paragraph({children:[new TextRun({text:'Inspection commune — art. R4512-3 & R4512-4',size:16,italics:true,font:'Calibri',color:'888888'})],spacing:{after:60}}));
+    {
+      const confItems = [['secteur',"Secteur d'intervention délimité"],['zonesDanger','Zones de danger matérialisées'],['circulation','Voies de circulation indiquées (piétons + engins)'],['acces',"Voies d'accès définies"],['consignes','Consignes de sécurité communiquées']];
+      const conf = v.conformite||{};
+      const cRows = [new TableRow({cantSplit:true,children:[hCell('',8),hCell('Point',47),hCell('Précisions',45)]})];
+      confItems.forEach(([k,lab]) => {
+        const c = conf[k]||{};
+        cRows.push(new TableRow({cantSplit:true,children:[
+          cell(c.ok?'☑':'☐',{width:8,align:AlignmentType.CENTER,bold:true,color:c.ok?'00693E':'B00020'}),
+          cell(lab,{width:47}),
+          cell(c.note||'',{width:45})
+        ]}));
+      });
+      children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:cRows}));
+    }
+    children.push(spacer());
+
+    // 5. Observations
+    let secNum = 5;
     if (v.observations) {
       children.push(secTitle(String(secNum),'OBSERVATIONS'));
       children.push(new Paragraph({children:[new TextRun({text:v.observations,size:20,font:'Calibri'})],spacing:{after:100}}));
@@ -13109,6 +13183,23 @@ const App = {
           children.push(spacer());
         }
 
+        // --- Délimitation, circulation & consignes (R4512-3/4) ---
+        if (hasIcpEntity && icp.conformite) {
+          children.push(new Paragraph({children:[new TextRun({text:'Délimitation, circulation & consignes (art. R4512-3 & R4512-4) :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
+          const confItems = [['secteur',"Secteur d'intervention délimité"],['zonesDanger','Zones de danger matérialisées'],['circulation','Voies de circulation indiquées (piétons + engins)'],['acces',"Voies d'accès définies"],['consignes','Consignes de sécurité communiquées']];
+          const cRows = [new TableRow({cantSplit:true,children:[hCell('',8),hCell('Point',47),hCell('Précisions',45)]})];
+          confItems.forEach(([k,lab]) => {
+            const c = icp.conformite[k]||{};
+            cRows.push(new TableRow({cantSplit:true,children:[
+              cell(c.ok?'☑':'☐',{width:8,align:AlignmentType.CENTER,bold:true,color:c.ok?'00693E':'B00020'}),
+              cell(lab,{width:47}),
+              cell(c.note||'',{width:45})
+            ]}));
+          });
+          children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:cRows}));
+          children.push(spacer());
+        }
+
         // --- Données visite complémentaires (locaux, matériels, documents échangés) ---
         const visRows = [];
         if (vis.locaux) visRows.push(new TableRow({cantSplit:true,children:[cell('Locaux mis à disposition',{width:35,bold:true}),cell(vis.locaux)]}));
@@ -14241,6 +14332,15 @@ const App = {
               }
             }
           );
+        }
+
+        // Délimitation, circulation & consignes (R4512-3/4)
+        if (hasIcpPdf && icp.conformite) {
+          checkPage(20);
+          doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Délimitation, circulation & consignes (art. R4512-3 & R4512-4) :',m,y); y+=4;
+          const confItemsPdf = [['secteur',"Secteur d'intervention délimité"],['zonesDanger','Zones de danger matérialisées'],['circulation','Voies de circulation indiquées (piétons + engins)'],['acces',"Voies d'accès définies"],['consignes','Consignes de sécurité communiquées']];
+          const confBody = confItemsPdf.map(([k,lab]) => { const c = icp.conformite[k]||{}; return [{content:c.ok?'X':'',styles:{halign:'center',fontStyle:'bold'}}, lab, c.note||'']; });
+          addTable(['Fait','Point','Précisions'], confBody, {columnStyles:{0:{cellWidth:14,halign:'center'},1:{cellWidth:90},2:{cellWidth:'auto'}}});
         }
 
         // Données visite complémentaires
