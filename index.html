@@ -13668,7 +13668,7 @@ const App = {
     const relRows = [new TableRow({cantSplit:true,children:[
       hCell('N°',5), hCell('Entreprise',22), hCell('Zone / Phase',15), hCell('Risque / observation',38), hCell('Mesure proposée',20)
     ]})];
-    for (let r=1;r<=15;r++) relRows.push(new TableRow({cantSplit:true,height:{value:700,rule:HeightRule.ATLEAST},children:[
+    for (let r=1;r<=16;r++) relRows.push(new TableRow({cantSplit:true,height:{value:700,rule:HeightRule.ATLEAST},children:[
       cell(String(r),{width:5,align:AlignmentType.CENTER,size:18}),
       cell('',{width:22}),
       cell('',{width:15}),
@@ -14822,7 +14822,7 @@ const App = {
       [ {content:'Site',styles:{fontStyle:'bold'}}, {content:p.site||'',colSpan:3} ],
     ]);
     const relBody = [];
-    for(let r=1;r<=15;r++) relBody.push([String(r),'','','','']);
+    for(let r=1;r<=18;r++) relBody.push([String(r),'','','','']);
     addTable(['N°','Entreprise','Zone / Phase','Risque / observation','Mesure proposée'], relBody, {
       columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:34},2:{cellWidth:24},3:{cellWidth:72},4:{cellWidth:42}},
       bodyStyles:{minCellHeight:12,fontSize:8,cellPadding:2}
