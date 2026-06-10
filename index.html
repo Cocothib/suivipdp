@@ -13004,7 +13004,7 @@ const App = {
     // ne pas relire le DOM (collectForm/captureAllSigs liraient le PDP affiché → corruption croisée).
     if (!this._returnDOCXBlob) { this.collectForm(); this.captureAllSigs(); }
     const p = this.currentPDP;
-    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle, VerticalAlign, ShadingType, PageBreak, Footer, PageNumber, ImageRun, HeightRule } = docx;
+    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle, VerticalAlign, ShadingType, PageBreak, Footer, PageNumber, ImageRun, HeightRule, PageOrientation } = docx;
     const niveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
     const GREEN = '00693E';
 
@@ -13650,41 +13650,45 @@ const App = {
     }
 
     // ---- Feuille de relevé des risques & observations (version papier, à compléter sur site) ----
-    children.push(new Paragraph({ children:[new PageBreak()] }));
-    children.push(new Table({ rows:[new TableRow({ cantSplit:true, children:[
+    // Section dédiée en PAYSAGE (plus de place pour les colonnes Risque / Mesure)
+    const releveChildren = [];
+    releveChildren.push(new Table({ rows:[new TableRow({ cantSplit:true, children:[
       new TableCell({ children:[logoBuffer ? new Paragraph({ children:[new ImageRun({data:logoBuffer,transformation:{width:90,height:54},type:'jpg'})], spacing:{before:20,after:20} }) : new Paragraph({children:[]})], width:{size:25,type:WidthType.PERCENTAGE}, borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}} }),
       new TableCell({ children:[
         new Paragraph({ children:[new TextRun({text:'RELEVÉ DES RISQUES & OBSERVATIONS',size:26,bold:true,font:'Calibri',color:GREEN})], alignment:AlignmentType.LEFT, spacing:{before:40,after:10} }),
         new Paragraph({ children:[new TextRun({text:'À compléter sur site — version papier',size:18,italics:true,font:'Calibri',color:'666666'})], alignment:AlignmentType.LEFT })
       ], width:{size:75,type:WidthType.PERCENTAGE}, borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}}, verticalAlign:VerticalAlign.CENTER })
     ] })], width:{size:100,type:WidthType.PERCENTAGE} }));
-    children.push(new Paragraph({children:[],spacing:{before:60}}));
-    children.push(new Table({ width:{size:100,type:WidthType.PERCENTAGE}, rows:[
-      new TableRow({cantSplit:true,children:[cell('PDP n°',{width:18,bold:true,size:18}),cell(p.numero||'',{width:52,size:18}),cell('Date',{width:12,bold:true,size:18}),cell('',{width:18,size:18})]}),
-      new TableRow({cantSplit:true,children:[cell('Opération',{width:18,bold:true,size:18}),cell(p.titre||'',{size:18,colSpan:3})]}),
-      new TableRow({cantSplit:true,children:[cell('Site',{width:18,bold:true,size:18}),cell(p.site||'',{size:18,colSpan:3})]}),
+    releveChildren.push(new Paragraph({children:[],spacing:{before:60}}));
+    releveChildren.push(new Table({ width:{size:100,type:WidthType.PERCENTAGE}, rows:[
+      new TableRow({cantSplit:true,children:[cell('PDP n°',{width:12,bold:true,size:18}),cell(p.numero||'',{width:58,size:18}),cell('Date',{width:10,bold:true,size:18}),cell('',{width:20,size:18})]}),
+      new TableRow({cantSplit:true,children:[cell('Opération',{width:12,bold:true,size:18}),cell(p.titre||'',{size:18,colSpan:3})]}),
+      new TableRow({cantSplit:true,children:[cell('Site',{width:12,bold:true,size:18}),cell(p.site||'',{size:18,colSpan:3})]}),
     ]}));
-    children.push(new Paragraph({children:[],spacing:{before:80}}));
+    releveChildren.push(new Paragraph({children:[],spacing:{before:80}}));
     const relRows = [new TableRow({cantSplit:true,children:[
-      hCell('N°',5), hCell('Date',12), hCell('Entreprise',20), hCell('Zone / Phase',13), hCell('Risque / observation',30), hCell('Mesure proposée',20)
+      hCell('N°',4), hCell('Date',9), hCell('Entreprise',18), hCell('Zone / Phase',13), hCell('Risque / observation',36), hCell('Mesure proposée',20)
     ]})];
-    for (let r=1;r<=16;r++) relRows.push(new TableRow({cantSplit:true,height:{value:700,rule:HeightRule.ATLEAST},children:[
-      cell(String(r),{width:5,align:AlignmentType.CENTER,size:18}),
-      cell('',{width:12}),
-      cell('',{width:20}),
+    for (let r=1;r<=9;r++) relRows.push(new TableRow({cantSplit:true,height:{value:800,rule:HeightRule.ATLEAST},children:[
+      cell(String(r),{width:4,align:AlignmentType.CENTER,size:18}),
+      cell('',{width:9}),
+      cell('',{width:18}),
       cell('',{width:13}),
-      cell('',{width:30}),
+      cell('',{width:36}),
       cell('',{width:20}),
     ]}));
-    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:relRows}));
+    releveChildren.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:relRows}));
 
-    const footerPara = new Paragraph({ alignment:AlignmentType.CENTER, children:[
+    const mkFooterPara = () => new Paragraph({ alignment:AlignmentType.CENTER, children:[
       new TextRun({text:`${p.numero||'PDP'} — ${entityName} — Page `,size:14,font:'Calibri',color:'999999'}),
       new TextRun({children:[PageNumber.CURRENT],size:14,font:'Calibri',color:'999999'}),
       new TextRun({text:'/',size:14,font:'Calibri',color:'999999'}),
       new TextRun({children:[PageNumber.TOTAL_PAGES],size:14,font:'Calibri',color:'999999'})
     ]});
-    const doc = new Document({ sections:[{properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},footers:{default:new Footer({children:[footerPara]})},children}] });
+    const doc = new Document({ sections:[
+      {properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},footers:{default:new Footer({children:[mkFooterPara()]})},children},
+      {properties:{page:{margin:{top:720,bottom:720,left:720,right:720},size:{orientation:PageOrientation.LANDSCAPE}}},footers:{default:new Footer({children:[mkFooterPara()]})},children:releveChildren}
+    ] });
     const blob = await Packer.toBlob(doc);
     const fn = await this.buildPDPFilename(p, 'docx');
     if (this._returnDOCXBlob) {
@@ -14810,31 +14814,35 @@ const App = {
     }
 
     // ---- Feuille de relevé des risques & observations (version papier, à compléter sur site) ----
-    doc.addPage();
-    doc.setFillColor(...GREEN); doc.rect(0,5,210,22,'F');
+    // Page dédiée en PAYSAGE (plus de place pour les colonnes Risque / Mesure)
+    doc.addPage('a4','landscape');
+    const lw = 297, lm = 15, lpw = lw - 2*lm; // largeur utile paysage = 267
+    doc.setFillColor(...GREEN); doc.rect(0,5,lw,22,'F');
     try { const _lb=new Uint8Array(getLogoBuffer()); doc.addImage(_lb,'JPEG',3,6,40,20); } catch(e){}
     doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont('helvetica','bold');
     doc.text('RELEVÉ DES RISQUES & OBSERVATIONS',46,15);
     doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.text('À compléter sur site — version papier',46,22);
     doc.setTextColor(0,0,0); y=34;
     addTable(null,[
-      [ {content:'PDP n°',styles:{fontStyle:'bold',cellWidth:28}}, {content:p.numero||'',styles:{cellWidth:94}}, {content:'Date',styles:{fontStyle:'bold',cellWidth:18}}, '' ],
+      [ {content:'PDP n°',styles:{fontStyle:'bold',cellWidth:28}}, {content:p.numero||'',styles:{cellWidth:181}}, {content:'Date',styles:{fontStyle:'bold',cellWidth:18}}, '' ],
       [ {content:'Opération',styles:{fontStyle:'bold'}}, {content:p.titre||'',colSpan:3} ],
       [ {content:'Site',styles:{fontStyle:'bold'}}, {content:p.site||'',colSpan:3} ],
-    ]);
+    ], {margin:{left:lm,right:lm}, tableWidth:lpw});
     const relBody = [];
-    for(let r=1;r<=18;r++) relBody.push([String(r),'','','','','']);
+    for(let r=1;r<=10;r++) relBody.push([String(r),'','','','','']);
     addTable(['N°','Date','Entreprise','Zone / Phase','Risque / observation','Mesure proposée'], relBody, {
-      columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:20},2:{cellWidth:30},3:{cellWidth:22},4:{cellWidth:60},5:{cellWidth:40}},
-      bodyStyles:{minCellHeight:12,fontSize:8,cellPadding:2}
+      margin:{left:lm,right:lm}, tableWidth:lpw,
+      columnStyles:{0:{cellWidth:10,halign:'center'},1:{cellWidth:26},2:{cellWidth:43},3:{cellWidth:35},4:{cellWidth:93},5:{cellWidth:60}},
+      bodyStyles:{minCellHeight:13,fontSize:8,cellPadding:2,font:'helvetica'}
     });
 
-    // Pied de page sur toutes les pages
+    // Pied de page sur toutes les pages (position adaptée à l'orientation)
     const totalPages = doc.internal.getNumberOfPages();
     for (let i=1;i<=totalPages;i++) {
       doc.setPage(i);
+      const pgW = doc.internal.pageSize.getWidth(), pgH = doc.internal.pageSize.getHeight();
       doc.setFontSize(7); doc.setFont('helvetica','normal'); doc.setTextColor(150,150,150);
-      doc.text(`${p.numero||'PDP'} — ${entityName} — Page ${i}/${totalPages}`,105,292,{align:'center'});
+      doc.text(`${p.numero||'PDP'} — ${entityName} — Page ${i}/${totalPages}`, pgW/2, pgH-5, {align:'center'});
     }
 
     const pdfFn = await this.buildPDPFilename(p, 'pdf');
