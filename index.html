@@ -13666,14 +13666,14 @@ const App = {
     ]}));
     children.push(new Paragraph({children:[],spacing:{before:80}}));
     const relRows = [new TableRow({cantSplit:true,children:[
-      hCell('N°',5), hCell('Entreprise',20), hCell('Statut',11), hCell('Zone / Phase',15), hCell('Risque / observation',29), hCell('Mesure proposée',20)
+      hCell('N°',5), hCell('Entreprise',18), hCell('Statut',17), hCell('Zone / Phase',13), hCell('Risque / observation',27), hCell('Mesure proposée',20)
     ]})];
     for (let r=1;r<=15;r++) relRows.push(new TableRow({cantSplit:true,children:[
       cell(String(r),{width:5,align:AlignmentType.CENTER,size:18}),
-      cell('',{width:20}),
-      cell('☐ C\n☐ A\n☐ ST',{width:11,size:14}),
-      cell('',{width:15}),
-      cell('',{width:29}),
+      cell('',{width:18}),
+      cell('☐ Client\n☐ AGRIWATT\n☐ Sous-traitant',{width:17,size:14}),
+      cell('',{width:13}),
+      cell('',{width:27}),
       cell('',{width:20}),
     ]}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:relRows}));
@@ -14828,9 +14828,9 @@ const App = {
       [ {content:'Site',styles:{fontStyle:'bold'}}, {content:p.site||'',colSpan:3} ],
     ]);
     const relBody = [];
-    for(let r=1;r<=15;r++) relBody.push([String(r),'','C   A   ST','','','']);
-    addTable(['N°','Entreprise','Statut\n(entourer)','Zone / Phase','Risque / observation','Mesure proposée'], relBody, {
-      columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:32},2:{cellWidth:16,halign:'center',fontSize:7},3:{cellWidth:26},4:{cellWidth:56},5:{cellWidth:42}},
+    for(let r=1;r<=15;r++) relBody.push([String(r),'','[ ] Client\n[ ] AGRIWATT\n[ ] Sous-traitant','','','']);
+    addTable(['N°','Entreprise','Statut','Zone / Phase','Risque / observation','Mesure proposée'], relBody, {
+      columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:28},2:{cellWidth:26,fontSize:7},3:{cellWidth:22},4:{cellWidth:54},5:{cellWidth:42}},
       bodyStyles:{minCellHeight:9,fontSize:8,cellPadding:2}
     });
     doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(120,120,120);
