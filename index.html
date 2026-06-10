@@ -13666,13 +13666,14 @@ const App = {
     ]}));
     children.push(new Paragraph({children:[],spacing:{before:80}}));
     const relRows = [new TableRow({cantSplit:true,children:[
-      hCell('N°',5), hCell('Entreprise',22), hCell('Zone / Phase',15), hCell('Risque / observation',38), hCell('Mesure proposée',20)
+      hCell('N°',5), hCell('Date',12), hCell('Entreprise',20), hCell('Zone / Phase',13), hCell('Risque / observation',30), hCell('Mesure proposée',20)
     ]})];
     for (let r=1;r<=16;r++) relRows.push(new TableRow({cantSplit:true,height:{value:700,rule:HeightRule.ATLEAST},children:[
       cell(String(r),{width:5,align:AlignmentType.CENTER,size:18}),
-      cell('',{width:22}),
-      cell('',{width:15}),
-      cell('',{width:38}),
+      cell('',{width:12}),
+      cell('',{width:20}),
+      cell('',{width:13}),
+      cell('',{width:30}),
       cell('',{width:20}),
     ]}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:relRows}));
@@ -14822,9 +14823,9 @@ const App = {
       [ {content:'Site',styles:{fontStyle:'bold'}}, {content:p.site||'',colSpan:3} ],
     ]);
     const relBody = [];
-    for(let r=1;r<=18;r++) relBody.push([String(r),'','','','']);
-    addTable(['N°','Entreprise','Zone / Phase','Risque / observation','Mesure proposée'], relBody, {
-      columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:34},2:{cellWidth:24},3:{cellWidth:72},4:{cellWidth:42}},
+    for(let r=1;r<=18;r++) relBody.push([String(r),'','','','','']);
+    addTable(['N°','Date','Entreprise','Zone / Phase','Risque / observation','Mesure proposée'], relBody, {
+      columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:20},2:{cellWidth:30},3:{cellWidth:22},4:{cellWidth:60},5:{cellWidth:40}},
       bodyStyles:{minCellHeight:12,fontSize:8,cellPadding:2}
     });
 
