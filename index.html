@@ -14829,9 +14829,9 @@ const App = {
       [ {content:'Site',styles:{fontStyle:'bold'}}, {content:p.site||'',colSpan:3} ],
     ], {margin:{left:lm,right:lm}, tableWidth:lpw});
     const relBody = [];
-    for(let r=1;r<=10;r++) relBody.push([String(r),'','','','','']);
+    for(let r=1;r<=9;r++) relBody.push([String(r),'','','','','']);
     addTable(['N°','Date','Entreprise','Zone / Phase','Risque / observation','Mesure proposée'], relBody, {
-      margin:{left:lm,right:lm}, tableWidth:lpw,
+      margin:{left:lm,right:lm}, tableWidth:lpw, showHead:'firstPage', pageBreak:'avoid',
       columnStyles:{0:{cellWidth:10,halign:'center'},1:{cellWidth:26},2:{cellWidth:43},3:{cellWidth:35},4:{cellWidth:93},5:{cellWidth:60}},
       bodyStyles:{minCellHeight:13,fontSize:8,cellPadding:2,font:'helvetica'}
     });
