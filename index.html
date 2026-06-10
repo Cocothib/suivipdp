@@ -14282,7 +14282,7 @@ const App = {
 
     const checkPage = (need=20) => { if(y>290-need){doc.addPage();y=15;} };
     const secTitle = (txt) => { checkPage(60); doc.setFillColor(...GREEN); doc.rect(m,y,pw,8,'F'); doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255); doc.text(txt,m+2,y+5.5); y+=12; doc.setTextColor(0,0,0); };
-    const addTable = (head,body,opts={}) => { doc.autoTable({ startY:y, margin:{left:m,right:m}, head:head?[head]:undefined, body, theme:'grid', headStyles:{fillColor:GREEN,textColor:[255,255,255],fontStyle:'bold',fontSize:8,cellPadding:2}, bodyStyles:{fontSize:8,cellPadding:2,font:'helvetica'}, columnStyles:opts.columnStyles||{}, alternateRowStyles:{fillColor:[245,246,248]}, tableWidth:pw, ...opts }); y=doc.lastAutoTable.finalY+4; };
+    const addTable = (head,body,opts={}) => { doc.autoTable({ startY:y, margin:{left:m,right:m}, head:head?[head]:undefined, body, theme:'grid', headStyles:{fillColor:GREEN,textColor:[255,255,255],fontStyle:'bold',fontSize:8,cellPadding:2}, bodyStyles:{fontSize:8,cellPadding:2,font:'helvetica'}, columnStyles:opts.columnStyles||{}, alternateRowStyles:{fillColor:[245,246,248]}, tableWidth:pw, rowPageBreak:'avoid', ...opts }); y=doc.lastAutoTable.finalY+4; };
     const labelTable = (rows) => { addTable(null, rows.map(([l,v])=>[ {content:l,styles:{fontStyle:'bold',cellWidth:55}}, v||'' ]) ); };
 
     // --- En-tête avec logo ---
@@ -14861,17 +14861,6 @@ const App = {
       secNum++;
     }
 
-    // ---- Annexe : Fiche réflexe FR-01 « Pollution accidentelle » (jointe systématiquement) ----
-    try {
-      doc.addPage('a4','portrait');
-      doc.setFillColor(...GREEN); doc.rect(m, 10, pw, 8, 'F');
-      doc.setTextColor(255,255,255); doc.setFontSize(11); doc.setFont('helvetica','bold');
-      doc.text('ANNEXE — FICHE RÉFLEXE FR-01 : POLLUTION ACCIDENTELLE', m+2, 15.5);
-      doc.setTextColor(0,0,0);
-      const _iw = 185, _ih = _iw*1.4134, _ix = (210-_iw)/2, _iy = 22;
-      doc.addImage(getFR01DataURL(), 'PNG', _ix, _iy, _iw, _ih);
-    } catch(e) { console.warn('Annexe FR-01 PDF échouée:', e); }
-
     // ---- Feuille de relevé des risques & observations (version papier, à compléter sur site) ----
     // Page dédiée en PAYSAGE (plus de place pour les colonnes Risque / Mesure)
     doc.addPage('a4','landscape');
@@ -14894,6 +14883,17 @@ const App = {
       columnStyles:{0:{cellWidth:10,halign:'center'},1:{cellWidth:26},2:{cellWidth:43},3:{cellWidth:35},4:{cellWidth:93},5:{cellWidth:60}},
       bodyStyles:{minCellHeight:13,fontSize:8,cellPadding:2,font:'helvetica'}
     });
+
+    // ---- Annexe : Fiche réflexe FR-01 « Pollution accidentelle » (TOUJOURS en dernière position) ----
+    try {
+      doc.addPage('a4','portrait');
+      doc.setFillColor(...GREEN); doc.rect(m, 10, pw, 8, 'F');
+      doc.setTextColor(255,255,255); doc.setFontSize(11); doc.setFont('helvetica','bold');
+      doc.text('ANNEXE — FICHE RÉFLEXE FR-01 : POLLUTION ACCIDENTELLE', m+2, 15.5);
+      doc.setTextColor(0,0,0);
+      const _iw = 185, _ih = _iw*1.4134, _ix = (210-_iw)/2, _iy = 22;
+      doc.addImage(getFR01DataURL(), 'PNG', _ix, _iy, _iw, _ih);
+    } catch(e) { console.warn('Annexe FR-01 PDF échouée:', e); }
 
     // Pied de page sur toutes les pages (position adaptée à l'orientation)
     const totalPages = doc.internal.getNumberOfPages();
