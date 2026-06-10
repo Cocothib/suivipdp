@@ -13676,7 +13676,6 @@ const App = {
       cell('',{width:20}),
     ]}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:relRows}));
-    children.push(new Paragraph({children:[new TextRun({text:'Nom : ____________________     Entreprise : ____________________     Date : __ /__ /____     Signature : ____________________',size:18,font:'Calibri'})],spacing:{before:200}}));
 
     const footerPara = new Paragraph({ alignment:AlignmentType.CENTER, children:[
       new TextRun({text:`${p.numero||'PDP'} — ${entityName} — Page `,size:14,font:'Calibri',color:'999999'}),
@@ -14828,8 +14827,6 @@ const App = {
       columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:34},2:{cellWidth:24},3:{cellWidth:72},4:{cellWidth:42}},
       bodyStyles:{minCellHeight:12,fontSize:8,cellPadding:2}
     });
-    doc.setTextColor(0,0,0); doc.setFont('helvetica','normal'); doc.setFontSize(9);
-    doc.text('Nom : _______________   Entreprise : _______________   Date : __/__/____   Signature : _______________',m,y+4);
 
     // Pied de page sur toutes les pages
     const totalPages = doc.internal.getNumberOfPages();
