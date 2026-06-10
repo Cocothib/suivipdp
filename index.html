@@ -13004,7 +13004,7 @@ const App = {
     // ne pas relire le DOM (collectForm/captureAllSigs liraient le PDP affiché → corruption croisée).
     if (!this._returnDOCXBlob) { this.collectForm(); this.captureAllSigs(); }
     const p = this.currentPDP;
-    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle, VerticalAlign, ShadingType, PageBreak, Footer, PageNumber, ImageRun } = docx;
+    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle, VerticalAlign, ShadingType, PageBreak, Footer, PageNumber, ImageRun, HeightRule } = docx;
     const niveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
     const GREEN = '00693E';
 
@@ -13668,7 +13668,7 @@ const App = {
     const relRows = [new TableRow({cantSplit:true,children:[
       hCell('N°',5), hCell('Entreprise',22), hCell('Zone / Phase',15), hCell('Risque / observation',38), hCell('Mesure proposée',20)
     ]})];
-    for (let r=1;r<=15;r++) relRows.push(new TableRow({cantSplit:true,children:[
+    for (let r=1;r<=15;r++) relRows.push(new TableRow({cantSplit:true,height:{value:700,rule:HeightRule.ATLEAST},children:[
       cell(String(r),{width:5,align:AlignmentType.CENTER,size:18}),
       cell('',{width:22}),
       cell('',{width:15}),
@@ -13676,10 +13676,7 @@ const App = {
       cell('',{width:20}),
     ]}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:relRows}));
-    children.push(new Paragraph({children:[new TextRun({text:'Observations libres :',size:18,bold:true,font:'Calibri'})],spacing:{before:120,after:20}}));
-    children.push(new Paragraph({children:[new TextRun({text:'________________________________________________________________________________',size:18,font:'Calibri'})],spacing:{after:80}}));
-    children.push(new Paragraph({children:[new TextRun({text:'________________________________________________________________________________',size:18,font:'Calibri'})],spacing:{after:120}}));
-    children.push(new Paragraph({children:[new TextRun({text:'Nom : ____________________     Entreprise : ____________________     Date : __ /__ /____     Signature : ____________________',size:18,font:'Calibri'})],spacing:{before:60}}));
+    children.push(new Paragraph({children:[new TextRun({text:'Nom : ____________________     Entreprise : ____________________     Date : __ /__ /____     Signature : ____________________',size:18,font:'Calibri'})],spacing:{before:200}}));
 
     const footerPara = new Paragraph({ alignment:AlignmentType.CENTER, children:[
       new TextRun({text:`${p.numero||'PDP'} — ${entityName} — Page `,size:14,font:'Calibri',color:'999999'}),
@@ -14829,13 +14826,10 @@ const App = {
     for(let r=1;r<=15;r++) relBody.push([String(r),'','','','']);
     addTable(['N°','Entreprise','Zone / Phase','Risque / observation','Mesure proposée'], relBody, {
       columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:34},2:{cellWidth:24},3:{cellWidth:72},4:{cellWidth:42}},
-      bodyStyles:{minCellHeight:9,fontSize:8,cellPadding:2}
+      bodyStyles:{minCellHeight:12,fontSize:8,cellPadding:2}
     });
-    doc.setTextColor(0,0,0); doc.setFont('helvetica','bold'); doc.setFontSize(9);
-    doc.text('Observations libres :',m,y+2); y+=9;
-    doc.setDrawColor(180,180,180); doc.line(m,y,m+pw,y); y+=8; doc.line(m,y,m+pw,y); y+=12;
-    doc.setFont('helvetica','normal'); doc.setFontSize(9);
-    doc.text('Nom : _______________   Entreprise : _______________   Date : __/__/____   Signature : _______________',m,y);
+    doc.setTextColor(0,0,0); doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.text('Nom : _______________   Entreprise : _______________   Date : __/__/____   Signature : _______________',m,y+4);
 
     // Pied de page sur toutes les pages
     const totalPages = doc.internal.getNumberOfPages();
