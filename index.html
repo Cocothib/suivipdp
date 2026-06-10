@@ -13649,6 +13649,40 @@ const App = {
       children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:mRows}));
     }
 
+    // ---- Feuille de relevé des risques & observations (version papier, à compléter sur site) ----
+    children.push(new Paragraph({ children:[new PageBreak()] }));
+    children.push(new Table({ rows:[new TableRow({ cantSplit:true, children:[
+      new TableCell({ children:[logoBuffer ? new Paragraph({ children:[new ImageRun({data:logoBuffer,transformation:{width:90,height:54},type:'jpg'})], spacing:{before:20,after:20} }) : new Paragraph({children:[]})], width:{size:25,type:WidthType.PERCENTAGE}, borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}} }),
+      new TableCell({ children:[
+        new Paragraph({ children:[new TextRun({text:'RELEVÉ DES RISQUES & OBSERVATIONS',size:26,bold:true,font:'Calibri',color:GREEN})], alignment:AlignmentType.LEFT, spacing:{before:40,after:10} }),
+        new Paragraph({ children:[new TextRun({text:'À compléter sur site — version papier',size:18,italics:true,font:'Calibri',color:'666666'})], alignment:AlignmentType.LEFT })
+      ], width:{size:75,type:WidthType.PERCENTAGE}, borders:{top:{style:BorderStyle.NONE},bottom:{style:BorderStyle.NONE},left:{style:BorderStyle.NONE},right:{style:BorderStyle.NONE}}, verticalAlign:VerticalAlign.CENTER })
+    ] })], width:{size:100,type:WidthType.PERCENTAGE} }));
+    children.push(new Paragraph({children:[],spacing:{before:60}}));
+    children.push(new Table({ width:{size:100,type:WidthType.PERCENTAGE}, rows:[
+      new TableRow({cantSplit:true,children:[cell('PDP n°',{width:18,bold:true,size:18}),cell(p.numero||'',{width:52,size:18}),cell('Date',{width:12,bold:true,size:18}),cell('',{width:18,size:18})]}),
+      new TableRow({cantSplit:true,children:[cell('Opération',{width:18,bold:true,size:18}),cell(p.titre||'',{size:18,colSpan:3})]}),
+      new TableRow({cantSplit:true,children:[cell('Site',{width:18,bold:true,size:18}),cell(p.site||'',{size:18,colSpan:3})]}),
+    ]}));
+    children.push(new Paragraph({children:[],spacing:{before:80}}));
+    const relRows = [new TableRow({cantSplit:true,children:[
+      hCell('N°',5), hCell('Entreprise',20), hCell('Statut',11), hCell('Zone / Phase',15), hCell('Risque / observation',29), hCell('Mesure proposée',20)
+    ]})];
+    for (let r=1;r<=15;r++) relRows.push(new TableRow({cantSplit:true,children:[
+      cell(String(r),{width:5,align:AlignmentType.CENTER,size:18}),
+      cell('',{width:20}),
+      cell('☐ C\n☐ A\n☐ ST',{width:11,size:14}),
+      cell('',{width:15}),
+      cell('',{width:29}),
+      cell('',{width:20}),
+    ]}));
+    children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:relRows}));
+    children.push(new Paragraph({children:[new TextRun({text:'Statut : C = Client · A = AGRIWATT · ST = Sous-traitant',size:14,italics:true,font:'Calibri',color:'888888'})],spacing:{before:40,after:80}}));
+    children.push(new Paragraph({children:[new TextRun({text:'Observations libres :',size:18,bold:true,font:'Calibri'})],spacing:{before:60,after:20}}));
+    children.push(new Paragraph({children:[new TextRun({text:'________________________________________________________________________________',size:18,font:'Calibri'})],spacing:{after:80}}));
+    children.push(new Paragraph({children:[new TextRun({text:'________________________________________________________________________________',size:18,font:'Calibri'})],spacing:{after:120}}));
+    children.push(new Paragraph({children:[new TextRun({text:'Nom : ____________________     Entreprise : ____________________     Date : __ /__ /____     Signature : ____________________',size:18,font:'Calibri'})],spacing:{before:60}}));
+
     const footerPara = new Paragraph({ alignment:AlignmentType.CENTER, children:[
       new TextRun({text:`${p.numero||'PDP'} — ${entityName} — Page `,size:14,font:'Calibri',color:'999999'}),
       new TextRun({children:[PageNumber.CURRENT],size:14,font:'Calibri',color:'999999'}),
@@ -14779,6 +14813,33 @@ const App = {
       addTable(['Date','Type','Description','Auteur'], p.modifications.map(mod=>[mod.date||'',mLabels[mod.type]||mod.type,mod.description||'',mod.auteur||'']), {columnStyles:{0:{cellWidth:25},1:{cellWidth:30},3:{cellWidth:25}}});
       secNum++;
     }
+
+    // ---- Feuille de relevé des risques & observations (version papier, à compléter sur site) ----
+    doc.addPage();
+    doc.setFillColor(...GREEN); doc.rect(0,5,210,22,'F');
+    try { const _lb=new Uint8Array(getLogoBuffer()); doc.addImage(_lb,'JPEG',3,6,40,20); } catch(e){}
+    doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont('helvetica','bold');
+    doc.text('RELEVÉ DES RISQUES & OBSERVATIONS',46,15);
+    doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.text('À compléter sur site — version papier',46,22);
+    doc.setTextColor(0,0,0); y=34;
+    addTable(null,[
+      [ {content:'PDP n°',styles:{fontStyle:'bold',cellWidth:28}}, {content:p.numero||'',styles:{cellWidth:94}}, {content:'Date',styles:{fontStyle:'bold',cellWidth:18}}, '' ],
+      [ {content:'Opération',styles:{fontStyle:'bold'}}, {content:p.titre||'',colSpan:3} ],
+      [ {content:'Site',styles:{fontStyle:'bold'}}, {content:p.site||'',colSpan:3} ],
+    ]);
+    const relBody = [];
+    for(let r=1;r<=15;r++) relBody.push([String(r),'','C   A   ST','','','']);
+    addTable(['N°','Entreprise','Statut\n(entourer)','Zone / Phase','Risque / observation','Mesure proposée'], relBody, {
+      columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:32},2:{cellWidth:16,halign:'center',fontSize:7},3:{cellWidth:26},4:{cellWidth:56},5:{cellWidth:42}},
+      bodyStyles:{minCellHeight:9,fontSize:8,cellPadding:2}
+    });
+    doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(120,120,120);
+    doc.text('Statut : C = Client · A = AGRIWATT · ST = Sous-traitant',m,y+2); y+=8;
+    doc.setTextColor(0,0,0); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+    doc.text('Observations libres :',m,y); y+=7;
+    doc.setDrawColor(180,180,180); doc.line(m,y,m+pw,y); y+=8; doc.line(m,y,m+pw,y); y+=12;
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.text('Nom : _______________   Entreprise : _______________   Date : __/__/____   Signature : _______________',m,y);
 
     // Pied de page sur toutes les pages
     const totalPages = doc.internal.getNumberOfPages();
