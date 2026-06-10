@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Auto-bump du cache service worker (sw.js) quand l'app change.
+# Garantit que les PWA installees rechargent automatiquement la nouvelle version.
+#
+# Installation (depuis la racine du repo) :
+#   cp scripts/git-hooks/pre-commit .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+set -e
+
+# Ne bumper que si un asset cache par le SW est modifie (index.html / manifest.json)
+if git diff --cached --name-only | grep -qE '^(index\.html|manifest\.json)$'; then
+  sw="sw.js"
+  [ -f "$sw" ] || exit 0
+  cur=$(grep -oE "suivi-pdp-v[0-9]+" "$sw" | head -1 | grep -oE "[0-9]+")
+  if [ -n "$cur" ]; then
+    next=$((cur + 1))
+    sed -i "s/suivi-pdp-v${cur}/suivi-pdp-v${next}/" "$sw"
+    git add "$sw"
+    echo "pre-commit: cache service worker bump v${cur} -> v${next}"
+  fi
+fi
+exit 0
