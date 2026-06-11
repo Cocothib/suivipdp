@@ -10634,6 +10634,7 @@ const App = {
       dateCreation: new Date().toISOString(), dateModification: new Date().toISOString()
     };
     this.populateICPForm();
+    this.prefillICPEERepDefault();
     this.showView('icp-detail');
     document.getElementById('icp-detail-title').textContent = 'Nouvelle ICP';
     document.getElementById('btn-delete-icp').style.display = 'none';
@@ -10777,6 +10778,19 @@ const App = {
     // L'option a comme `value` le nom (texte tapé) et `data-id` pour la résolution.
     datalist.innerHTML = ents.map(e => `<option data-id="${e.id}" value="${this.esc(e.nom)}"></option>`).join('');
     this._icpEERepEntsCache = ents;
+  },
+
+  // Pré-remplit l'entreprise de l'intervenant principal (EE) avec l'entité de l'ICP
+  // (AGRIWATT ou ENERSOLYS) — cas quasi systématique. Charge aussi la liste des contacts.
+  // Ne fait rien si le champ est déjà renseigné (ex : ICP issue d'un PDP).
+  async prefillICPEERepDefault() {
+    const inp = document.getElementById('icp-ee-entreprise-input');
+    if (!inp || inp.value.trim()) return;
+    const entKey = (this.currentICP && this.currentICP.entite) || 'agriwatt';
+    const nom = (ENTITY_PRESETS[entKey] || ENTITY_PRESETS.agriwatt).nom;
+    await this.populateICPEERepEntreprises();
+    inp.value = nom;
+    await this.onICPEERepEntrepriseInput(nom);
   },
 
   async onICPEERepEntrepriseInput(value) {
