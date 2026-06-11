@@ -2476,26 +2476,6 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="small text-muted mt-2">Le tour d'aide se déclenchera automatiquement à la prochaine ouverture d'une fiche ICP ou PDP.</div>
     </div>
     <div class="form-section">
-      <div class="form-section-title"><i class="bi bi-building"></i>Client (Entreprise Utilisatrice — EU) par défaut</div>
-      <div class="field-group">
-        <div class="field-group-title"><i class="bi bi-building"></i> Identité</div>
-        <div class="row g-2">
-          <div class="col-md-6"><label class="form-label" for="settings-eu-nom">Raison sociale</label><div class="input-icon-wrap"><i class="bi bi-building input-icon"></i><input type="text" class="form-control" id="settings-eu-nom" placeholder="Agriwatt / ENERSOLYS"></div></div>
-          <div class="col-md-6"><label class="form-label" for="settings-eu-siret">SIRET</label><div class="input-icon-wrap"><i class="bi bi-upc-scan input-icon"></i><input type="text" class="form-control" id="settings-eu-siret"></div></div>
-        </div>
-      </div>
-      <div class="field-group">
-        <div class="field-group-title"><i class="bi bi-person"></i> Contact</div>
-        <div class="row g-2">
-          <div class="col-md-6"><label class="form-label" for="settings-eu-responsable">Responsable</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="settings-eu-responsable"></div></div>
-          <div class="col-md-6"><label class="form-label" for="settings-eu-tel">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="settings-eu-tel"></div></div>
-          <div class="col-md-6"><label class="form-label" for="settings-eu-email">Email</label><div class="input-icon-wrap"><i class="bi bi-envelope input-icon"></i><input type="email" class="form-control" id="settings-eu-email"></div></div>
-          <div class="col-md-6"><label class="form-label" for="settings-eu-adresse">Adresse</label><div class="input-icon-wrap"><i class="bi bi-geo-alt input-icon"></i><input type="text" class="form-control" id="settings-eu-adresse"></div></div>
-        </div>
-      </div>
-      <button class="btn btn-primary btn-sm mt-2" onclick="App.saveSettings()"><i class="bi bi-check-lg me-1"></i>Sauvegarder</button>
-    </div>
-    <div class="form-section">
       <div class="form-section-title d-flex justify-content-between align-items-center">
         <span><i class="bi bi-buildings"></i>Agences Agriwatt / Enersolys</span>
         <button class="btn btn-sm btn-outline-primary" onclick="App.openAgenceForm()"><i class="bi bi-plus-lg me-1"></i>Ajouter une agence</button>
@@ -7056,7 +7036,7 @@ const App = {
       typePdp: 'client', entite: 'agriwatt', agenceId: '', gps: '', duree: '',
       dateDebut:'', dateFin:'', site:'', lieu:'', description:'',
       materiel:'', nbSalaries:'', horaires:'',
-      eu: { nom:s.euNom||'', adresse:s.euAdresse||'', responsable:s.euResponsable||'', tel:s.euTel||'', email:s.euEmail||'', fonction:'' },
+      eu: { nom:'', adresse:'', responsable:'', tel:'', email:'', fonction:'' },
       entreprisesExt: [], visite: { date:'', heure:'', participants:'', observations:'', effectuee:false, photos:[], locaux:'', materielEU:'', materielEE:'', documentsEchanges:[], consignesAcces:'Tous les intervenants sont munis de téléphone portable\nFeu et flamme nue interdits sur site\nEn cas d\'incendie ou d\'accident corporel, alerter les secours au 18 OU 112 puis prévenir le représentant de l\'EU' },
       risques: [], mesures: [], instructions:'', exigences: [],
       urgence: { responsable:'', telResponsable:'', sst:'', telSst:'', numeros:'Pompiers : 18  |  SAMU : 15  |  Gendarmerie : 17  |  Urgences : 112', consignes:'' },
@@ -10650,7 +10630,7 @@ const App = {
       numero:'', refOperation:'', statut:'effectuee',
       dateVisite:'', heure:'', site:'', lieu:'', objet:'',
       agenceId:'', entite:'agriwatt',
-      euParticipant: { nom:s.euResponsable||'', fonction:'Contact EU', tel:s.euTel||'' },
+      euParticipant: { nom:'', fonction:'Contact EU', tel:'' },
       entreprisesExt: [],
       risques: [],
       conformite: { secteur:{ok:false,note:''}, zonesDanger:{ok:false,note:''}, circulation:{ok:false,note:''}, acces:{ok:false,note:''}, consignes:{ok:false,note:''} },
@@ -12282,21 +12262,11 @@ const App = {
   // ---- SETTINGS ----
   _settings: {},
   async loadSettings() {
-    try { const s = await db.settings.get('general'); this._settings = s?.value||{}; this.applySettings(); } catch(e) {}
+    try { const s = await db.settings.get('general'); this._settings = s?.value||{}; } catch(e) {}
   },
-  applySettings() {
-    const s = this._settings;
-    document.getElementById('settings-eu-nom').value = s.euNom||'';
-    document.getElementById('settings-eu-adresse').value = s.euAdresse||'';
-    document.getElementById('settings-eu-responsable').value = s.euResponsable||'';
-    document.getElementById('settings-eu-tel').value = s.euTel||'';
-    document.getElementById('settings-eu-email').value = s.euEmail||'';
-    document.getElementById('settings-eu-siret').value = s.euSiret||'';
-  },
-  async saveSettings() {
-    this._settings = { euNom:document.getElementById('settings-eu-nom').value.trim(), euAdresse:document.getElementById('settings-eu-adresse').value.trim(), euResponsable:document.getElementById('settings-eu-responsable').value.trim(), euTel:document.getElementById('settings-eu-tel').value.trim(), euEmail:document.getElementById('settings-eu-email').value.trim(), euSiret:document.getElementById('settings-eu-siret').value.trim() };
-    await db.settings.put({ key:'general', value:this._settings }); this.toast('Paramètres sauvegardés'); DataSync.markDirty();
-  },
+  // Section "Client EU par défaut" retirée des Paramètres (le client varie à chaque chantier).
+  // Les réglages éventuels restent en base pour les en-têtes d'export ; aucun champ à peupler.
+  applySettings() {},
 
   // ---- SITES MANAGEMENT ----
   DEFAULT_SITES: [
