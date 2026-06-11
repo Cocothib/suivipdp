@@ -2592,17 +2592,6 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <button class="btn btn-outline-primary btn-sm" onclick="App.testSellsyConnection()"><i class="bi bi-wifi me-1"></i>Tester</button>
         <div id="sellsy-test-output" class="mt-2 small"></div>
       </div>
-      <!-- DEBUG TEMPORAIRE — inspecteur d'opportunité Sellsy (à retirer une fois les champs identifiés) -->
-      <div class="field-group" id="sellsy-debug-inspect" style="border-left:3px solid #ffb81c">
-        <div class="field-group-title"><i class="bi bi-bug"></i> Inspecter une opportunité (debug — temporaire)</div>
-        <p class="small text-muted mb-2">Affiche tous les champs renvoyés par Sellsy pour une opportunité (dont d'éventuels champs personnalisés), afin de décider quoi exploiter dans le PDP/ICP.</p>
-        <div class="input-group input-group-sm mb-2" style="max-width:420px">
-          <span class="input-group-text">OPP-</span>
-          <input type="text" class="form-control" id="sellsy-inspect-opp" placeholder="Ex: 04146">
-          <button class="btn btn-outline-primary" onclick="App.inspectSellsyOpp()"><i class="bi bi-search me-1"></i>Inspecter</button>
-        </div>
-        <pre id="sellsy-inspect-output" class="small bg-light border rounded p-2" style="max-height:360px;overflow:auto;white-space:pre-wrap;display:none"></pre>
-      </div>
       <div class="field-group">
         <div class="field-group-title"><i class="bi bi-arrow-repeat"></i> Synchroniser le répertoire entreprises</div>
         <p class="small text-muted mb-2">Importe ou met à jour toutes les sociétés Sellsy dans votre répertoire local (mise à jour par SIRET).</p>
@@ -10266,63 +10255,6 @@ const App = {
       }
     } catch (e) {
       if (out) out.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle me-1"></i>Proxy inaccessible : ${this.esc(e.message||e)}</span>`;
-    }
-  },
-
-  // DEBUG TEMPORAIRE — inspecteur d'opportunité Sellsy (à retirer avec le bloc #sellsy-debug-inspect)
-  async inspectSellsyOpp() {
-    const out = document.getElementById('sellsy-inspect-output');
-    const raw = (document.getElementById('sellsy-inspect-opp')?.value || '').trim().replace(/^OPP-?/i, '');
-    if (!raw) { this.toast("Saisis un n° d'opportunité", 'warning'); return; }
-    if (out) { out.style.display = 'block'; out.textContent = 'Recherche en cours…'; }
-    try {
-      if (!this._sellsyOppCache || !this._sellsyOppCache.length) {
-        if (out) out.textContent = 'Chargement de la liste des opportunités…';
-        await this.loadSellsyOppList();
-      }
-      const norm = (s) => (s || '').toString().toLowerCase().replace(/^opp-?/, '').trim();
-      const opp = (this._sellsyOppCache || []).find(o => norm(o.ref) === norm(raw));
-      if (!opp) { if (out) out.textContent = `Aucune opportunité trouvée pour OPP-${raw}.`; return; }
-      if (out) out.textContent = 'Récupération du détail Sellsy…';
-      const data = await SellsyAPI._call({ action: 'opportunity', id: opp.id });
-      const keys = Object.keys(data || {}).sort();
-      const sep = '\n' + '─'.repeat(50) + '\n';
-      let txt = `OPP-${raw}  (id Sellsy : ${opp.id})\nChamps de premier niveau : ${keys.join(', ')}\n`;
-
-      // 1) Note (HTML nettoyé)
-      const note = (data.note || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
-      txt += sep + '① NOTE (texte nettoyé) :\n' + (note || '(vide)');
-
-      // 2) Champs personnalisés (via embed)
-      if (out) out.textContent = txt + sep + '② Champs personnalisés : récupération…';
-      let cfTxt;
-      try {
-        const e = await SellsyAPI._call({ action: 'opp_embed', id: opp.id });
-        const cf = e.custom_fields || e.customFields || (e._embed && e._embed.custom_fields) || null;
-        cfTxt = cf ? JSON.stringify(cf, null, 2) : '(aucun champ personnalisé renvoyé — clés: ' + Object.keys(e || {}).join(', ') + ')';
-      } catch (err) { cfTxt = 'Erreur : ' + (err && err.message || err); }
-      txt += sep + '② CHAMPS PERSONNALISÉS :\n' + cfTxt;
-
-      // 3) Document lié (devis/facture) → lignes produits
-      let docTxt = '(pas de main_doc_id)';
-      if (data.main_doc_id) {
-        docTxt = '';
-        for (const t of ['estimates', 'invoices', 'orders']) {
-          if (out) out.textContent = txt + sep + `③ Document lié : essai ${t}…`;
-          try {
-            const d = await SellsyAPI._call({ action: 'doc', id: data.main_doc_id, type: t });
-            const rows = d.rows || (d._embed && d._embed.rows) || null;
-            docTxt = `[type trouvé : ${t}]\n` + (rows ? 'LIGNES :\n' + JSON.stringify(rows, null, 2) : JSON.stringify(d, null, 2));
-            break;
-          } catch (err) { docTxt += `[${t}] ${err && err.message || err}\n`; }
-        }
-      }
-      txt += sep + `③ DOCUMENT LIÉ (main_doc_id=${data.main_doc_id || '—'}) :\n` + docTxt;
-
-      txt += sep + 'JSON BRUT opportunité :\n' + JSON.stringify(data, null, 2);
-      if (out) out.textContent = txt;
-    } catch (e) {
-      if (out) out.textContent = 'Erreur : ' + (e && e.message || e);
     }
   },
 

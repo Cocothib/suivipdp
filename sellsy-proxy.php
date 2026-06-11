@@ -129,21 +129,6 @@ try {
             // Sans embed[] (refusés sur cet endpoint en v2)
             $res = sellsy_call('GET', "/opportunities/$id", $token);
             break;
-        case 'opp_embed':
-            // DEBUG : récupération des champs personnalisés (sous-ressource v2)
-            $id = (int)($_GET['id'] ?? 0);
-            if (!$id) { http_response_code(400); echo json_encode(['error' => 'id manquant']); exit; }
-            $res = sellsy_call('GET', "/opportunities/$id/custom-fields", $token);
-            break;
-        case 'doc':
-            // DEBUG : récupère un document lié (devis/facture/commande) avec ses lignes
-            $id = (int)($_GET['id'] ?? 0);
-            if (!$id) { http_response_code(400); echo json_encode(['error' => 'id manquant']); exit; }
-            $type = preg_replace('/[^a-z\-]/', '', strtolower($_GET['type'] ?? 'estimates'));
-            $allowed = ['estimates', 'invoices', 'orders', 'credit-notes'];
-            if (!in_array($type, $allowed, true)) $type = 'estimates';
-            $res = sellsy_call('GET', "/$type/$id?embed[]=rows", $token);
-            break;
         default:
             http_response_code(404);
             echo json_encode(['error' => 'action inconnue']);
