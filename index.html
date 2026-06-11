@@ -7072,6 +7072,8 @@ const App = {
     };
     // Auto-rattachement des FDS marquées "standard" depuis la bibliothèque
     await this.attachStandardFDS(this.currentPDP);
+    // 1ère EE = entité (AGRIWATT/ENERSOLYS), l'intervenant principal, par défaut
+    await this.prefillPDPDefaultEE();
     this.populateForm();
     this.showView('pdp-detail');
     document.getElementById('pdp-detail-title').textContent = 'Nouveau PDP';
@@ -7657,6 +7659,23 @@ const App = {
     setTimeout(() => this.resetEntModal(), 300);
     this.currentPDP.entreprisesExt.push({ nom:e.nom, adresse:e.adresse, responsable:e.responsable, fonction:e.fonction, tel:e.tel, email:e.email, siret:e.siret, activite:e.activite, sousTraitantDe:'', _repoId:e.id });
     this.renderEEList(); this.renderSignaturesEE(); this.prefillEmargements(); this.addHist(`EE ajoutée: ${e.nom}`); this.toast('EE ajoutée');
+  },
+
+  // Pré-remplit la 1ère Entreprise Extérieure d'un nouveau PDP avec l'entité
+  // (AGRIWATT/ENERSOLYS), l'intervenant principal. Modifiable ou supprimable.
+  // Ne fait rien si des EE existent déjà (ex : PDP issu d'un ICP).
+  async prefillPDPDefaultEE() {
+    const p = this.currentPDP;
+    if (!p || (p.entreprisesExt && p.entreprisesExt.length)) return;
+    const preset = ENTITY_PRESETS[p.entite] || ENTITY_PRESETS.agriwatt;
+    let e = null;
+    try {
+      const ents = await db.entreprises.toArray();
+      e = ents.find(x => (x.nom||'').toLowerCase() === preset.nom.toLowerCase());
+    } catch {}
+    p.entreprisesExt.push(e
+      ? { nom:e.nom, adresse:e.adresse||preset.adresse, responsable:e.responsable||'', fonction:e.fonction||'', tel:e.tel||preset.tel, email:e.email||'', siret:e.siret||preset.siret, activite:e.activite||'Installation photovoltaïque', sousTraitantDe:'', _repoId:e.id }
+      : { nom:preset.nom, adresse:preset.adresse, responsable:'', fonction:'', tel:preset.tel, email:'', siret:preset.siret, activite:'Installation photovoltaïque', sousTraitantDe:'' });
   },
 
   addEEManual() {
