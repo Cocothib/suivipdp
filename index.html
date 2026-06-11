@@ -4374,7 +4374,15 @@ const DataSync = {
             }
         } catch (e) {
             console.error('DataSync: erreur sauvegarde SharePoint', e);
-            App.toast('Erreur sauvegarde SharePoint. Données conservées localement.', 'warning');
+            const m = (e && e.message) || '';
+            const compte = (_msalAccount && _msalAccount.name) || '';
+            if (/\b403\b|forbidden|access.?denied/i.test(m)) {
+                App.toast(`Sauvegarde refusée : le compte ${compte} a un accès en LECTURE SEULE au site SharePoint QHSE. Demandez à l'administrateur les droits d'édition (rôle « Membres » / « Contribution »). Vos données restent enregistrées localement.`, 'danger', 14000);
+            } else if (/\b401\b|unauthor/i.test(m)) {
+                App.toast('Session Microsoft expirée. Cliquez sur « Se reconnecter ». Vos données restent enregistrées localement.', 'danger', 11000);
+            } else {
+                App.toast('Erreur sauvegarde SharePoint. Données conservées localement.', 'warning', 8000);
+            }
         } finally { this._saving = false; }
     },
 
