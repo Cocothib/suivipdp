@@ -1426,11 +1426,14 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
             </div>
             <div class="col-md-4">
               <label class="form-label" for="pdp-ref-operation">N° d'opération / Réf.</label>
-              <div class="input-group">
-                <span class="input-group-text"><i class="bi bi-bookmark"></i></span>
-                <span class="input-group-text">OPP-</span>
-                <input type="text" class="form-control" id="pdp-ref-operation" placeholder="Ex: 04146">
-                <button class="btn btn-outline-success" type="button" onclick="App.openSellsyOppSearchModal('pdp')" title="Rechercher une opportunité dans Sellsy"><i class="bi bi-search"></i></button>
+              <div class="position-relative">
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-bookmark"></i></span>
+                  <span class="input-group-text">OPP-</span>
+                  <input type="text" class="form-control" id="pdp-ref-operation" placeholder="Tapez un n° ou un nom de client…" autocomplete="off" oninput="App.oppAutocomplete('pdp')" onfocus="App.oppAutocomplete('pdp')" onblur="App.hideOppAutocomplete('pdp')">
+                  <button class="btn btn-outline-success" type="button" onclick="App.openSellsyOppSearchModal('pdp')" title="Parcourir toutes les opportunités Sellsy"><i class="bi bi-search"></i></button>
+                </div>
+                <div id="pdp-opp-ac" class="list-group shadow-sm" style="display:none; position:absolute; z-index:1080; top:100%; left:0; right:0; max-height:280px; overflow-y:auto;"></div>
               </div>
             </div>
             <div class="col-md-2">
@@ -2244,7 +2247,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
               <div class="input-group input-group-sm">
                 <span class="input-group-text"><i class="bi bi-bookmark"></i></span>
                 <span class="input-group-text">OPP-</span>
-                <input type="text" class="form-control" id="icp-ref-operation" placeholder="Tapez un n° ou un nom de client…" autocomplete="off" oninput="App.icpOppAutocomplete()" onfocus="App.icpOppAutocomplete()" onblur="App.hideIcpOppAutocomplete()">
+                <input type="text" class="form-control" id="icp-ref-operation" placeholder="Tapez un n° ou un nom de client…" autocomplete="off" oninput="App.oppAutocomplete('icp')" onfocus="App.oppAutocomplete('icp')" onblur="App.hideOppAutocomplete('icp')">
                 <button class="btn btn-outline-success" type="button" onclick="App.openSellsyOppSearchModal()" title="Parcourir toutes les opportunités Sellsy"><i class="bi bi-search"></i></button>
               </div>
               <div id="icp-opp-ac" class="list-group shadow-sm" style="display:none; position:absolute; z-index:1080; top:100%; left:0; right:0; max-height:280px; overflow-y:auto;"></div>
@@ -6684,7 +6687,7 @@ const App = {
 
   _onboardingStepsPDP: [
     { selector: '#pdp-ref-operation, #pdp-numero', title: 'N° d\'opération Sellsy',
-      body: "Saisissez le n° d'opportunité Sellsy (préfixe OPP-) puis cliquez sur la loupe verte pour récupérer toutes les données client.",
+      body: "Tapez directement un n° d'opportunité (ou un nom de client) : la liste se propose sous le champ. La loupe permet de parcourir toute la liste.",
       placement: 'bottom' },
     { selector: '#pdp-section-tabs', title: 'Naviguer entre les sections',
       body: "Le PDP est découpé en sections : général, entreprises, risques, signatures… Utilisez ces onglets pour passer de l'une à l'autre.",
@@ -10270,28 +10273,32 @@ const App = {
     }).join('');
   },
 
-  // ---- Autocomplete Sellsy directement dans le champ N° d'opération de l'ICP ----
-  icpOppAutocomplete() {
-    this._sellsyOppTarget = 'icp';
-    const inp = document.getElementById('icp-ref-operation');
-    const box = document.getElementById('icp-opp-ac');
+  // ---- Autocomplete Sellsy directement dans le champ N° d'opération (ICP et PDP) ----
+  // ctx = 'icp' ou 'pdp' : détermine le champ (#<ctx>-ref-operation), le dropdown
+  // (#<ctx>-opp-ac) et la cible d'application (applySellsyOpp route vers ICP ou PDP).
+  oppAutocomplete(ctx) {
+    ctx = ctx || 'icp';
+    this._sellsyOppTarget = ctx;
+    const inp = document.getElementById(ctx + '-ref-operation');
+    const box = document.getElementById(ctx + '-opp-ac');
     if (!inp || !box) return;
     // Charge le cache des opportunités une seule fois (en tâche de fond)
     if (!this._sellsyOppCache || !this._sellsyOppCache.length) {
-      if (!this._icpOppLoading) {
-        this._icpOppLoading = true;
+      if (!this._oppAcLoading) {
+        this._oppAcLoading = true;
         box.style.display = 'block';
         box.innerHTML = '<div class="list-group-item small text-muted"><i class="bi bi-hourglass-split me-1"></i>Chargement des opportunités Sellsy…</div>';
-        this.loadSellsyOppList().finally(() => { this._icpOppLoading = false; this.renderIcpOppAutocomplete(); });
+        this.loadSellsyOppList().finally(() => { this._oppAcLoading = false; this.renderOppAutocomplete(ctx); });
       }
       return;
     }
-    this.renderIcpOppAutocomplete();
+    this.renderOppAutocomplete(ctx);
   },
 
-  renderIcpOppAutocomplete() {
-    const inp = document.getElementById('icp-ref-operation');
-    const box = document.getElementById('icp-opp-ac');
+  renderOppAutocomplete(ctx) {
+    ctx = ctx || 'icp';
+    const inp = document.getElementById(ctx + '-ref-operation');
+    const box = document.getElementById(ctx + '-opp-ac');
     if (!inp || !box) return;
     if (document.activeElement !== inp) return; // ne pas rouvrir si le champ a perdu le focus
     const q = (inp.value || '').trim().toLowerCase();
@@ -10305,12 +10312,12 @@ const App = {
     items = items.slice(0, 8);
     if (!items.length) {
       box.style.display = 'block';
-      box.innerHTML = '<div class="list-group-item small text-muted">Aucune opportunité correspondante. <a href="#" onmousedown="event.preventDefault();App.openSellsyOppSearchModal()">Tout parcourir</a></div>';
+      box.innerHTML = `<div class="list-group-item small text-muted">Aucune opportunité correspondante. <a href="#" onmousedown="event.preventDefault();App.openSellsyOppSearchModal('${ctx}')">Tout parcourir</a></div>`;
       return;
     }
     box.innerHTML = items.map(o => {
       const meta = [o.companyName, o.etape].filter(Boolean).join(' · ');
-      return `<button type="button" class="list-group-item list-group-item-action py-1" onmousedown="event.preventDefault();App.applySellsyOpp(${Number(o.id)||0});App.hideIcpOppAutocomplete()">
+      return `<button type="button" class="list-group-item list-group-item-action py-1" onmousedown="event.preventDefault();App.applySellsyOpp(${Number(o.id)||0});App.hideOppAutocomplete('${ctx}')">
         <strong>${this.esc(o.ref||'')}</strong> — ${this.esc(o.nom||'')}
         <div class="small text-muted">${this.esc(meta)}</div>
       </button>`;
@@ -10318,8 +10325,9 @@ const App = {
     box.style.display = 'block';
   },
 
-  hideIcpOppAutocomplete() {
-    const box = document.getElementById('icp-opp-ac');
+  hideOppAutocomplete(ctx) {
+    ctx = ctx || 'icp';
+    const box = document.getElementById(ctx + '-opp-ac');
     if (box) setTimeout(() => { box.style.display = 'none'; }, 150);
   },
 
