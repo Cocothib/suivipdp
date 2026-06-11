@@ -130,10 +130,10 @@ try {
             $res = sellsy_call('GET', "/opportunities/$id", $token);
             break;
         case 'opp_embed':
-            // DEBUG : test de récupération des champs personnalisés via embed
+            // DEBUG : récupération des champs personnalisés (sous-ressource v2)
             $id = (int)($_GET['id'] ?? 0);
             if (!$id) { http_response_code(400); echo json_encode(['error' => 'id manquant']); exit; }
-            $res = sellsy_call('GET', "/opportunities/$id?embed[]=custom_fields", $token);
+            $res = sellsy_call('GET', "/opportunities/$id/custom-fields", $token);
             break;
         case 'doc':
             // DEBUG : récupère un document lié (devis/facture/commande) avec ses lignes
