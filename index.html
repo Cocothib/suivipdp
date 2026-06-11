@@ -2485,14 +2485,6 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     </div>
     <div class="form-section">
       <div class="form-section-title d-flex justify-content-between align-items-center">
-        <span><i class="bi bi-geo-alt-fill"></i>Sites Agriwatt / Enersolys</span>
-        <button class="btn btn-sm btn-outline-primary" onclick="App.showSiteForm()"><i class="bi bi-plus-lg me-1"></i>Ajouter un site</button>
-      </div>
-      <div class="section-helper"><i class="bi bi-lightbulb"></i> Enregistrez vos sites pour les sélectionner rapidement dans les PDP et ICP. Chaque site peut avoir son propre responsable/conducteur de travaux.</div>
-      <div id="sites-list-container"></div>
-    </div>
-    <div class="form-section">
-      <div class="form-section-title d-flex justify-content-between align-items-center">
         <span><i class="bi bi-file-earmark-pdf"></i>Bibliothèque FDS</span>
         <label class="btn btn-sm btn-outline-primary mb-0"><i class="bi bi-upload me-1"></i>Importer FDS<input type="file" accept="application/pdf" multiple style="display:none" onchange="App.importFDSFiles(event)"></label>
       </div>
@@ -6640,7 +6632,7 @@ const App = {
           }
         } catch(e) { console.warn('[Init] Erreur import données embarquées:', e); }
       }
-      await this.seedDefaultSites();
+      await this._migrateSitesToAgences();
       await this.populateSiteSelects();
       _step('Synchronisation...', 60);
       await this._initSharePoint();
@@ -8825,8 +8817,14 @@ const App = {
       p.eu.adresse = infos.adresse;
       p.eu.siret = infos.siret;
       p.eu.tel = infos.tel;
+      if (a.responsable) p.eu.responsable = a.responsable;
+      if (a.fonction) p.eu.fonction = a.fonction;
+      if (a.email) p.eu.email = a.email;
       // Reflet UI immédiat (champs visibles uniquement, SIRET stocké dans le modèle)
       const ids = { 'eu-nom': infos.nom, 'eu-adresse': infos.adresse, 'eu-tel': infos.tel };
+      if (a.responsable) ids['eu-responsable'] = a.responsable;
+      if (a.fonction) ids['eu-fonction'] = a.fonction;
+      if (a.email) ids['eu-email'] = a.email;
       Object.entries(ids).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val; });
     } else {
       // EE AGRIWATT/ENERSOLYS dans entreprisesExt[]
@@ -8871,6 +8869,11 @@ const App = {
       v.euInfo.nom = a.nomComplet||base.nom; v.euInfo.adresse = aAdresse; v.euInfo.siret = a.siret||base.siret; v.euInfo.tel = a.tel||base.tel;
       const siteEl = document.getElementById('icp-site');
       if (siteEl && !siteEl.value.trim() && aAdresse) siteEl.value = aAdresse;
+      // Responsable / conducteur de travaux de l'agence (sans écraser une saisie existante)
+      const setIfEmpty = (id, val) => { const el = document.getElementById(id); if (el && !el.value.trim()) el.value = val||''; };
+      setIfEmpty('icp-eu-nom', a.responsable);
+      setIfEmpty('icp-eu-fonction', a.fonction);
+      setIfEmpty('icp-eu-tel', a.tel);
     } else {
       // Intervenant principal (EE) = NOTRE entité (AGRIWATT/ENERSOLYS) selon l'agence.
       // On met à jour le bloc "Représentant de l'intervenant principal" (eeRepresentant),
@@ -12388,19 +12391,51 @@ const App = {
     }
   },
 
+  // Migration unique : copie responsable/fonction/tel/email des anciens "sites" vers les agences correspondantes.
+  // Ne supprime pas db.sites (gardé pour la synchro multi-utilisateurs).
+  async _migrateSitesToAgences() {
+    try {
+      if (localStorage.getItem('sites_migrated_v1')) return;
+      const norm = (s) => (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[-\s]+/g,'');
+      const sites = await db.sites.toArray();
+      const agences = await loadAgences();
+      let changed = false;
+      for (const s of sites) {
+        if (!s || !(s.responsable && s.responsable.trim())) continue;
+        const sMarque = norm(s.entite);
+        const sNom = norm(s.nom);
+        if (!sNom) continue;
+        const ag = agences.find(a => {
+          if (norm(a.marque) !== sMarque) return false;
+          const aNom = norm(a.nomComplet);
+          const aVille = norm(a.ville);
+          return aNom.includes(sNom) || sNom.includes(aNom) || (aVille && (aVille.includes(sNom) || sNom.includes(aVille)));
+        });
+        if (!ag) continue;
+        if (!ag.responsable && s.responsable) { ag.responsable = s.responsable; changed = true; }
+        if (!ag.fonction && s.fonction) { ag.fonction = s.fonction; changed = true; }
+        if (!ag.tel && s.tel) { ag.tel = s.tel; changed = true; }
+        if (!ag.email && s.email) { ag.email = s.email; changed = true; }
+      }
+      if (changed) await saveAgences(agences);
+      localStorage.setItem('sites_migrated_v1', '1');
+    } catch (e) { console.warn('_migrateSitesToAgences:', e); }
+  },
+
   async populateSiteSelects() {
-    const sites = await db.sites.toArray();
+    const agences = await loadAgences();
     const grouped = {};
-    sites.forEach(s => {
-      const ent = (s.entite||'autre').toUpperCase();
+    agences.forEach(a => {
+      const ent = (a.marque||'autre').toUpperCase();
       if (!grouped[ent]) grouped[ent] = [];
-      grouped[ent].push(s);
+      grouped[ent].push(a);
     });
-    let html = '<option value="">— Choisir un site enregistré —</option>';
+    let html = '<option value="">— Choisir une agence —</option>';
     for (const [ent, list] of Object.entries(grouped).sort()) {
       html += `<optgroup label="${this.esc(ent)}">`;
-      list.sort((a,b) => (a.nom||'').localeCompare(b.nom||'')).forEach(s => {
-        html += `<option value="${s.id}">${this.esc(s.nom)}${s.responsable ? ' ('+this.esc(s.responsable)+')' : ''}</option>`;
+      list.sort((a,b) => (a.nomComplet||a.ville||'').localeCompare(b.nomComplet||b.ville||'')).forEach(a => {
+        const label = a.nomComplet || a.ville || a.id;
+        html += `<option value="${this.esc(a.id)}">${this.esc(label)}${a.responsable ? ' ('+this.esc(a.responsable)+')' : ''}</option>`;
       });
       html += '</optgroup>';
     }
@@ -12410,19 +12445,20 @@ const App = {
     if (sel2) sel2.innerHTML = html;
   },
 
-  async onSiteSelect(siteId) {
-    if (!siteId) return;
-    const s = await db.sites.get(parseInt(siteId));
-    if (!s) return;
-    const entiteLabel = s.entite === 'enersolys' ? 'ENERSOLYS' : 'AGRIWATT';
-    document.getElementById('eu-nom').value = entiteLabel + ' — ' + s.nom;
-    document.getElementById('eu-adresse').value = s.adresse || '';
-    document.getElementById('eu-responsable').value = s.responsable || '';
-    document.getElementById('eu-fonction').value = s.fonction || '';
-    document.getElementById('eu-tel').value = s.tel || '';
-    document.getElementById('eu-email').value = s.email || '';
-    document.getElementById('pdp-site').value = s.nom;
-    document.getElementById('pdp-entite').value = s.entite || 'agriwatt';
+  async onSiteSelect(agenceId) {
+    if (!agenceId) return;
+    await loadAgences();
+    const a = getAgenceById(agenceId);
+    if (!a) return;
+    const entiteLabel = a.marque === 'enersolys' ? 'ENERSOLYS' : 'AGRIWATT';
+    document.getElementById('eu-nom').value = entiteLabel + ' — ' + (a.nomComplet || a.ville || '');
+    document.getElementById('eu-adresse').value = a.adresse || '';
+    document.getElementById('eu-responsable').value = a.responsable || '';
+    document.getElementById('eu-fonction').value = a.fonction || '';
+    document.getElementById('eu-tel').value = a.tel || '';
+    document.getElementById('eu-email').value = a.email || '';
+    document.getElementById('pdp-site').value = a.ville || a.nomComplet || '';
+    document.getElementById('pdp-entite').value = a.marque || 'agriwatt';
     this.syncTypeEntiteUI();
     this._markEditing();
   },
@@ -12434,21 +12470,21 @@ const App = {
     this._markEditing && this._markEditing();
   },
 
-  async onICPSiteSelect(siteId) {
-    if (!siteId) return;
-    const s = await db.sites.get(parseInt(siteId));
-    if (!s) return;
+  async onICPSiteSelect(agenceId) {
+    if (!agenceId) return;
+    await loadAgences();
+    const a = getAgenceById(agenceId);
+    if (!a) return;
     // setIfEmpty : ne pas écraser ce que Sellsy ou l'utilisateur a déjà saisi
     const setIfEmpty = (id, v) => { const el = document.getElementById(id); if (el && !el.value.trim()) el.value = v||''; };
-    setIfEmpty('icp-eu-nom', s.responsable);
-    setIfEmpty('icp-eu-fonction', s.fonction);
-    setIfEmpty('icp-eu-tel', s.tel);
-    setIfEmpty('icp-site', s.nom);
+    setIfEmpty('icp-eu-nom', a.responsable);
+    setIfEmpty('icp-eu-fonction', a.fonction);
+    setIfEmpty('icp-eu-tel', a.tel);
+    setIfEmpty('icp-site', a.ville || a.nomComplet);
   },
 
   async renderSettingsView() {
     try { await this.renderAgencesList(); } catch (e) { console.warn('renderAgencesList:', e); }
-    await this.renderSitesList();
     try { await this.renderFDSList(); } catch (e) { console.warn('renderFDSList:', e); }
     try { await DataSync.renderSettingsStatus(); } catch (e) { console.warn('renderSettingsStatus:', e); }
     try { await this.renderAdminsSection(); } catch (e) { console.warn('renderAdminsSection:', e); }
@@ -12970,10 +13006,11 @@ const App = {
     if (!c) return;
     const agences = await loadAgences();
     if (!agences.length) { c.innerHTML = '<p class="text-muted text-center small mt-2">Aucune agence. Cliquez sur "Ajouter" pour commencer.</p>'; return; }
-    c.innerHTML = `<div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Nom</th><th>Marque</th><th>Adresse</th><th>SIRET</th><th>Téléphone</th><th></th></tr></thead><tbody>${
+    c.innerHTML = `<div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Nom</th><th>Marque</th><th>Responsable</th><th>Adresse</th><th>SIRET</th><th>Téléphone</th><th></th></tr></thead><tbody>${
       agences.map(a => `<tr>
         <td><b>${this.esc(a.nomComplet||a.ville||a.id)}</b></td>
         <td><span class="badge bg-${a.marque==='enersolys'?'info':'success'}">${this.esc(a.marque)}</span></td>
+        <td><small>${this.esc(a.responsable||'—')}</small></td>
         <td><small>${this.esc(a.adresse||'—')}</small></td>
         <td><small>${this.esc(a.siret||'—')}</small></td>
         <td><small>${this.esc(a.tel||'—')}</small></td>
@@ -12993,7 +13030,7 @@ const App = {
   },
   async openAgenceForm(id) {
     const agences = await loadAgences();
-    const a = id ? agences.find(x => x.id === id) : { id:'', marque:'agriwatt', nomComplet:'', ville:'', adresse:'', siret:'', tel:'' };
+    const a = id ? agences.find(x => x.id === id) : { id:'', marque:'agriwatt', nomComplet:'', ville:'', adresse:'', siret:'', tel:'', responsable:'', fonction:'', email:'' };
     if (!a) return;
     // Décomposition adresse -> rue / CP / ville (rétro-compat avec les agences ne stockant que "adresse")
     const _cpMatch = (a.adresse||'').match(/\b(\d{5})\b/);
@@ -13018,6 +13055,9 @@ const App = {
         <div class="col-md-8"><label class="form-label small">Ville</label><input class="form-control form-control-sm" id="ag-ville" value="${this.esc(_ville)}" placeholder="ex: VERVINS"></div>
         <div class="col-md-6"><label class="form-label small">SIRET</label><input class="form-control form-control-sm" id="ag-siret" value="${this.esc(a.siret||'')}"></div>
         <div class="col-md-6"><label class="form-label small">Téléphone</label><input class="form-control form-control-sm" id="ag-tel" value="${this.esc(a.tel||'')}"></div>
+        <div class="col-md-6"><label class="form-label small">Responsable / conducteur de travaux</label><input class="form-control form-control-sm" id="ag-responsable" value="${this.esc(a.responsable||'')}" placeholder="ex: Jean Dupont"></div>
+        <div class="col-md-3"><label class="form-label small">Fonction</label><input class="form-control form-control-sm" id="ag-fonction" value="${this.esc(a.fonction||'')}" placeholder="ex: Conducteur de travaux"></div>
+        <div class="col-md-3"><label class="form-label small">Email</label><input class="form-control form-control-sm" id="ag-email" value="${this.esc(a.email||'')}"></div>
       </div>
     `;
     AutorisationInterne._openModal({
@@ -13035,14 +13075,17 @@ const App = {
         const adresse = [rue, [cp, ville].filter(Boolean).join(' ')].filter(Boolean).join(', ');
         const siret = document.getElementById('ag-siret').value.trim();
         const tel = document.getElementById('ag-tel').value.trim();
+        const responsable = document.getElementById('ag-responsable').value.trim();
+        const fonction = document.getElementById('ag-fonction').value.trim();
+        const email = document.getElementById('ag-email').value.trim();
         const list = await loadAgences();
         if (id) {
           const idx = list.findIndex(x => x.id === id);
-          if (idx >= 0) list[idx] = { ...list[idx], nomComplet, marque, rue, cp, ville, adresse, siret, tel };
+          if (idx >= 0) list[idx] = { ...list[idx], nomComplet, marque, rue, cp, ville, adresse, siret, tel, responsable, fonction, email };
         } else {
           const newId = (marque + '-' + (ville || nomComplet).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')) || ('agence-'+Date.now());
           if (list.find(x => x.id === newId)) { alert('Une agence avec cet identifiant existe déjà.'); return false; }
-          list.push({ id: newId, marque, nomComplet, rue, cp, ville, adresse, siret, tel });
+          list.push({ id: newId, marque, nomComplet, rue, cp, ville, adresse, siret, tel, responsable, fonction, email });
         }
         await saveAgences(list);
         await this.renderAgencesList();
@@ -13223,7 +13266,7 @@ const App = {
   async resetData() {
     if (!await this.confirm('Supprimer TOUTES les données ?')) return;
     await db.pdps.clear(); await db.entreprises.clear(); await db.icps.clear(); await db.sites.clear(); await db.settings.clear();
-    this._settings = {}; this.applySettings(); this.updateDashboard(); await this.seedDefaultSites(); await this.populateSiteSelects(); this.renderSitesList();
+    this._settings = {}; this.applySettings(); this.updateDashboard(); await this.populateSiteSelects();
     if (typeof DataSync !== 'undefined' && DataSync._connected) DataSync.markDirty();
     this.toast('Réinitialisé','warning');
   },
