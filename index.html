@@ -3739,6 +3739,10 @@ const DataSync = {
         if (_msalAccount?.name) return _msalAccount.name;
         return localStorage.getItem('pdp_user_name') || '';
     },
+    // Email (UPN) du compte Microsoft connecté — utilisé pour notifier l'auteur d'un risque
+    getUserEmail() {
+        return (_msalAccount?.username || '').trim();
+    },
     setUserName(name) { localStorage.setItem('pdp_user_name', (name||'').trim()); },
     _ensureUserName() {
         let name = this.getUserName();
@@ -11805,6 +11809,7 @@ const App = {
       niveau: Number(data.niveau) || 2,
       statut: 'pending',
       proposedBy: DataSync.getUserName() || 'inconnu',
+      proposedByEmail: DataSync.getUserEmail() || '',
       proposedAt: new Date().toISOString(),
       reviewedBy: '', reviewedAt: '', reviewComment: ''
     };
@@ -11835,6 +11840,35 @@ const App = {
       <p style="margin-top:16px"><a href="${appUrl}#settings" style="background:#00693e;color:#fff;padding:8px 16px;text-decoration:none;border-radius:4px">Ouvrir l'application</a></p>
       <p style="font-size:11px;color:#888">Notification automatique SuiviPDP — ne pas répondre à cet email.</p>`;
     await _sendMailViaGraph(recipients, `[SuiviPDP] Nouveau risque à valider : ${entry.nom}`, html);
+  },
+
+  // Notifie par mail l'auteur du risque de la décision (validé / rejeté)
+  async _notifyRiskReviewed(entry, decision) {
+    try {
+      if (!DataSync._connected) return;
+      const to = (entry.proposedByEmail || '').trim();
+      if (!to) return; // auteur sans email (risque proposé avant cette fonctionnalité) → pas de notif
+      // Ne pas s'auto-notifier (l'admin valide son propre risque)
+      if (to.toLowerCase() === (DataSync.getUserEmail() || '').toLowerCase()) return;
+      const approved = decision === 'approved';
+      const niveauLabel = ['', 'Faible', 'Moyen', 'Élevé', 'Critique'][entry.niveau] || entry.niveau;
+      const appUrl = window.location.origin + window.location.pathname;
+      const statutTxt = approved ? 'VALIDÉ' : 'REJETÉ';
+      const couleur = approved ? '#00693e' : '#b00000';
+      const html = `
+        <p>Bonjour,</p>
+        <p>Le risque que vous avez proposé dans l'application SuiviPDP a été <strong style="color:${couleur}">${statutTxt}</strong> par ${this.esc(entry.reviewedBy || 'un administrateur')}.</p>
+        <table style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif">
+          <tr><td style="padding:4px 12px 4px 0"><strong>Risque :</strong></td><td>${this.esc(entry.nom)}</td></tr>
+          <tr><td style="padding:4px 12px 4px 0"><strong>Catégorie :</strong></td><td>${this.esc(entry.categorie)}</td></tr>
+          ${approved ? `<tr><td style="padding:4px 12px 4px 0"><strong>Niveau retenu :</strong></td><td>${this.esc(niveauLabel)}${entry.criticite ? ` (criticité : ${this.esc(entry.criticite)})` : ''}</td></tr>` : ''}
+          ${entry.reviewComment ? `<tr><td style="padding:4px 12px 4px 0;vertical-align:top"><strong>Commentaire :</strong></td><td>${this.esc(entry.reviewComment)}</td></tr>` : ''}
+        </table>
+        <p>${approved ? "Ce risque est désormais intégré au Document Unique (DUERP) et disponible dans le catalogue." : "Ce risque ne sera pas ajouté au catalogue. N'hésitez pas à en reproposer un si nécessaire."}</p>
+        <p style="margin-top:16px"><a href="${appUrl}" style="background:#00693e;color:#fff;padding:8px 16px;text-decoration:none;border-radius:4px">Ouvrir l'application</a></p>
+        <p style="font-size:11px;color:#888">Notification automatique SuiviPDP — ne pas répondre à cet email.</p>`;
+      await _sendMailViaGraph([to], `[SuiviPDP] Votre risque a été ${approved ? 'validé' : 'rejeté'} : ${entry.nom}`, html);
+    } catch (e) { console.warn('Notif mail réponse risque échouée:', e); }
   },
 
   // Backward-compat : l'ancien code appelle saveCustomRisk(name). On redirige vers proposeCustomRisk.
@@ -11868,6 +11902,7 @@ const App = {
     }
     await this._saveCustomRisksRaw(list);
     if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.approve', { nom: entry.nom, score: entry.score, criticite: entry.criticite });
+    this._notifyRiskReviewed(entry, 'approved').catch(e => console.warn('Notif réponse risque:', e));
     return true;
   },
 
@@ -11889,6 +11924,7 @@ const App = {
     entry.reviewComment = comment || '';
     await this._saveCustomRisksRaw(list);
     if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.reject', { nom: entry.nom, comment });
+    this._notifyRiskReviewed(entry, 'rejected').catch(e => console.warn('Notif réponse risque:', e));
     return true;
   },
 
