@@ -10228,6 +10228,11 @@ const App = {
       const HARD_CAP = 10000;
       while (offset < HARD_CAP) {
         if (statusEl) statusEl.innerHTML = `<i class="bi bi-hourglass-split me-1"></i>Chargement… ${all.length} opps récupérées`;
+        // Compteur de progression dans le dropdown de l'autocomplete (ICP/PDP)
+        if (this._oppAcLoading) {
+          const acBox = document.getElementById((this._oppAcCtx || 'icp') + '-opp-ac');
+          if (acBox) acBox.innerHTML = `<div class="list-group-item small text-muted"><i class="bi bi-hourglass-split me-1"></i>Chargement… ${all.length} opportunités récupérées</div>`;
+        }
         const { items } = await SellsyAPI.listOpportunities(PAGE, offset);
         if (!items.length) break;
         all = all.concat(items);
@@ -10286,6 +10291,7 @@ const App = {
     if (!this._sellsyOppCache || !this._sellsyOppCache.length) {
       if (!this._oppAcLoading) {
         this._oppAcLoading = true;
+        this._oppAcCtx = ctx;
         box.style.display = 'block';
         box.innerHTML = '<div class="list-group-item small text-muted"><i class="bi bi-hourglass-split me-1"></i>Chargement des opportunités Sellsy…</div>';
         this.loadSellsyOppList().finally(() => { this._oppAcLoading = false; this.renderOppAutocomplete(ctx); });
