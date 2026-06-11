@@ -2688,12 +2688,12 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <li><strong>Entreprises</strong> — EU pré-remplie depuis Sellsy + EE (sous-traitants)</li>
           <li><strong>Visite</strong> — Liste de tous les participants ICP, photos, observations</li>
           <li><strong>Risques / Mesures</strong> — Catalogue par catégories, mesures cochables individuellement</li>
-          <li><strong>Urgence</strong> — Responsable site + tél pré-remplis depuis le contact EU</li>
+          <li><strong>Urgence</strong> — Responsable site + tél pré-remplis depuis le contact EU. Inclut l'encart <em>Environnement</em> : matériaux absorbants à disposition en cas de déversement accidentel (Oui/Non + précisions)</li>
           <li><strong>Signatures</strong> — EU + EE sous-traitantes + tous les participants ICP EE (HESSE, BURTIN…)</li>
           <li><strong>Permis de feu</strong> — Rep EU et Rep Entreprise Intervenante pré-remplis. Émargement signature pour chaque ronde de surveillance (preuve légale &gt; 2h après points chauds)</li>
           <li><strong>Émargement</strong> — Liste auto-générée de tous les intervenants à signer avant accès chantier</li>
           <li><strong>Pictogrammes</strong> — Cochés par défaut : interdiction vapoter/fumer + accès limité + 5 EPI essentiels (casque, chaussures, vêtement, gants, antichute)</li>
-          <li><strong>Annexes</strong> — Documents joints + 9 FDS standards rattachées automatiquement</li>
+          <li><strong>Annexes</strong> — Documents joints + 10 FDS standards (9 Würth + 1 Polywater) rattachées automatiquement</li>
         </ul>
         <p><strong>Astuce</strong> : à chaque sauvegarde, les <strong>nouvelles personnes saisies</strong> sont automatiquement ajoutées au répertoire entreprises (sans modifier le contact principal existant) — la base s'enrichit au fil de l'eau.</p>
       </div></div></div>
@@ -2747,6 +2747,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <li><strong>Permis de feu seul (Word/PDF)</strong> — extrait juste le permis</li>
           <li><strong>PDP sous-traitant</strong> — variante allégée à transmettre aux EE</li>
         </ul>
+        <p><i class="bi bi-droplet-half"></i> <strong>Fiche réflexe FR-01 « Pollution accidentelle »</strong> : annexée automatiquement en dernière page de chaque export Word et PDF du PDP, pour consultation par les techniciens sur le chantier.</p>
         <p><strong>Format de nom de fichier</strong> :</p>
         <ul>
           <li>PDP : <code>OPP-04146_PDP-202604-0004_BAYART Dominique.docx</code></li>
@@ -6683,7 +6684,7 @@ const App = {
 
   _onboardingStepsPDP: [
     { selector: '#pdp-ref-operation, #pdp-numero', title: 'N° d\'opération Sellsy',
-      body: "Tapez le n° d'opportunité Sellsy (préfixe OPP-) pour récupérer toutes les données client automatiquement.",
+      body: "Saisissez le n° d'opportunité Sellsy (préfixe OPP-) puis cliquez sur la loupe verte pour récupérer toutes les données client.",
       placement: 'bottom' },
     { selector: '#pdp-section-tabs', title: 'Naviguer entre les sections',
       body: "Le PDP est découpé en sections : général, entreprises, risques, signatures… Utilisez ces onglets pour passer de l'une à l'autre.",
