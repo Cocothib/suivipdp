@@ -8816,16 +8816,19 @@ const App = {
       const siteEl = document.getElementById('icp-site');
       if (siteEl && !siteEl.value.trim() && a.adresse) siteEl.value = a.adresse;
     } else {
-      // EE : trouver/créer l'EE AGRIWATT/ENERSOLYS dans l'ICP
-      v.entreprisesExt = v.entreprisesExt || [];
-      const isOurs = (nom) => /agriwatt|enersolys/i.test(nom||'');
-      let ee = v.entreprisesExt.find(e => isOurs(e.nom));
-      if (!ee) {
-        ee = { nom:'', adresse:'', siret:'', responsable:'', fonction:'', tel:'', activite:'' };
-        v.entreprisesExt.push(ee);
+      // Intervenant principal (EE) = NOTRE entité (AGRIWATT/ENERSOLYS) selon l'agence.
+      // On met à jour le bloc "Représentant de l'intervenant principal" (eeRepresentant),
+      // sans écraser si l'utilisateur y a saisi un tiers.
+      const nom = (ENTITY_PRESETS[a.marque] || ENTITY_PRESETS.agriwatt).nom;
+      const inp = document.getElementById('icp-ee-entreprise-input');
+      if (inp) {
+        const cur = (inp.value||'').trim();
+        const isOurs = (n) => /agriwatt|enersolys/i.test(n||'');
+        if (!cur || isOurs(cur)) {
+          inp.value = nom;
+          this.onICPEERepEntrepriseInput(nom);
+        }
       }
-      ee.nom = a.nomComplet||''; ee.adresse = a.adresse||''; ee.siret = a.siret||''; ee.tel = a.tel||'';
-      if (typeof this.renderICPEEList === 'function') { try { this.renderICPEEList(); } catch(e){} }
     }
   },
 
