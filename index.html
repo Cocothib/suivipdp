@@ -8763,7 +8763,9 @@ const App = {
     if (!a || !this.currentPDP) return;
     const p = this.currentPDP;
     const typePdp = (document.getElementById('pdp-type')||{}).value || p.typePdp || 'client';
-    const infos = { nom: a.nomComplet||'', adresse: a.adresse||'', siret: a.siret||'', tel: a.tel||'' };
+    // Repli sur le preset de la marque pour les champs non renseignés au niveau de l'agence
+    const base = ENTITY_PRESETS[a.marque] || ENTITY_PRESETS.agriwatt;
+    const infos = { nom: a.nomComplet||base.nom, adresse: a.adresse||base.adresse, siret: a.siret||base.siret, tel: a.tel||base.tel };
     if (typePdp === 'interne') {
       // EU = AGRIWATT/ENERSOLYS
       p.eu = p.eu || {};
@@ -8809,12 +8811,14 @@ const App = {
     if (!a || !this.currentICP) return;
     const v = this.currentICP;
     const isInterne = !!document.getElementById('icp-chantier-interne')?.checked;
+    const base = ENTITY_PRESETS[a.marque] || ENTITY_PRESETS.agriwatt;
+    const aAdresse = a.adresse || base.adresse;
     if (isInterne) {
       // EU = AGRIWATT/ENERSOLYS : on remplit euInfo (utilisé à la création du PDP) + l'adresse site
       v.euInfo = v.euInfo || {};
-      v.euInfo.nom = a.nomComplet||''; v.euInfo.adresse = a.adresse||''; v.euInfo.siret = a.siret||''; v.euInfo.tel = a.tel||'';
+      v.euInfo.nom = a.nomComplet||base.nom; v.euInfo.adresse = aAdresse; v.euInfo.siret = a.siret||base.siret; v.euInfo.tel = a.tel||base.tel;
       const siteEl = document.getElementById('icp-site');
-      if (siteEl && !siteEl.value.trim() && a.adresse) siteEl.value = a.adresse;
+      if (siteEl && !siteEl.value.trim() && aAdresse) siteEl.value = aAdresse;
     } else {
       // Intervenant principal (EE) = NOTRE entité (AGRIWATT/ENERSOLYS) selon l'agence.
       // On met à jour le bloc "Représentant de l'intervenant principal" (eeRepresentant),
