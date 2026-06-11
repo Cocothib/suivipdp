@@ -12921,6 +12921,11 @@ const App = {
     const agences = await loadAgences();
     const a = id ? agences.find(x => x.id === id) : { id:'', marque:'agriwatt', nomComplet:'', ville:'', adresse:'', siret:'', tel:'' };
     if (!a) return;
+    // Décomposition adresse -> rue / CP / ville (rétro-compat avec les agences ne stockant que "adresse")
+    const _cpMatch = (a.adresse||'').match(/\b(\d{5})\b/);
+    const _rue = a.rue || (a.adresse ? a.adresse.replace(/,?\s*\b\d{5}\b.*$/, '').trim() : '');
+    const _cp = a.cp || (_cpMatch ? _cpMatch[1] : '');
+    const _ville = a.ville || '';
     const body = `
       <div class="row g-2">
         <div class="col-md-6">
@@ -12934,8 +12939,9 @@ const App = {
             <option value="enersolys" ${a.marque==='enersolys'?'selected':''}>Enersolys</option>
           </select>
         </div>
-        <div class="col-md-4"><label class="form-label small">Ville</label><input class="form-control form-control-sm" id="ag-ville" value="${this.esc(a.ville||'')}"></div>
-        <div class="col-md-8"><label class="form-label small">Adresse complète</label><input class="form-control form-control-sm" id="ag-adresse" value="${this.esc(a.adresse||'')}"></div>
+        <div class="col-12"><label class="form-label small">Adresse (n° et rue)</label><input class="form-control form-control-sm" id="ag-rue" value="${this.esc(_rue)}" placeholder="ex: 8 Avenue de la gare"></div>
+        <div class="col-md-4"><label class="form-label small">Code postal</label><input class="form-control form-control-sm" id="ag-cp" value="${this.esc(_cp)}" inputmode="numeric" maxlength="5" placeholder="02140"></div>
+        <div class="col-md-8"><label class="form-label small">Ville</label><input class="form-control form-control-sm" id="ag-ville" value="${this.esc(_ville)}" placeholder="ex: VERVINS"></div>
         <div class="col-md-6"><label class="form-label small">SIRET</label><input class="form-control form-control-sm" id="ag-siret" value="${this.esc(a.siret||'')}"></div>
         <div class="col-md-6"><label class="form-label small">Téléphone</label><input class="form-control form-control-sm" id="ag-tel" value="${this.esc(a.tel||'')}"></div>
       </div>
@@ -12948,18 +12954,21 @@ const App = {
         const nomComplet = document.getElementById('ag-nomComplet').value.trim();
         if (!nomComplet) { alert('Nom obligatoire'); return false; }
         const marque = document.getElementById('ag-marque').value;
+        const rue = document.getElementById('ag-rue').value.trim();
+        const cp = document.getElementById('ag-cp').value.trim();
         const ville = document.getElementById('ag-ville').value.trim();
-        const adresse = document.getElementById('ag-adresse').value.trim();
+        // Adresse complète recomposée (utilisée partout : exports, EU/EE, etc.)
+        const adresse = [rue, [cp, ville].filter(Boolean).join(' ')].filter(Boolean).join(', ');
         const siret = document.getElementById('ag-siret').value.trim();
         const tel = document.getElementById('ag-tel').value.trim();
         const list = await loadAgences();
         if (id) {
           const idx = list.findIndex(x => x.id === id);
-          if (idx >= 0) list[idx] = { ...list[idx], nomComplet, marque, ville, adresse, siret, tel };
+          if (idx >= 0) list[idx] = { ...list[idx], nomComplet, marque, rue, cp, ville, adresse, siret, tel };
         } else {
           const newId = (marque + '-' + (ville || nomComplet).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')) || ('agence-'+Date.now());
           if (list.find(x => x.id === newId)) { alert('Une agence avec cet identifiant existe déjà.'); return false; }
-          list.push({ id: newId, marque, nomComplet, ville, adresse, siret, tel });
+          list.push({ id: newId, marque, nomComplet, rue, cp, ville, adresse, siret, tel });
         }
         await saveAgences(list);
         await this.renderAgencesList();
