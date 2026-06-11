@@ -3541,6 +3541,30 @@ async function _graphFetch(url, options = {}) {
     return fetch(url, { ...options, headers: { 'Authorization': `Bearer ${token}`, ...(options.headers || {}) } });
 }
 
+// Traduit une erreur MSAL / Microsoft Graph en message clair pour l'utilisateur.
+// Retourne null si l'utilisateur a simplement annulé.
+function _friendlyAuthError(e) {
+    const code = (e && (e.errorCode || e.code)) || '';
+    const msg  = (e && (e.errorMessage || e.message)) || String(e || '');
+    const m = (code + ' ' + msg);
+    if (/user_cancelled|user_cancel/i.test(m)) return null;
+    if (/50020|does not exist in tenant|wrong_tenant|external|account.*not.*found in/i.test(m))
+        return "Ce compte Microsoft n'appartient pas à l'organisation AGRIWATT / Enersolys. Connectez-vous avec votre compte professionnel.";
+    if (/65001|consent_required|interaction_required|90008/i.test(m))
+        return "Autorisations Microsoft non accordées. Reconnectez-vous et acceptez les autorisations demandées (Accepter).";
+    if (/50076|mfa|strong.?auth/i.test(m))
+        return "Une authentification renforcée (MFA) est requise. Validez la demande sur votre application Microsoft Authenticator.";
+    if (/popup|window_error|block/i.test(m))
+        return "La fenêtre de connexion Microsoft a été bloquée. Autorisez les fenêtres pop-up pour ce site puis réessayez.";
+    if (/interaction_in_progress|monitor_window|hash_empty|hash_does_not|no_token_request|BrowserAuth/i.test(m))
+        return "Connexion interrompue. Ouvrez l'application dans Safari ou Chrome (pas depuis un lien Teams / Outlook / WhatsApp), sans navigation privée, puis réessayez.";
+    if (/\b403\b|forbidden|access.?denied/i.test(m))
+        return "Accès au site SharePoint QHSE refusé. Demandez à l'administrateur de vous ajouter au site.";
+    if (/network|failed to fetch|timeout|ERR_/i.test(m))
+        return "Connexion réseau impossible. Vérifiez votre connexion internet puis réessayez.";
+    return "Erreur de connexion Microsoft : " + (msg || code || 'inconnue');
+}
+
 function _siteApiBase() { return `https://graph.microsoft.com/v1.0/sites/root:${SP_CONFIG.SHAREPOINT_SITE_PATH}:`; }
 
 let _cachedDriveId = null;
@@ -4480,6 +4504,17 @@ const DataSync = {
         try {
             await _initMSAL();
             if (_msalAccount) {
+                // Au retour d'une connexion mobile (redirection), valider l'accès réel au site
+                if (_msalInstance._fromRedirect) {
+                    const access = await this._checkSiteAccess();
+                    if (!access.ok) {
+                        App.toast(access.status === '403'
+                            ? `Connecté à Microsoft (${_msalAccount.name||''}), mais accès au site SharePoint QHSE refusé. Demandez à l'administrateur de vous ajouter au site.`
+                            : `Connecté à Microsoft, mais le site SharePoint est injoignable (${access.status||'erreur'}). Réessayez plus tard.`,
+                            'danger', 9000);
+                        return 'no-handle';
+                    }
+                }
                 this._connected = true;
                 const loaded = await this._loadFromRemote();
                 if (!loaded && _msalInstance._fromRedirect) { await this.save(); }
@@ -4488,7 +4523,21 @@ const DataSync = {
                 return 'connected';
             }
             return 'no-handle';
-        } catch (e) { console.warn('DataSync: auto-connect échoué', e); return 'no-handle'; }
+        } catch (e) {
+            console.warn('DataSync: auto-connect échoué', e);
+            const friendly = _friendlyAuthError(e);
+            if (friendly && _msalInstance && _msalInstance._fromRedirect) App.toast(friendly, 'danger', 9000);
+            return 'no-handle';
+        }
+    },
+
+    // Vérifie l'accès effectif au site SharePoint (être authentifié ≠ avoir les droits).
+    async _checkSiteAccess() {
+        try { await _getDriveId(); return { ok: true }; }
+        catch (e) {
+            const status = ((e && e.message || '').match(/\b(\d{3})\b/) || [])[1] || '';
+            return { ok: false, status };
+        }
     },
 
     async connectFolder() {
@@ -4497,6 +4546,15 @@ const DataSync = {
             if (_isMobile) { await _msalInstance.loginRedirect({ scopes: SP_CONFIG.SCOPES }); return false; }
             const resp = await _msalInstance.loginPopup({ scopes: SP_CONFIG.SCOPES });
             _msalAccount = resp.account;
+            // Authentifié : vérifier l'accès réel au site QHSE
+            const access = await this._checkSiteAccess();
+            if (!access.ok) {
+                App.toast(access.status === '403'
+                    ? `Connecté à Microsoft (${_msalAccount.name||''}), mais accès au site SharePoint QHSE refusé. Demandez à l'administrateur de vous ajouter au site.`
+                    : `Connecté à Microsoft, mais le site SharePoint est injoignable (${access.status||'erreur'}). Réessayez plus tard.`,
+                    'danger', 9000);
+                return false;
+            }
             this._connected = true;
             const loaded = await this._loadFromRemote();
             if (!loaded) await this.save();
@@ -4507,7 +4565,9 @@ const DataSync = {
         } catch (e) {
             if (e.errorCode === 'user_cancelled') return false;
             console.error('DataSync: erreur connexion', e);
-            App.toast('Erreur de connexion Microsoft', 'danger'); return false;
+            const friendly = _friendlyAuthError(e);
+            if (friendly) App.toast(friendly, 'danger', 9000);
+            return false;
         }
     },
 
@@ -6799,13 +6859,13 @@ const App = {
   },
 
   // ---- TOAST ----
-  toast(msg, type = 'success') {
+  toast(msg, type = 'success', duration = 3000) {
     const icons = { success: 'check-circle-fill', danger: 'x-circle-fill', warning: 'exclamation-triangle-fill', info: 'info-circle-fill' };
     const t = document.createElement('div');
     t.className = `toast align-items-center text-bg-${type} border-0 show`;
     t.innerHTML = `<div class="d-flex"><div class="toast-body"><i class="bi bi-${icons[type]||'info-circle'} me-1"></i>${msg}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.closest('.toast').remove()"></button></div>`;
     document.getElementById('toast-container').appendChild(t);
-    setTimeout(() => t.remove(), 3000);
+    setTimeout(() => t.remove(), duration);
   },
 
   // ---- CONFIRM ----
