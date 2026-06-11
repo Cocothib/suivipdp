@@ -2592,6 +2592,17 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <button class="btn btn-outline-primary btn-sm" onclick="App.testSellsyConnection()"><i class="bi bi-wifi me-1"></i>Tester</button>
         <div id="sellsy-test-output" class="mt-2 small"></div>
       </div>
+      <!-- DEBUG TEMPORAIRE — inspecteur d'opportunité Sellsy (à retirer une fois les champs identifiés) -->
+      <div class="field-group" id="sellsy-debug-inspect" style="border-left:3px solid #ffb81c">
+        <div class="field-group-title"><i class="bi bi-bug"></i> Inspecter une opportunité (debug — temporaire)</div>
+        <p class="small text-muted mb-2">Affiche tous les champs renvoyés par Sellsy pour une opportunité (dont d'éventuels champs personnalisés), afin de décider quoi exploiter dans le PDP/ICP.</p>
+        <div class="input-group input-group-sm mb-2" style="max-width:420px">
+          <span class="input-group-text">OPP-</span>
+          <input type="text" class="form-control" id="sellsy-inspect-opp" placeholder="Ex: 04146">
+          <button class="btn btn-outline-primary" onclick="App.inspectSellsyOpp()"><i class="bi bi-search me-1"></i>Inspecter</button>
+        </div>
+        <pre id="sellsy-inspect-output" class="small bg-light border rounded p-2" style="max-height:360px;overflow:auto;white-space:pre-wrap;display:none"></pre>
+      </div>
       <div class="field-group">
         <div class="field-group-title"><i class="bi bi-arrow-repeat"></i> Synchroniser le répertoire entreprises</div>
         <p class="small text-muted mb-2">Importe ou met à jour toutes les sociétés Sellsy dans votre répertoire local (mise à jour par SIRET).</p>
@@ -10255,6 +10266,34 @@ const App = {
       }
     } catch (e) {
       if (out) out.innerHTML = `<span class="text-danger"><i class="bi bi-x-circle me-1"></i>Proxy inaccessible : ${this.esc(e.message||e)}</span>`;
+    }
+  },
+
+  // DEBUG TEMPORAIRE — inspecteur d'opportunité Sellsy (à retirer avec le bloc #sellsy-debug-inspect)
+  async inspectSellsyOpp() {
+    const out = document.getElementById('sellsy-inspect-output');
+    const raw = (document.getElementById('sellsy-inspect-opp')?.value || '').trim().replace(/^OPP-?/i, '');
+    if (!raw) { this.toast("Saisis un n° d'opportunité", 'warning'); return; }
+    if (out) { out.style.display = 'block'; out.textContent = 'Recherche en cours…'; }
+    try {
+      if (!this._sellsyOppCache || !this._sellsyOppCache.length) {
+        if (out) out.textContent = 'Chargement de la liste des opportunités…';
+        await this.loadSellsyOppList();
+      }
+      const norm = (s) => (s || '').toString().toLowerCase().replace(/^opp-?/, '').trim();
+      const opp = (this._sellsyOppCache || []).find(o => norm(o.ref) === norm(raw));
+      if (!opp) { if (out) out.textContent = `Aucune opportunité trouvée pour OPP-${raw}.`; return; }
+      if (out) out.textContent = 'Récupération du détail Sellsy…';
+      const data = await SellsyAPI._call({ action: 'opportunity', id: opp.id });
+      const keys = Object.keys(data || {}).sort();
+      const cf = data.custom_fields || data.customFields || (data.embed && data.embed.custom_fields) || null;
+      let head = `OPP-${raw}  (id Sellsy : ${opp.id})\n`;
+      head += `Champs de premier niveau : ${keys.join(', ')}\n`;
+      head += cf ? `\n>>> Champs personnalisés DÉTECTÉS (voir custom_fields ci-dessous) <<<\n`
+                 : `\n(Pas de "custom_fields" au premier niveau — peut nécessiter un appel dédié à ajouter au proxy.)\n`;
+      if (out) out.textContent = head + '\n' + JSON.stringify(data, null, 2);
+    } catch (e) {
+      if (out) out.textContent = 'Erreur : ' + (e && e.message || e);
     }
   },
 
