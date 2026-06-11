@@ -10286,12 +10286,41 @@ const App = {
       if (out) out.textContent = 'Récupération du détail Sellsy…';
       const data = await SellsyAPI._call({ action: 'opportunity', id: opp.id });
       const keys = Object.keys(data || {}).sort();
-      const cf = data.custom_fields || data.customFields || (data.embed && data.embed.custom_fields) || null;
-      let head = `OPP-${raw}  (id Sellsy : ${opp.id})\n`;
-      head += `Champs de premier niveau : ${keys.join(', ')}\n`;
-      head += cf ? `\n>>> Champs personnalisés DÉTECTÉS (voir custom_fields ci-dessous) <<<\n`
-                 : `\n(Pas de "custom_fields" au premier niveau — peut nécessiter un appel dédié à ajouter au proxy.)\n`;
-      if (out) out.textContent = head + '\n' + JSON.stringify(data, null, 2);
+      const sep = '\n' + '─'.repeat(50) + '\n';
+      let txt = `OPP-${raw}  (id Sellsy : ${opp.id})\nChamps de premier niveau : ${keys.join(', ')}\n`;
+
+      // 1) Note (HTML nettoyé)
+      const note = (data.note || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+      txt += sep + '① NOTE (texte nettoyé) :\n' + (note || '(vide)');
+
+      // 2) Champs personnalisés (via embed)
+      if (out) out.textContent = txt + sep + '② Champs personnalisés : récupération…';
+      let cfTxt;
+      try {
+        const e = await SellsyAPI._call({ action: 'opp_embed', id: opp.id });
+        const cf = e.custom_fields || e.customFields || (e._embed && e._embed.custom_fields) || null;
+        cfTxt = cf ? JSON.stringify(cf, null, 2) : '(aucun champ personnalisé renvoyé — clés: ' + Object.keys(e || {}).join(', ') + ')';
+      } catch (err) { cfTxt = 'Erreur : ' + (err && err.message || err); }
+      txt += sep + '② CHAMPS PERSONNALISÉS :\n' + cfTxt;
+
+      // 3) Document lié (devis/facture) → lignes produits
+      let docTxt = '(pas de main_doc_id)';
+      if (data.main_doc_id) {
+        docTxt = '';
+        for (const t of ['estimates', 'invoices', 'orders']) {
+          if (out) out.textContent = txt + sep + `③ Document lié : essai ${t}…`;
+          try {
+            const d = await SellsyAPI._call({ action: 'doc', id: data.main_doc_id, type: t });
+            const rows = d.rows || (d._embed && d._embed.rows) || null;
+            docTxt = `[type trouvé : ${t}]\n` + (rows ? 'LIGNES :\n' + JSON.stringify(rows, null, 2) : JSON.stringify(d, null, 2));
+            break;
+          } catch (err) { docTxt += `[${t}] ${err && err.message || err}\n`; }
+        }
+      }
+      txt += sep + `③ DOCUMENT LIÉ (main_doc_id=${data.main_doc_id || '—'}) :\n` + docTxt;
+
+      txt += sep + 'JSON BRUT opportunité :\n' + JSON.stringify(data, null, 2);
+      if (out) out.textContent = txt;
     } catch (e) {
       if (out) out.textContent = 'Erreur : ' + (e && e.message || e);
     }
