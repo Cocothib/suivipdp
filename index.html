@@ -4247,7 +4247,15 @@ const DataSync = {
     // divergence. Les records créés après le correctif ont déjà un vrai uid.
     _ensureUids(arr, prefix) {
         for (const e of (arr || [])) {
-            if (!e.uid) e.uid = `legacy-${prefix}:${e.numero || ('id' + e.id)}`;
+            if (!e.uid) {
+                // Clé composite STABLE et DISCRIMINANTE. Le numero seul ne suffit
+                // PAS : suite au bug d'id local, deux ICP/PDP distinctes (créées en
+                // parallèle sur 2 postes) partagent le même numero. On ajoute
+                // dateCreation (figée à la création, partagée entre postes) + site/
+                // titre pour ne jamais fusionner deux records réellement distincts.
+                const parts = [e.numero || ('id' + e.id), e.dateCreation || e.dateVisite || '', e.site || e.titre || ''];
+                e.uid = `legacy-${prefix}:` + parts.join('|');
+            }
         }
         return arr;
     },
