@@ -946,6 +946,9 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
 }
 .risk-chip .chip-check { display: none; font-size: 0.7rem; }
 .risk-chip.selected .chip-check { display: inline; }
+.risk-chip .chip-del { color: #dc3545; font-size: 0.85rem; opacity: 0.5; margin-left: 3px; }
+.risk-chip .chip-del:hover { opacity: 1; transform: scale(1.15); }
+.risk-chip.selected .chip-del { color: #fff; opacity: 0.85; }
 
 /* --- Grille des catégories de risques (drill-down) --- */
 .risk-cat-grid {
@@ -8232,8 +8235,12 @@ const App = {
   },
 
   async _getAllRiskCategories() {
-    const cats = [...this.RISK_CATALOG];
-    const customList = await this.loadCustomRisks();
+    const hidden = new Set(await this.loadHiddenRisks());
+    // Copie defensive : ne pas muter RISK_CATALOG en filtrant les risques masques
+    const cats = this.RISK_CATALOG
+      .map(c => ({ ...c, risks: c.risks.filter(r => !hidden.has(r)) }))
+      .filter(c => c.risks.length);
+    const customList = (await this.loadCustomRisks()).filter(r => !hidden.has(r));
     if (customList.length) {
       cats.push({ cat: 'Personnalisés', icon: 'bi-star-fill', color: '#0dcaf0', risks: customList });
     }
@@ -8248,8 +8255,10 @@ const App = {
     const sel = this._isRiskSelected(r) ? ' selected' : '';
     const pending = this._pendingRiskNames && this._pendingRiskNames.has(r)
       ? ' <span class="badge bg-warning text-dark" style="font-size:0.6rem;padding:1px 5px">En attente</span>' : '';
+    const del = this._canDeleteRisk
+      ? ` <i class="bi bi-x-circle-fill chip-del" title="Supprimer ce risque du catalogue" onclick="event.stopPropagation();App.deleteRiskFromPicker('${r.replace(/'/g,"\\'")}')"></i>` : '';
     return `<div class="risk-chip${sel}" onclick="App.toggleRiskInPicker('${r.replace(/'/g,"\\'")}')" data-risk="${this.esc(r)}">
-        <i class="bi bi-check2 chip-check"></i>${this.esc(r)}${pending}
+        <i class="bi bi-check2 chip-check"></i>${this.esc(r)}${pending}${del}
     </div>`;
   },
 
@@ -8258,6 +8267,7 @@ const App = {
     const cats = await this._getAllRiskCategories();
     const pendingList = await this.loadPendingRisks();
     this._pendingRiskNames = new Set(pendingList.map(p => p.nom));
+    this._canDeleteRisk = await this.isAdmin();
 
     // Vue RECHERCHE : liste plate des risques matchant
     if (this._riskPickerView === 'search') {
@@ -11808,6 +11818,46 @@ const App = {
   async loadCustomRisks() {
     const all = await this._loadCustomRisksRaw();
     return all.filter(r => r.statut !== 'rejected').map(r => r.nom);
+  },
+
+  // Risques du catalogue standard masques par un admin (synchronise via settings)
+  async loadHiddenRisks() {
+    try { const s = await db.settings.get('hiddenRisks'); return (s?.value) || []; } catch(e) { return []; }
+  },
+  async _saveHiddenRisks(list) {
+    await db.settings.put({ key: 'hiddenRisks', value: list });
+    DataSync.markDirty();
+  },
+
+  // Suppression d'un risque depuis le selecteur — reservee aux admins.
+  // Personnalise -> retire du catalogue custom ; standard -> ajoute aux risques masques.
+  async deleteRiskFromPicker(name) {
+    if (!await this.isAdmin()) { this.toast('Seul un administrateur peut supprimer un risque', 'warning'); return; }
+    const raw = await this._loadCustomRisksRaw();
+    const isCustom = raw.some(r => r.nom === name);
+    const msg = isCustom
+      ? `Supprimer définitivement le risque personnalisé « ${name} » ?`
+      : `Retirer le risque « ${name} » du catalogue ? Il ne sera plus proposé (pour tous les utilisateurs).`;
+    if (!await this.confirm(msg)) return;
+    if (isCustom) {
+      await this._saveCustomRisksRaw(raw.filter(r => r.nom !== name));
+    } else {
+      const hidden = await this.loadHiddenRisks();
+      if (!hidden.includes(name)) { hidden.push(name); await this._saveHiddenRisks(hidden); }
+    }
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.delete', { nom: name, type: isCustom ? 'custom' : 'catalogue' });
+    // Retirer le risque du PDP/ICP en cours d'edition s'il y etait selectionne
+    for (const k of ['currentPDP', 'currentICP']) {
+      const obj = this[k];
+      if (obj && Array.isArray(obj.risques)) {
+        const i = obj.risques.findIndex(r => r.danger === name);
+        if (i >= 0) obj.risques.splice(i, 1);
+      }
+    }
+    await this.renderRiskPickerContent();
+    this.updateRiskCounters();
+    if (this._riskPickerCtx === 'icp') this.renderICPRisquesList(); else this.renderRisquesList();
+    this.toast('Risque supprimé', 'success');
   },
   async loadPendingRisks() {
     const all = await this._loadCustomRisksRaw();
