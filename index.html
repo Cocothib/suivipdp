@@ -3590,6 +3590,13 @@ async function _getDriveId() {
     return _cachedDriveId;
 }
 
+// Identifiant GLOBALEMENT unique pour ICP/PDP : stable entre postes, sert de clé
+// de fusion (l'id Dexie est local au navigateur et collisionne en multi-poste).
+function _uid() {
+    try { if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID(); } catch {}
+    return 'u-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+}
+
 async function _readJsonFile(filePath) {
     const driveId = await _getDriveId();
     const resp = await _graphFetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${filePath}:/content`);
@@ -4154,61 +4161,95 @@ const DataSync = {
      * options.fieldLevel : si true (pdps/icps), merge champ par champ avec collecte
      * de conflits. Sinon (entreprises/settings), ancien comportement "current wins".
      */
-    _mergeStore(currentArr, snapshotArr, remoteArr, { autoId, fieldLevel = false }) {
-        const remoteById = new Map((remoteArr||[]).map(e => [e.id, e]));
-        const snapById   = new Map((snapshotArr||[]).map(e => [e.id, e]));
-        const curById    = new Map((currentArr||[]).map(e => [e.id, e]));
+    _mergeStore(currentArr, snapshotArr, remoteArr, { autoId, fieldLevel = false, keyField = 'id' }) {
+        // keyField = clé d'IDENTITÉ logique pour décider quels records fusionnent
+        // entre eux (uid pour icps/pdps : stable entre postes ; id sinon).
+        // L'id Dexie reste la PK locale : on le normalise en fin de fonction pour
+        // un bulkPut sans collision, et `remap` (oldId->newId) suit les refs
+        // croisées (icps.pdpId, pdps.entreprisesExt[]._repoId).
+        const keyOf = e => e[keyField];
+        const remoteByKey = new Map((remoteArr||[]).map(e => [keyOf(e), e]));
+        const snapByKey   = new Map((snapshotArr||[]).map(e => [keyOf(e), e]));
+        const curByKey    = new Map((currentArr||[]).map(e => [keyOf(e), e]));
         const localAdded = [];
         const localUpdated = [];
-        const localDeletedIds = [];
+        const localDeletedKeys = [];
         const remap = {};
         const conflicts = [];
 
-        for (const [id, entry] of curById) {
-            const snap = snapById.get(id);
+        for (const [key, entry] of curByKey) {
+            const snap = snapByKey.get(key);
             if (!snap) localAdded.push(entry);
             else if (JSON.stringify(snap) !== JSON.stringify(entry)) localUpdated.push(entry);
         }
-        for (const id of snapById.keys()) {
-            if (!curById.has(id)) localDeletedIds.push(id);
+        for (const key of snapByKey.keys()) {
+            if (!curByKey.has(key)) localDeletedKeys.push(key);
         }
-        for (const id of localDeletedIds) remoteById.delete(id);
+        for (const key of localDeletedKeys) remoteByKey.delete(key);
 
         for (const entry of localUpdated) {
-            if (remoteById.has(entry.id)) {
+            const key = keyOf(entry);
+            if (remoteByKey.has(key)) {
                 if (fieldLevel) {
                     // Merge 3-way par champ
-                    const snap = snapById.get(entry.id);
-                    const rem  = remoteById.get(entry.id);
+                    const snap = snapByKey.get(key);
+                    const rem  = remoteByKey.get(key);
                     const merged = this._mergeRecord(entry, snap, rem, {
                         fieldLevel: true,
                         conflicts,
                         basePath: `[id=${entry.id}]`,
                     });
-                    remoteById.set(entry.id, merged);
+                    merged.id = entry.id; // conserver la PK locale courante (refs stables)
+                    remoteByKey.set(key, merged);
                 } else {
                     // Comportement legacy : current wins
-                    remoteById.set(entry.id, entry);
+                    remoteByKey.set(key, entry);
                 }
             } else {
                 localAdded.push(entry);
             }
         }
+        // Normalisation des PK : tout id numérique déjà présent est "pris" ; on
+        // réattribue uniquement les localAdded en collision (même clé d'identité
+        // distincte OU id déjà occupé par un autre record).
+        const idSet = new Set();
         let nextId = 1;
-        for (const id of remoteById.keys()) {
-            if (typeof id === 'number' && id >= nextId) nextId = id + 1;
+        for (const e of remoteByKey.values()) {
+            if (typeof e.id === 'number') { idSet.add(e.id); if (e.id >= nextId) nextId = e.id + 1; }
         }
         for (const entry of localAdded) {
             const newEntry = { ...entry };
-            if (autoId && remoteById.has(newEntry.id)) {
-                const oldId = newEntry.id;
-                while (remoteById.has(nextId)) nextId++;
-                newEntry.id = nextId++;
-                remap[oldId] = newEntry.id;
+            let keyClash = remoteByKey.has(keyOf(newEntry));
+            // Clé d'identité OPAQUE (uid) uniquement : deux records DISTINCTS ne
+            // doivent jamais partager la même clé → régénérer l'uid du nouveau
+            // préserve les deux (sinon le set() écraserait le record distant). Cas
+            // quasi nul avec un vrai uid ; couvre les uid hérités dérivés d'un
+            // numéro en collision. JAMAIS pour une clé sémantique ('key' settings).
+            if (keyClash && keyField === 'uid') {
+                newEntry[keyField] = _uid();
+                keyClash = false;
             }
-            remoteById.set(newEntry.id, newEntry);
+            const idClash = newEntry.id != null && idSet.has(newEntry.id);
+            if (autoId && (keyClash || idClash || newEntry.id == null)) {
+                const oldId = newEntry.id;
+                while (idSet.has(nextId)) nextId++;
+                newEntry.id = nextId++;
+                if (oldId != null && oldId !== newEntry.id) remap[oldId] = newEntry.id;
+            }
+            if (typeof newEntry.id === 'number') idSet.add(newEntry.id);
+            remoteByKey.set(keyOf(newEntry), newEntry);
         }
-        return { merged: Array.from(remoteById.values()), remap, conflicts };
+        return { merged: Array.from(remoteByKey.values()), remap, conflicts };
+    },
+
+    // Backfill déterministe d'uid pour les records hérités (sans uid) : on dérive
+    // l'uid du `numero` (partagé/stable entre postes) → même uid partout, pas de
+    // divergence. Les records créés après le correctif ont déjà un vrai uid.
+    _ensureUids(arr, prefix) {
+        for (const e of (arr || [])) {
+            if (!e.uid) e.uid = `legacy-${prefix}:${e.numero || ('id' + e.id)}`;
+        }
+        return arr;
     },
 
     // Fusion par CLÉ NATURELLE (pas par id) pour les stores à index unique
@@ -4263,10 +4304,17 @@ const DataSync = {
                 : { pdps:[], icps:[], entreprises:[], settings:[] };
         } catch { snapshot = { pdps:[], icps:[], entreprises:[], settings:[] }; }
 
-        const pdpRes  = this._mergeStore(current.pdps,        snapshot.pdps,        remotes.pdp?.pdps         || [], { autoId:true,  fieldLevel:true  });
-        const icpRes  = this._mergeStore(current.icps,        snapshot.icps,        remotes.icp?.icps         || [], { autoId:true,  fieldLevel:true  });
+        // Backfill uid (hérités) avant fusion : icps/pdps fusionnent par uid stable
+        this._ensureUids(current.pdps, 'pdp'); this._ensureUids(snapshot.pdps, 'pdp'); this._ensureUids(remotes.pdp?.pdps, 'pdp');
+        this._ensureUids(current.icps, 'icp'); this._ensureUids(snapshot.icps, 'icp'); this._ensureUids(remotes.icp?.icps, 'icp');
+
+        const pdpRes  = this._mergeStore(current.pdps,        snapshot.pdps,        remotes.pdp?.pdps         || [], { autoId:true,  fieldLevel:true,  keyField:'uid' });
+        const icpRes  = this._mergeStore(current.icps,        snapshot.icps,        remotes.icp?.icps         || [], { autoId:true,  fieldLevel:true,  keyField:'uid' });
         const entRes  = this._mergeStore(current.entreprises, snapshot.entreprises, remotes.shared?.entreprises || [], { autoId:true,  fieldLevel:false });
-        const setRes  = this._mergeStore(current.settings,    snapshot.settings,    remotes.shared?.settings    || [], { autoId:false, fieldLevel:false });
+        // settings : PK = 'key' (db.settings.stores 'key'), PAS 'id'. Merger par
+        // 'key' — sinon toutes les entrées (dont 'agences') s'écrasent sous la
+        // clé id=undefined et disparaissent au premier merge.
+        const setRes  = this._mergeStore(current.settings,    snapshot.settings,    remotes.shared?.settings    || [], { autoId:false, fieldLevel:false, keyField:'key' });
 
         // Resolution des conflits scalaires (pdps + icps)
         const allConflicts = [
@@ -4431,8 +4479,8 @@ const DataSync = {
         if (conflict) {
             const merged = await this._mergeAllWithRemote({ pdp: remotePdp, icp: remoteIcp, shared: remoteShared });
             await this._writeLocalData(merged);
-            const savedBy = remotePdp?._meta?.savedBy || remoteIcp?._meta?.savedBy || remoteShared?._meta?.savedBy || 'un collegue';
-            App.toast(`Fusion avec les données de ${savedBy}`, 'info');
+            const savedBy = remotePdp?._meta?.savedBy || remoteIcp?._meta?.savedBy || remoteShared?._meta?.savedBy || 'un collègue';
+            App.toast(`Synchronisé avec les modifications de ${savedBy} — vos données et les siennes sont conservées ✓`, 'success');
         }
 
         // 3. Collecter les donnees locales (post-merge) et forcer version > remote
@@ -7529,7 +7577,7 @@ const App = {
     try {
       const wasNew = !p.id;
       if (p.id) { await db.pdps.put(p); }
-      else { p.id = await db.pdps.add(p); p.numero = `PDP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(p.id).padStart(4,'0')}`; await db.pdps.put(p); }
+      else { if (!p.uid) p.uid = _uid(); p.id = await db.pdps.add(p); p.numero = `PDP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(p.id).padStart(4,'0')}`; await db.pdps.put(p); }
       let displayTitle = p.numero || ('PDP #' + p.id);
       let dispRef = p.refOperation || '';
       if (!dispRef && p.icpId) { try { const v = await db.icps.get(p.icpId); if (v?.refOperation) dispRef = v.refOperation; } catch {} }
@@ -11161,7 +11209,7 @@ const App = {
     try {
       const wasNew = !v.id;
       if (v.id) { await db.icps.put(v); }
-      else { v.id = await db.icps.add(v); v.numero = `ICP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(v.id).padStart(4,'0')}`; await db.icps.put(v); }
+      else { if (!v.uid) v.uid = _uid(); v.id = await db.icps.add(v); v.numero = `ICP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(v.id).padStart(4,'0')}`; await db.icps.put(v); }
       document.getElementById('icp-detail-title').textContent = [v.refOperation, v.numero || ('ICP #' + v.id), v.objet].filter(Boolean).join(' | ');
       document.getElementById('btn-delete-icp').style.display = '';
       const newContactsAdded = await this.addNewContactsToRepo(v);
@@ -11608,6 +11656,7 @@ const App = {
       dateCreation:new Date().toISOString(), dateModification:new Date().toISOString()
     };
     await this.attachStandardFDS(pdp);
+    pdp.uid = _uid();
     const pdpId = await db.pdps.add(pdp);
     pdp.id = pdpId;
     pdp.numero = `PDP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(pdpId).padStart(4,'0')}`;
