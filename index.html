@@ -1203,6 +1203,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     <a class="navbar-brand d-flex align-items-center gap-2" href="#" onclick="App.showView('dashboard')">
       <img src="1000px Fond Blanc.jpg" alt="Générations Renouvelables" class="navbar-logo">
       <span>Suivi PDP</span>
+      <small id="app-version" class="fw-normal" style="font-size:.62rem;opacity:.65"></small>
     </a>
 
     <div class="d-flex align-items-center gap-2 order-lg-last">
@@ -1330,8 +1331,6 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="card-header bg-white fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>Échéances proches</div>
       <div class="card-body p-2" id="dashboard-deadlines"></div>
     </div>
-
-    <div class="text-center mt-3" style="font-size:.72rem;opacity:.6"><span id="app-version" class="text-muted"></span></div>
   </div>
 
   <!-- ==================== PDP LIST ==================== -->
@@ -6914,7 +6913,7 @@ const App = {
         if (nums.length) v = Math.max(...nums);
       } catch (e) { /* caches indisponible */ }
     }
-    if (v !== null) el.textContent = 'Suivi PDP — v' + v;
+    if (v !== null) el.textContent = 'v' + v;
   },
 
   async updateDashboard() {
