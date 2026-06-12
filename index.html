@@ -1243,6 +1243,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
 
 <!-- Banners -->
 <div id="permission-bar"></div>
+<div id="maintenance-bar"></div>
 <div id="presence-bar"></div>
 
 <!-- ===== MAIN CONTENT ===== -->
@@ -2539,6 +2540,12 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Synchronise vos PDP, ICP et entreprises avec SharePoint pour les partager entre appareils et collègues.</div>
       <div id="settings-sync-status"></div>
       <button class="btn btn-outline-warning btn-sm mt-2" onclick="App.archiveAllOldExports()" title="Génère les Word + PDF de tous les PDP/ICP existants et les uploade sur SharePoint avec les nouveaux noms"><i class="bi bi-cloud-arrow-up me-1"></i>Re-archiver tous les PDP/ICP</button>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-cone-striped text-warning"></i>Mode « Travail en cours »</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Affiche un bandeau d'avertissement à tous les utilisateurs pendant que vous modifiez l'application. Se désactive seul après 4 h.</div>
+      <div id="settings-maintenance"></div>
     </div>
 
     <div class="form-section">
@@ -4630,6 +4637,7 @@ const DataSync = {
                     await this._captureSnapshot();
                     App.toast(`Données mises à jour par ${by||'un collègue'}`, 'info');
                     if (typeof App._refreshCustomRisksCache === 'function') await App._refreshCustomRisksCache();
+                    App.refreshMaintenanceBanner();
                     if (App.currentView === 'dashboard') App.updateDashboard();
                     if (App.currentView === 'list') App.renderPDPList();
                     if (App.currentView === 'icps') App.renderICPList();
@@ -6679,6 +6687,9 @@ const App = {
         // Rafraichir le bandeau de presence toutes les 30s
         setInterval(() => DataSync.refreshPresenceBanner(), SP_CONFIG.PRESENCE_INTERVAL_MS);
     }
+    // Bandeau "Travail en cours" : affichage initial + verif periodique (gere l'expiration 4h)
+    await this.refreshMaintenanceBanner();
+    setInterval(() => this.refreshMaintenanceBanner(), SP_CONFIG.PRESENCE_INTERVAL_MS);
     // Capturer le snapshot initial si pas encore fait (mode offline, premier run)
     if (!DataSync._loadedSnapshot) await DataSync._captureSnapshot();
     if (DataSync.isFirstLaunch()) await DataSync.showFirstLaunchGuide();
@@ -12577,6 +12588,7 @@ const App = {
     try { await this.renderNotifyEmails(); } catch (e) { console.warn('renderNotifyEmails:', e); }
     try { await this.renderPendingRisksSection(); } catch (e) { console.warn('renderPendingRisksSection:', e); }
     try { await this.renderHiddenRisksSection(); } catch (e) { console.warn('renderHiddenRisksSection:', e); }
+    try { await this.renderMaintenanceToggle(); } catch (e) { console.warn('renderMaintenanceToggle:', e); }
     try {
       const sum = document.getElementById('habilitations-summary');
       if (sum) {
@@ -12872,6 +12884,73 @@ const App = {
     if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.restore', { nom: name });
     await this.renderHiddenRisksSection();
     this.toast('Risque restauré');
+  },
+
+  // ---- Mode "Travail en cours" (bandeau global, admin only, auto-expiration 4h) ----
+  async loadMaintenance() {
+    try {
+      const s = await db.settings.get('maintenanceMode');
+      const m = s?.value;
+      if (!m || !m.actif) return null;
+      if (m.expire && new Date(m.expire) < new Date()) return null; // expiré
+      return m;
+    } catch(e) { return null; }
+  },
+
+  async setMaintenance(actif, message) {
+    if (!await this.isAdmin()) { this.toast('Seul un administrateur peut activer ce mode', 'warning'); return; }
+    if (actif) {
+      await db.settings.put({ key: 'maintenanceMode', value: {
+        actif: true,
+        message: (message || '').trim() || 'Application en cours de modification, merci de patienter.',
+        par: DataSync.getUserName() || 'un administrateur',
+        depuis: new Date().toISOString(),
+        expire: new Date(Date.now() + 4 * 3600 * 1000).toISOString()
+      }});
+    } else {
+      await db.settings.put({ key: 'maintenanceMode', value: { actif: false } });
+    }
+    DataSync.markDirty();
+    try { await DataSync.save(); } catch(_) {}
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log(actif ? 'maintenance.on' : 'maintenance.off', {});
+    await this.refreshMaintenanceBanner();
+    await this.renderMaintenanceToggle();
+    this.toast(actif ? 'Mode « Travail en cours » activé' : 'Mode désactivé');
+  },
+
+  async refreshMaintenanceBanner() {
+    const bar = document.getElementById('maintenance-bar');
+    if (!bar) return;
+    const m = await this.loadMaintenance();
+    if (!m) { bar.innerHTML = ''; return; }
+    bar.innerHTML = `
+      <div class="alert alert-warning d-flex align-items-center m-2 mb-0 py-2" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2 fs-5 text-warning"></i>
+        <div class="small"><strong>Travail en cours</strong> — ${this.esc(m.message)} <span class="text-muted">(par ${this.esc(m.par)})</span></div>
+      </div>`;
+  },
+
+  async renderMaintenanceToggle() {
+    const el = document.getElementById('settings-maintenance');
+    if (!el) return;
+    const isAdmin = await this.isAdmin();
+    const m = await this.loadMaintenance();
+    if (!isAdmin) {
+      el.innerHTML = m
+        ? `<div class="alert alert-warning small mb-0 py-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>Mode actif (activé par ${this.esc(m.par)}).</div>`
+        : '<p class="text-muted small mb-0">Réservé aux administrateurs.</p>';
+      return;
+    }
+    if (m) {
+      const depuis = m.depuis ? new Date(m.depuis).toLocaleString('fr-FR') : '—';
+      el.innerHTML = `
+        <div class="alert alert-warning py-2 mb-2"><i class="bi bi-exclamation-triangle-fill me-1"></i><strong>Activé</strong> depuis ${depuis} — « ${this.esc(m.message)} »</div>
+        <button class="btn btn-success btn-sm" onclick="App.setMaintenance(false)"><i class="bi bi-check-lg me-1"></i>Désactiver le bandeau</button>`;
+    } else {
+      el.innerHTML = `
+        <input type="text" class="form-control form-control-sm mb-2" id="maintenance-msg" placeholder="Message (optionnel) — ex: mise à jour des risques en cours">
+        <button class="btn btn-warning btn-sm" onclick="App.setMaintenance(true, document.getElementById('maintenance-msg').value)"><i class="bi bi-cone-striped me-1"></i>Activer le bandeau « Travail en cours »</button>`;
+    }
   },
 
   _validatingRiskId: null,
