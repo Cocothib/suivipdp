@@ -12902,7 +12902,7 @@ const App = {
     if (actif) {
       await db.settings.put({ key: 'maintenanceMode', value: {
         actif: true,
-        message: (message || '').trim() || 'Application en cours de modification, merci de patienter.',
+        message: (message || '').trim() || 'Application en cours de modification : pensez à enregistrer régulièrement, des bugs ou pertes de données ponctuels sont possibles.',
         par: DataSync.getUserName() || 'un administrateur',
         depuis: new Date().toISOString(),
         expire: new Date(Date.now() + 4 * 3600 * 1000).toISOString()
