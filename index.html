@@ -1266,7 +1266,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     </div>
     <!-- KPIs -->
     <div class="row g-2 mb-3">
-      <div class="col-6 col-md-3">
+      <div class="col-6 col-md">
         <div class="card kpi-card border-top border-primary" style="cursor:pointer" onclick="App.showPDPFiltered()">
           <div class="card-body text-center py-3">
             <div class="kpi-icon text-primary">&#x1F4CB;</div>
@@ -1275,7 +1275,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           </div>
         </div>
       </div>
-      <div class="col-6 col-md-3">
+      <div class="col-6 col-md">
         <div class="card kpi-card border-top border-success" style="cursor:pointer" onclick="App.showPDPFiltered('actif')">
           <div class="card-body text-center py-3">
             <div class="kpi-icon text-success">&#x2705;</div>
@@ -1284,7 +1284,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           </div>
         </div>
       </div>
-      <div class="col-6 col-md-3">
+      <div class="col-6 col-md">
         <div class="card kpi-card border-top border-warning" style="cursor:pointer" onclick="App.showPDPFiltered('en_cours')">
           <div class="card-body text-center py-3">
             <div class="kpi-icon text-warning">&#x23F3;</div>
@@ -1293,12 +1293,21 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           </div>
         </div>
       </div>
-      <div class="col-6 col-md-3">
+      <div class="col-6 col-md">
         <div class="card kpi-card border-top border-danger" style="cursor:pointer" onclick="App.showPDPFiltered('expires')">
           <div class="card-body text-center py-3">
             <div class="kpi-icon text-danger">&#x26A0;&#xFE0F;</div>
             <div class="kpi-value" id="kpi-expires">0</div>
             <div class="kpi-label">Expirés</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md">
+        <div class="card kpi-card border-top border-info" style="cursor:pointer" onclick="App.showView('icps')">
+          <div class="card-body text-center py-3">
+            <div class="kpi-icon text-info">&#x1F4DD;</div>
+            <div class="kpi-value" id="kpi-icp-total">0</div>
+            <div class="kpi-label">ICP Total</div>
           </div>
         </div>
       </div>
@@ -6903,6 +6912,7 @@ const App = {
 
     // ICP dashboard — exclure les ICP déjà liées à un PDP (elles font partie du PDP)
     const icpAll = await db.icps.orderBy('dateCreation').reverse().toArray();
+    document.getElementById('kpi-icp-total').textContent = icpAll.length;
     const recentICPs = icpAll.filter(v => !v.pdpId).slice(0,3);
     const statutLabelsICP = { effectuee:'Effectuée', validee:'Validée' };
     const statutColorsICP = { effectuee:'primary', validee:'success' };
