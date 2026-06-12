@@ -1331,7 +1331,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="card-body p-2" id="dashboard-deadlines"></div>
     </div>
 
-    <div class="text-center mt-3" style="font-size:.7rem;opacity:.45"><span id="app-version" class="text-muted"></span></div>
+    <div class="text-center mt-3" style="font-size:.72rem;opacity:.6"><span id="app-version" class="text-muted"></span></div>
   </div>
 
   <!-- ==================== PDP LIST ==================== -->
@@ -6899,11 +6899,22 @@ const App = {
   async showAppVersion() {
     const el = document.getElementById('app-version');
     if (!el) return;
+    let v = null;
+    // 1) source la plus fiable : lire le sw.js réellement servi
     try {
-      const keys = await caches.keys();
-      const nums = keys.map(k => (k.match(/suivi-pdp-v(\d+)/) || [])[1]).filter(Boolean).map(Number);
-      if (nums.length) el.textContent = 'v' + Math.max(...nums);
-    } catch (e) { /* caches indisponible (dev local) : on n'affiche rien */ }
+      const txt = await (await fetch('sw.js', { cache: 'no-store' })).text();
+      const m = txt.match(/suivi-pdp-v(\d+)/);
+      if (m) v = Number(m[1]);
+    } catch (e) { /* hors-ligne : on tente le cache */ }
+    // 2) fallback : noms de cache du service worker
+    if (v === null) {
+      try {
+        const keys = await caches.keys();
+        const nums = keys.map(k => (k.match(/suivi-pdp-v(\d+)/) || [])[1]).filter(Boolean).map(Number);
+        if (nums.length) v = Math.max(...nums);
+      } catch (e) { /* caches indisponible */ }
+    }
+    if (v !== null) el.textContent = 'Suivi PDP — v' + v;
   },
 
   async updateDashboard() {
