@@ -2493,6 +2493,11 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="small text-muted mt-2">Le tour d'aide se déclenchera automatiquement à la prochaine ouverture d'une fiche ICP ou PDP.</div>
     </div>
     <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-cone-striped text-warning"></i>Mode « Travail en cours »</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Affiche un bandeau d'avertissement à tous les utilisateurs pendant que vous modifiez l'application. Se désactive seul après 4 h.</div>
+      <div id="settings-maintenance"></div>
+    </div>
+    <div class="form-section">
       <div class="form-section-title d-flex justify-content-between align-items-center">
         <span><i class="bi bi-buildings"></i>Agences Agriwatt / Enersolys</span>
         <button class="btn btn-sm btn-outline-primary" onclick="App.openAgenceForm()"><i class="bi bi-plus-lg me-1"></i>Ajouter une agence</button>
@@ -2543,12 +2548,6 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Synchronise vos PDP, ICP et entreprises avec SharePoint pour les partager entre appareils et collègues.</div>
       <div id="settings-sync-status"></div>
       <button class="btn btn-outline-warning btn-sm mt-2" onclick="App.archiveAllOldExports()" title="Génère les Word + PDF de tous les PDP/ICP existants et les uploade sur SharePoint avec les nouveaux noms"><i class="bi bi-cloud-arrow-up me-1"></i>Re-archiver tous les PDP/ICP</button>
-    </div>
-
-    <div class="form-section">
-      <div class="form-section-title"><i class="bi bi-cone-striped text-warning"></i>Mode « Travail en cours »</div>
-      <div class="section-helper"><i class="bi bi-lightbulb"></i> Affiche un bandeau d'avertissement à tous les utilisateurs pendant que vous modifiez l'application. Se désactive seul après 4 h.</div>
-      <div id="settings-maintenance"></div>
     </div>
 
     <div class="form-section">
