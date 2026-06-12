@@ -4260,6 +4260,28 @@ const DataSync = {
         return arr;
     },
 
+    // Backfill déterministe d'id pour les CONTACTS d'entreprise (e.contacts[]).
+    // Les contacts n'ont pas d'identifiant : sans clé stable, _mergeArray les
+    // dédoublonne par JSON exact → une modif de numéro recréerait un doublon
+    // (ancien + nouveau tel) au lieu de mettre à jour le contact. La clé d'identité
+    // métier est le NOM (l'enrichissement auto déduplique déjà par nom normalisé,
+    // cf. addNewContactsToRepo) → un nom = un contact par entreprise. L'id dérivé
+    // du nom est identique sur tous les postes → fusion par identité (cas 2 de
+    // _mergeArray) : ajout concurrent préservé, modif sans doublon, suppression OK.
+    _ensureContactIds(entreprisesArr) {
+        const norm = s => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+        for (const e of (entreprisesArr || [])) {
+            if (!Array.isArray(e.contacts)) continue;
+            for (const c of e.contacts) {
+                if (c && c.id == null) {
+                    const n = norm(c.nom);
+                    c.id = 'c:' + (n || ('anon|' + norm(c.tel) + '|' + norm(c.email)));
+                }
+            }
+        }
+        return entreprisesArr;
+    },
+
     // Fusion par CLÉ NATURELLE (pas par id) pour les stores à index unique
     // (sites, salaries_habilitations [nom+prenom], signataires [nom+fonction]).
     // Les id étant locaux à chaque poste, un merge par id créerait des doublons
@@ -4315,10 +4337,15 @@ const DataSync = {
         // Backfill uid (hérités) avant fusion : icps/pdps fusionnent par uid stable
         this._ensureUids(current.pdps, 'pdp'); this._ensureUids(snapshot.pdps, 'pdp'); this._ensureUids(remotes.pdp?.pdps, 'pdp');
         this._ensureUids(current.icps, 'icp'); this._ensureUids(snapshot.icps, 'icp'); this._ensureUids(remotes.icp?.icps, 'icp');
+        // Backfill id de contacts (clé = nom) avant fusion : entreprises mergent en
+        // field-level → contacts[] fusionnés par identité, plus par écrasement.
+        this._ensureContactIds(current.entreprises); this._ensureContactIds(snapshot.entreprises); this._ensureContactIds(remotes.shared?.entreprises);
 
         const pdpRes  = this._mergeStore(current.pdps,        snapshot.pdps,        remotes.pdp?.pdps         || [], { autoId:true,  fieldLevel:true,  keyField:'uid' });
         const icpRes  = this._mergeStore(current.icps,        snapshot.icps,        remotes.icp?.icps         || [], { autoId:true,  fieldLevel:true,  keyField:'uid' });
-        const entRes  = this._mergeStore(current.entreprises, snapshot.entreprises, remotes.shared?.entreprises || [], { autoId:true,  fieldLevel:false });
+        // entreprises : field-level (avant : "current wins" → édition concurrente de
+        // la même entreprise écrasait les contacts ajoutés par un autre poste).
+        const entRes  = this._mergeStore(current.entreprises, snapshot.entreprises, remotes.shared?.entreprises || [], { autoId:true,  fieldLevel:true });
         // settings : PK = 'key' (db.settings.stores 'key'), PAS 'id'. Merger par
         // 'key' — sinon toutes les entrées (dont 'agences') s'écrasent sous la
         // clé id=undefined et disparaissent au premier merge.
@@ -4328,9 +4355,10 @@ const DataSync = {
         const allConflicts = [
             ...pdpRes.conflicts.map(c => ({ ...c, _entityType: 'pdp', _bucket: pdpRes.merged })),
             ...icpRes.conflicts.map(c => ({ ...c, _entityType: 'icp', _bucket: icpRes.merged })),
+            ...entRes.conflicts.map(c => ({ ...c, _entityType: 'entreprise', _bucket: entRes.merged })),
         ];
         if (allConflicts.length) {
-            const savedBy = remotes.pdp?._meta?.savedBy || remotes.icp?._meta?.savedBy || 'un collegue';
+            const savedBy = remotes.pdp?._meta?.savedBy || remotes.icp?._meta?.savedBy || remotes.shared?._meta?.savedBy || 'un collegue';
             const byUser  = this.getUserName() || 'inconnu';
             const choices = await this._resolveConflicts(allConflicts, savedBy);
             for (const c of allConflicts) {
