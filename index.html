@@ -1330,6 +1330,8 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="card-header bg-white fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>Échéances proches</div>
       <div class="card-body p-2" id="dashboard-deadlines"></div>
     </div>
+
+    <div class="text-center mt-3" style="font-size:.7rem;opacity:.45"><span id="app-version" class="text-muted"></span></div>
   </div>
 
   <!-- ==================== PDP LIST ==================== -->
@@ -6892,7 +6894,20 @@ const App = {
   // ========================================
   // DASHBOARD
   // ========================================
+  // Affiche le n° de version lu dynamiquement depuis le cache du service worker
+  // (ex: suivi-pdp-v40 -> "v40"). Se met à jour seul à chaque bump du cache.
+  async showAppVersion() {
+    const el = document.getElementById('app-version');
+    if (!el) return;
+    try {
+      const keys = await caches.keys();
+      const nums = keys.map(k => (k.match(/suivi-pdp-v(\d+)/) || [])[1]).filter(Boolean).map(Number);
+      if (nums.length) el.textContent = 'v' + Math.max(...nums);
+    } catch (e) { /* caches indisponible (dev local) : on n'affiche rien */ }
+  },
+
   async updateDashboard() {
+    this.showAppVersion();
     const pdps = await db.pdps.toArray();
     const now = new Date();
     document.getElementById('kpi-total').textContent = pdps.length;
