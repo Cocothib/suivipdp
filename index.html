@@ -203,6 +203,9 @@ body {
 }
 #presence-bar .alert { border-left-color: #198754; }
 #permission-bar .btn { font-size: 0.78rem; padding: 0.25rem 0.65rem; }
+/* Bandeau "Travail en cours" : colle juste sous la navbar (top calcule en JS) */
+#maintenance-bar { position: sticky; top: 0; z-index: 1019; }
+#maintenance-bar .alert { border-left: 4px solid #ffc107; box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
 @media (max-width: 576px) {
     #permission-bar .alert,
     #presence-bar .alert { font-size: 0.78rem; padding: 0.5rem; }
@@ -6690,6 +6693,7 @@ const App = {
     // Bandeau "Travail en cours" : affichage initial + verif periodique (gere l'expiration 4h)
     await this.refreshMaintenanceBanner();
     setInterval(() => this.refreshMaintenanceBanner(), SP_CONFIG.PRESENCE_INTERVAL_MS);
+    window.addEventListener('resize', () => this._positionMaintenanceBar());
     // Capturer le snapshot initial si pas encore fait (mode offline, premier run)
     if (!DataSync._loadedSnapshot) await DataSync._captureSnapshot();
     if (DataSync.isFirstLaunch()) await DataSync.showFirstLaunchGuide();
@@ -12918,6 +12922,13 @@ const App = {
     this.toast(actif ? 'Mode « Travail en cours » activé' : 'Mode désactivé');
   },
 
+  // Cale le bandeau sticky juste sous la navbar (hauteur variable selon viewport)
+  _positionMaintenanceBar() {
+    const nav = document.querySelector('nav.navbar');
+    const bar = document.getElementById('maintenance-bar');
+    if (nav && bar) bar.style.top = nav.offsetHeight + 'px';
+  },
+
   async refreshMaintenanceBanner() {
     const bar = document.getElementById('maintenance-bar');
     if (!bar) return;
@@ -12928,6 +12939,7 @@ const App = {
         <i class="bi bi-exclamation-triangle-fill me-2 fs-5 text-warning"></i>
         <div class="small"><strong>Travail en cours</strong> — ${this.esc(m.message)} <span class="text-muted">(par ${this.esc(m.par)})</span></div>
       </div>`;
+    this._positionMaintenanceBar();
   },
 
   async renderMaintenanceToggle() {
