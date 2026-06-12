@@ -2560,6 +2560,12 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     </div>
 
     <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-eye-slash"></i>Risques masqués du catalogue</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Risques du catalogue standard retirés du sélecteur par un administrateur. Vous pouvez les restaurer ici.</div>
+      <div id="settings-hidden-risks"></div>
+    </div>
+
+    <div class="form-section">
       <div class="form-section-title"><i class="bi bi-file-earmark-text"></i>Document Unique d'Évaluation des Risques (DUERP)</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Exporte un document Word regroupant tous les risques validés par catégorie (standard + risques personnalisés approuvés).</div>
       <div class="d-flex gap-2 flex-wrap">
@@ -12570,6 +12576,7 @@ const App = {
     try { await this.renderAdminsSection(); } catch (e) { console.warn('renderAdminsSection:', e); }
     try { await this.renderNotifyEmails(); } catch (e) { console.warn('renderNotifyEmails:', e); }
     try { await this.renderPendingRisksSection(); } catch (e) { console.warn('renderPendingRisksSection:', e); }
+    try { await this.renderHiddenRisksSection(); } catch (e) { console.warn('renderHiddenRisksSection:', e); }
     try {
       const sum = document.getElementById('habilitations-summary');
       if (sum) {
@@ -12840,6 +12847,31 @@ const App = {
         </div>`;
     }).join('');
     el.innerHTML = rows;
+  },
+
+  async renderHiddenRisksSection() {
+    const el = document.getElementById('settings-hidden-risks');
+    if (!el) return;
+    const hidden = await this.loadHiddenRisks();
+    const isAdmin = await this.isAdmin();
+    if (!hidden.length) {
+      el.innerHTML = '<p class="text-muted small mb-0"><i class="bi bi-check-circle me-1 text-success"></i>Aucun risque masqué.</p>';
+      return;
+    }
+    el.innerHTML = hidden.map(name => `
+      <div class="d-flex justify-content-between align-items-center gap-2 p-2 border-bottom">
+        <span class="small"><i class="bi bi-eye-slash me-1 text-muted"></i>${this.esc(name)}</span>
+        ${isAdmin ? `<button class="btn btn-sm btn-outline-success" onclick="App.restoreHiddenRisk('${name.replace(/'/g,"\\'")}')"><i class="bi bi-arrow-counterclockwise me-1"></i>Restaurer</button>` : ''}
+      </div>`).join('');
+  },
+
+  async restoreHiddenRisk(name) {
+    if (!await this.isAdmin()) { this.toast('Seul un administrateur peut restaurer un risque', 'warning'); return; }
+    const hidden = await this.loadHiddenRisks();
+    await this._saveHiddenRisks(hidden.filter(r => r !== name));
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.restore', { nom: name });
+    await this.renderHiddenRisksSection();
+    this.toast('Risque restauré');
   },
 
   _validatingRiskId: null,
