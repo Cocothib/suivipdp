@@ -15640,12 +15640,18 @@ const App = {
       }
     }
 
-    // 3. Générer et télécharger le ZIP
-    if (skipped.length) zip.file('Documents_joints/_PIECES_MANQUANTES.txt', 'Pièces non incluses dans ce ZIP (FDS introuvable ou hors-ligne) :\n' + skipped.join('\n') + '\n\nReconnectez-vous à SharePoint puis régénérez le ZIP pour les inclure.');
+    // 3. Si des pièces manquent : confirmation EXPLICITE avant de livrer un dossier
+    // réglementaire (R4512) incomplet — ne pas livrer un ZIP qui paraît complet (#5).
+    if (skipped.length) {
+      const ok = await this.confirm(`${skipped.length} pièce(s) FDS ne peuvent être incluses (hors-ligne ou introuvables) : ${skipped.join(', ')}. Le dossier PDP sera INCOMPLET. Reconnectez-vous à SharePoint puis régénérez pour un dossier complet. Télécharger quand même un dossier incomplet ?`);
+      if (!ok) { this.toast('Export ZIP annulé — reconnectez-vous pour inclure toutes les FDS', 'info', 6000); return; }
+      zip.file('Documents_joints/_PIECES_MANQUANTES.txt', 'Pièces non incluses dans ce ZIP (FDS introuvable ou hors-ligne) :\n' + skipped.join('\n') + '\n\nReconnectez-vous à SharePoint puis régénérez le ZIP pour les inclure.');
+    }
     try {
       const zipBlob = await zip.generateAsync({type:'blob'});
-      saveAs(zipBlob, `${baseName}_complet.zip`);
-      if (skipped.length) this.toast(`ZIP téléchargé — ${skipped.length} pièce(s) MANQUANTE(S) : ${skipped.join(', ')}`, 'warning');
+      // Nom préfixé INCOMPLET_ pour que l'incomplétude soit visible dès le fichier livré.
+      saveAs(zipBlob, skipped.length ? `INCOMPLET_${baseName}.zip` : `${baseName}_complet.zip`);
+      if (skipped.length) this.toast(`ZIP INCOMPLET téléchargé — ${skipped.length} pièce(s) manquante(s) : ${skipped.join(', ')}`, 'warning', 9000);
       else this.toast('ZIP complet téléchargé');
     } catch(e) {
       console.error('ZIP generation error:', e);
