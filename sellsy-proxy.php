@@ -52,7 +52,10 @@ if ($action === 'healthcheck') {
         try { sellsy_get_token($cfg); $tokenOk = true; }
         catch (Exception $e) { $err = $e->getMessage(); }
     }
-    echo json_encode(['ok' => true, 'has_credentials' => $hasCreds, 'token_ok' => $tokenOk, 'access_key_required' => !empty($accessKey), 'error' => $err]);
+    // #21 : ne PAS divulguer access_key_required (revele un proxy ouvert a un scan)
+    // ni le message d'exception OAuth (detail interne) a un appelant non authentifie.
+    if ($err) error_log('sellsy-proxy healthcheck OAuth: ' . $err);
+    echo json_encode(['ok' => true, 'has_credentials' => $hasCreds, 'token_ok' => $tokenOk]);
     exit;
 }
 
@@ -136,8 +139,10 @@ try {
     }
     echo $res;
 } catch (Exception $e) {
+    // #25 : journaliser le detail cote serveur, message generique au client.
+    error_log('sellsy-proxy: ' . $e->getMessage());
     http_response_code(502);
-    echo json_encode(['error' => $e->getMessage()]);
+    echo json_encode(['error' => 'erreur proxy Sellsy']);
 }
 
 // ===========================================
@@ -203,8 +208,11 @@ function sellsy_call($method, $path, $token, $body = null) {
     curl_close($ch);
     if ($resp === false) throw new Exception('Sellsy network error: ' . $err);
     if ($httpCode >= 400) {
-        http_response_code($httpCode);
-        return $resp; // forward error JSON to client
+        // #25 : ne pas forwarder le corps d'erreur Sellsy brut (peut contenir des
+        // details internes). Journaliser cote serveur, renvoyer un message generique.
+        error_log('sellsy-proxy Sellsy ' . $httpCode . ' ' . $method . ' ' . $path . ': ' . substr((string)$resp, 0, 500));
+        http_response_code($httpCode >= 500 ? 502 : $httpCode);
+        return json_encode(['error' => 'erreur API Sellsy', 'status' => $httpCode]);
     }
     return $resp;
 }

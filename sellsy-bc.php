@@ -74,12 +74,12 @@ if ($action === 'healthcheck') {
         try { sellsy_get_token($cfg); $tokenOk = true; }
         catch (Exception $e) { $err = $e->getMessage(); }
     }
+    // #21 : ne pas divulguer access_key_required ni le message OAuth a un appelant non authentifie.
+    if ($err) error_log('sellsy-bc healthcheck OAuth: ' . $err);
     echo json_encode([
         'ok' => true,
         'has_credentials' => $hasCreds,
         'token_ok' => $tokenOk,
-        'access_key_required' => !empty($accessKey),
-        'error' => $err,
     ]);
     exit;
 }
@@ -105,28 +105,29 @@ try {
     switch ($action) {
 
         case 'get':
-            // Passthrough GET en lecture seule, chemin validé.
-            $path = $_GET['path'] ?? '';
-            $path = is_string($path) ? trim($path) : '';
-            if ($path === '' || $path[0] !== '/') {
-                http_response_code(400);
-                echo json_encode(['error' => 'path manquant ou invalide (doit commencer par /)']);
-                exit;
-            }
-            // Sépare le chemin de l'éventuelle querystring pour valider la ressource.
-            $resource = explode('/', ltrim($path, '/'))[0];
-            $resource = explode('?', $resource)[0];
-            if (!in_array($resource, $ALLOWED_RESOURCES, true)) {
-                http_response_code(403);
-                echo json_encode(['error' => "ressource non autorisee: $resource"]);
-                exit;
-            }
-            if (preg_match('/\.\.|\s/', $path)) {
+            // Passthrough GET en lecture seule, chemin ENTIEREMENT valide (#23).
+            $raw = $_GET['path'] ?? '';
+            $raw = is_string($raw) ? trim($raw) : '';
+            // Sépare path et querystring : on valide les deux séparément.
+            $segments = explode('?', $raw, 2);
+            $cleanPath = $segments[0];
+            // Path strict : /{resource}[/{id}[/{rows|payments}]] uniquement.
+            $resourcesAlt = implode('|', array_map('preg_quote', $ALLOWED_RESOURCES));
+            if (!preg_match('#^/(?:' . $resourcesAlt . ')(?:/[0-9]+(?:/(?:rows|payments))?)?$#', $cleanPath)) {
                 http_response_code(400);
                 echo json_encode(['error' => 'path invalide']);
                 exit;
             }
-            $res = sellsy_call('GET', $path, $token);
+            // Querystring : n'autoriser que limit/offset (entiers bornés), rien d'autre.
+            $qs = '';
+            if (isset($segments[1]) && $segments[1] !== '') {
+                parse_str($segments[1], $q);
+                $allowedQ = [];
+                if (isset($q['limit']))  $allowedQ['limit']  = max(1, min(100, (int)$q['limit']));
+                if (isset($q['offset'])) $allowedQ['offset'] = max(0, (int)$q['offset']);
+                if ($allowedQ) $qs = '?' . http_build_query($allowedQ);
+            }
+            $res = sellsy_call('GET', $cleanPath . $qs, $token);
             break;
 
         case 'search':
@@ -155,8 +156,10 @@ try {
     }
     echo $res;
 } catch (Exception $e) {
+    // #25 : detail cote serveur, message generique au client.
+    error_log('sellsy-bc: ' . $e->getMessage());
     http_response_code(502);
-    echo json_encode(['error' => $e->getMessage()]);
+    echo json_encode(['error' => 'erreur proxy Sellsy']);
 }
 
 // ===========================================
@@ -222,8 +225,10 @@ function sellsy_call($method, $path, $token, $body = null) {
     curl_close($ch);
     if ($resp === false) throw new Exception('Sellsy network error: ' . $err);
     if ($httpCode >= 400) {
-        http_response_code($httpCode);
-        return $resp; // remonte le JSON d'erreur Sellsy au client
+        // #25 : journaliser cote serveur, message generique au client.
+        error_log('sellsy-bc Sellsy ' . $httpCode . ' ' . $method . ' ' . $path . ': ' . substr((string)$resp, 0, 500));
+        http_response_code($httpCode >= 500 ? 502 : $httpCode);
+        return json_encode(['error' => 'erreur API Sellsy', 'status' => $httpCode]);
     }
     return $resp;
 }
