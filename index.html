@@ -1333,6 +1333,20 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="card-body p-2" id="dashboard-icps"></div>
     </div>
 
+    <!-- Avancement ICP Maintenance -->
+    <div class="card mb-3">
+      <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-speedometer2 me-1"></i>Avancement ICP — Maintenance</span>
+        <select id="icp-maint-period" class="form-select form-select-sm" style="width:auto" onchange="App.renderICPMaintenance(this.value)">
+          <option value="7">7 derniers jours</option>
+          <option value="30" selected>30 derniers jours</option>
+          <option value="90">90 derniers jours</option>
+          <option value="0">Tout</option>
+        </select>
+      </div>
+      <div class="card-body p-2" id="dashboard-icp-maint"></div>
+    </div>
+
     <!-- Deadlines -->
     <div class="card">
       <div class="card-header bg-white fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>Échéances proches</div>
@@ -7218,6 +7232,8 @@ const App = {
             <span class="flex-grow-1 small">${this.esc(p.titre||'Sans titre')}</span>
             <span class="text-muted small">${p.dateFin}</span></div>`;
         }).join('');
+
+    await this.renderICPMaintenance(this._icpMaintPeriod != null ? this._icpMaintPeriod : 30);
   },
 
   // ========================================
@@ -7300,6 +7316,121 @@ const App = {
     // Fallback : si typePdp non défini, essayer aussi EU
     if (isOurs(p.eu?.nom)) return p.eu?.responsable || '';
     return '';
+  },
+
+  // Équipe maintenance habilitée à réaliser les ICP.
+  // Thibault HOCEDEZ (QSE) et Franck LAMY (conducteur travaux) sont volontairement exclus.
+  // NB : il y a 2 Franck → le match se fait sur le NOM DE FAMILLE pour distinguer Huleux de Lamy.
+  _maintTeam: [
+    { prenom:'Kévin',     nom:'Burkarth'  },
+    { prenom:'Sébastien', nom:'Burtin'    },
+    { prenom:'Benjamin',  nom:'Guillaume' },
+    { prenom:'Franck',    nom:'Huleux'    },
+    { prenom:'Matthieu',  nom:'Karquel'   },
+    { prenom:'Anthony',   nom:'Kleische'  },
+    { prenom:'Corentin',  nom:'Lion'      },
+  ],
+
+  _normTxt(s) {
+    return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+  },
+
+  // Retourne le membre maintenance ayant réalisé l'ICP (via le réalisateur Agriwatt), ou null.
+  // Même source que le filtre "Conducteur" de l'onglet ICP → cohérence garantie.
+  _icpRealisateurMaint(icp) {
+    const tokens = this._normTxt(this._getConducteurAgriwatt(icp)).split(' ').filter(Boolean);
+    if (!tokens.length) return null;
+    for (const m of this._maintTeam) {
+      if (tokens.includes(this._normTxt(m.nom))) return m;
+    }
+    return null;
+  },
+
+  // Nombre de jours ouvrés (lun-ven) entre deux dates incluses (mini 1).
+  _joursOuvres(d1, d2) {
+    let n = 0;
+    const cur = new Date(d1.getFullYear(), d1.getMonth(), d1.getDate());
+    const end = new Date(d2.getFullYear(), d2.getMonth(), d2.getDate());
+    while (cur <= end) {
+      const j = cur.getDay();
+      if (j !== 0 && j !== 6) n++;
+      cur.setDate(cur.getDate()+1);
+    }
+    return Math.max(n, 1);
+  },
+
+  async renderICPMaintenance(period) {
+    period = parseInt(period != null ? period : 30) || 0;
+    this._icpMaintPeriod = period;
+    const sel = document.getElementById('icp-maint-period');
+    if (sel && sel.value !== String(period)) sel.value = String(period);
+    const el = document.getElementById('dashboard-icp-maint');
+    if (!el) return;
+
+    const all = await db.icps.toArray();
+    const now = new Date();
+    let from = null;
+    if (period > 0) { from = new Date(); from.setDate(from.getDate() - period); from.setHours(0,0,0,0); }
+
+    const dateOf = (v) => new Date(v.dateVisite || (v.dateCreation||'').slice(0,10) || v.dateCreation);
+    const inPeriod = all.filter(v => {
+      if (!from) return true;
+      const d = dateOf(v);
+      return d && !isNaN(d) && d >= from;
+    });
+
+    const stats = new Map(this._maintTeam.map(m => [m.nom, { m, total:0, effectuee:0, validee:0 }]));
+    let nonAttribuees = 0, totalMaint = 0, totalValidee = 0;
+    inPeriod.forEach(v => {
+      const m = this._icpRealisateurMaint(v);
+      if (!m) { nonAttribuees++; return; }
+      const s = stats.get(m.nom);
+      s.total++;
+      if (v.statut === 'validee') { s.validee++; totalValidee++; } else { s.effectuee++; }
+      totalMaint++;
+    });
+
+    const tauxVal = totalMaint ? Math.round(totalValidee/totalMaint*100) : 0;
+
+    let cadenceTxt = '';
+    if (totalMaint > 0) {
+      let minD = from;
+      if (!minD) { minD = inPeriod.map(dateOf).filter(d => d && !isNaN(d)).sort((a,b)=>a-b)[0] || now; }
+      const nbJO = this._joursOuvres(minD, now);
+      const moy = totalMaint / nbJO;
+      const okCad = moy >= 4;
+      cadenceTxt = `<span class="badge bg-${okCad?'success':'warning'} text-${okCad?'white':'dark'}">${moy.toFixed(1)} ICP/jour ouvré</span> <span class="text-muted small">(objectif ~4/j)</span>`;
+    }
+
+    const rows = [...stats.values()]
+      .sort((a,b)=> b.total - a.total || a.m.nom.localeCompare(b.m.nom))
+      .map(s => {
+        const tx = s.total ? Math.round(s.validee/s.total*100) : 0;
+        return `<tr>
+          <td>${this.esc(s.m.nom)} ${this.esc(s.m.prenom)}</td>
+          <td class="text-center fw-bold">${s.total}</td>
+          <td class="text-center text-primary">${s.effectuee}</td>
+          <td class="text-center text-success">${s.validee}</td>
+          <td style="min-width:80px"><div class="progress" style="height:8px"><div class="progress-bar bg-success" style="width:${tx}%"></div></div></td>
+        </tr>`;
+      }).join('');
+
+    el.innerHTML = `
+      <div class="d-flex flex-wrap gap-3 align-items-center mb-2 px-1">
+        <div><span class="fs-4 fw-bold">${totalMaint}</span> <span class="text-muted small">ICP maintenance</span></div>
+        <div><span class="text-primary fw-bold">${totalMaint-totalValidee}</span> <span class="text-muted small">effectuées</span></div>
+        <div><span class="text-success fw-bold">${totalValidee}</span> <span class="text-muted small">validées</span></div>
+        <div class="flex-grow-1" style="min-width:120px"><div class="progress" style="height:12px"><div class="progress-bar bg-success" style="width:${tauxVal}%">${tauxVal}%</div></div></div>
+        <div>${cadenceTxt}</div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm table-hover mb-1 small align-middle">
+          <thead><tr><th>Technicien</th><th class="text-center">Total</th><th class="text-center">Effect.</th><th class="text-center">Validées</th><th>Taux val.</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      ${nonAttribuees ? `<p class="text-muted small mb-0 px-1"><i class="bi bi-info-circle me-1"></i>${nonAttribuees} ICP sur la période non rattachée(s) à un technicien maintenance (réalisateur non renseigné ou hors équipe).</p>` : ''}
+    `;
   },
 
   filterPDPList(multiStatuts) {
