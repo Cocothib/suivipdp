@@ -1,0 +1,31 @@
+Liste des captures d'écran — Formation Module ICP (Maintenance)
+Présentation du 11/06/2026 — T. HOCEDEZ
+======================================================================
+
+Application : https://zbpbasv.cluster121.hosting.ovh.net/suivipdp/
+
+Conseils :
+- Format conseillé : PNG, largeur 1400 à 1800 px.
+- Masquer les données client réelles si partage hors AGRIWATT.
+- Glisser-déposer la capture dans le rectangle gris correspondant.
+
+----------------------------------------------------------------------
+
+Slide  5  :  Vue ICP — écran de création montrant le champ n° OPP (recherche Sellsy) et la saisie manuelle du site
+
+Slide  6  :  Vue ICP — interrupteur 'Mode Express' en haut, une fois activé (sections avancées masquées)
+
+Slide  7  :  Vue ICP en Mode Express — saisie des informations générales (site, date, représentants)
+
+Slide  8  :  Vue ICP — section Délimitation/circulation/consignes avec les points cochés et un commentaire
+
+Slide  9  :  Vue ICP — onglet Risques avec plusieurs catégories cochées et mesures saisies
+
+Slide 10  :  Vue ICP — photos de la visite ajoutées, avec légendes et coordonnées GPS renseignées
+
+Slide 11  :  Vue ICP — bloc Signatures, canvas ouvert, nom et fonction renseignés
+
+Slide 12  :  Vue ICP — boutons d'export PDF et Word visibles sur une ICP validée
+
+----------------------------------------------------------------------
+Total : 8 captures à prendre.

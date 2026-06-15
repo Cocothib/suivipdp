@@ -1333,15 +1333,6 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="card-body p-2" id="dashboard-icps"></div>
     </div>
 
-    <!-- Avancement ICP Maintenance (réservé admin, affiché par renderICPMaintenance) -->
-    <div class="card mb-3" style="display:none">
-      <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <span><i class="bi bi-speedometer2 me-1"></i>ICP Maintenance — par mois</span>
-        <select id="icp-maint-annee" class="form-select form-select-sm" style="width:auto" onchange="App.renderICPMaintenance(this.value)"></select>
-      </div>
-      <div class="card-body p-2" id="dashboard-icp-maint"></div>
-    </div>
-
     <!-- Deadlines -->
     <div class="card">
       <div class="card-header bg-white fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>Échéances proches</div>
@@ -1687,13 +1678,9 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <div class="form-section-title"><i class="bi bi-camera"></i>Photos</div>
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-camera"></i>Photos</div>
-          <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-            <label class="small text-muted mb-0">Étape :</label>
-            <select class="form-select form-select-sm" id="visite-photo-etape" style="width:auto" onchange="App._currentVisitePhotoEtape=this.value"></select>
-            <label class="btn btn-outline-primary btn-sm mb-0"><i class="bi bi-camera me-1"></i>Photo<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addVisitePhoto(event)"></label>
-            <label class="btn btn-outline-secondary btn-sm mb-0"><i class="bi bi-images me-1"></i>Galerie<input type="file" accept="image/*" multiple class="d-none" onchange="App.addVisitePhoto(event)"></label>
-          </div>
-          <div id="visite-photos"></div>
+          <div class="d-flex flex-wrap gap-2 mb-2" id="visite-photos"></div>
+          <label class="btn btn-outline-primary btn-sm"><i class="bi bi-camera me-1"></i>Photo<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addVisitePhoto(event)"></label>
+          <label class="btn btn-outline-secondary btn-sm"><i class="bi bi-images me-1"></i>Galerie<input type="file" accept="image/*" multiple class="d-none" onchange="App.addVisitePhoto(event)"></label>
         </div>
       </div>
     </div>
@@ -2366,9 +2353,9 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
             </select>
             <datalist id="icp-ee-contacts-list"></datalist>
           </div>
-          <div class="col-md-4"><label class="form-label" for="icp-ee-rep-nom">Nom</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-ee-rep-nom" placeholder="Nom" oninput="App.syncICPSignatureNom('ee')" onchange="App.persistICPEERepContactName(this.value)"></div></div>
+          <div class="col-md-4"><label class="form-label" for="icp-ee-rep-nom">Nom</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-ee-rep-nom" placeholder="Nom" oninput="App.syncICPSignatureNom('ee')"></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-ee-rep-fonction">Fonction</label><div class="input-icon-wrap"><i class="bi bi-briefcase input-icon"></i><input type="text" class="form-control" id="icp-ee-rep-fonction" placeholder="Fonction"></div></div>
-          <div class="col-md-4"><label class="form-label" for="icp-ee-rep-tel">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="icp-ee-rep-tel" placeholder="Téléphone" onchange="App.persistICPEERepContactPhone(this.value)"></div></div>
+          <div class="col-md-4"><label class="form-label" for="icp-ee-rep-tel">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="icp-ee-rep-tel" placeholder="Téléphone"></div></div>
           <div class="col-12 mt-1 d-flex justify-content-end"><button type="button" class="btn btn-outline-primary btn-sm" onclick="App.addICPEEParticipantRow()"><i class="bi bi-plus-lg me-1"></i>Ajouter une 2e personne côté intervenant</button></div>
           <div class="col-12"><div id="icp-ee-add-list"></div></div>
         </div>
@@ -2434,13 +2421,9 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       </div>
       <div class="field-group">
         <div class="field-group-title"><i class="bi bi-camera"></i> Photos</div>
-        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-          <label class="small text-muted mb-0">Étape :</label>
-          <select class="form-select form-select-sm" id="icp-photo-etape" style="width:auto" onchange="App._currentICPPhotoEtape=this.value"></select>
-          <label class="btn btn-outline-primary btn-sm mb-0"><i class="bi bi-camera me-1"></i>Photo<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addICPPhoto(event)"></label>
-          <label class="btn btn-outline-secondary btn-sm mb-0"><i class="bi bi-images me-1"></i>Galerie<input type="file" accept="image/*" multiple class="d-none" onchange="App.addICPPhoto(event)"></label>
-        </div>
-        <div id="icp-photos"></div>
+        <div class="d-flex flex-wrap gap-2 mb-2" id="icp-photos"></div>
+        <label class="btn btn-outline-primary btn-sm"><i class="bi bi-camera me-1"></i>Photo<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addICPPhoto(event)"></label>
+        <label class="btn btn-outline-secondary btn-sm ms-1"><i class="bi bi-images me-1"></i>Galerie<input type="file" accept="image/*" multiple class="d-none" onchange="App.addICPPhoto(event)"></label>
       </div>
     </div>
 
@@ -2576,12 +2559,6 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="form-section-title"><i class="bi bi-envelope-at"></i>Notifications par mail</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Adresses qui reçoivent un mail à chaque nouveau risque proposé. Le mail est envoyé depuis le compte SharePoint de l'utilisateur qui propose.</div>
       <div id="settings-notify-emails"></div>
-    </div>
-
-    <div class="form-section">
-      <div class="form-section-title"><i class="bi bi-camera"></i>Étapes de prise de photos (ICP / visite)</div>
-      <div class="section-helper"><i class="bi bi-lightbulb"></i> Oriente la prise de photos par zones successives (entrée, cheminement, tableau, toiture…). Modifiable selon le type de site (toiture, sol…).</div>
-      <div id="settings-photo-etapes"></div>
     </div>
 
     <div class="form-section">
@@ -3641,17 +3618,6 @@ async function _readJsonFileMeta(filePath) {
     return { data: await resp.json(), etag };
 }
 
-// Lit UNIQUEMENT l'eTag (metadata, pas le contenu) d'un fichier — léger.
-// Sert à émuler une protection optimiste sur l'upload chunké (>4Mo) où Graph
-// ne supporte pas l'en-tête If-Match. Best-effort : renvoie null si indisponible.
-async function _getRemoteMetaEtag(filePath) {
-    const driveId = await _getDriveId();
-    const resp = await _graphFetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${filePath}?$select=eTag`);
-    if (!resp.ok) return null;
-    const j = await resp.json().catch(() => ({}));
-    return j.eTag || null;
-}
-
 // Upload binaire (PDF) sur SharePoint
 async function _uploadBinaryFromDataURL(filePath, dataUrl, mime) {
     const driveId = await _getDriveId();
@@ -3712,7 +3678,7 @@ function _fdsFilePath(fds) {
     return `${SP_CONFIG.FDS_FOLDER}/${fds.id}_${slug}`;
 }
 
-async function _writeJsonFile(filePath, data, etag = null, metaEtag = null) {
+async function _writeJsonFile(filePath, data, etag = null) {
     const driveId = await _getDriveId();
     const body = JSON.stringify(data);
     const bytes = new TextEncoder().encode(body);
@@ -3730,22 +3696,7 @@ async function _writeJsonFile(filePath, data, etag = null, metaEtag = null) {
         if (!resp.ok) throw new Error('Erreur écriture: ' + resp.status);
         return resp.json();
     }
-    // Au-delà : uploadSession (chunked, jusqu'à 250 Go par fichier).
-    // Graph ne pose pas d'If-Match sur l'upload session → on émule la protection
-    // optimiste : si l'eTag courant diffère de celui lu (metaEtag), le fichier a
-    // changé depuis la lecture → 412 → la boucle save() relit, fusionne, réessaie.
-    if (metaEtag) {
-        const cur = await _getRemoteMetaEtag(filePath).catch(() => null);
-        if (cur && cur !== metaEtag) {
-            const err = new Error('Conflit de version concurrente (412, chunked)'); err._precondition = true; throw err;
-        }
-    } else {
-        // metaEtag indisponible : la garde de version applicative (_meta.version
-        // dans _saveOnce) reste le filet de sécurité. On rend la perte de garantie
-        // ETag visible plutôt que silencieuse.
-        console.warn('DataSync: écriture chunkée (>4Mo) sans garde ETag — ' + filePath + ' (' + Math.round(totalSize/1048576) + ' Mo)');
-        if (typeof ActivityLog !== 'undefined') ActivityLog.log('ecriture_chunked_sans_etag', { fichier: filePath, mo: Math.round(totalSize/1048576) });
-    }
+    // Au-delà : uploadSession (chunked, jusqu'à 250 Go par fichier)
     const sessResp = await _graphFetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${filePath}:/createUploadSession`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ item: { '@microsoft.graph.conflictBehavior': 'replace' } })
@@ -4066,7 +4017,7 @@ const DataSync = {
             if (!curChanged && remChanged)  { out[key] = rem; continue; }
             // Conflit reel : current != snapshot ET remote != snapshot ET current != remote
             if (!this._deepEqual(cur, rem)) {
-                conflicts.push({ path, currentValue: cur, snapshotValue: snap, remoteValue: rem, dmCur, dmRem });
+                conflicts.push({ path, currentValue: cur, snapshotValue: snap, remoteValue: rem });
                 out[key] = cur; // provisoire (sera patche par _resolveConflicts si choix "other"/"combine")
             } else {
                 out[key] = cur;
@@ -4309,28 +4260,6 @@ const DataSync = {
         return arr;
     },
 
-    // Backfill déterministe d'id pour les CONTACTS d'entreprise (e.contacts[]).
-    // Les contacts n'ont pas d'identifiant : sans clé stable, _mergeArray les
-    // dédoublonne par JSON exact → une modif de numéro recréerait un doublon
-    // (ancien + nouveau tel) au lieu de mettre à jour le contact. La clé d'identité
-    // métier est le NOM (l'enrichissement auto déduplique déjà par nom normalisé,
-    // cf. addNewContactsToRepo) → un nom = un contact par entreprise. L'id dérivé
-    // du nom est identique sur tous les postes → fusion par identité (cas 2 de
-    // _mergeArray) : ajout concurrent préservé, modif sans doublon, suppression OK.
-    _ensureContactIds(entreprisesArr) {
-        const norm = s => (s || '').toLowerCase().replace(/\s+/g, ' ').trim();
-        for (const e of (entreprisesArr || [])) {
-            if (!Array.isArray(e.contacts)) continue;
-            for (const c of e.contacts) {
-                if (c && c.id == null) {
-                    const n = norm(c.nom);
-                    c.id = 'c:' + (n || ('anon|' + norm(c.tel) + '|' + norm(c.email)));
-                }
-            }
-        }
-        return entreprisesArr;
-    },
-
     // Fusion par CLÉ NATURELLE (pas par id) pour les stores à index unique
     // (sites, salaries_habilitations [nom+prenom], signataires [nom+fonction]).
     // Les id étant locaux à chaque poste, un merge par id créerait des doublons
@@ -4338,24 +4267,15 @@ const DataSync = {
     // version la plus récente (dateModification/updated_at), on conserve l'id local
     // quand le record existe en local (références stables), et on réattribue tout
     // id manquant ou en collision pour garantir un bulkPut sans erreur.
-    _mergeByKey(localArr, snapshotArr, remoteArr, keyFn) {
+    _mergeByKey(localArr, remoteArr, keyFn) {
         const ts = r => { const v = r && (r.dateModification || r.updated_at); if (v == null) return 0; const n = typeof v === 'number' ? v : Date.parse(v); return Number.isFinite(n) ? n : 0; };
-        // Détection renommage/suppression locale (audit #13/#22) : une clé présente
-        // au dernier sync (snapshot) mais ABSENTE en local = supprimée ou renommée
-        // localement (la correction d'un nom change la clé naturelle). On ne la
-        // ré-ajoute donc PAS depuis le distant → plus de doublon ancien+nouveau nom.
-        const localKeys = new Set((localArr || []).map(keyFn));
-        const deletedLocally = new Set();
-        for (const r of (snapshotArr || [])) { const k = keyFn(r); if (!localKeys.has(k)) deletedLocally.add(k); }
         const byKey = new Map();
         for (const r of (localArr || [])) {
             const k = keyFn(r); const ex = byKey.get(k);
             if (!ex || ts(r) >= ts(ex)) byKey.set(k, r);
         }
         for (const r of (remoteArr || [])) {
-            const k = keyFn(r);
-            if (deletedLocally.has(k)) continue; // supprimé/renommé en local → ne pas ressusciter
-            const ex = byKey.get(k);
+            const k = keyFn(r); const ex = byKey.get(k);
             if (!ex) byKey.set(k, r);
             else if (ts(r) > ts(ex)) byKey.set(k, { ...r, id: ex.id }); // garde l'id local
         }
@@ -4384,26 +4304,21 @@ const DataSync = {
      * a ecrire. Propage les remappings d'ids entre fichiers (icps.pdpId,
      * pdps.entreprisesExt[]._repoId).
      */
-    async _mergeAllWithRemote(remotes, { interactive = false } = {}) {
+    async _mergeAllWithRemote(remotes) {
         const current = await this._collectRawData();
         let snapshot;
         try {
             snapshot = this._loadedSnapshot ? JSON.parse(this._loadedSnapshot)
-                : { pdps:[], icps:[], entreprises:[], settings:[], sites:[], salaries_habilitations:[], signataires:[] };
-        } catch { snapshot = { pdps:[], icps:[], entreprises:[], settings:[], sites:[], salaries_habilitations:[], signataires:[] }; }
+                : { pdps:[], icps:[], entreprises:[], settings:[] };
+        } catch { snapshot = { pdps:[], icps:[], entreprises:[], settings:[] }; }
 
         // Backfill uid (hérités) avant fusion : icps/pdps fusionnent par uid stable
         this._ensureUids(current.pdps, 'pdp'); this._ensureUids(snapshot.pdps, 'pdp'); this._ensureUids(remotes.pdp?.pdps, 'pdp');
         this._ensureUids(current.icps, 'icp'); this._ensureUids(snapshot.icps, 'icp'); this._ensureUids(remotes.icp?.icps, 'icp');
-        // Backfill id de contacts (clé = nom) avant fusion : entreprises mergent en
-        // field-level → contacts[] fusionnés par identité, plus par écrasement.
-        this._ensureContactIds(current.entreprises); this._ensureContactIds(snapshot.entreprises); this._ensureContactIds(remotes.shared?.entreprises);
 
         const pdpRes  = this._mergeStore(current.pdps,        snapshot.pdps,        remotes.pdp?.pdps         || [], { autoId:true,  fieldLevel:true,  keyField:'uid' });
         const icpRes  = this._mergeStore(current.icps,        snapshot.icps,        remotes.icp?.icps         || [], { autoId:true,  fieldLevel:true,  keyField:'uid' });
-        // entreprises : field-level (avant : "current wins" → édition concurrente de
-        // la même entreprise écrasait les contacts ajoutés par un autre poste).
-        const entRes  = this._mergeStore(current.entreprises, snapshot.entreprises, remotes.shared?.entreprises || [], { autoId:true,  fieldLevel:true });
+        const entRes  = this._mergeStore(current.entreprises, snapshot.entreprises, remotes.shared?.entreprises || [], { autoId:true,  fieldLevel:false });
         // settings : PK = 'key' (db.settings.stores 'key'), PAS 'id'. Merger par
         // 'key' — sinon toutes les entrées (dont 'agences') s'écrasent sous la
         // clé id=undefined et disparaissent au premier merge.
@@ -4413,24 +4328,11 @@ const DataSync = {
         const allConflicts = [
             ...pdpRes.conflicts.map(c => ({ ...c, _entityType: 'pdp', _bucket: pdpRes.merged })),
             ...icpRes.conflicts.map(c => ({ ...c, _entityType: 'icp', _bucket: icpRes.merged })),
-            ...entRes.conflicts.map(c => ({ ...c, _entityType: 'entreprise', _bucket: entRes.merged })),
         ];
         if (allConflicts.length) {
-            const savedBy = remotes.pdp?._meta?.savedBy || remotes.icp?._meta?.savedBy || remotes.shared?._meta?.savedBy || 'un collegue';
+            const savedBy = remotes.pdp?._meta?.savedBy || remotes.icp?._meta?.savedBy || 'un collegue';
             const byUser  = this.getUserName() || 'inconnu';
-            // #10 : ne JAMAIS ouvrir la modale bloquante en contexte automatique
-            // (auto-save / poll). Modale uniquement si appel explicite interactif.
-            // Sinon : résolution déterministe = la date de modification la plus
-            // récente gagne (au lieu du défaut silencieux 'mine'), tracée ci-dessous.
-            let choices;
-            if (interactive && document.getElementById('modal-merge-conflict')) {
-                choices = await this._resolveConflicts(allConflicts, savedBy);
-            } else {
-                choices = {};
-                for (const c of allConflicts) {
-                    choices[c.path] = { choice: ((c.dmRem || '') > (c.dmCur || '')) ? 'other' : 'mine' };
-                }
-            }
+            const choices = await this._resolveConflicts(allConflicts, savedBy);
             for (const c of allConflicts) {
                 const decision = choices[c.path]?.choice || 'mine';
                 let finalValue;
@@ -4490,9 +4392,9 @@ const DataSync = {
             shared: {
                 _meta: remotes.shared?._meta || null,
                 entreprises: entRes.merged, settings: setRes.merged, fds: current.fds,
-                sites:                  this._mergeByKey(current.sites,                  snapshot.sites,                  remotes.shared?.sites                  || [], r => (r.nom||'').toLowerCase().trim()+'|'+(r.entite||'').toLowerCase().trim()),
-                salaries_habilitations: this._mergeByKey(current.salaries_habilitations, snapshot.salaries_habilitations, remotes.shared?.salaries_habilitations || [], r => (r.nom||'').toUpperCase().trim()+'|'+(r.prenom||'').toUpperCase().trim()),
-                signataires:            this._mergeByKey(current.signataires,            snapshot.signataires,            remotes.shared?.signataires            || [], r => (r.nom||'').toLowerCase().trim()+'|'+(r.fonction||'').toLowerCase().trim()),
+                sites:                  this._mergeByKey(current.sites,                  remotes.shared?.sites                  || [], r => (r.nom||'').toLowerCase().trim()+'|'+(r.entite||'').toLowerCase().trim()),
+                salaries_habilitations: this._mergeByKey(current.salaries_habilitations, remotes.shared?.salaries_habilitations || [], r => (r.nom||'').toUpperCase().trim()+'|'+(r.prenom||'').toUpperCase().trim()),
+                signataires:            this._mergeByKey(current.signataires,            remotes.shared?.signataires            || [], r => (r.nom||'').toLowerCase().trim()+'|'+(r.fonction||'').toLowerCase().trim()),
             },
         };
     },
@@ -4524,43 +4426,6 @@ const DataSync = {
         });
     },
 
-    // Applique le distant store par store de façon ATOMIQUE (transaction Dexie).
-    // Si bulkPut échoue après clear(), le clear est annulé (rollback) → le store
-    // n'est jamais laissé vide. Utilisés par _loadFromRemote ET le polling.
-    async _applyPdpStore(pdpData) {
-        await db.transaction('rw', db.pdps, async () => {
-            await db.pdps.clear();
-            if (pdpData.pdps?.length) await db.pdps.bulkPut(pdpData.pdps);
-        });
-    },
-    async _applyIcpStore(icpData) {
-        await db.transaction('rw', db.icps, async () => {
-            await db.icps.clear();
-            if (icpData.icps?.length) await db.icps.bulkPut(icpData.icps);
-        });
-    },
-    async _applySharedStore(sharedData) {
-        await db.transaction('rw', db.entreprises, db.settings, db.fds, db.sites, db.salaries_habilitations, db.signataires, async () => {
-            await db.entreprises.clear();
-            if (sharedData.entreprises?.length) await db.entreprises.bulkPut(sharedData.entreprises);
-            await db.settings.clear();
-            if (sharedData.settings?.length) await db.settings.bulkPut(sharedData.settings);
-            if (sharedData.fds) {
-              // Préserve les `data` base64 locaux (le JSON shared n'en contient plus)
-              const localFDS = await db.fds.toArray();
-              const localDataById = new Map(localFDS.map(f => [f.id, f.data]));
-              await db.fds.clear();
-              if (sharedData.fds.length) {
-                await db.fds.bulkPut(sharedData.fds.map(remote => ({
-                    ...remote,
-                    data: remote.data || localDataById.get(remote.id) || null,
-                })));
-              }
-            }
-            await this._applySharedAuxStores(sharedData);
-        });
-    },
-
     // ---- Sauvegardes séparées (avec merge anti-conflit) ----
     async save() {
         if (this._saving || !this._connected) return;
@@ -4568,35 +4433,24 @@ const DataSync = {
         try {
             // Boucle de retry : si une écriture concurrente survient entre la lecture
             // et l'écriture (412 If-Match), on relance un cycle read-merge-write.
-            // L'If-Match est conservé sur TOUTES les tentatives (plus d'écriture
-            // inconditionnelle last-write-wins) ; en cas de 412 persistant on n'écrase
-            // JAMAIS à l'aveugle : _dirty reste true et le poll réessaiera.
-            const MAX_ATTEMPTS = 5;
-            for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-                try { await this._saveOnce(true); return; }
+            for (let attempt = 0; attempt < 3; attempt++) {
+                // Dernière tentative : écriture inconditionnelle (repli sûr si l'ETag
+                // n'est pas exploitable par Graph → jamais de blocage des sauvegardes).
+                const useEtag = attempt < 2;
+                try { await this._saveOnce(useEtag); return; }
                 catch (e) {
-                    const retryable = e && (e._precondition || e._readError);
-                    if (retryable && attempt < MAX_ATTEMPTS - 1) {
-                        // backoff + jitter : désynchronise deux postes en contention
-                        const delay = 150 * (attempt + 1) + Math.floor(Math.random() * 250);
-                        console.warn(`DataSync: ${e._precondition ? 'conflit 412' : 'échec lecture'}, tentative ${attempt + 1}/${MAX_ATTEMPTS} dans ${delay}ms`);
-                        await new Promise(r => setTimeout(r, delay));
+                    if (e && e._precondition && attempt < 2) {
+                        console.warn('DataSync: conflit concurrent (412), nouvelle tentative ' + (attempt + 1));
                         continue;
                     }
                     throw e;
                 }
             }
-            // Toutes les tentatives ont échoué : conflit persistant, pas d'écrasement.
-            const err = new Error('Conflit de version persistant'); err._persistentConflict = true; throw err;
         } catch (e) {
             console.error('DataSync: erreur sauvegarde SharePoint', e);
             const m = (e && e.message) || '';
             const compte = (_msalAccount && _msalAccount.name) || '';
-            if (e && (e._persistentConflict || e._readError)) {
-                App.toast('Conflit de sauvegarde persistant (un collègue enregistre en même temps) ou réseau instable. Vos données restent enregistrées localement et NE sont PAS perdues — réessai automatique au prochain cycle.', 'warning', 12000);
-                if (typeof ActivityLog !== 'undefined') ActivityLog.log('conflit_persistant', { type: e._readError ? 'lecture' : '412' });
-                // _dirty conservé (non remis à false) → le poll relancera la sauvegarde.
-            } else if (/\b403\b|forbidden|access.?denied/i.test(m)) {
+            if (/\b403\b|forbidden|access.?denied/i.test(m)) {
                 App.toast(`Sauvegarde refusée : le compte ${compte} a un accès en LECTURE SEULE au site SharePoint QHSE. Demandez à l'administrateur les droits d'édition (rôle « Membres » / « Contribution »). Vos données restent enregistrées localement.`, 'danger', 14000);
             } else if (/\b401\b|unauthor/i.test(m)) {
                 App.toast('Session Microsoft expirée. Cliquez sur « Se reconnecter ». Vos données restent enregistrées localement.', 'danger', 11000);
@@ -4607,28 +4461,13 @@ const DataSync = {
     },
 
     async _saveOnce(useEtag = true) {
-        // 1. Relire les fichiers distants (+ ETags) pour detecter des versions concurrentes.
-        // readError distingue un ÉCHEC de lecture (réseau/401/5xx) d'un fichier ABSENT
-        // (404 → _readJsonFileMeta renvoie {data:null,etag:null} sans throw).
+        // 1. Relire les fichiers distants (+ ETags) pour detecter des versions concurrentes
         const [rp, ri, rs] = await Promise.all([
-            _readJsonFileMeta(SP_CONFIG.PDP_DATA_FILE).catch(() => ({ data:null, etag:null, readError:true })),
-            _readJsonFileMeta(SP_CONFIG.ICP_DATA_FILE).catch(() => ({ data:null, etag:null, readError:true })),
-            _readJsonFileMeta(SP_CONFIG.SHARED_DATA_FILE).catch(() => ({ data:null, etag:null, readError:true })),
+            _readJsonFileMeta(SP_CONFIG.PDP_DATA_FILE).catch(() => ({ data:null, etag:null })),
+            _readJsonFileMeta(SP_CONFIG.ICP_DATA_FILE).catch(() => ({ data:null, etag:null })),
+            _readJsonFileMeta(SP_CONFIG.SHARED_DATA_FILE).catch(() => ({ data:null, etag:null })),
         ]);
-        // Échec de lecture : NE PAS écrire par-dessus une version distante non lue
-        // (sinon écrasement à l'aveugle). On lève une erreur retryable → la boucle
-        // save() relance un cycle complet avec backoff.
-        if (rp.readError || ri.readError || rs.readError) {
-            const err = new Error('Lecture distante échouée avant écriture'); err._readError = true; throw err;
-        }
         const remotePdp = rp.data, remoteIcp = ri.data, remoteShared = rs.data;
-        // ETags metadata lus au même instant : servent à émuler la protection 412
-        // sur la branche chunkée (>4Mo) de _writeJsonFile (cf. audit #2). Best-effort.
-        const [mp, mi, ms] = await Promise.all([
-            _getRemoteMetaEtag(SP_CONFIG.PDP_DATA_FILE).catch(() => null),
-            _getRemoteMetaEtag(SP_CONFIG.ICP_DATA_FILE).catch(() => null),
-            _getRemoteMetaEtag(SP_CONFIG.SHARED_DATA_FILE).catch(() => null),
-        ]);
 
         const remoteVers = {
             pdp:    remotePdp?._meta?.version    || 0,
@@ -4652,11 +4491,7 @@ const DataSync = {
             App.toast(`Synchronisé avec les modifications de ${savedBy} — vos données et les siennes sont conservées ✓`, 'success');
         }
 
-        // 3. Collecter les donnees locales (post-merge) et forcer version > remote.
-        // genAtCollect : marqueur de mutation AVANT la collecte → toute saisie
-        // survenant pendant la fenêtre collecte→écriture (réseau lent inclus) est
-        // détectée plus bas pour ne pas effacer _dirty à tort (audit #4).
-        const genAtCollect = this._dirtyGen || 0;
+        // 3. Collecter les donnees locales (post-merge) et forcer version > remote
         const [pdpData, icpData, sharedData] = await Promise.all([
             this._collectPDPData(), this._collectICPData(), this._collectSharedData()
         ]);
@@ -4664,50 +4499,16 @@ const DataSync = {
         icpData._meta.version    = Math.max(remoteVers.icp,    lastSyncedVers.icp)    + 1;
         sharedData._meta.version = Math.max(remoteVers.shared, lastSyncedVers.shared) + 1;
 
-        // 3bis. GARDE ANTI-PERTE : ne jamais pousser un store local VIDE par-dessus
-        // un distant non vide (protège contre un store vidé par une erreur de
-        // chargement/poll). _dirty reste true → réessai après rechargement.
-        const emptied = [];
-        if ((pdpData.pdps?.length||0) === 0        && (remotePdp?.pdps?.length||0) > 0)          emptied.push('PDP');
-        if ((icpData.icps?.length||0) === 0        && (remoteIcp?.icps?.length||0) > 0)          emptied.push('ICP');
-        if ((sharedData.entreprises?.length||0) === 0 && (remoteShared?.entreprises?.length||0) > 0) emptied.push('entreprises');
-        if (emptied.length) {
-            App.toast(`Sauvegarde annulée par sécurité : ${emptied.join(', ')} vide localement alors que le serveur contient des données. Rechargez la page (F5) avant de continuer pour éviter toute perte.`, 'danger', 16000);
-            if (typeof ActivityLog !== 'undefined') ActivityLog.log('sauvegarde_bloquee_store_vide', { stores: emptied.join(',') });
-            return; // _dirty conservé : pas de reset, pas d'écriture du vide
-        }
-
         // 4. Écriture conditionnelle (If-Match sur l'ETag lu) : 412 si modifié entre-temps
         await Promise.all([
-            _writeJsonFile(SP_CONFIG.PDP_DATA_FILE, pdpData, useEtag ? rp.etag : null, useEtag ? mp : null),
-            _writeJsonFile(SP_CONFIG.ICP_DATA_FILE, icpData, useEtag ? ri.etag : null, useEtag ? mi : null),
-            _writeJsonFile(SP_CONFIG.SHARED_DATA_FILE, sharedData, useEtag ? rs.etag : null, useEtag ? ms : null),
+            _writeJsonFile(SP_CONFIG.PDP_DATA_FILE, pdpData, useEtag ? rp.etag : null),
+            _writeJsonFile(SP_CONFIG.ICP_DATA_FILE, icpData, useEtag ? ri.etag : null),
+            _writeJsonFile(SP_CONFIG.SHARED_DATA_FILE, sharedData, useEtag ? rs.etag : null),
         ]);
         this._loadedMeta = { pdp:pdpData._meta, icp:icpData._meta, shared:sharedData._meta };
-        // Snapshot = EXACTEMENT les données poussées (pas une relecture de db qui
-        // pourrait inclure une mutation concurrente non poussée → champ vu 'inchangé
-        // local' au prochain merge 3-way, donc écrasé par le distant). Audit #8/#20.
-        // Même forme que _collectRawData (fds sans `data`).
-        this._loadedSnapshot = JSON.stringify({
-            pdps: pdpData.pdps,
-            icps: icpData.icps,
-            entreprises: sharedData.entreprises,
-            settings: sharedData.settings,
-            fds: sharedData.fds,
-            sites: sharedData.sites,
-            salaries_habilitations: sharedData.salaries_habilitations,
-            signataires: sharedData.signataires,
-        });
-        // Lost-update (#4) : ne remettre _dirty=false que si AUCUNE mutation n'est
-        // survenue pendant la fenêtre collecte→écriture. Sinon conserver _dirty et
-        // replanifier une sauvegarde de suivi (la saisie non poussée n'est pas perdue).
-        if ((this._dirtyGen || 0) === genAtCollect) {
-            this._dirty = false;
-            this._updateBadge(false);
-        } else {
-            clearTimeout(this._saveTimer);
-            this._saveTimer = setTimeout(() => this.save(), SP_CONFIG.SAVE_DEBOUNCE_MS);
-        }
+        this._dirty = false;
+        this._updateBadge(false);
+        await this._captureSnapshot();
         if (typeof ActivityLog !== 'undefined') ActivityLog.log('sauvegarde', {
             vPdp: pdpData._meta.version, vIcp: icpData._meta.version, vShared: sharedData._meta.version, merged: conflict
         });
@@ -4715,7 +4516,6 @@ const DataSync = {
 
     markDirty() {
         this._dirty = true;
-        this._dirtyGen = (this._dirtyGen || 0) + 1; // détection lost-update (cf. _saveOnce #4)
         this._updateBadge(true);
         if (this._connected) {
             clearTimeout(this._saveTimer);
@@ -4745,19 +4545,35 @@ const DataSync = {
                 return true;
             }
             let loaded = false;
-            // Chaque store est appliqué dans sa propre transaction : un échec de
-            // bulkPut annule le clear() (rollback) et n'avance PAS la meta → le
-            // store conserve son contenu et sera rechargé au prochain cycle.
             if (pdpData?._meta) {
-                await this._applyPdpStore(pdpData);
+                await db.pdps.clear();
+                if (pdpData.pdps?.length) await db.pdps.bulkPut(pdpData.pdps);
                 this._loadedMeta.pdp = pdpData._meta; loaded = true;
             }
             if (icpData?._meta) {
-                await this._applyIcpStore(icpData);
+                await db.icps.clear();
+                if (icpData.icps?.length) await db.icps.bulkPut(icpData.icps);
                 this._loadedMeta.icp = icpData._meta; loaded = true;
             }
             if (sharedData?._meta) {
-                await this._applySharedStore(sharedData);
+                await db.entreprises.clear();
+                if (sharedData.entreprises?.length) await db.entreprises.bulkPut(sharedData.entreprises);
+                await db.settings.clear();
+                if (sharedData.settings?.length) await db.settings.bulkPut(sharedData.settings);
+                if (sharedData.fds) {
+                  // Préserve les `data` base64 locaux (le JSON shared n'en contient plus)
+                  const localFDS = await db.fds.toArray();
+                  const localDataById = new Map(localFDS.map(f => [f.id, f.data]));
+                  await db.fds.clear();
+                  if (sharedData.fds.length) {
+                    const merged = sharedData.fds.map(remote => ({
+                        ...remote,
+                        data: remote.data || localDataById.get(remote.id) || null,
+                    }));
+                    await db.fds.bulkPut(merged);
+                  }
+                }
+                await this._applySharedAuxStores(sharedData);
                 this._loadedMeta.shared = sharedData._meta; loaded = true;
             }
             if (loaded) { this._dirty = false; this._updateBadge(false); await this._captureSnapshot(); }
@@ -4853,25 +4669,31 @@ const DataSync = {
                     _readJsonFile(SP_CONFIG.SHARED_DATA_FILE),
                 ]);
                 let updated = false; let by = '';
-                // clear()+bulkPut atomiques par store (cf. _applyXStore) : un échec
-                // n'avance pas la meta et laisse le store local intact (pas de vide).
                 if (pdpData?._meta && (pdpData._meta.version||0) > (this._loadedMeta.pdp?.version||0)) {
-                    await this._applyPdpStore(pdpData);
+                    await db.pdps.clear(); if (pdpData.pdps?.length) await db.pdps.bulkPut(pdpData.pdps);
                     this._loadedMeta.pdp = pdpData._meta; updated = true; by = pdpData._meta.savedBy;
                 }
                 if (icpData?._meta && (icpData._meta.version||0) > (this._loadedMeta.icp?.version||0)) {
-                    await this._applyIcpStore(icpData);
+                    await db.icps.clear(); if (icpData.icps?.length) await db.icps.bulkPut(icpData.icps);
                     this._loadedMeta.icp = icpData._meta; updated = true; by = by || icpData._meta.savedBy;
                 }
                 if (sharedData?._meta && (sharedData._meta.version||0) > (this._loadedMeta.shared?.version||0)) {
-                    await this._applySharedStore(sharedData);
+                    await db.entreprises.clear(); if (sharedData.entreprises?.length) await db.entreprises.bulkPut(sharedData.entreprises);
+                    await db.settings.clear(); if (sharedData.settings?.length) await db.settings.bulkPut(sharedData.settings);
+                    if (sharedData.fds) {
+                      // Préserve les `data` base64 locaux (le poll ne les rechargeait pas du tout avant)
+                      const localFDS = await db.fds.toArray();
+                      const localDataById = new Map(localFDS.map(f => [f.id, f.data]));
+                      await db.fds.clear();
+                      if (sharedData.fds.length) await db.fds.bulkPut(sharedData.fds.map(remote => ({ ...remote, data: remote.data || localDataById.get(remote.id) || null })));
+                    }
+                    await this._applySharedAuxStores(sharedData);
                     this._loadedMeta.shared = sharedData._meta; updated = true;
                 }
                 if (updated) {
                     await this._captureSnapshot();
                     App.toast(`Données mises à jour par ${by||'un collègue'}`, 'info');
                     if (typeof App._refreshCustomRisksCache === 'function') await App._refreshCustomRisksCache();
-                    if (typeof App._refreshPhotoEtapesCache === 'function') await App._refreshPhotoEtapesCache();
                     App.refreshMaintenanceBanner();
                     if (App.currentView === 'dashboard') App.updateDashboard();
                     if (App.currentView === 'list') App.renderPDPList();
@@ -5031,9 +4853,7 @@ const DataSync = {
         const bar = document.getElementById('presence-bar');
         if (!bar) return;
         if (!others || others.length === 0) { bar.innerHTML = ''; return; }
-        // #15 : u.user provient de fichiers .presence écrits par d'AUTRES postes
-        // (donnée distante non fiable) → échapper avant injection innerHTML (XSS stocké).
-        const names = others.map(u => this._escapeHtml(u.user)).join(', ');
+        const names = others.map(u => u.user).join(', ');
         bar.innerHTML = `
             <div class="alert alert-light d-flex align-items-center m-2 py-1" role="alert">
                 <i class="bi bi-people-fill me-2 text-success"></i>
@@ -5073,7 +4893,7 @@ const DataSync = {
             : (connected ? `<span class="badge bg-light text-success border ms-2"><i class="bi bi-check2 me-1"></i>À jour</span>` : '');
 
         const othersHtml = others.length
-            ? `<div class="small mb-2"><i class="bi bi-people-fill text-success me-1"></i>Également connecté(s) : <strong>${others.map(u=>this._escapeHtml(u.user)).join(', ')}</strong></div>`
+            ? `<div class="small mb-2"><i class="bi bi-people-fill text-success me-1"></i>Également connecté(s) : <strong>${others.map(u=>u.user).join(', ')}</strong></div>`
             : (connected ? `<div class="small text-muted mb-2"><i class="bi bi-person me-1"></i>Aucun autre utilisateur en ligne</div>` : '');
 
         const actionsHtml = connected
@@ -5149,27 +4969,14 @@ const ActivityLog = {
         this._flushing = true;
         const batch = this._queue.splice(0);
         try {
-            // Lecture+écriture conditionnelle (If-Match sur l'ETag) avec retry : si un
-            // autre poste a écrit le journal entre-temps (412), on relit, re-concatène
-            // le batch et on réessaie → plus de perte d'événements en multi-poste (#11).
-            const MAX = 3;
-            for (let attempt = 0; attempt < MAX; attempt++) {
-                let current, etag = null;
-                try { const r = await _readJsonFileMeta(SP_CONFIG.ACTIVITY_LOG_FILE); current = r.data; etag = r.etag; }
-                catch { current = null; etag = null; }
-                if (!current || !Array.isArray(current.events)) current = { events: [] };
-                current.events = current.events.concat(batch);
-                if (current.events.length > this.MAX_EVENTS) {
-                    current.events = current.events.slice(-this.MAX_EVENTS);
-                }
-                try {
-                    await _writeJsonFile(SP_CONFIG.ACTIVITY_LOG_FILE, current, etag);
-                    return; // succès (le finally remet _flushing=false)
-                } catch (e) {
-                    if (e && e._precondition && attempt < MAX - 1) continue; // 412 → relire + réessayer
-                    throw e;
-                }
+            let current;
+            try { current = await _readJsonFile(SP_CONFIG.ACTIVITY_LOG_FILE); } catch { current = null; }
+            if (!current || !Array.isArray(current.events)) current = { events: [] };
+            current.events = current.events.concat(batch);
+            if (current.events.length > this.MAX_EVENTS) {
+                current.events = current.events.slice(-this.MAX_EVENTS);
             }
+            await _writeJsonFile(SP_CONFIG.ACTIVITY_LOG_FILE, current);
         } catch (e) {
             // Rollback : remettre dans la queue pour reessayer plus tard
             this._queue.unshift(...batch);
@@ -6880,7 +6687,6 @@ const App = {
       await this.loadSettings();
       try { await loadAgences(); } catch (e) { console.warn('loadAgences:', e); }
       await this._refreshCustomRisksCache();
-      await this._refreshPhotoEtapesCache();
       // Auto-import embedded data if present and database is empty
       if (window.__EMBEDDED_DATA__) {
         try {
@@ -7144,10 +6950,7 @@ const App = {
     const icons = { success: 'check-circle-fill', danger: 'x-circle-fill', warning: 'exclamation-triangle-fill', info: 'info-circle-fill' };
     const t = document.createElement('div');
     t.className = `toast align-items-center text-bg-${type} border-0 show`;
-    // #15 défense en profondeur : échapper le message (certains toasts interpolent
-    // savedBy / noms d'utilisateur issus du distant) — aucun appelant ne passe de HTML.
-    const safeMsg = this.esc(String(msg == null ? '' : msg));
-    t.innerHTML = `<div class="d-flex"><div class="toast-body"><i class="bi bi-${icons[type]||'info-circle'} me-1"></i>${safeMsg}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.closest('.toast').remove()"></button></div>`;
+    t.innerHTML = `<div class="d-flex"><div class="toast-body"><i class="bi bi-${icons[type]||'info-circle'} me-1"></i>${msg}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.closest('.toast').remove()"></button></div>`;
     document.getElementById('toast-container').appendChild(t);
     setTimeout(() => t.remove(), duration);
   },
@@ -7227,8 +7030,6 @@ const App = {
             <span class="flex-grow-1 small">${this.esc(p.titre||'Sans titre')}</span>
             <span class="text-muted small">${p.dateFin}</span></div>`;
         }).join('');
-
-    await this.renderICPMaintenance(this._icpMaintAnnee);
   },
 
   // ========================================
@@ -7311,130 +7112,6 @@ const App = {
     // Fallback : si typePdp non défini, essayer aussi EU
     if (isOurs(p.eu?.nom)) return p.eu?.responsable || '';
     return '';
-  },
-
-  // Équipe maintenance habilitée à réaliser les ICP.
-  // Thibault HOCEDEZ (QSE) et Franck LAMY (conducteur travaux) sont volontairement exclus.
-  // NB : il y a 2 Franck → le match se fait sur le NOM DE FAMILLE pour distinguer Huleux de Lamy.
-  _maintTeam: [
-    { prenom:'Kévin',     nom:'Burkarth'  },
-    { prenom:'Sébastien', nom:'Burtin'    },
-    { prenom:'Benjamin',  nom:'Guillaume' },
-    { prenom:'Franck',    nom:'Huleux'    },
-    { prenom:'Matthieu',  nom:'Karquel'   },
-    { prenom:'Anthony',   nom:'Kleische'  },
-    { prenom:'Corentin',  nom:'Lion'      },
-  ],
-
-  _normTxt(s) {
-    return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
-  },
-
-  // Retourne le membre maintenance ayant réalisé l'ICP, ou null.
-  // Scanne tous les champs "personnes" de l'ICP : sur une ICP de maintenance le
-  // réalisateur Agriwatt est généralement dans eeRepresentant.nom (intervenant principal).
-  // Exige prénom + nom présents ensemble dans un même champ (anti-homonyme, distingue les 2 Franck).
-  _icpRealisateurMaint(icp) {
-    if (!icp) return null;
-    const fields = [];
-    const push = v => { if (v) fields.push(v); };
-    push(icp.eeRepresentant?.nom);
-    (icp.eeParticipants||[]).forEach(p => push(p?.nom));
-    (icp.signaturesEE||[]).forEach(p => push(p?.nom));
-    push(icp.euParticipant?.nom);
-    (icp.euParticipants||[]).forEach(p => push(p?.nom));
-    (icp.entreprisesExt||[]).forEach(ee => push(ee?.responsable));
-    push(this._getConducteurAgriwatt(icp));
-    for (const f of fields) {
-      const tokens = this._normTxt(f).split(' ').filter(Boolean);
-      if (!tokens.length) continue;
-      for (const m of this._maintTeam) {
-        if (tokens.includes(this._normTxt(m.nom)) && tokens.includes(this._normTxt(m.prenom))) return m;
-      }
-    }
-    return null;
-  },
-
-  // Nombre de jours ouvrés (lun-ven) entre deux dates incluses (mini 1).
-  _joursOuvres(d1, d2) {
-    let n = 0;
-    const cur = new Date(d1.getFullYear(), d1.getMonth(), d1.getDate());
-    const end = new Date(d2.getFullYear(), d2.getMonth(), d2.getDate());
-    while (cur <= end) {
-      const j = cur.getDay();
-      if (j !== 0 && j !== 6) n++;
-      cur.setDate(cur.getDate()+1);
-    }
-    return Math.max(n, 1);
-  },
-
-  async renderICPMaintenance(annee) {
-    const el = document.getElementById('dashboard-icp-maint');
-    if (!el) return;
-
-    // Réservé aux administrateurs : indicateur de pilotage managérial, masqué pour les autres.
-    const card = el.closest('.card');
-    if (!(await this.isAdmin())) { if (card) card.style.display = 'none'; return; }
-    if (card) card.style.display = '';
-
-    const all = await db.icps.toArray();
-    const dateOf = (v) => new Date(v.dateVisite || (v.dateCreation||'').slice(0,10) || v.dateCreation);
-
-    // Années disponibles (depuis les données) + année courante, pour le sélecteur
-    const curYear = new Date().getFullYear();
-    const yearsSet = new Set([curYear]);
-    all.forEach(v => { const d = dateOf(v); if (d && !isNaN(d)) yearsSet.add(d.getFullYear()); });
-    const years = [...yearsSet].sort((a,b)=>b-a);
-    annee = parseInt(annee) || this._icpMaintAnnee || curYear;
-    if (!years.includes(annee)) annee = years[0];
-    this._icpMaintAnnee = annee;
-
-    const selA = document.getElementById('icp-maint-annee');
-    if (selA) {
-      selA.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
-      selA.value = String(annee);
-    }
-
-    // Mois affichés : jusqu'au mois courant pour l'année en cours, sinon les 12 mois
-    const moisLabels = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Aoû','Sep','Oct','Nov','Déc'];
-    const nbMois = (annee === curYear) ? (new Date().getMonth() + 1) : 12;
-
-    const stats = new Map(this._maintTeam.map(m => [m.nom, { m, mois: new Array(12).fill(0), total:0 }]));
-    const moisTotaux = new Array(12).fill(0);
-    let nonAttribuees = 0, totalMaint = 0;
-    all.forEach(v => {
-      const d = dateOf(v);
-      if (!d || isNaN(d) || d.getFullYear() !== annee) return;
-      const m = this._icpRealisateurMaint(v);
-      if (!m) { nonAttribuees++; return; }
-      const mo = d.getMonth();
-      const s = stats.get(m.nom);
-      s.mois[mo]++; s.total++;
-      moisTotaux[mo]++; totalMaint++;
-    });
-
-    const cell = (n) => n ? `<td class="text-center">${n}</td>` : `<td class="text-center text-muted">·</td>`;
-    const thMois = moisLabels.slice(0, nbMois).map(l => `<th class="text-center">${l}</th>`).join('');
-    const rows = [...stats.values()]
-      .sort((a,b)=> b.total - a.total || a.m.nom.localeCompare(b.m.nom))
-      .map(s => `<tr>
-          <td class="text-nowrap">${this.esc(s.m.nom)} ${this.esc(s.m.prenom)}</td>
-          ${s.mois.slice(0, nbMois).map(cell).join('')}
-          <td class="text-center fw-bold">${s.total}</td>
-        </tr>`).join('');
-    const footMois = moisTotaux.slice(0, nbMois).map(n => `<td class="text-center fw-bold">${n||''}</td>`).join('');
-
-    el.innerHTML = `
-      <div class="mb-2 px-1"><span class="fs-4 fw-bold">${totalMaint}</span> <span class="text-muted small">ICP réalisées en ${annee}</span></div>
-      <div class="table-responsive">
-        <table class="table table-sm table-hover table-bordered mb-1 small align-middle text-center">
-          <thead class="table-light"><tr><th class="text-start">Technicien</th>${thMois}<th>Total</th></tr></thead>
-          <tbody>${rows}</tbody>
-          <tfoot class="table-light"><tr><th class="text-start">Total / mois</th>${footMois}<th>${totalMaint}</th></tr></tfoot>
-        </table>
-      </div>
-      ${nonAttribuees ? `<p class="text-muted small mb-0 px-1"><i class="bi bi-info-circle me-1"></i>${nonAttribuees} ICP en ${annee} non rattachée(s) à un technicien maintenance (réalisateur non renseigné ou hors équipe).</p>` : ''}
-    `;
   },
 
   filterPDPList(multiStatuts) {
@@ -7562,7 +7239,6 @@ const App = {
     const p = await db.pdps.get(id);
     if (!p) { this.toast('PDP introuvable','danger'); return; }
     this.currentPDP = p;
-    this._ensurePhotoFields(p);
     this.populateForm();
     this.showView('pdp-detail');
     // Titre = OPP-XXXX | PDP-XXX | titre (refOperation direct ou via ICP liée)
@@ -7919,8 +7595,8 @@ const App = {
       document.getElementById('btn-delete-pdp').style.display = '';
       document.getElementById('btn-save-pdp').classList.add('btn-save-flash');
       setTimeout(() => document.getElementById('btn-save-pdp').classList.remove('btn-save-flash'), 600);
-      const newContactsAdded = await this.addNewContactsToRepo(p, 'pdps');
-      this.toast(newContactsAdded ? `PDP enregistré + ${newContactsAdded} ajout(s) au répertoire` : 'PDP enregistré');
+      const newContactsAdded = await this.addNewContactsToRepo(p);
+      this.toast(newContactsAdded ? `PDP enregistré + ${newContactsAdded} nouveau(x) contact(s) ajouté(s) au répertoire` : 'PDP enregistré');
       this._markSaved();
       this.updateProgress();
       DataSync.markDirty();
@@ -8507,14 +8183,6 @@ const App = {
     } catch { /* silencieux */ }
   },
 
-  async _refreshPhotoEtapesCache() {
-    try {
-      const s = await db.settings.get('photoEtapes');
-      const v = s && s.value;
-      this._photoEtapesCache = (Array.isArray(v) && v.length) ? v.filter(x => typeof x === 'string' && x.trim()) : null;
-    } catch { this._photoEtapesCache = null; }
-  },
-
   _getRiskDefaults(name) {
     const custom = this._customRisksByName && this._customRisksByName[name];
     const def = this.RISK_DEFAULTS[name] || custom || { situation: '', prevention: '', niveau: 2 };
@@ -9029,13 +8697,6 @@ const App = {
   },
 
   // Construit un nom de fichier export : OPP-XXXX_[prefix]_PDP-XXX_titre.ext
-  // #36 : neutralise les séparateurs/caractères interdits dans CHAQUE segment de
-  // nom de fichier (refOperation type "2026/045", numero…) avant doc.save et avant
-  // la construction du chemin Graph — évite échec d'upload ou sous-chemin involontaire.
-  _sanitizeFilenameSegment(s) {
-    return String(s == null ? '' : s).replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/\s+/g, ' ').trim();
-  },
-
   async buildPDPFilename(p, ext, prefix) {
     if (!p) return `PDP.${ext}`;
     const parts = [];
@@ -9043,11 +8704,11 @@ const App = {
     if (!ref && p.icpId) {
       try { const v = await db.icps.get(p.icpId); if (v?.refOperation) ref = v.refOperation; } catch {}
     }
-    if (ref) parts.push(this._sanitizeFilenameSegment(ref));
-    if (prefix) parts.push(this._sanitizeFilenameSegment(prefix));
-    parts.push(this._sanitizeFilenameSegment(p.numero||'PDP'));
+    if (ref) parts.push(ref);
+    if (prefix) parts.push(prefix);
+    parts.push(p.numero||'PDP');
     if (p.titre) {
-      const t = this._sanitizeFilenameSegment(p.titre).slice(0, 50).trim();
+      const t = p.titre.replace(/[<>:"/\\|?*]/g,'_').replace(/\s+/g,' ').trim().slice(0, 50);
       if (t && !parts.some(x => (x||'').toLowerCase().includes(t.toLowerCase()))) parts.push(t);
     }
     return parts.filter(Boolean).join('_') + '.' + ext;
@@ -9056,10 +8717,10 @@ const App = {
   buildICPFilename(v, ext) {
     if (!v) return `ICP.${ext}`;
     const parts = [];
-    if (v.refOperation) parts.push(this._sanitizeFilenameSegment(v.refOperation));
-    parts.push(this._sanitizeFilenameSegment(v.numero||'ICP'));
+    if (v.refOperation) parts.push(v.refOperation);
+    parts.push(v.numero||'ICP');
     if (v.objet) {
-      const t = this._sanitizeFilenameSegment(v.objet).slice(0, 50).trim();
+      const t = v.objet.replace(/[<>:"/\\|?*]/g,'_').replace(/\s+/g,' ').trim().slice(0, 50);
       if (t && !parts.some(x => (x||'').toLowerCase().includes(t.toLowerCase()))) parts.push(t);
     }
     return parts.filter(Boolean).join('_') + '.' + ext;
@@ -10097,123 +9758,6 @@ const App = {
   // Helper Promise-based : redimensionne (max 1024px) et compresse (JPEG 60%)
   PHOTO_MAX_SIZE: 1024,
   PHOTO_QUALITY: 0.6,
-
-  // Étapes de prise de vue par défaut (guidage ICP/visite). Modifiables dans
-  // Paramètres (db.settings 'photoEtapes'). Cf lot photos.
-  PHOTO_ETAPES_DEFAULT: ['Entrée du site', 'Cheminement vers shelter & tableau', 'Tableau électrique', 'Accès toiture', 'Risques spécifiques', 'Autre'],
-  ETAPE_NON_CLASSEE: 'Non classé',
-
-  // Liste des étapes effective (settings ou défaut). Cache léger rafraîchi au load.
-  getPhotoEtapes() {
-    const e = this._photoEtapesCache;
-    return (Array.isArray(e) && e.length) ? e : this.PHOTO_ETAPES_DEFAULT;
-  },
-
-  // Parcourt TOUS les emplacements de photos d'un enregistrement ICP ou PDP
-  // (générales + par risque + visite) et applique cb(photo, arr, index).
-  // Sert au stamping d'id, au strip/rehydrate du base64 et au regroupement export.
-  _eachPhoto(record, cb) {
-    if (!record) return;
-    const walk = (arr) => {
-      if (!Array.isArray(arr)) return;
-      for (let i = 0; i < arr.length; i++) { if (arr[i]) cb(arr[i], arr, i); }
-    };
-    walk(record.photos);                       // ICP générales
-    walk(record.visite && record.visite.photos); // visite PDP
-    if (Array.isArray(record.risques)) for (const r of record.risques) walk(r && r.photos); // par risque
-  },
-
-  // Rétrocompat : complète id/etape/label/mime manquants sur les photos d'un
-  // enregistrement ouvert (photos créées avant le lot photos).
-  _ensurePhotoFields(record) {
-    this._eachPhoto(record, (p) => {
-      if (!p.id) p.id = _uid();
-      if (typeof p.etape !== 'string') p.etape = '';
-      if (typeof p.label !== 'string') p.label = '';
-      if (!p.mime) p.mime = (typeof p.data === 'string' && /^data:image\/png/i.test(p.data)) ? 'image/png' : 'image/jpeg';
-    });
-  },
-
-  // Tableau de photos générales selon le contexte ('icp' | 'visite').
-  _photoArr(ctx) {
-    return ctx === 'visite'
-      ? (this.currentPDP && this.currentPDP.visite && this.currentPDP.visite.photos)
-      : (this.currentICP && this.currentICP.photos);
-  },
-  _rerenderPhotos(ctx) { ctx === 'visite' ? this.renderVisitePhotos() : this.renderICPPhotos(); },
-
-  // Remplit le <select> d'étape courante (photos à venir) + mémorise le choix.
-  _populateEtapeSelect(selectId, stateProp) {
-    const sel = document.getElementById(selectId); if (!sel) return;
-    const etapes = this.getPhotoEtapes();
-    if (!this[stateProp] || !etapes.includes(this[stateProp])) this[stateProp] = etapes[0] || '';
-    sel.innerHTML = etapes.map(e => `<option value="${this.esc(e)}"${this[stateProp] === e ? ' selected' : ''}>${this.esc(e)}</option>`).join('');
-    sel.value = this[stateProp];
-  },
-
-  // Vignettes groupées PAR ÉTAPE + légende éditable + rappel des étapes vides.
-  _renderGroupedPhotos(container, photos, ctx) {
-    if (!container) return;
-    if (!photos.length) { container.innerHTML = '<p class="text-muted small mb-0">Aucune photo.</p>'; return; }
-    const etapes = this.getPhotoEtapes();
-    const order = [...etapes, this.ETAPE_NON_CLASSEE];
-    const groups = {};
-    photos.forEach((p, i) => {
-      const k = (p.etape && etapes.includes(p.etape)) ? p.etape : this.ETAPE_NON_CLASSEE;
-      (groups[k] = groups[k] || []).push(i);
-    });
-    const optsFor = (cur) => order.map(e => {
-      const val = (e === this.ETAPE_NON_CLASSEE) ? '' : e;
-      const selected = (cur || '') === val ? ' selected' : '';
-      return `<option value="${this.esc(val)}"${selected}>${this.esc(e)}</option>`;
-    }).join('');
-    let html = '';
-    for (const e of order) {
-      const idxs = groups[e]; if (!idxs || !idxs.length) continue;
-      html += `<div class="mb-2"><div class="small fw-bold text-success mb-1">${this.esc(e)} <span class="text-muted fw-normal">(${idxs.length})</span></div><div class="d-flex flex-wrap gap-2">`;
-      for (const i of idxs) {
-        const p = photos[i];
-        html += `<div class="border rounded p-1" style="width:122px">
-          <img src="${p.data}" class="rounded" style="width:112px;height:84px;object-fit:cover;cursor:pointer" onclick="App.openPhotoViewer('${ctx}',${i})">
-          <input type="text" class="form-control form-control-sm mt-1" style="font-size:.7rem" placeholder="Légende" value="${this.esc(p.label || '')}" onchange="App.setPhotoLabel('${ctx}',${i},this.value)">
-          <div class="d-flex gap-1 mt-1">
-            <select class="form-select form-select-sm" style="font-size:.62rem;padding:.1rem .3rem" onchange="App.setPhotoEtape('${ctx}',${i},this.value)">${optsFor(p.etape)}</select>
-            <button type="button" class="btn btn-sm btn-outline-danger" style="padding:0 .35rem" onclick="App.removeGenPhoto('${ctx}',${i})"><i class="bi bi-x"></i></button>
-          </div>
-        </div>`;
-      }
-      html += `</div></div>`;
-    }
-    const missing = etapes.filter(e => !(groups[e] && groups[e].length));
-    if (missing.length) html += `<div class="small text-warning mt-1"><i class="bi bi-exclamation-triangle me-1"></i>Étapes sans photo : ${this.esc(missing.join(', '))}</div>`;
-    container.innerHTML = html;
-  },
-
-  setPhotoLabel(ctx, i, val) { const a = this._photoArr(ctx); if (a && a[i]) a[i].label = val; },
-  setPhotoEtape(ctx, i, val) { const a = this._photoArr(ctx); if (a && a[i]) { a[i].etape = val; this._rerenderPhotos(ctx); } },
-  removeGenPhoto(ctx, i) { const a = this._photoArr(ctx); if (a && a[i] !== undefined) { a.splice(i, 1); this._rerenderPhotos(ctx); } },
-  openPhotoViewer(ctx, i) {
-    const a = this._photoArr(ctx); if (!a || !a[i]) return;
-    const img = document.getElementById('photo-viewer-img');
-    if (img && document.getElementById('modal-photo')) {
-      img.src = a[i].data;
-      new bootstrap.Modal(document.getElementById('modal-photo')).show();
-    } else { window.open(a[i].data); }
-  },
-
-  // Regroupe des photos par etape, dans l'ordre des etapes configurees (+ Non classe).
-  // Retourne [{etape, photos:[...]}] sans les groupes vides. Utilise par les exports.
-  _groupPhotosByEtape(photos) {
-    const etapes = this.getPhotoEtapes();
-    const order = [...etapes, this.ETAPE_NON_CLASSEE];
-    const map = {};
-    (photos || []).forEach(p => {
-      if (!p) return;
-      const k = (p.etape && etapes.includes(p.etape)) ? p.etape : this.ETAPE_NON_CLASSEE;
-      (map[k] = map[k] || []).push(p);
-    });
-    return order.filter(e => map[e] && map[e].length).map(e => ({ etape: e, photos: map[e] }));
-  },
   compressImage(file) {
     return new Promise((resolve, reject) => {
       if (!file || !file.type || !file.type.startsWith('image/')) {
@@ -10235,11 +9779,7 @@ const App = {
           cv.width = w; cv.height = h;
           cv.getContext('2d').drawImage(img, 0, 0, w, h);
           resolve({
-            id: _uid(),
             data: cv.toDataURL('image/jpeg', this.PHOTO_QUALITY),
-            mime: 'image/jpeg',
-            label: '',
-            etape: '',
             date: new Date().toISOString(),
             filename: file.name || '',
           });
@@ -10256,7 +9796,7 @@ const App = {
     this.currentPDP.visite.photos = this.currentPDP.visite.photos || [];
     let added = 0, errors = 0;
     for (const f of files) {
-      try { const ph = await this.compressImage(f); ph.etape = this._currentVisitePhotoEtape || ''; this.currentPDP.visite.photos.push(ph); added++; }
+      try { this.currentPDP.visite.photos.push(await this.compressImage(f)); added++; }
       catch (e) { console.warn('photo:', e); errors++; }
     }
     this.renderVisitePhotos();
@@ -10266,9 +9806,9 @@ const App = {
   },
 
   renderVisitePhotos() {
-    if (this.currentPDP && this.currentPDP.visite) this.currentPDP.visite.photos = this.currentPDP.visite.photos || [];
-    this._populateEtapeSelect('visite-photo-etape', '_currentVisitePhotoEtape');
-    this._renderGroupedPhotos(document.getElementById('visite-photos'), (this.currentPDP?.visite?.photos) || [], 'visite');
+    const c = document.getElementById('visite-photos');
+    const p = this.currentPDP?.visite?.photos||[];
+    c.innerHTML = p.map((p,i) => `<div class="position-relative d-inline-block"><img src="${p.data}" class="photo-thumb" style="width:80px;height:80px;object-fit:cover" onclick="document.getElementById('photo-viewer-img').src='${p.data.replace(/'/g,"\\'")}';new bootstrap.Modal(document.getElementById('modal-photo')).show()"><button class="btn btn-danger position-absolute" style="top:-5px;right:-5px;padding:0 4px;font-size:0.6rem;border-radius:50%;line-height:1.4" onclick="App.currentPDP.visite.photos.splice(${i},1);App.renderVisitePhotos()"><i class="bi bi-x"></i></button></div>`).join('');
   },
 
   // ---- DOCUMENTS ----
@@ -10380,127 +9920,49 @@ const App = {
   // ---- Enrichit le répertoire entreprises avec les nouveaux contacts vus dans un PDP/ICP ----
   // Ne MODIFIE PAS le contact principal existant : ajoute juste les personnes non encore connues
   // comme contacts additionnels (non-main). Permet d'enrichir progressivement la base.
-  // Clé de comparaison de noms tolérante : minuscules, sans accents, ponctuation
-  // retirée, tokens triés → "Lion Corentin" == "Corentin Lion" == "LION corentin".
-  // NB : sert UNIQUEMENT à comparer/détecter, jamais à générer un id (les id de
-  // contact restent dérivés du nom brut normalisé, cf. _ensureContactIds).
-  _personKey(s) {
-    return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
-      .replace(/[^a-z0-9]+/g,' ').trim().split(' ').filter(Boolean).sort().join(' ');
-  },
-
-  // Distance de Levenshtein (pour la détection de doublons orthographiques en suggestion).
-  _levenshtein(a, b) {
-    a = a||''; b = b||'';
-    if (a === b) return 0;
-    const m = a.length, n = b.length;
-    if (!m) return n; if (!n) return m;
-    let prev = Array.from({length:n+1}, (_,i)=>i);
-    for (let i=1; i<=m; i++) {
-      const cur = [i];
-      for (let j=1; j<=n; j++) cur[j] = Math.min(prev[j]+1, cur[j-1]+1, prev[j-1] + (a[i-1]===b[j-1]?0:1));
-      prev = cur;
-    }
-    return prev[n];
-  },
-
-  // Cherche un contact dans une liste. Retourne { sure, fuzzy } :
-  //  - sure  : même personne avec certitude (id identique, ou _personKey identique → ordre/accents indifférents)
-  //  - fuzzy : ressemblance orthographique forte mais NON certaine (à confirmer par l'utilisateur)
-  _findContactMatch(contacts, nom, id) {
-    const list = contacts||[];
-    if (id != null) { const byId = list.find(c => c.id === id); if (byId) return { sure: byId, fuzzy: null }; }
-    const k = this._personKey(nom);
-    if (!k) return { sure: null, fuzzy: null };
-    const sure = list.find(c => this._personKey(c.nom) === k);
-    if (sure) return { sure, fuzzy: null };
-    const seuil = k.length <= 6 ? 1 : 2;
-    let best = null, bestD = Infinity;
-    for (const c of list) { const d = this._levenshtein(k, this._personKey(c.nom)); if (d < bestD) { bestD = d; best = c; } }
-    if (best && bestD > 0 && bestD <= seuil) return { sure: null, fuzzy: best };
-    return { sure: null, fuzzy: null };
-  },
-
-  // Enrichit le répertoire (db.entreprises) à partir des saisies du PDP/ICP courant :
-  //  - crée/complète les ENTREPRISES extérieures saisies manuellement (adresse, tél, email, SIRET…)
-  //  - ajoute/complète les CONTACTS (représentants EE/EU + participants)
-  // Déduplication SÛRE (id stable ou nom tokens-triés-sans-accents) ; jamais d'écrasement
-  // d'une valeur existante (on ne fait que compléter les champs vides).
-  // storeName ('icps'|'pdps') permet de re-persister les _repoId nouvellement assignés.
-  async addNewContactsToRepo(currentObj, storeName) {
+  async addNewContactsToRepo(currentObj) {
     if (!currentObj) return 0;
-    let added = 0, repoIdsAssigned = false;
-    const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();
-
-    const upsertContact = async (entId, p) => {
+    let added = 0;
+    const tryAddContact = async (entId, p) => {
       if (!entId || !p?.nom) return false;
       try {
         const repo = await db.entreprises.get(entId);
         if (!repo) return false;
-        if (!Array.isArray(repo.contacts)) repo.contacts = this.getEntrepriseContacts(repo);
-        const { sure } = this._findContactMatch(repo.contacts, p.nom);
-        if (sure) {
-          let changed = false;
-          if (!sure.tel && p.tel) { sure.tel = p.tel; changed = true; }
-          if (!sure.fonction && p.fonction) { sure.fonction = p.fonction; changed = true; }
-          if (!sure.email && p.email) { sure.email = p.email; changed = true; }
-          if (changed) await db.entreprises.put(repo);
-          return false;
-        }
-        repo.contacts = [...repo.contacts, { nom: p.nom, fonction: p.fonction||'', tel: p.tel||'', email: p.email||'', isMain: !repo.contacts.length }];
+        const contacts = this.getEntrepriseContacts(repo);
+        const norm = s => (s||'').toLowerCase().replace(/\s+/g,' ').trim();
+        const exists = contacts.some(c => norm(c.nom) === norm(p.nom));
+        if (exists) return false;
+        repo.contacts = [...contacts, { nom: p.nom, fonction: p.fonction||'', tel: p.tel||'', email: p.email||'', isMain: false }];
         await db.entreprises.put(repo);
         return true;
-      } catch (e) { console.warn('upsertContact skipped', e); return false; }
+      } catch (e) { console.warn('addNewContact skipped', e); return false; }
     };
-
-    const upsertEntreprise = async (ee) => {
-      if (!ee || !ee.nom) return;
-      try {
-        const all = await db.entreprises.toArray();
-        const nk = norm(ee.nom);
-        let repo = (ee.siret && all.find(e => (e.siret||'') === ee.siret)) || all.find(e => norm(e.nom) === nk);
-        if (repo) {
-          let changed = false;
-          for (const f of ['adresse','tel','email','siret','activite']) { if (!repo[f] && ee[f]) { repo[f] = ee[f]; changed = true; } }
-          if (ee.responsable) {
-            if (!Array.isArray(repo.contacts)) repo.contacts = this.getEntrepriseContacts(repo);
-            const { sure } = this._findContactMatch(repo.contacts, ee.responsable);
-            if (!sure) { repo.contacts = [...repo.contacts, { nom: ee.responsable, fonction: ee.fonction||'', tel: ee.tel||'', email: ee.email||'', isMain: !repo.contacts.length }]; changed = true; added++; }
-          }
-          if (changed) await db.entreprises.put(repo);
-          ee._repoId = repo.id; repoIdsAssigned = true;
-        } else {
-          const contacts = ee.responsable ? [{ nom: ee.responsable, fonction: ee.fonction||'', tel: ee.tel||'', email: ee.email||'', isMain: true }] : [];
-          const id = await db.entreprises.add({ nom: ee.nom, adresse: ee.adresse||'', tel: ee.tel||'', email: ee.email||'', siret: ee.siret||'', activite: ee.activite||'', responsable: ee.responsable||'', fonction: ee.fonction||'', contacts });
-          ee._repoId = id; repoIdsAssigned = true;
-          if (ee.responsable) added++;
-        }
-      } catch (e) { console.warn('upsertEntreprise skipped', e); }
-    };
-
-    // 1) Entreprises extérieures / sous-traitants
+    // EE additionnelles (entreprisesExt[]) — la personne saisie comme responsable
     for (const ee of (currentObj.entreprisesExt || [])) {
-      if (!ee?.nom) continue;
-      if (!ee._repoId) await upsertEntreprise(ee);
-      else if (ee.responsable) { if (await upsertContact(ee._repoId, { nom: ee.responsable, fonction: ee.fonction, tel: ee.tel, email: ee.email })) added++; }
+      if (!ee._repoId) continue;
+      if (await tryAddContact(ee._repoId, { nom: ee.responsable, fonction: ee.fonction, tel: ee.tel, email: ee.email })) added++;
     }
-    // 2) Représentant EE + participants
+    // Représentant EE de l'ICP (côté AGRIWATT/Enersolys)
     const rep = currentObj.eeRepresentant;
-    if (rep?.entrepriseId && rep.nom) { if (await upsertContact(rep.entrepriseId, rep)) added++; }
-    if (rep?.entrepriseId && Array.isArray(currentObj.eeParticipants)) {
-      for (const p of currentObj.eeParticipants) { if (await upsertContact(rep.entrepriseId, p)) added++; }
+    if (rep?.entrepriseId && rep.nom) {
+      if (await tryAddContact(rep.entrepriseId, rep)) added++;
     }
-    // 3) Côté EU (entreprise utilisatrice)
+    // Participants EE additionnels (icp-ee-add-list) liés à la même entreprise EE
+    if (rep?.entrepriseId && Array.isArray(currentObj.eeParticipants)) {
+      for (const p of currentObj.eeParticipants) {
+        if (await tryAddContact(rep.entrepriseId, p)) added++;
+      }
+    }
+    // Côté EU : Représentant EU + participants additionnels rattachés à l'entreprise EU Sellsy
     const euLocalId = currentObj.euInfo?.localId;
     const euRep = currentObj.euParticipant;
-    if (euLocalId && euRep?.nom) { if (await upsertContact(euLocalId, euRep)) added++; }
-    if (euLocalId && Array.isArray(currentObj.euParticipants)) {
-      for (const p of currentObj.euParticipants) { if (await upsertContact(euLocalId, p)) added++; }
+    if (euLocalId && euRep?.nom) {
+      if (await tryAddContact(euLocalId, euRep)) added++;
     }
-
-    // Persiste les _repoId nouvellement assignés sur le document courant.
-    if (repoIdsAssigned && storeName && currentObj.id != null) {
-      try { await db[storeName].put(currentObj); } catch (e) { console.warn('re-put after repo enrich failed', e); }
+    if (euLocalId && Array.isArray(currentObj.euParticipants)) {
+      for (const p of currentObj.euParticipants) {
+        if (await tryAddContact(euLocalId, p)) added++;
+      }
     }
     return added;
   },
@@ -11381,7 +10843,6 @@ const App = {
     const v = await db.icps.get(id);
     if (!v) { this.toast('ICP introuvable','danger'); return; }
     this.currentICP = v;
-    this._ensurePhotoFields(v);
     this.populateICPForm();
     this.showView('icp-detail');
     document.getElementById('icp-detail-title').textContent = [v.refOperation, v.numero || ('ICP #' + v.id), v.objet].filter(Boolean).join(' | ');
@@ -11582,75 +11043,6 @@ const App = {
     this._markEditing && this._markEditing();
   },
 
-  // Persiste le téléphone saisi manuellement dans la fiche du contact sélectionné,
-  // afin que la liste déroulante soit à jour et qu'une re-sélection ne l'efface plus.
-  async persistICPEERepContactPhone(value) {
-    const tel = (value||'').trim();
-    const persSel = document.getElementById('icp-ee-personne-select');
-    const entId = document.getElementById('icp-ee-entreprise-id')?.value;
-    // Pas de personne enregistrée sélectionnée → rien à persister (tel reste dans l'ICP).
-    if (!persSel || persSel.value === '' || !entId) return;
-    const idx = parseInt(persSel.value);
-    const c = (this._icpEERepCurrentContacts||[])[idx];
-    if (!c || (c.tel||'') === tel) return;
-    try {
-      const e = await db.entreprises.get(parseInt(entId));
-      if (!e || !Array.isArray(e.contacts)) return;
-      let target = (c.id != null) ? e.contacts.find(x => x.id === c.id) : null;
-      if (!target) target = e.contacts.find(x => (x.nom||'') === (c.nom||'') && (x.fonction||'') === (c.fonction||''));
-      if (!target) return;
-      target.tel = tel;
-      c.tel = tel; // maj du cache en mémoire → re-sélection immédiate restaure le bon numéro
-      await db.entreprises.put(e);
-      if (typeof ActivityLog !== 'undefined') ActivityLog.log('entreprise.contact.tel', { ent: e.nom, contact: c.nom });
-      this.toast(`Téléphone enregistré pour ${c.nom}`, 'success', 2500);
-    } catch (err) { console.warn('persistICPEERepContactPhone:', err?.message||err); }
-  },
-
-  // Nom saisi manuellement (hors liste) → crée le contact dans le répertoire de
-  // l'entreprise sélectionnée et le sélectionne, pour alimenter dynamiquement la liste.
-  // L'id est dérivé du nom (cf. _ensureContactIds) → un nom = un contact, pas de doublon à la synchro.
-  async persistICPEERepContactName(value) {
-    const nom = (value||'').trim();
-    const persSel = document.getElementById('icp-ee-personne-select');
-    const entId = document.getElementById('icp-ee-entreprise-id')?.value;
-    if (!nom || !persSel || !entId) return;
-    const list = this._icpEERepCurrentContacts || [];
-    // Déjà sélectionné et c'est la même personne → rien à faire.
-    const cur = list[parseInt(persSel.value)];
-    if (cur && this._personKey(cur.nom) === this._personKey(nom)) return;
-    // Détection de doublon : sûre (ordre/accents indifférents) ou orthographe proche.
-    const { sure, fuzzy } = this._findContactMatch(list, nom);
-    if (sure) {
-      const idx = list.indexOf(sure);
-      persSel.value = String(idx);
-      this.onICPEERepPersonneChange(String(idx)); // applique la forme enregistrée (corrige casse/ordre)
-      return;
-    }
-    if (fuzzy) {
-      const ok = await this.confirm(`Un contact proche existe déjà : « ${fuzzy.nom} ».\n\nEst-ce la même personne ?\n\n• Oui : utiliser « ${fuzzy.nom} »\n• Non : créer un nouveau contact « ${nom} »`);
-      if (ok) { const idx = list.indexOf(fuzzy); persSel.value = String(idx); this.onICPEERepPersonneChange(String(idx)); return; }
-    }
-    const norm = s => (s||'').toLowerCase().replace(/\s+/g,' ').trim();
-    // Création d'un nouveau contact dans le répertoire.
-    try {
-      const e = await db.entreprises.get(parseInt(entId));
-      if (!e) return;
-      if (!Array.isArray(e.contacts)) e.contacts = [];
-      const fonction = (document.getElementById('icp-ee-rep-fonction')?.value||'').trim();
-      const tel = (document.getElementById('icp-ee-rep-tel')?.value||'').trim();
-      const nc = { id: 'c:' + norm(nom), nom, fonction, tel, email:'', isMain: false };
-      if (!e.contacts.some(c => c.id === nc.id)) e.contacts.push(nc);
-      await db.entreprises.put(e);
-      if (typeof ActivityLog !== 'undefined') ActivityLog.log('entreprise.contact.add', { ent: e.nom, contact: nom });
-      // Rafraîchir la liste sans réinitialiser les champs, puis sélectionner le nouveau contact.
-      await this.onICPEERepEntrepriseChange(entId, true);
-      const newIdx = (this._icpEERepCurrentContacts||[]).findIndex(c => norm(c.nom) === norm(nom));
-      if (newIdx >= 0) persSel.value = String(newIdx);
-      this.toast(`Contact ajouté au répertoire : ${nom}`, 'success', 2500);
-    } catch (err) { console.warn('persistICPEERepContactName:', err?.message||err); }
-  },
-
   populateICPForm() {
     const v = this.currentICP;
     // Toggle chantier interne (montre/masque le sélecteur Site EU)
@@ -11828,8 +11220,8 @@ const App = {
       else { if (!v.uid) v.uid = _uid(); v.id = await db.icps.add(v); v.numero = `ICP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(v.id).padStart(4,'0')}`; await db.icps.put(v); }
       document.getElementById('icp-detail-title').textContent = [v.refOperation, v.numero || ('ICP #' + v.id), v.objet].filter(Boolean).join(' | ');
       document.getElementById('btn-delete-icp').style.display = '';
-      const newContactsAdded = await this.addNewContactsToRepo(v, 'icps');
-      this.toast(newContactsAdded ? `ICP enregistrée + ${newContactsAdded} ajout(s) au répertoire` : 'ICP enregistrée');
+      const newContactsAdded = await this.addNewContactsToRepo(v);
+      this.toast(newContactsAdded ? `ICP enregistrée + ${newContactsAdded} nouveau(x) contact(s) ajouté(s) au répertoire` : 'ICP enregistrée');
       DataSync.markDirty();
       if (typeof ActivityLog !== 'undefined') ActivityLog.log(wasNew ? 'icp.create' : 'icp.update', { id: v.id, numero: v.numero, site: v.site, pdpId: v.pdpId || null });
       // Auto-export PDF + Word à la transition vers Validée
@@ -12104,22 +11496,9 @@ const App = {
   },
 
   // ---- PHOTOS PAR RISQUE (ICP & PDP) ----
-  viewRiskPhoto(ctx, idx, pi) {
-    const arr = ctx === 'icp' ? this.currentICP && this.currentICP.risques : this.currentPDP && this.currentPDP.risques;
-    const p = arr && arr[idx] && arr[idx].photos && arr[idx].photos[pi];
-    if (!p) return;
-    const img = document.getElementById('photo-viewer-img');
-    if (img && document.getElementById('modal-photo')) {
-      img.src = p.data;
-      new bootstrap.Modal(document.getElementById('modal-photo')).show();
-    } else {
-      const w = window.open();
-      if (w) w.document.write(`<img src="${p.data}" style="max-width:100vw;max-height:100vh;object-fit:contain">`);
-    }
-  },
   _renderRiskPhotos(ctx, idx, photos) {
     const list = photos || [];
-    const thumbs = list.map((p,pi) => `<div class="position-relative" style="display:inline-block"><img src="${p.data}" class="rounded border" style="width:60px;height:60px;object-fit:cover;cursor:pointer" onclick="App.viewRiskPhoto('${ctx}',${idx},${pi})"><button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0" style="padding:0 3px;font-size:0.55rem;line-height:1.1" onclick="App.removeRiskPhoto('${ctx}',${idx},${pi})"><i class="bi bi-x"></i></button></div>`).join('');
+    const thumbs = list.map((p,pi) => `<div class="position-relative" style="display:inline-block"><img src="${p.data}" class="rounded border" style="width:60px;height:60px;object-fit:cover;cursor:pointer" onclick="window.open('${p.data}')"><button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0" style="padding:0 3px;font-size:0.55rem;line-height:1.1" onclick="App.removeRiskPhoto('${ctx}',${idx},${pi})"><i class="bi bi-x"></i></button></div>`).join('');
     return `<div class="risk-photos-col d-flex flex-wrap align-content-start gap-1" style="flex:0 0 auto;width:132px">${thumbs}<label class="btn btn-outline-secondary btn-sm mb-0 d-flex align-items-center justify-content-center" style="padding:.15rem .4rem;width:60px;height:60px" title="Ajouter une photo à ce risque"><i class="bi bi-camera"></i><input type="file" accept="image/*" multiple capture="environment" style="display:none" onchange="App.addRiskPhoto('${ctx}',${idx},event)"></label></div>`;
   },
 
@@ -12154,7 +11533,7 @@ const App = {
     this.currentICP.photos = this.currentICP.photos || [];
     let added = 0, errors = 0;
     for (const f of files) {
-      try { const ph = await this.compressImage(f); ph.etape = this._currentICPPhotoEtape || ''; this.currentICP.photos.push(ph); added++; }
+      try { this.currentICP.photos.push(await this.compressImage(f)); added++; }
       catch (e) { console.warn('photo ICP:', e); errors++; }
     }
     this.renderICPPhotos();
@@ -12164,9 +11543,10 @@ const App = {
   },
 
   renderICPPhotos() {
-    if (this.currentICP) this.currentICP.photos = this.currentICP.photos || [];
-    this._populateEtapeSelect('icp-photo-etape', '_currentICPPhotoEtape');
-    this._renderGroupedPhotos(document.getElementById('icp-photos'), (this.currentICP && this.currentICP.photos) || [], 'icp');
+    const c = document.getElementById('icp-photos');
+    const photos = this.currentICP.photos||[];
+    if (!photos.length) { c.innerHTML = '<p class="text-muted small">Aucune photo.</p>'; return; }
+    c.innerHTML = photos.map((p,i) => `<div class="position-relative"><img src="${p.data}" class="photo-thumb rounded" style="width:80px;height:80px;object-fit:cover;cursor:pointer" onclick="window.open('${p.data}')"><button class="btn btn-sm btn-danger position-absolute top-0 end-0" style="padding:0 4px;font-size:0.6rem;line-height:1.2" onclick="App.currentICP.photos.splice(${i},1);App.renderICPPhotos()"><i class="bi bi-x"></i></button></div>`).join('');
   },
 
   // ---- ICP SIGNATURES EE ----
@@ -12762,62 +12142,6 @@ const App = {
     await this.saveNotifyEmails(list.filter(e => e.toLowerCase() !== email.toLowerCase()));
     this.renderNotifyEmails();
   },
-
-  // ---- Étapes de prise de photos (guidage ICP/visite) ----
-  async savePhotoEtapes(list) {
-    await db.settings.put({ key:'photoEtapes', value: list });
-    await this._refreshPhotoEtapesCache();
-    DataSync.markDirty();
-  },
-  async renderPhotoEtapesSettings() {
-    const el = document.getElementById('settings-photo-etapes');
-    if (!el) return;
-    const list = this.getPhotoEtapes();
-    const rows = list.map((e, i) => `
-      <div class="d-flex align-items-center gap-2 mb-1">
-        <i class="bi bi-camera text-muted"></i>
-        <span class="flex-grow-1 text-break">${this.esc(e)}</span>
-        <button class="btn btn-sm btn-outline-secondary" onclick="App.movePhotoEtape(${i},-1)" ${i===0?'disabled':''} title="Monter"><i class="bi bi-arrow-up"></i></button>
-        <button class="btn btn-sm btn-outline-secondary" onclick="App.movePhotoEtape(${i},1)" ${i===list.length-1?'disabled':''} title="Descendre"><i class="bi bi-arrow-down"></i></button>
-        <button class="btn btn-sm btn-outline-danger" onclick="App.removePhotoEtape(${i})"><i class="bi bi-trash"></i></button>
-      </div>`).join('');
-    el.innerHTML = `
-      ${rows}
-      <div class="input-group input-group-sm mt-2" style="max-width:480px">
-        <input type="text" class="form-control" id="photo-etape-input" placeholder="Nouvelle étape (ex: Local technique)" onkeydown="if(event.key==='Enter'){App.addPhotoEtape(document.getElementById('photo-etape-input').value);document.getElementById('photo-etape-input').value='';}">
-        <button class="btn btn-outline-primary" onclick="App.addPhotoEtape(document.getElementById('photo-etape-input').value); document.getElementById('photo-etape-input').value='';"><i class="bi bi-plus-lg"></i> Ajouter</button>
-      </div>
-      <button class="btn btn-sm btn-link text-muted mt-1 px-0" onclick="App.resetPhotoEtapes()">Réinitialiser la liste par défaut</button>`;
-  },
-  async addPhotoEtape(name) {
-    name = (name||'').trim();
-    if (!name) return;
-    const list = this.getPhotoEtapes().slice();
-    if (list.some(e => e.toLowerCase() === name.toLowerCase())) { this.toast('Étape déjà présente', 'warning'); return; }
-    if (name === this.ETAPE_NON_CLASSEE) { this.toast('Nom réservé', 'warning'); return; }
-    list.push(name);
-    await this.savePhotoEtapes(list);
-    this.renderPhotoEtapesSettings();
-  },
-  async removePhotoEtape(i) {
-    const list = this.getPhotoEtapes().slice();
-    if (i < 0 || i >= list.length) return;
-    list.splice(i, 1);
-    await this.savePhotoEtapes(list.length ? list : this.PHOTO_ETAPES_DEFAULT.slice());
-    this.renderPhotoEtapesSettings();
-  },
-  async movePhotoEtape(i, dir) {
-    const list = this.getPhotoEtapes().slice();
-    const j = i + dir;
-    if (i < 0 || i >= list.length || j < 0 || j >= list.length) return;
-    [list[i], list[j]] = [list[j], list[i]];
-    await this.savePhotoEtapes(list);
-    this.renderPhotoEtapesSettings();
-  },
-  async resetPhotoEtapes() {
-    await this.savePhotoEtapes(this.PHOTO_ETAPES_DEFAULT.slice());
-    this.renderPhotoEtapesSettings();
-  },
   async renderNotifyEmails() {
     const el = document.getElementById('settings-notify-emails');
     if (!el) return;
@@ -12925,21 +12249,18 @@ const App = {
     // Observations
     if (v.observations) { addT('OBSERVATIONS',12,'bold',[0,105,62]); addT(v.observations,9); addL(); }
 
-    // Photos (groupées par étape de prise de vue)
+    // Photos
     if ((v.photos||[]).length) {
       addT('PHOTOS',12,'bold',[0,105,62]);
-      for (const grp of this._groupPhotosByEtape(v.photos)) {
-        addT(grp.etape, 10, 'bold', [0,105,62]);
-        for (const photo of grp.photos) {
-          if (!photo) continue;
-          try {
-            if (y > 200) { doc.addPage(); y = 15; }
-            const imgData = photo.data || photo;
-            doc.addImage(imgData, /^data:image\/png/i.test(imgData)?'PNG':'JPEG', m, y, 80, 60);
-            y += 65;
-            if (photo.label) { addT(photo.label, 8, 'italic', [100,100,100]); }
-          } catch(e) { addT('[Photo non affichable]', 8, 'italic', [150,150,150]); }
-        }
+      for (const photo of v.photos) {
+        if (!photo) continue;
+        try {
+          if (y > 200) { doc.addPage(); y = 15; }
+          const imgData = photo.data || photo;
+          doc.addImage(imgData, 'JPEG', m, y, 80, 60);
+          y += 65;
+          if (photo.label) { addT(photo.label, 8, 'italic', [100,100,100]); }
+        } catch(e) { addT('[Photo non affichable]', 8, 'italic', [150,150,150]); }
       }
       addL();
     }
@@ -13116,21 +12437,18 @@ const App = {
     // Photos
     if ((v.photos||[]).length) {
       children.push(secTitle(String(secNum),'PHOTOS'));
-      for (const grp of this._groupPhotosByEtape(v.photos)) {
-        children.push(new Paragraph({children:[new TextRun({text:grp.etape,size:20,bold:true,font:'Calibri',color:'00693E'})],spacing:{before:120,after:40}}));
-        for (const photo of grp.photos) {
-          if (!photo) continue;
-          try {
-            const imgData = photo.data || photo;
-            const b64 = imgData.split(',')[1];
-            const raw = atob(b64);
-            const arr = new Uint8Array(raw.length);
-            for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-            children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:400,height:300},type:(/^data:image\/png/i.test(imgData)?'png':'jpg')})],spacing:{before:100,after:40}}));
-            if (photo.label) children.push(new Paragraph({children:[new TextRun({text:photo.label,size:16,font:'Calibri',italics:true,color:'888888'})]}));
-          } catch(e) {
-            children.push(new Paragraph({children:[new TextRun({text:'[Photo non intégrée]',size:18,font:'Calibri',italics:true,color:'999999'})]}));
-          }
+      for (const photo of v.photos) {
+        if (!photo) continue;
+        try {
+          const imgData = photo.data || photo;
+          const b64 = imgData.split(',')[1];
+          const raw = atob(b64);
+          const arr = new Uint8Array(raw.length);
+          for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+          children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:400,height:300},type:'png'})],spacing:{before:100,after:100}}));
+          if (photo.label) children.push(new Paragraph({children:[new TextRun({text:photo.label,size:16,font:'Calibri',italics:true,color:'888888'})]}));
+        } catch(e) {
+          children.push(new Paragraph({children:[new TextRun({text:'[Photo non intégrée]',size:18,font:'Calibri',italics:true,color:'999999'})]}));
         }
       }
       children.push(spacer());
@@ -13327,7 +12645,6 @@ const App = {
     try { await DataSync.renderSettingsStatus(); } catch (e) { console.warn('renderSettingsStatus:', e); }
     try { await this.renderAdminsSection(); } catch (e) { console.warn('renderAdminsSection:', e); }
     try { await this.renderNotifyEmails(); } catch (e) { console.warn('renderNotifyEmails:', e); }
-    try { await this.renderPhotoEtapesSettings(); } catch (e) { console.warn('renderPhotoEtapesSettings:', e); }
     try { await this.renderPendingRisksSection(); } catch (e) { console.warn('renderPendingRisksSection:', e); }
     try { await this.renderHiddenRisksSection(); } catch (e) { console.warn('renderHiddenRisksSection:', e); }
     try { await this.renderMaintenanceToggle(); } catch (e) { console.warn('renderMaintenanceToggle:', e); }
@@ -14450,21 +13767,18 @@ const App = {
         });
         if (icpPhotos.length) {
           children.push(new Paragraph({children:[new TextRun({text:'Photos de la visite :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
-          for (const grp of this._groupPhotosByEtape(icpPhotos)) {
-            children.push(new Paragraph({children:[new TextRun({text:grp.etape,size:18,bold:true,font:'Calibri',color:'00693E'})],spacing:{before:80,after:30}}));
-            for (const photo of grp.photos) {
-              if (!photo) continue;
-              try {
-                const imgData = photo.data || photo;
-                const b64 = imgData.split(',')[1];
-                const raw = atob(b64);
-                const arr = new Uint8Array(raw.length);
-                for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-                children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:350,height:260},type:(/^data:image\/png/i.test(imgData)?'png':'jpg')})],spacing:{before:60,after:40}}));
-                if (photo.label) children.push(new Paragraph({children:[new TextRun({text:photo.label,size:16,font:'Calibri',italics:true,color:'888888'})]}));
-              } catch(e) {
-                children.push(new Paragraph({children:[new TextRun({text:'[Photo non intégrée]',size:18,font:'Calibri',italics:true,color:'999999'})]}));
-              }
+          for (const photo of icpPhotos) {
+            if (!photo) continue;
+            try {
+              const imgData = photo.data || photo;
+              const b64 = imgData.split(',')[1];
+              const raw = atob(b64);
+              const arr = new Uint8Array(raw.length);
+              for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+              children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:350,height:260},type:(/^data:image\/png/i.test(imgData)?'png':'jpg')})],spacing:{before:60,after:40}}));
+              if (photo.label) children.push(new Paragraph({children:[new TextRun({text:photo.label,size:16,font:'Calibri',italics:true,color:'888888'})]}));
+            } catch(e) {
+              children.push(new Paragraph({children:[new TextRun({text:'[Photo non intégrée]',size:18,font:'Calibri',italics:true,color:'999999'})]}));
             }
           }
           children.push(spacer());
@@ -15638,27 +14952,22 @@ const App = {
         if (icpPhotosPdf.length) {
           checkPage(20);
           doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Photos de la visite :',m,y); y+=4;
-          for (const grp of this._groupPhotosByEtape(icpPhotosPdf)) {
-            checkPage(10);
-            doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(0,105,62);
-            doc.text(grp.etape,m,y); y+=4; doc.setTextColor(0,0,0);
-            for (const photo of grp.photos) {
-              if (!photo) continue;
-              try {
-                const imgData = photo.data || photo;
-                checkPage(60);
-                doc.addImage(imgData, /^data:image\/png/i.test(imgData)?'PNG':'JPEG', m,y,80,60);
-                y+=62;
-                if (photo.label) {
-                  doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(136,136,136);
-                  doc.text(photo.label,m,y); y+=4;
-                  doc.setTextColor(0,0,0);
-                }
-              } catch(e) {
-                doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(153,153,153);
-                doc.text('[Photo non intégrée]',m,y); y+=4;
+          for (const photo of icpPhotosPdf) {
+            if (!photo) continue;
+            try {
+              const imgData = photo.data || photo;
+              checkPage(60);
+              doc.addImage(imgData,'PNG',m,y,80,60);
+              y+=62;
+              if (photo.label) {
+                doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(136,136,136);
+                doc.text(photo.label,m,y); y+=4;
                 doc.setTextColor(0,0,0);
               }
+            } catch(e) {
+              doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(153,153,153);
+              doc.text('[Photo non intégrée]',m,y); y+=4;
+              doc.setTextColor(0,0,0);
             }
           }
           y+=2;
@@ -16152,18 +15461,12 @@ const App = {
       }
     }
 
-    // 3. Si des pièces manquent : confirmation EXPLICITE avant de livrer un dossier
-    // réglementaire (R4512) incomplet — ne pas livrer un ZIP qui paraît complet (#5).
-    if (skipped.length) {
-      const ok = await this.confirm(`${skipped.length} pièce(s) FDS ne peuvent être incluses (hors-ligne ou introuvables) : ${skipped.join(', ')}. Le dossier PDP sera INCOMPLET. Reconnectez-vous à SharePoint puis régénérez pour un dossier complet. Télécharger quand même un dossier incomplet ?`);
-      if (!ok) { this.toast('Export ZIP annulé — reconnectez-vous pour inclure toutes les FDS', 'info', 6000); return; }
-      zip.file('Documents_joints/_PIECES_MANQUANTES.txt', 'Pièces non incluses dans ce ZIP (FDS introuvable ou hors-ligne) :\n' + skipped.join('\n') + '\n\nReconnectez-vous à SharePoint puis régénérez le ZIP pour les inclure.');
-    }
+    // 3. Générer et télécharger le ZIP
+    if (skipped.length) zip.file('Documents_joints/_PIECES_MANQUANTES.txt', 'Pièces non incluses dans ce ZIP (FDS introuvable ou hors-ligne) :\n' + skipped.join('\n') + '\n\nReconnectez-vous à SharePoint puis régénérez le ZIP pour les inclure.');
     try {
       const zipBlob = await zip.generateAsync({type:'blob'});
-      // Nom préfixé INCOMPLET_ pour que l'incomplétude soit visible dès le fichier livré.
-      saveAs(zipBlob, skipped.length ? `INCOMPLET_${baseName}.zip` : `${baseName}_complet.zip`);
-      if (skipped.length) this.toast(`ZIP INCOMPLET téléchargé — ${skipped.length} pièce(s) manquante(s) : ${skipped.join(', ')}`, 'warning', 9000);
+      saveAs(zipBlob, `${baseName}_complet.zip`);
+      if (skipped.length) this.toast(`ZIP téléchargé — ${skipped.length} pièce(s) MANQUANTE(S) : ${skipped.join(', ')}`, 'warning');
       else this.toast('ZIP complet téléchargé');
     } catch(e) {
       console.error('ZIP generation error:', e);

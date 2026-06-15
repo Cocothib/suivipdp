@@ -1,0 +1,35 @@
+Liste des captures d'écran à prendre — Formation Suivi PDP/ICP
+Présentation du 01/06/2026 — T. HOCEDEZ
+======================================================================
+
+Application : C:\Users\ThibaultHOCEDEZ\Documents\suivipdp\index.html
+
+Conseils :
+- Format conseillé : PNG, largeur 1400 à 1800 px.
+- Masquer les données client réelles si captures partagées hors AGRIWATT.
+- Une fois prises, glisser-déposer la capture dans le rectangle gris correspondant.
+
+----------------------------------------------------------------------
+
+Slide  7  :  Vue ICP — saisie d'un nouveau ICP avec la recherche Sellsy ouverte sur un n° OPP, opportunité affichée
+
+Slide  8  :  Vue ICP/PDP — onglet Risques avec plusieurs catégories cochées et mesures de prévention saisies
+
+Slide  9  :  Vue ICP — bloc Signatures, canvas ouvert avec une signature en cours, nom et fonction renseignés
+
+Slide 10  :  Vue ICP signé — bouton 'Générer le PDP' visible avec confirmation modale
+
+Slide 11  :  Vue PDP — fiche ouverte montrant la barre des 10 onglets en haut, focus sur l'onglet Général ou Risques
+
+Slide 12  :  Vue PDP — onglet Permis de feu, avec un permis créé, ses 3 signatures et le tableau d'émargement des rondes
+
+Slide 14  :  Vue ICP — résultats de la recherche Sellsy après saisie d'un n° OPP, liste d'opportunités affichée
+
+Slide 15  :  Smartphone — appli installée en PWA, icône offline visible, vue PDP ouverte avec photo chantier
+
+Slide 16  :  Vue PDP — boîte de dialogue d'export avec les 3 boutons PDF, DOCX, ZIP visibles
+
+Slide 18  :  Vue Aide — liste des 13 tutoriels affichée avec barre de recherche en haut
+
+----------------------------------------------------------------------
+Total : 10 captures à prendre.
