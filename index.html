@@ -4315,15 +4315,24 @@ const DataSync = {
     // version la plus récente (dateModification/updated_at), on conserve l'id local
     // quand le record existe en local (références stables), et on réattribue tout
     // id manquant ou en collision pour garantir un bulkPut sans erreur.
-    _mergeByKey(localArr, remoteArr, keyFn) {
+    _mergeByKey(localArr, snapshotArr, remoteArr, keyFn) {
         const ts = r => { const v = r && (r.dateModification || r.updated_at); if (v == null) return 0; const n = typeof v === 'number' ? v : Date.parse(v); return Number.isFinite(n) ? n : 0; };
+        // Détection renommage/suppression locale (audit #13/#22) : une clé présente
+        // au dernier sync (snapshot) mais ABSENTE en local = supprimée ou renommée
+        // localement (la correction d'un nom change la clé naturelle). On ne la
+        // ré-ajoute donc PAS depuis le distant → plus de doublon ancien+nouveau nom.
+        const localKeys = new Set((localArr || []).map(keyFn));
+        const deletedLocally = new Set();
+        for (const r of (snapshotArr || [])) { const k = keyFn(r); if (!localKeys.has(k)) deletedLocally.add(k); }
         const byKey = new Map();
         for (const r of (localArr || [])) {
             const k = keyFn(r); const ex = byKey.get(k);
             if (!ex || ts(r) >= ts(ex)) byKey.set(k, r);
         }
         for (const r of (remoteArr || [])) {
-            const k = keyFn(r); const ex = byKey.get(k);
+            const k = keyFn(r);
+            if (deletedLocally.has(k)) continue; // supprimé/renommé en local → ne pas ressusciter
+            const ex = byKey.get(k);
             if (!ex) byKey.set(k, r);
             else if (ts(r) > ts(ex)) byKey.set(k, { ...r, id: ex.id }); // garde l'id local
         }
@@ -4357,8 +4366,8 @@ const DataSync = {
         let snapshot;
         try {
             snapshot = this._loadedSnapshot ? JSON.parse(this._loadedSnapshot)
-                : { pdps:[], icps:[], entreprises:[], settings:[] };
-        } catch { snapshot = { pdps:[], icps:[], entreprises:[], settings:[] }; }
+                : { pdps:[], icps:[], entreprises:[], settings:[], sites:[], salaries_habilitations:[], signataires:[] };
+        } catch { snapshot = { pdps:[], icps:[], entreprises:[], settings:[], sites:[], salaries_habilitations:[], signataires:[] }; }
 
         // Backfill uid (hérités) avant fusion : icps/pdps fusionnent par uid stable
         this._ensureUids(current.pdps, 'pdp'); this._ensureUids(snapshot.pdps, 'pdp'); this._ensureUids(remotes.pdp?.pdps, 'pdp');
@@ -4446,9 +4455,9 @@ const DataSync = {
             shared: {
                 _meta: remotes.shared?._meta || null,
                 entreprises: entRes.merged, settings: setRes.merged, fds: current.fds,
-                sites:                  this._mergeByKey(current.sites,                  remotes.shared?.sites                  || [], r => (r.nom||'').toLowerCase().trim()+'|'+(r.entite||'').toLowerCase().trim()),
-                salaries_habilitations: this._mergeByKey(current.salaries_habilitations, remotes.shared?.salaries_habilitations || [], r => (r.nom||'').toUpperCase().trim()+'|'+(r.prenom||'').toUpperCase().trim()),
-                signataires:            this._mergeByKey(current.signataires,            remotes.shared?.signataires            || [], r => (r.nom||'').toLowerCase().trim()+'|'+(r.fonction||'').toLowerCase().trim()),
+                sites:                  this._mergeByKey(current.sites,                  snapshot.sites,                  remotes.shared?.sites                  || [], r => (r.nom||'').toLowerCase().trim()+'|'+(r.entite||'').toLowerCase().trim()),
+                salaries_habilitations: this._mergeByKey(current.salaries_habilitations, snapshot.salaries_habilitations, remotes.shared?.salaries_habilitations || [], r => (r.nom||'').toUpperCase().trim()+'|'+(r.prenom||'').toUpperCase().trim()),
+                signataires:            this._mergeByKey(current.signataires,            snapshot.signataires,            remotes.shared?.signataires            || [], r => (r.nom||'').toLowerCase().trim()+'|'+(r.fonction||'').toLowerCase().trim()),
             },
         };
     },
