@@ -4608,7 +4608,11 @@ const DataSync = {
             App.toast(`Synchronisé avec les modifications de ${savedBy} — vos données et les siennes sont conservées ✓`, 'success');
         }
 
-        // 3. Collecter les donnees locales (post-merge) et forcer version > remote
+        // 3. Collecter les donnees locales (post-merge) et forcer version > remote.
+        // genAtCollect : marqueur de mutation AVANT la collecte → toute saisie
+        // survenant pendant la fenêtre collecte→écriture (réseau lent inclus) est
+        // détectée plus bas pour ne pas effacer _dirty à tort (audit #4).
+        const genAtCollect = this._dirtyGen || 0;
         const [pdpData, icpData, sharedData] = await Promise.all([
             this._collectPDPData(), this._collectICPData(), this._collectSharedData()
         ]);
@@ -4636,9 +4640,30 @@ const DataSync = {
             _writeJsonFile(SP_CONFIG.SHARED_DATA_FILE, sharedData, useEtag ? rs.etag : null, useEtag ? ms : null),
         ]);
         this._loadedMeta = { pdp:pdpData._meta, icp:icpData._meta, shared:sharedData._meta };
-        this._dirty = false;
-        this._updateBadge(false);
-        await this._captureSnapshot();
+        // Snapshot = EXACTEMENT les données poussées (pas une relecture de db qui
+        // pourrait inclure une mutation concurrente non poussée → champ vu 'inchangé
+        // local' au prochain merge 3-way, donc écrasé par le distant). Audit #8/#20.
+        // Même forme que _collectRawData (fds sans `data`).
+        this._loadedSnapshot = JSON.stringify({
+            pdps: pdpData.pdps,
+            icps: icpData.icps,
+            entreprises: sharedData.entreprises,
+            settings: sharedData.settings,
+            fds: sharedData.fds,
+            sites: sharedData.sites,
+            salaries_habilitations: sharedData.salaries_habilitations,
+            signataires: sharedData.signataires,
+        });
+        // Lost-update (#4) : ne remettre _dirty=false que si AUCUNE mutation n'est
+        // survenue pendant la fenêtre collecte→écriture. Sinon conserver _dirty et
+        // replanifier une sauvegarde de suivi (la saisie non poussée n'est pas perdue).
+        if ((this._dirtyGen || 0) === genAtCollect) {
+            this._dirty = false;
+            this._updateBadge(false);
+        } else {
+            clearTimeout(this._saveTimer);
+            this._saveTimer = setTimeout(() => this.save(), SP_CONFIG.SAVE_DEBOUNCE_MS);
+        }
         if (typeof ActivityLog !== 'undefined') ActivityLog.log('sauvegarde', {
             vPdp: pdpData._meta.version, vIcp: icpData._meta.version, vShared: sharedData._meta.version, merged: conflict
         });
@@ -4646,6 +4671,7 @@ const DataSync = {
 
     markDirty() {
         this._dirty = true;
+        this._dirtyGen = (this._dirtyGen || 0) + 1; // détection lost-update (cf. _saveOnce #4)
         this._updateBadge(true);
         if (this._connected) {
             clearTimeout(this._saveTimer);
@@ -5076,14 +5102,27 @@ const ActivityLog = {
         this._flushing = true;
         const batch = this._queue.splice(0);
         try {
-            let current;
-            try { current = await _readJsonFile(SP_CONFIG.ACTIVITY_LOG_FILE); } catch { current = null; }
-            if (!current || !Array.isArray(current.events)) current = { events: [] };
-            current.events = current.events.concat(batch);
-            if (current.events.length > this.MAX_EVENTS) {
-                current.events = current.events.slice(-this.MAX_EVENTS);
+            // Lecture+écriture conditionnelle (If-Match sur l'ETag) avec retry : si un
+            // autre poste a écrit le journal entre-temps (412), on relit, re-concatène
+            // le batch et on réessaie → plus de perte d'événements en multi-poste (#11).
+            const MAX = 3;
+            for (let attempt = 0; attempt < MAX; attempt++) {
+                let current, etag = null;
+                try { const r = await _readJsonFileMeta(SP_CONFIG.ACTIVITY_LOG_FILE); current = r.data; etag = r.etag; }
+                catch { current = null; etag = null; }
+                if (!current || !Array.isArray(current.events)) current = { events: [] };
+                current.events = current.events.concat(batch);
+                if (current.events.length > this.MAX_EVENTS) {
+                    current.events = current.events.slice(-this.MAX_EVENTS);
+                }
+                try {
+                    await _writeJsonFile(SP_CONFIG.ACTIVITY_LOG_FILE, current, etag);
+                    return; // succès (le finally remet _flushing=false)
+                } catch (e) {
+                    if (e && e._precondition && attempt < MAX - 1) continue; // 412 → relire + réessayer
+                    throw e;
+                }
             }
-            await _writeJsonFile(SP_CONFIG.ACTIVITY_LOG_FILE, current);
         } catch (e) {
             // Rollback : remettre dans la queue pour reessayer plus tard
             this._queue.unshift(...batch);
