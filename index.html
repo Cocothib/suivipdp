@@ -10065,6 +10065,20 @@ const App = {
       new bootstrap.Modal(document.getElementById('modal-photo')).show();
     } else { window.open(a[i].data); }
   },
+
+  // Regroupe des photos par etape, dans l'ordre des etapes configurees (+ Non classe).
+  // Retourne [{etape, photos:[...]}] sans les groupes vides. Utilise par les exports.
+  _groupPhotosByEtape(photos) {
+    const etapes = this.getPhotoEtapes();
+    const order = [...etapes, this.ETAPE_NON_CLASSEE];
+    const map = {};
+    (photos || []).forEach(p => {
+      if (!p) return;
+      const k = (p.etape && etapes.includes(p.etape)) ? p.etape : this.ETAPE_NON_CLASSEE;
+      (map[k] = map[k] || []).push(p);
+    });
+    return order.filter(e => map[e] && map[e].length).map(e => ({ etape: e, photos: map[e] }));
+  },
   compressImage(file) {
     return new Promise((resolve, reject) => {
       if (!file || !file.type || !file.type.startsWith('image/')) {
@@ -12616,18 +12630,21 @@ const App = {
     // Observations
     if (v.observations) { addT('OBSERVATIONS',12,'bold',[0,105,62]); addT(v.observations,9); addL(); }
 
-    // Photos
+    // Photos (groupées par étape de prise de vue)
     if ((v.photos||[]).length) {
       addT('PHOTOS',12,'bold',[0,105,62]);
-      for (const photo of v.photos) {
-        if (!photo) continue;
-        try {
-          if (y > 200) { doc.addPage(); y = 15; }
-          const imgData = photo.data || photo;
-          doc.addImage(imgData, 'JPEG', m, y, 80, 60);
-          y += 65;
-          if (photo.label) { addT(photo.label, 8, 'italic', [100,100,100]); }
-        } catch(e) { addT('[Photo non affichable]', 8, 'italic', [150,150,150]); }
+      for (const grp of this._groupPhotosByEtape(v.photos)) {
+        addT(grp.etape, 10, 'bold', [0,105,62]);
+        for (const photo of grp.photos) {
+          if (!photo) continue;
+          try {
+            if (y > 200) { doc.addPage(); y = 15; }
+            const imgData = photo.data || photo;
+            doc.addImage(imgData, /^data:image\/png/i.test(imgData)?'PNG':'JPEG', m, y, 80, 60);
+            y += 65;
+            if (photo.label) { addT(photo.label, 8, 'italic', [100,100,100]); }
+          } catch(e) { addT('[Photo non affichable]', 8, 'italic', [150,150,150]); }
+        }
       }
       addL();
     }
@@ -12804,18 +12821,21 @@ const App = {
     // Photos
     if ((v.photos||[]).length) {
       children.push(secTitle(String(secNum),'PHOTOS'));
-      for (const photo of v.photos) {
-        if (!photo) continue;
-        try {
-          const imgData = photo.data || photo;
-          const b64 = imgData.split(',')[1];
-          const raw = atob(b64);
-          const arr = new Uint8Array(raw.length);
-          for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-          children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:400,height:300},type:(/^data:image\/png/i.test(imgData)?'png':'jpg')})],spacing:{before:100,after:100}}));
-          if (photo.label) children.push(new Paragraph({children:[new TextRun({text:photo.label,size:16,font:'Calibri',italics:true,color:'888888'})]}));
-        } catch(e) {
-          children.push(new Paragraph({children:[new TextRun({text:'[Photo non intégrée]',size:18,font:'Calibri',italics:true,color:'999999'})]}));
+      for (const grp of this._groupPhotosByEtape(v.photos)) {
+        children.push(new Paragraph({children:[new TextRun({text:grp.etape,size:20,bold:true,font:'Calibri',color:'00693E'})],spacing:{before:120,after:40}}));
+        for (const photo of grp.photos) {
+          if (!photo) continue;
+          try {
+            const imgData = photo.data || photo;
+            const b64 = imgData.split(',')[1];
+            const raw = atob(b64);
+            const arr = new Uint8Array(raw.length);
+            for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+            children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:400,height:300},type:(/^data:image\/png/i.test(imgData)?'png':'jpg')})],spacing:{before:100,after:40}}));
+            if (photo.label) children.push(new Paragraph({children:[new TextRun({text:photo.label,size:16,font:'Calibri',italics:true,color:'888888'})]}));
+          } catch(e) {
+            children.push(new Paragraph({children:[new TextRun({text:'[Photo non intégrée]',size:18,font:'Calibri',italics:true,color:'999999'})]}));
+          }
         }
       }
       children.push(spacer());
@@ -14135,18 +14155,21 @@ const App = {
         });
         if (icpPhotos.length) {
           children.push(new Paragraph({children:[new TextRun({text:'Photos de la visite :',size:20,bold:true,font:'Calibri'})],spacing:{before:100,after:50}}));
-          for (const photo of icpPhotos) {
-            if (!photo) continue;
-            try {
-              const imgData = photo.data || photo;
-              const b64 = imgData.split(',')[1];
-              const raw = atob(b64);
-              const arr = new Uint8Array(raw.length);
-              for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-              children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:350,height:260},type:(/^data:image\/png/i.test(imgData)?'png':'jpg')})],spacing:{before:60,after:40}}));
-              if (photo.label) children.push(new Paragraph({children:[new TextRun({text:photo.label,size:16,font:'Calibri',italics:true,color:'888888'})]}));
-            } catch(e) {
-              children.push(new Paragraph({children:[new TextRun({text:'[Photo non intégrée]',size:18,font:'Calibri',italics:true,color:'999999'})]}));
+          for (const grp of this._groupPhotosByEtape(icpPhotos)) {
+            children.push(new Paragraph({children:[new TextRun({text:grp.etape,size:18,bold:true,font:'Calibri',color:'00693E'})],spacing:{before:80,after:30}}));
+            for (const photo of grp.photos) {
+              if (!photo) continue;
+              try {
+                const imgData = photo.data || photo;
+                const b64 = imgData.split(',')[1];
+                const raw = atob(b64);
+                const arr = new Uint8Array(raw.length);
+                for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+                children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:350,height:260},type:(/^data:image\/png/i.test(imgData)?'png':'jpg')})],spacing:{before:60,after:40}}));
+                if (photo.label) children.push(new Paragraph({children:[new TextRun({text:photo.label,size:16,font:'Calibri',italics:true,color:'888888'})]}));
+              } catch(e) {
+                children.push(new Paragraph({children:[new TextRun({text:'[Photo non intégrée]',size:18,font:'Calibri',italics:true,color:'999999'})]}));
+              }
             }
           }
           children.push(spacer());
@@ -15320,22 +15343,27 @@ const App = {
         if (icpPhotosPdf.length) {
           checkPage(20);
           doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Photos de la visite :',m,y); y+=4;
-          for (const photo of icpPhotosPdf) {
-            if (!photo) continue;
-            try {
-              const imgData = photo.data || photo;
-              checkPage(60);
-              doc.addImage(imgData,'PNG',m,y,80,60);
-              y+=62;
-              if (photo.label) {
-                doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(136,136,136);
-                doc.text(photo.label,m,y); y+=4;
+          for (const grp of this._groupPhotosByEtape(icpPhotosPdf)) {
+            checkPage(10);
+            doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(0,105,62);
+            doc.text(grp.etape,m,y); y+=4; doc.setTextColor(0,0,0);
+            for (const photo of grp.photos) {
+              if (!photo) continue;
+              try {
+                const imgData = photo.data || photo;
+                checkPage(60);
+                doc.addImage(imgData, /^data:image\/png/i.test(imgData)?'PNG':'JPEG', m,y,80,60);
+                y+=62;
+                if (photo.label) {
+                  doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(136,136,136);
+                  doc.text(photo.label,m,y); y+=4;
+                  doc.setTextColor(0,0,0);
+                }
+              } catch(e) {
+                doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(153,153,153);
+                doc.text('[Photo non intégrée]',m,y); y+=4;
                 doc.setTextColor(0,0,0);
               }
-            } catch(e) {
-              doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(153,153,153);
-              doc.text('[Photo non intégrée]',m,y); y+=4;
-              doc.setTextColor(0,0,0);
             }
           }
           y+=2;
