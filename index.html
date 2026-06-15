@@ -8869,6 +8869,13 @@ const App = {
   },
 
   // Construit un nom de fichier export : OPP-XXXX_[prefix]_PDP-XXX_titre.ext
+  // #36 : neutralise les séparateurs/caractères interdits dans CHAQUE segment de
+  // nom de fichier (refOperation type "2026/045", numero…) avant doc.save et avant
+  // la construction du chemin Graph — évite échec d'upload ou sous-chemin involontaire.
+  _sanitizeFilenameSegment(s) {
+    return String(s == null ? '' : s).replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/\s+/g, ' ').trim();
+  },
+
   async buildPDPFilename(p, ext, prefix) {
     if (!p) return `PDP.${ext}`;
     const parts = [];
@@ -8876,11 +8883,11 @@ const App = {
     if (!ref && p.icpId) {
       try { const v = await db.icps.get(p.icpId); if (v?.refOperation) ref = v.refOperation; } catch {}
     }
-    if (ref) parts.push(ref);
-    if (prefix) parts.push(prefix);
-    parts.push(p.numero||'PDP');
+    if (ref) parts.push(this._sanitizeFilenameSegment(ref));
+    if (prefix) parts.push(this._sanitizeFilenameSegment(prefix));
+    parts.push(this._sanitizeFilenameSegment(p.numero||'PDP'));
     if (p.titre) {
-      const t = p.titre.replace(/[<>:"/\\|?*]/g,'_').replace(/\s+/g,' ').trim().slice(0, 50);
+      const t = this._sanitizeFilenameSegment(p.titre).slice(0, 50).trim();
       if (t && !parts.some(x => (x||'').toLowerCase().includes(t.toLowerCase()))) parts.push(t);
     }
     return parts.filter(Boolean).join('_') + '.' + ext;
@@ -8889,10 +8896,10 @@ const App = {
   buildICPFilename(v, ext) {
     if (!v) return `ICP.${ext}`;
     const parts = [];
-    if (v.refOperation) parts.push(v.refOperation);
-    parts.push(v.numero||'ICP');
+    if (v.refOperation) parts.push(this._sanitizeFilenameSegment(v.refOperation));
+    parts.push(this._sanitizeFilenameSegment(v.numero||'ICP'));
     if (v.objet) {
-      const t = v.objet.replace(/[<>:"/\\|?*]/g,'_').replace(/\s+/g,' ').trim().slice(0, 50);
+      const t = this._sanitizeFilenameSegment(v.objet).slice(0, 50).trim();
       if (t && !parts.some(x => (x||'').toLowerCase().includes(t.toLowerCase()))) parts.push(t);
     }
     return parts.filter(Boolean).join('_') + '.' + ext;
@@ -12617,7 +12624,7 @@ const App = {
           const raw = atob(b64);
           const arr = new Uint8Array(raw.length);
           for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-          children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:400,height:300},type:'png'})],spacing:{before:100,after:100}}));
+          children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:400,height:300},type:(/^data:image\/png/i.test(imgData)?'png':'jpg')})],spacing:{before:100,after:100}}));
           if (photo.label) children.push(new Paragraph({children:[new TextRun({text:photo.label,size:16,font:'Calibri',italics:true,color:'888888'})]}));
         } catch(e) {
           children.push(new Paragraph({children:[new TextRun({text:'[Photo non intégrée]',size:18,font:'Calibri',italics:true,color:'999999'})]}));
