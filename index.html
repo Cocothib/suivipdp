@@ -4498,24 +4498,35 @@ const DataSync = {
         try {
             // Boucle de retry : si une écriture concurrente survient entre la lecture
             // et l'écriture (412 If-Match), on relance un cycle read-merge-write.
-            for (let attempt = 0; attempt < 3; attempt++) {
-                // Dernière tentative : écriture inconditionnelle (repli sûr si l'ETag
-                // n'est pas exploitable par Graph → jamais de blocage des sauvegardes).
-                const useEtag = attempt < 2;
-                try { await this._saveOnce(useEtag); return; }
+            // L'If-Match est conservé sur TOUTES les tentatives (plus d'écriture
+            // inconditionnelle last-write-wins) ; en cas de 412 persistant on n'écrase
+            // JAMAIS à l'aveugle : _dirty reste true et le poll réessaiera.
+            const MAX_ATTEMPTS = 5;
+            for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+                try { await this._saveOnce(true); return; }
                 catch (e) {
-                    if (e && e._precondition && attempt < 2) {
-                        console.warn('DataSync: conflit concurrent (412), nouvelle tentative ' + (attempt + 1));
+                    const retryable = e && (e._precondition || e._readError);
+                    if (retryable && attempt < MAX_ATTEMPTS - 1) {
+                        // backoff + jitter : désynchronise deux postes en contention
+                        const delay = 150 * (attempt + 1) + Math.floor(Math.random() * 250);
+                        console.warn(`DataSync: ${e._precondition ? 'conflit 412' : 'échec lecture'}, tentative ${attempt + 1}/${MAX_ATTEMPTS} dans ${delay}ms`);
+                        await new Promise(r => setTimeout(r, delay));
                         continue;
                     }
                     throw e;
                 }
             }
+            // Toutes les tentatives ont échoué : conflit persistant, pas d'écrasement.
+            const err = new Error('Conflit de version persistant'); err._persistentConflict = true; throw err;
         } catch (e) {
             console.error('DataSync: erreur sauvegarde SharePoint', e);
             const m = (e && e.message) || '';
             const compte = (_msalAccount && _msalAccount.name) || '';
-            if (/\b403\b|forbidden|access.?denied/i.test(m)) {
+            if (e && (e._persistentConflict || e._readError)) {
+                App.toast('Conflit de sauvegarde persistant (un collègue enregistre en même temps) ou réseau instable. Vos données restent enregistrées localement et NE sont PAS perdues — réessai automatique au prochain cycle.', 'warning', 12000);
+                if (typeof ActivityLog !== 'undefined') ActivityLog.log('conflit_persistant', { type: e._readError ? 'lecture' : '412' });
+                // _dirty conservé (non remis à false) → le poll relancera la sauvegarde.
+            } else if (/\b403\b|forbidden|access.?denied/i.test(m)) {
                 App.toast(`Sauvegarde refusée : le compte ${compte} a un accès en LECTURE SEULE au site SharePoint QHSE. Demandez à l'administrateur les droits d'édition (rôle « Membres » / « Contribution »). Vos données restent enregistrées localement.`, 'danger', 14000);
             } else if (/\b401\b|unauthor/i.test(m)) {
                 App.toast('Session Microsoft expirée. Cliquez sur « Se reconnecter ». Vos données restent enregistrées localement.', 'danger', 11000);
@@ -4526,12 +4537,20 @@ const DataSync = {
     },
 
     async _saveOnce(useEtag = true) {
-        // 1. Relire les fichiers distants (+ ETags) pour detecter des versions concurrentes
+        // 1. Relire les fichiers distants (+ ETags) pour detecter des versions concurrentes.
+        // readError distingue un ÉCHEC de lecture (réseau/401/5xx) d'un fichier ABSENT
+        // (404 → _readJsonFileMeta renvoie {data:null,etag:null} sans throw).
         const [rp, ri, rs] = await Promise.all([
-            _readJsonFileMeta(SP_CONFIG.PDP_DATA_FILE).catch(() => ({ data:null, etag:null })),
-            _readJsonFileMeta(SP_CONFIG.ICP_DATA_FILE).catch(() => ({ data:null, etag:null })),
-            _readJsonFileMeta(SP_CONFIG.SHARED_DATA_FILE).catch(() => ({ data:null, etag:null })),
+            _readJsonFileMeta(SP_CONFIG.PDP_DATA_FILE).catch(() => ({ data:null, etag:null, readError:true })),
+            _readJsonFileMeta(SP_CONFIG.ICP_DATA_FILE).catch(() => ({ data:null, etag:null, readError:true })),
+            _readJsonFileMeta(SP_CONFIG.SHARED_DATA_FILE).catch(() => ({ data:null, etag:null, readError:true })),
         ]);
+        // Échec de lecture : NE PAS écrire par-dessus une version distante non lue
+        // (sinon écrasement à l'aveugle). On lève une erreur retryable → la boucle
+        // save() relance un cycle complet avec backoff.
+        if (rp.readError || ri.readError || rs.readError) {
+            const err = new Error('Lecture distante échouée avant écriture'); err._readError = true; throw err;
+        }
         const remotePdp = rp.data, remoteIcp = ri.data, remoteShared = rs.data;
 
         const remoteVers = {
