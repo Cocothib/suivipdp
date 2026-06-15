@@ -2366,7 +2366,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
             </select>
             <datalist id="icp-ee-contacts-list"></datalist>
           </div>
-          <div class="col-md-4"><label class="form-label" for="icp-ee-rep-nom">Nom</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-ee-rep-nom" placeholder="Nom" oninput="App.syncICPSignatureNom('ee')"></div></div>
+          <div class="col-md-4"><label class="form-label" for="icp-ee-rep-nom">Nom</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-ee-rep-nom" placeholder="Nom" oninput="App.syncICPSignatureNom('ee')" onchange="App.persistICPEERepContactName(this.value)"></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-ee-rep-fonction">Fonction</label><div class="input-icon-wrap"><i class="bi bi-briefcase input-icon"></i><input type="text" class="form-control" id="icp-ee-rep-fonction" placeholder="Fonction"></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-ee-rep-tel">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="icp-ee-rep-tel" placeholder="Téléphone" onchange="App.persistICPEERepContactPhone(this.value)"></div></div>
           <div class="col-12 mt-1 d-flex justify-content-end"><button type="button" class="btn btn-outline-primary btn-sm" onclick="App.addICPEEParticipantRow()"><i class="bi bi-plus-lg me-1"></i>Ajouter une 2e personne côté intervenant</button></div>
@@ -11527,6 +11527,40 @@ const App = {
       if (typeof ActivityLog !== 'undefined') ActivityLog.log('entreprise.contact.tel', { ent: e.nom, contact: c.nom });
       this.toast(`Téléphone enregistré pour ${c.nom}`, 'success', 2500);
     } catch (err) { console.warn('persistICPEERepContactPhone:', err?.message||err); }
+  },
+
+  // Nom saisi manuellement (hors liste) → crée le contact dans le répertoire de
+  // l'entreprise sélectionnée et le sélectionne, pour alimenter dynamiquement la liste.
+  // L'id est dérivé du nom (cf. _ensureContactIds) → un nom = un contact, pas de doublon à la synchro.
+  async persistICPEERepContactName(value) {
+    const nom = (value||'').trim();
+    const persSel = document.getElementById('icp-ee-personne-select');
+    const entId = document.getElementById('icp-ee-entreprise-id')?.value;
+    if (!nom || !persSel || !entId) return;
+    const norm = s => (s||'').toLowerCase().replace(/\s+/g,' ').trim();
+    // Déjà sélectionné et correspond au nom saisi → rien à faire.
+    const cur = (this._icpEERepCurrentContacts||[])[parseInt(persSel.value)];
+    if (cur && norm(cur.nom) === norm(nom)) return;
+    // Nom déjà présent dans la liste → on le sélectionne sans écraser les champs saisis.
+    const existingIdx = (this._icpEERepCurrentContacts||[]).findIndex(c => norm(c.nom) === norm(nom));
+    if (existingIdx >= 0) { persSel.value = String(existingIdx); return; }
+    // Création d'un nouveau contact dans le répertoire.
+    try {
+      const e = await db.entreprises.get(parseInt(entId));
+      if (!e) return;
+      if (!Array.isArray(e.contacts)) e.contacts = [];
+      const fonction = (document.getElementById('icp-ee-rep-fonction')?.value||'').trim();
+      const tel = (document.getElementById('icp-ee-rep-tel')?.value||'').trim();
+      const nc = { id: 'c:' + norm(nom), nom, fonction, tel, email:'', isMain: false };
+      if (!e.contacts.some(c => c.id === nc.id)) e.contacts.push(nc);
+      await db.entreprises.put(e);
+      if (typeof ActivityLog !== 'undefined') ActivityLog.log('entreprise.contact.add', { ent: e.nom, contact: nom });
+      // Rafraîchir la liste sans réinitialiser les champs, puis sélectionner le nouveau contact.
+      await this.onICPEERepEntrepriseChange(entId, true);
+      const newIdx = (this._icpEERepCurrentContacts||[]).findIndex(c => norm(c.nom) === norm(nom));
+      if (newIdx >= 0) persSel.value = String(newIdx);
+      this.toast(`Contact ajouté au répertoire : ${nom}`, 'success', 2500);
+    } catch (err) { console.warn('persistICPEERepContactName:', err?.message||err); }
   },
 
   populateICPForm() {
