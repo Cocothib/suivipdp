@@ -2368,7 +2368,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           </div>
           <div class="col-md-4"><label class="form-label" for="icp-ee-rep-nom">Nom</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="icp-ee-rep-nom" placeholder="Nom" oninput="App.syncICPSignatureNom('ee')"></div></div>
           <div class="col-md-4"><label class="form-label" for="icp-ee-rep-fonction">Fonction</label><div class="input-icon-wrap"><i class="bi bi-briefcase input-icon"></i><input type="text" class="form-control" id="icp-ee-rep-fonction" placeholder="Fonction"></div></div>
-          <div class="col-md-4"><label class="form-label" for="icp-ee-rep-tel">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="icp-ee-rep-tel" placeholder="Téléphone"></div></div>
+          <div class="col-md-4"><label class="form-label" for="icp-ee-rep-tel">Téléphone</label><div class="input-icon-wrap"><i class="bi bi-telephone input-icon"></i><input type="tel" class="form-control" id="icp-ee-rep-tel" placeholder="Téléphone" onchange="App.persistICPEERepContactPhone(this.value)"></div></div>
           <div class="col-12 mt-1 d-flex justify-content-end"><button type="button" class="btn btn-outline-primary btn-sm" onclick="App.addICPEEParticipantRow()"><i class="bi bi-plus-lg me-1"></i>Ajouter une 2e personne côté intervenant</button></div>
           <div class="col-12"><div id="icp-ee-add-list"></div></div>
         </div>
@@ -11502,6 +11502,31 @@ const App = {
     document.getElementById('icp-ee-rep-tel').value = c.tel||'';
     this.syncICPSignatureNom('ee');
     this._markEditing && this._markEditing();
+  },
+
+  // Persiste le téléphone saisi manuellement dans la fiche du contact sélectionné,
+  // afin que la liste déroulante soit à jour et qu'une re-sélection ne l'efface plus.
+  async persistICPEERepContactPhone(value) {
+    const tel = (value||'').trim();
+    const persSel = document.getElementById('icp-ee-personne-select');
+    const entId = document.getElementById('icp-ee-entreprise-id')?.value;
+    // Pas de personne enregistrée sélectionnée → rien à persister (tel reste dans l'ICP).
+    if (!persSel || persSel.value === '' || !entId) return;
+    const idx = parseInt(persSel.value);
+    const c = (this._icpEERepCurrentContacts||[])[idx];
+    if (!c || (c.tel||'') === tel) return;
+    try {
+      const e = await db.entreprises.get(parseInt(entId));
+      if (!e || !Array.isArray(e.contacts)) return;
+      let target = (c.id != null) ? e.contacts.find(x => x.id === c.id) : null;
+      if (!target) target = e.contacts.find(x => (x.nom||'') === (c.nom||'') && (x.fonction||'') === (c.fonction||''));
+      if (!target) return;
+      target.tel = tel;
+      c.tel = tel; // maj du cache en mémoire → re-sélection immédiate restaure le bon numéro
+      await db.entreprises.put(e);
+      if (typeof ActivityLog !== 'undefined') ActivityLog.log('entreprise.contact.tel', { ent: e.nom, contact: c.nom });
+      this.toast(`Téléphone enregistré pour ${c.nom}`, 'success', 2500);
+    } catch (err) { console.warn('persistICPEERepContactPhone:', err?.message||err); }
   },
 
   populateICPForm() {
