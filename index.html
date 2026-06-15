@@ -1678,9 +1678,13 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <div class="form-section-title"><i class="bi bi-camera"></i>Photos</div>
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-camera"></i>Photos</div>
-          <div class="d-flex flex-wrap gap-2 mb-2" id="visite-photos"></div>
-          <label class="btn btn-outline-primary btn-sm"><i class="bi bi-camera me-1"></i>Photo<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addVisitePhoto(event)"></label>
-          <label class="btn btn-outline-secondary btn-sm"><i class="bi bi-images me-1"></i>Galerie<input type="file" accept="image/*" multiple class="d-none" onchange="App.addVisitePhoto(event)"></label>
+          <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+            <label class="small text-muted mb-0">Étape :</label>
+            <select class="form-select form-select-sm" id="visite-photo-etape" style="width:auto" onchange="App._currentVisitePhotoEtape=this.value"></select>
+            <label class="btn btn-outline-primary btn-sm mb-0"><i class="bi bi-camera me-1"></i>Photo<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addVisitePhoto(event)"></label>
+            <label class="btn btn-outline-secondary btn-sm mb-0"><i class="bi bi-images me-1"></i>Galerie<input type="file" accept="image/*" multiple class="d-none" onchange="App.addVisitePhoto(event)"></label>
+          </div>
+          <div id="visite-photos"></div>
         </div>
       </div>
     </div>
@@ -2421,9 +2425,13 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       </div>
       <div class="field-group">
         <div class="field-group-title"><i class="bi bi-camera"></i> Photos</div>
-        <div class="d-flex flex-wrap gap-2 mb-2" id="icp-photos"></div>
-        <label class="btn btn-outline-primary btn-sm"><i class="bi bi-camera me-1"></i>Photo<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addICPPhoto(event)"></label>
-        <label class="btn btn-outline-secondary btn-sm ms-1"><i class="bi bi-images me-1"></i>Galerie<input type="file" accept="image/*" multiple class="d-none" onchange="App.addICPPhoto(event)"></label>
+        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+          <label class="small text-muted mb-0">Étape :</label>
+          <select class="form-select form-select-sm" id="icp-photo-etape" style="width:auto" onchange="App._currentICPPhotoEtape=this.value"></select>
+          <label class="btn btn-outline-primary btn-sm mb-0"><i class="bi bi-camera me-1"></i>Photo<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addICPPhoto(event)"></label>
+          <label class="btn btn-outline-secondary btn-sm mb-0"><i class="bi bi-images me-1"></i>Galerie<input type="file" accept="image/*" multiple class="d-none" onchange="App.addICPPhoto(event)"></label>
+        </div>
+        <div id="icp-photos"></div>
       </div>
     </div>
 
@@ -2559,6 +2567,12 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="form-section-title"><i class="bi bi-envelope-at"></i>Notifications par mail</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Adresses qui reçoivent un mail à chaque nouveau risque proposé. Le mail est envoyé depuis le compte SharePoint de l'utilisateur qui propose.</div>
       <div id="settings-notify-emails"></div>
+    </div>
+
+    <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-camera"></i>Étapes de prise de photos (ICP / visite)</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Oriente la prise de photos par zones successives (entrée, cheminement, tableau, toiture…). Modifiable selon le type de site (toiture, sol…).</div>
+      <div id="settings-photo-etapes"></div>
     </div>
 
     <div class="form-section">
@@ -4848,6 +4862,7 @@ const DataSync = {
                     await this._captureSnapshot();
                     App.toast(`Données mises à jour par ${by||'un collègue'}`, 'info');
                     if (typeof App._refreshCustomRisksCache === 'function') await App._refreshCustomRisksCache();
+                    if (typeof App._refreshPhotoEtapesCache === 'function') await App._refreshPhotoEtapesCache();
                     App.refreshMaintenanceBanner();
                     if (App.currentView === 'dashboard') App.updateDashboard();
                     if (App.currentView === 'list') App.renderPDPList();
@@ -6856,6 +6871,7 @@ const App = {
       await this.loadSettings();
       try { await loadAgences(); } catch (e) { console.warn('loadAgences:', e); }
       await this._refreshCustomRisksCache();
+      await this._refreshPhotoEtapesCache();
       // Auto-import embedded data if present and database is empty
       if (window.__EMBEDDED_DATA__) {
         try {
@@ -7411,6 +7427,7 @@ const App = {
     const p = await db.pdps.get(id);
     if (!p) { this.toast('PDP introuvable','danger'); return; }
     this.currentPDP = p;
+    this._ensurePhotoFields(p);
     this.populateForm();
     this.showView('pdp-detail');
     // Titre = OPP-XXXX | PDP-XXX | titre (refOperation direct ou via ICP liée)
@@ -8353,6 +8370,14 @@ const App = {
       }
       this._customRisksByName = map;
     } catch { /* silencieux */ }
+  },
+
+  async _refreshPhotoEtapesCache() {
+    try {
+      const s = await db.settings.get('photoEtapes');
+      const v = s && s.value;
+      this._photoEtapesCache = (Array.isArray(v) && v.length) ? v.filter(x => typeof x === 'string' && x.trim()) : null;
+    } catch { this._photoEtapesCache = null; }
   },
 
   _getRiskDefaults(name) {
@@ -9937,6 +9962,109 @@ const App = {
   // Helper Promise-based : redimensionne (max 1024px) et compresse (JPEG 60%)
   PHOTO_MAX_SIZE: 1024,
   PHOTO_QUALITY: 0.6,
+
+  // Étapes de prise de vue par défaut (guidage ICP/visite). Modifiables dans
+  // Paramètres (db.settings 'photoEtapes'). Cf lot photos.
+  PHOTO_ETAPES_DEFAULT: ['Entrée du site', 'Cheminement vers shelter & tableau', 'Tableau électrique', 'Accès toiture', 'Risques spécifiques', 'Autre'],
+  ETAPE_NON_CLASSEE: 'Non classé',
+
+  // Liste des étapes effective (settings ou défaut). Cache léger rafraîchi au load.
+  getPhotoEtapes() {
+    const e = this._photoEtapesCache;
+    return (Array.isArray(e) && e.length) ? e : this.PHOTO_ETAPES_DEFAULT;
+  },
+
+  // Parcourt TOUS les emplacements de photos d'un enregistrement ICP ou PDP
+  // (générales + par risque + visite) et applique cb(photo, arr, index).
+  // Sert au stamping d'id, au strip/rehydrate du base64 et au regroupement export.
+  _eachPhoto(record, cb) {
+    if (!record) return;
+    const walk = (arr) => {
+      if (!Array.isArray(arr)) return;
+      for (let i = 0; i < arr.length; i++) { if (arr[i]) cb(arr[i], arr, i); }
+    };
+    walk(record.photos);                       // ICP générales
+    walk(record.visite && record.visite.photos); // visite PDP
+    if (Array.isArray(record.risques)) for (const r of record.risques) walk(r && r.photos); // par risque
+  },
+
+  // Rétrocompat : complète id/etape/label/mime manquants sur les photos d'un
+  // enregistrement ouvert (photos créées avant le lot photos).
+  _ensurePhotoFields(record) {
+    this._eachPhoto(record, (p) => {
+      if (!p.id) p.id = _uid();
+      if (typeof p.etape !== 'string') p.etape = '';
+      if (typeof p.label !== 'string') p.label = '';
+      if (!p.mime) p.mime = (typeof p.data === 'string' && /^data:image\/png/i.test(p.data)) ? 'image/png' : 'image/jpeg';
+    });
+  },
+
+  // Tableau de photos générales selon le contexte ('icp' | 'visite').
+  _photoArr(ctx) {
+    return ctx === 'visite'
+      ? (this.currentPDP && this.currentPDP.visite && this.currentPDP.visite.photos)
+      : (this.currentICP && this.currentICP.photos);
+  },
+  _rerenderPhotos(ctx) { ctx === 'visite' ? this.renderVisitePhotos() : this.renderICPPhotos(); },
+
+  // Remplit le <select> d'étape courante (photos à venir) + mémorise le choix.
+  _populateEtapeSelect(selectId, stateProp) {
+    const sel = document.getElementById(selectId); if (!sel) return;
+    const etapes = this.getPhotoEtapes();
+    if (!this[stateProp] || !etapes.includes(this[stateProp])) this[stateProp] = etapes[0] || '';
+    sel.innerHTML = etapes.map(e => `<option value="${this.esc(e)}"${this[stateProp] === e ? ' selected' : ''}>${this.esc(e)}</option>`).join('');
+    sel.value = this[stateProp];
+  },
+
+  // Vignettes groupées PAR ÉTAPE + légende éditable + rappel des étapes vides.
+  _renderGroupedPhotos(container, photos, ctx) {
+    if (!container) return;
+    if (!photos.length) { container.innerHTML = '<p class="text-muted small mb-0">Aucune photo.</p>'; return; }
+    const etapes = this.getPhotoEtapes();
+    const order = [...etapes, this.ETAPE_NON_CLASSEE];
+    const groups = {};
+    photos.forEach((p, i) => {
+      const k = (p.etape && etapes.includes(p.etape)) ? p.etape : this.ETAPE_NON_CLASSEE;
+      (groups[k] = groups[k] || []).push(i);
+    });
+    const optsFor = (cur) => order.map(e => {
+      const val = (e === this.ETAPE_NON_CLASSEE) ? '' : e;
+      const selected = (cur || '') === val ? ' selected' : '';
+      return `<option value="${this.esc(val)}"${selected}>${this.esc(e)}</option>`;
+    }).join('');
+    let html = '';
+    for (const e of order) {
+      const idxs = groups[e]; if (!idxs || !idxs.length) continue;
+      html += `<div class="mb-2"><div class="small fw-bold text-success mb-1">${this.esc(e)} <span class="text-muted fw-normal">(${idxs.length})</span></div><div class="d-flex flex-wrap gap-2">`;
+      for (const i of idxs) {
+        const p = photos[i];
+        html += `<div class="border rounded p-1" style="width:122px">
+          <img src="${p.data}" class="rounded" style="width:112px;height:84px;object-fit:cover;cursor:pointer" onclick="App.openPhotoViewer('${ctx}',${i})">
+          <input type="text" class="form-control form-control-sm mt-1" style="font-size:.7rem" placeholder="Légende" value="${this.esc(p.label || '')}" onchange="App.setPhotoLabel('${ctx}',${i},this.value)">
+          <div class="d-flex gap-1 mt-1">
+            <select class="form-select form-select-sm" style="font-size:.62rem;padding:.1rem .3rem" onchange="App.setPhotoEtape('${ctx}',${i},this.value)">${optsFor(p.etape)}</select>
+            <button type="button" class="btn btn-sm btn-outline-danger" style="padding:0 .35rem" onclick="App.removeGenPhoto('${ctx}',${i})"><i class="bi bi-x"></i></button>
+          </div>
+        </div>`;
+      }
+      html += `</div></div>`;
+    }
+    const missing = etapes.filter(e => !(groups[e] && groups[e].length));
+    if (missing.length) html += `<div class="small text-warning mt-1"><i class="bi bi-exclamation-triangle me-1"></i>Étapes sans photo : ${this.esc(missing.join(', '))}</div>`;
+    container.innerHTML = html;
+  },
+
+  setPhotoLabel(ctx, i, val) { const a = this._photoArr(ctx); if (a && a[i]) a[i].label = val; },
+  setPhotoEtape(ctx, i, val) { const a = this._photoArr(ctx); if (a && a[i]) { a[i].etape = val; this._rerenderPhotos(ctx); } },
+  removeGenPhoto(ctx, i) { const a = this._photoArr(ctx); if (a && a[i] !== undefined) { a.splice(i, 1); this._rerenderPhotos(ctx); } },
+  openPhotoViewer(ctx, i) {
+    const a = this._photoArr(ctx); if (!a || !a[i]) return;
+    const img = document.getElementById('photo-viewer-img');
+    if (img && document.getElementById('modal-photo')) {
+      img.src = a[i].data;
+      new bootstrap.Modal(document.getElementById('modal-photo')).show();
+    } else { window.open(a[i].data); }
+  },
   compressImage(file) {
     return new Promise((resolve, reject) => {
       if (!file || !file.type || !file.type.startsWith('image/')) {
@@ -9958,7 +10086,11 @@ const App = {
           cv.width = w; cv.height = h;
           cv.getContext('2d').drawImage(img, 0, 0, w, h);
           resolve({
+            id: _uid(),
             data: cv.toDataURL('image/jpeg', this.PHOTO_QUALITY),
+            mime: 'image/jpeg',
+            label: '',
+            etape: '',
             date: new Date().toISOString(),
             filename: file.name || '',
           });
@@ -9975,7 +10107,7 @@ const App = {
     this.currentPDP.visite.photos = this.currentPDP.visite.photos || [];
     let added = 0, errors = 0;
     for (const f of files) {
-      try { this.currentPDP.visite.photos.push(await this.compressImage(f)); added++; }
+      try { const ph = await this.compressImage(f); ph.etape = this._currentVisitePhotoEtape || ''; this.currentPDP.visite.photos.push(ph); added++; }
       catch (e) { console.warn('photo:', e); errors++; }
     }
     this.renderVisitePhotos();
@@ -9985,9 +10117,9 @@ const App = {
   },
 
   renderVisitePhotos() {
-    const c = document.getElementById('visite-photos');
-    const p = this.currentPDP?.visite?.photos||[];
-    c.innerHTML = p.map((p,i) => `<div class="position-relative d-inline-block"><img src="${p.data}" class="photo-thumb" style="width:80px;height:80px;object-fit:cover" onclick="document.getElementById('photo-viewer-img').src='${p.data.replace(/'/g,"\\'")}';new bootstrap.Modal(document.getElementById('modal-photo')).show()"><button class="btn btn-danger position-absolute" style="top:-5px;right:-5px;padding:0 4px;font-size:0.6rem;border-radius:50%;line-height:1.4" onclick="App.currentPDP.visite.photos.splice(${i},1);App.renderVisitePhotos()"><i class="bi bi-x"></i></button></div>`).join('');
+    if (this.currentPDP && this.currentPDP.visite) this.currentPDP.visite.photos = this.currentPDP.visite.photos || [];
+    this._populateEtapeSelect('visite-photo-etape', '_currentVisitePhotoEtape');
+    this._renderGroupedPhotos(document.getElementById('visite-photos'), (this.currentPDP?.visite?.photos) || [], 'visite');
   },
 
   // ---- DOCUMENTS ----
@@ -11022,6 +11154,7 @@ const App = {
     const v = await db.icps.get(id);
     if (!v) { this.toast('ICP introuvable','danger'); return; }
     this.currentICP = v;
+    this._ensurePhotoFields(v);
     this.populateICPForm();
     this.showView('icp-detail');
     document.getElementById('icp-detail-title').textContent = [v.refOperation, v.numero || ('ICP #' + v.id), v.objet].filter(Boolean).join(' | ');
@@ -11712,7 +11845,7 @@ const App = {
     this.currentICP.photos = this.currentICP.photos || [];
     let added = 0, errors = 0;
     for (const f of files) {
-      try { this.currentICP.photos.push(await this.compressImage(f)); added++; }
+      try { const ph = await this.compressImage(f); ph.etape = this._currentICPPhotoEtape || ''; this.currentICP.photos.push(ph); added++; }
       catch (e) { console.warn('photo ICP:', e); errors++; }
     }
     this.renderICPPhotos();
@@ -11722,10 +11855,9 @@ const App = {
   },
 
   renderICPPhotos() {
-    const c = document.getElementById('icp-photos');
-    const photos = this.currentICP.photos||[];
-    if (!photos.length) { c.innerHTML = '<p class="text-muted small">Aucune photo.</p>'; return; }
-    c.innerHTML = photos.map((p,i) => `<div class="position-relative"><img src="${p.data}" class="photo-thumb rounded" style="width:80px;height:80px;object-fit:cover;cursor:pointer" onclick="window.open('${p.data}')"><button class="btn btn-sm btn-danger position-absolute top-0 end-0" style="padding:0 4px;font-size:0.6rem;line-height:1.2" onclick="App.currentICP.photos.splice(${i},1);App.renderICPPhotos()"><i class="bi bi-x"></i></button></div>`).join('');
+    if (this.currentICP) this.currentICP.photos = this.currentICP.photos || [];
+    this._populateEtapeSelect('icp-photo-etape', '_currentICPPhotoEtape');
+    this._renderGroupedPhotos(document.getElementById('icp-photos'), (this.currentICP && this.currentICP.photos) || [], 'icp');
   },
 
   // ---- ICP SIGNATURES EE ----
@@ -12321,6 +12453,62 @@ const App = {
     await this.saveNotifyEmails(list.filter(e => e.toLowerCase() !== email.toLowerCase()));
     this.renderNotifyEmails();
   },
+
+  // ---- Étapes de prise de photos (guidage ICP/visite) ----
+  async savePhotoEtapes(list) {
+    await db.settings.put({ key:'photoEtapes', value: list });
+    await this._refreshPhotoEtapesCache();
+    DataSync.markDirty();
+  },
+  async renderPhotoEtapesSettings() {
+    const el = document.getElementById('settings-photo-etapes');
+    if (!el) return;
+    const list = this.getPhotoEtapes();
+    const rows = list.map((e, i) => `
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <i class="bi bi-camera text-muted"></i>
+        <span class="flex-grow-1 text-break">${this.esc(e)}</span>
+        <button class="btn btn-sm btn-outline-secondary" onclick="App.movePhotoEtape(${i},-1)" ${i===0?'disabled':''} title="Monter"><i class="bi bi-arrow-up"></i></button>
+        <button class="btn btn-sm btn-outline-secondary" onclick="App.movePhotoEtape(${i},1)" ${i===list.length-1?'disabled':''} title="Descendre"><i class="bi bi-arrow-down"></i></button>
+        <button class="btn btn-sm btn-outline-danger" onclick="App.removePhotoEtape(${i})"><i class="bi bi-trash"></i></button>
+      </div>`).join('');
+    el.innerHTML = `
+      ${rows}
+      <div class="input-group input-group-sm mt-2" style="max-width:480px">
+        <input type="text" class="form-control" id="photo-etape-input" placeholder="Nouvelle étape (ex: Local technique)" onkeydown="if(event.key==='Enter'){App.addPhotoEtape(document.getElementById('photo-etape-input').value);document.getElementById('photo-etape-input').value='';}">
+        <button class="btn btn-outline-primary" onclick="App.addPhotoEtape(document.getElementById('photo-etape-input').value); document.getElementById('photo-etape-input').value='';"><i class="bi bi-plus-lg"></i> Ajouter</button>
+      </div>
+      <button class="btn btn-sm btn-link text-muted mt-1 px-0" onclick="App.resetPhotoEtapes()">Réinitialiser la liste par défaut</button>`;
+  },
+  async addPhotoEtape(name) {
+    name = (name||'').trim();
+    if (!name) return;
+    const list = this.getPhotoEtapes().slice();
+    if (list.some(e => e.toLowerCase() === name.toLowerCase())) { this.toast('Étape déjà présente', 'warning'); return; }
+    if (name === this.ETAPE_NON_CLASSEE) { this.toast('Nom réservé', 'warning'); return; }
+    list.push(name);
+    await this.savePhotoEtapes(list);
+    this.renderPhotoEtapesSettings();
+  },
+  async removePhotoEtape(i) {
+    const list = this.getPhotoEtapes().slice();
+    if (i < 0 || i >= list.length) return;
+    list.splice(i, 1);
+    await this.savePhotoEtapes(list.length ? list : this.PHOTO_ETAPES_DEFAULT.slice());
+    this.renderPhotoEtapesSettings();
+  },
+  async movePhotoEtape(i, dir) {
+    const list = this.getPhotoEtapes().slice();
+    const j = i + dir;
+    if (i < 0 || i >= list.length || j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    await this.savePhotoEtapes(list);
+    this.renderPhotoEtapesSettings();
+  },
+  async resetPhotoEtapes() {
+    await this.savePhotoEtapes(this.PHOTO_ETAPES_DEFAULT.slice());
+    this.renderPhotoEtapesSettings();
+  },
   async renderNotifyEmails() {
     const el = document.getElementById('settings-notify-emails');
     if (!el) return;
@@ -12824,6 +13012,7 @@ const App = {
     try { await DataSync.renderSettingsStatus(); } catch (e) { console.warn('renderSettingsStatus:', e); }
     try { await this.renderAdminsSection(); } catch (e) { console.warn('renderAdminsSection:', e); }
     try { await this.renderNotifyEmails(); } catch (e) { console.warn('renderNotifyEmails:', e); }
+    try { await this.renderPhotoEtapesSettings(); } catch (e) { console.warn('renderPhotoEtapesSettings:', e); }
     try { await this.renderPendingRisksSection(); } catch (e) { console.warn('renderPendingRisksSection:', e); }
     try { await this.renderHiddenRisksSection(); } catch (e) { console.warn('renderHiddenRisksSection:', e); }
     try { await this.renderMaintenanceToggle(); } catch (e) { console.warn('renderMaintenanceToggle:', e); }
