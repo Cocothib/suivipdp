@@ -4454,6 +4454,43 @@ const DataSync = {
         });
     },
 
+    // Applique le distant store par store de façon ATOMIQUE (transaction Dexie).
+    // Si bulkPut échoue après clear(), le clear est annulé (rollback) → le store
+    // n'est jamais laissé vide. Utilisés par _loadFromRemote ET le polling.
+    async _applyPdpStore(pdpData) {
+        await db.transaction('rw', db.pdps, async () => {
+            await db.pdps.clear();
+            if (pdpData.pdps?.length) await db.pdps.bulkPut(pdpData.pdps);
+        });
+    },
+    async _applyIcpStore(icpData) {
+        await db.transaction('rw', db.icps, async () => {
+            await db.icps.clear();
+            if (icpData.icps?.length) await db.icps.bulkPut(icpData.icps);
+        });
+    },
+    async _applySharedStore(sharedData) {
+        await db.transaction('rw', db.entreprises, db.settings, db.fds, db.sites, db.salaries_habilitations, db.signataires, async () => {
+            await db.entreprises.clear();
+            if (sharedData.entreprises?.length) await db.entreprises.bulkPut(sharedData.entreprises);
+            await db.settings.clear();
+            if (sharedData.settings?.length) await db.settings.bulkPut(sharedData.settings);
+            if (sharedData.fds) {
+              // Préserve les `data` base64 locaux (le JSON shared n'en contient plus)
+              const localFDS = await db.fds.toArray();
+              const localDataById = new Map(localFDS.map(f => [f.id, f.data]));
+              await db.fds.clear();
+              if (sharedData.fds.length) {
+                await db.fds.bulkPut(sharedData.fds.map(remote => ({
+                    ...remote,
+                    data: remote.data || localDataById.get(remote.id) || null,
+                })));
+              }
+            }
+            await this._applySharedAuxStores(sharedData);
+        });
+    },
+
     // ---- Sauvegardes séparées (avec merge anti-conflit) ----
     async save() {
         if (this._saving || !this._connected) return;
@@ -4527,6 +4564,19 @@ const DataSync = {
         icpData._meta.version    = Math.max(remoteVers.icp,    lastSyncedVers.icp)    + 1;
         sharedData._meta.version = Math.max(remoteVers.shared, lastSyncedVers.shared) + 1;
 
+        // 3bis. GARDE ANTI-PERTE : ne jamais pousser un store local VIDE par-dessus
+        // un distant non vide (protège contre un store vidé par une erreur de
+        // chargement/poll). _dirty reste true → réessai après rechargement.
+        const emptied = [];
+        if ((pdpData.pdps?.length||0) === 0        && (remotePdp?.pdps?.length||0) > 0)          emptied.push('PDP');
+        if ((icpData.icps?.length||0) === 0        && (remoteIcp?.icps?.length||0) > 0)          emptied.push('ICP');
+        if ((sharedData.entreprises?.length||0) === 0 && (remoteShared?.entreprises?.length||0) > 0) emptied.push('entreprises');
+        if (emptied.length) {
+            App.toast(`Sauvegarde annulée par sécurité : ${emptied.join(', ')} vide localement alors que le serveur contient des données. Rechargez la page (F5) avant de continuer pour éviter toute perte.`, 'danger', 16000);
+            if (typeof ActivityLog !== 'undefined') ActivityLog.log('sauvegarde_bloquee_store_vide', { stores: emptied.join(',') });
+            return; // _dirty conservé : pas de reset, pas d'écriture du vide
+        }
+
         // 4. Écriture conditionnelle (If-Match sur l'ETag lu) : 412 si modifié entre-temps
         await Promise.all([
             _writeJsonFile(SP_CONFIG.PDP_DATA_FILE, pdpData, useEtag ? rp.etag : null),
@@ -4573,35 +4623,19 @@ const DataSync = {
                 return true;
             }
             let loaded = false;
+            // Chaque store est appliqué dans sa propre transaction : un échec de
+            // bulkPut annule le clear() (rollback) et n'avance PAS la meta → le
+            // store conserve son contenu et sera rechargé au prochain cycle.
             if (pdpData?._meta) {
-                await db.pdps.clear();
-                if (pdpData.pdps?.length) await db.pdps.bulkPut(pdpData.pdps);
+                await this._applyPdpStore(pdpData);
                 this._loadedMeta.pdp = pdpData._meta; loaded = true;
             }
             if (icpData?._meta) {
-                await db.icps.clear();
-                if (icpData.icps?.length) await db.icps.bulkPut(icpData.icps);
+                await this._applyIcpStore(icpData);
                 this._loadedMeta.icp = icpData._meta; loaded = true;
             }
             if (sharedData?._meta) {
-                await db.entreprises.clear();
-                if (sharedData.entreprises?.length) await db.entreprises.bulkPut(sharedData.entreprises);
-                await db.settings.clear();
-                if (sharedData.settings?.length) await db.settings.bulkPut(sharedData.settings);
-                if (sharedData.fds) {
-                  // Préserve les `data` base64 locaux (le JSON shared n'en contient plus)
-                  const localFDS = await db.fds.toArray();
-                  const localDataById = new Map(localFDS.map(f => [f.id, f.data]));
-                  await db.fds.clear();
-                  if (sharedData.fds.length) {
-                    const merged = sharedData.fds.map(remote => ({
-                        ...remote,
-                        data: remote.data || localDataById.get(remote.id) || null,
-                    }));
-                    await db.fds.bulkPut(merged);
-                  }
-                }
-                await this._applySharedAuxStores(sharedData);
+                await this._applySharedStore(sharedData);
                 this._loadedMeta.shared = sharedData._meta; loaded = true;
             }
             if (loaded) { this._dirty = false; this._updateBadge(false); await this._captureSnapshot(); }
@@ -4697,25 +4731,18 @@ const DataSync = {
                     _readJsonFile(SP_CONFIG.SHARED_DATA_FILE),
                 ]);
                 let updated = false; let by = '';
+                // clear()+bulkPut atomiques par store (cf. _applyXStore) : un échec
+                // n'avance pas la meta et laisse le store local intact (pas de vide).
                 if (pdpData?._meta && (pdpData._meta.version||0) > (this._loadedMeta.pdp?.version||0)) {
-                    await db.pdps.clear(); if (pdpData.pdps?.length) await db.pdps.bulkPut(pdpData.pdps);
+                    await this._applyPdpStore(pdpData);
                     this._loadedMeta.pdp = pdpData._meta; updated = true; by = pdpData._meta.savedBy;
                 }
                 if (icpData?._meta && (icpData._meta.version||0) > (this._loadedMeta.icp?.version||0)) {
-                    await db.icps.clear(); if (icpData.icps?.length) await db.icps.bulkPut(icpData.icps);
+                    await this._applyIcpStore(icpData);
                     this._loadedMeta.icp = icpData._meta; updated = true; by = by || icpData._meta.savedBy;
                 }
                 if (sharedData?._meta && (sharedData._meta.version||0) > (this._loadedMeta.shared?.version||0)) {
-                    await db.entreprises.clear(); if (sharedData.entreprises?.length) await db.entreprises.bulkPut(sharedData.entreprises);
-                    await db.settings.clear(); if (sharedData.settings?.length) await db.settings.bulkPut(sharedData.settings);
-                    if (sharedData.fds) {
-                      // Préserve les `data` base64 locaux (le poll ne les rechargeait pas du tout avant)
-                      const localFDS = await db.fds.toArray();
-                      const localDataById = new Map(localFDS.map(f => [f.id, f.data]));
-                      await db.fds.clear();
-                      if (sharedData.fds.length) await db.fds.bulkPut(sharedData.fds.map(remote => ({ ...remote, data: remote.data || localDataById.get(remote.id) || null })));
-                    }
-                    await this._applySharedAuxStores(sharedData);
+                    await this._applySharedStore(sharedData);
                     this._loadedMeta.shared = sharedData._meta; updated = true;
                 }
                 if (updated) {
