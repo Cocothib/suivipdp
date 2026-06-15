@@ -7335,13 +7335,27 @@ const App = {
     return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
   },
 
-  // Retourne le membre maintenance ayant réalisé l'ICP (via le réalisateur Agriwatt), ou null.
-  // Même source que le filtre "Conducteur" de l'onglet ICP → cohérence garantie.
+  // Retourne le membre maintenance ayant réalisé l'ICP, ou null.
+  // Scanne tous les champs "personnes" de l'ICP : sur une ICP de maintenance le
+  // réalisateur Agriwatt est généralement dans eeRepresentant.nom (intervenant principal).
+  // Exige prénom + nom présents ensemble dans un même champ (anti-homonyme, distingue les 2 Franck).
   _icpRealisateurMaint(icp) {
-    const tokens = this._normTxt(this._getConducteurAgriwatt(icp)).split(' ').filter(Boolean);
-    if (!tokens.length) return null;
-    for (const m of this._maintTeam) {
-      if (tokens.includes(this._normTxt(m.nom))) return m;
+    if (!icp) return null;
+    const fields = [];
+    const push = v => { if (v) fields.push(v); };
+    push(icp.eeRepresentant?.nom);
+    (icp.eeParticipants||[]).forEach(p => push(p?.nom));
+    (icp.signaturesEE||[]).forEach(p => push(p?.nom));
+    push(icp.euParticipant?.nom);
+    (icp.euParticipants||[]).forEach(p => push(p?.nom));
+    (icp.entreprisesExt||[]).forEach(ee => push(ee?.responsable));
+    push(this._getConducteurAgriwatt(icp));
+    for (const f of fields) {
+      const tokens = this._normTxt(f).split(' ').filter(Boolean);
+      if (!tokens.length) continue;
+      for (const m of this._maintTeam) {
+        if (tokens.includes(this._normTxt(m.nom)) && tokens.includes(this._normTxt(m.prenom))) return m;
+      }
     }
     return null;
   },
@@ -7384,18 +7398,14 @@ const App = {
       return d && !isNaN(d) && d >= from;
     });
 
-    const stats = new Map(this._maintTeam.map(m => [m.nom, { m, total:0, effectuee:0, validee:0 }]));
-    let nonAttribuees = 0, totalMaint = 0, totalValidee = 0;
+    const stats = new Map(this._maintTeam.map(m => [m.nom, { m, total:0 }]));
+    let nonAttribuees = 0, totalMaint = 0;
     inPeriod.forEach(v => {
       const m = this._icpRealisateurMaint(v);
       if (!m) { nonAttribuees++; return; }
-      const s = stats.get(m.nom);
-      s.total++;
-      if (v.statut === 'validee') { s.validee++; totalValidee++; } else { s.effectuee++; }
+      stats.get(m.nom).total++;
       totalMaint++;
     });
-
-    const tauxVal = totalMaint ? Math.round(totalValidee/totalMaint*100) : 0;
 
     let cadenceTxt = '';
     if (totalMaint > 0) {
@@ -7407,30 +7417,23 @@ const App = {
       cadenceTxt = `<span class="badge bg-${okCad?'success':'warning'} text-${okCad?'white':'dark'}">${moy.toFixed(1)} ICP/jour ouvré</span> <span class="text-muted small">(objectif ~4/j)</span>`;
     }
 
+    const maxT = Math.max(1, ...[...stats.values()].map(s => s.total));
     const rows = [...stats.values()]
       .sort((a,b)=> b.total - a.total || a.m.nom.localeCompare(b.m.nom))
-      .map(s => {
-        const tx = s.total ? Math.round(s.validee/s.total*100) : 0;
-        return `<tr>
+      .map(s => `<tr>
           <td>${this.esc(s.m.nom)} ${this.esc(s.m.prenom)}</td>
           <td class="text-center fw-bold">${s.total}</td>
-          <td class="text-center text-primary">${s.effectuee}</td>
-          <td class="text-center text-success">${s.validee}</td>
-          <td style="min-width:80px"><div class="progress" style="height:8px"><div class="progress-bar bg-success" style="width:${tx}%"></div></div></td>
-        </tr>`;
-      }).join('');
+          <td style="min-width:90px"><div class="progress" style="height:8px"><div class="progress-bar bg-info" style="width:${Math.round(s.total/maxT*100)}%"></div></div></td>
+        </tr>`).join('');
 
     el.innerHTML = `
       <div class="d-flex flex-wrap gap-3 align-items-center mb-2 px-1">
-        <div><span class="fs-4 fw-bold">${totalMaint}</span> <span class="text-muted small">ICP maintenance</span></div>
-        <div><span class="text-primary fw-bold">${totalMaint-totalValidee}</span> <span class="text-muted small">effectuées</span></div>
-        <div><span class="text-success fw-bold">${totalValidee}</span> <span class="text-muted small">validées</span></div>
-        <div class="flex-grow-1" style="min-width:120px"><div class="progress" style="height:12px"><div class="progress-bar bg-success" style="width:${tauxVal}%">${tauxVal}%</div></div></div>
+        <div><span class="fs-4 fw-bold">${totalMaint}</span> <span class="text-muted small">ICP réalisées</span></div>
         <div>${cadenceTxt}</div>
       </div>
       <div class="table-responsive">
         <table class="table table-sm table-hover mb-1 small align-middle">
-          <thead><tr><th>Technicien</th><th class="text-center">Total</th><th class="text-center">Effect.</th><th class="text-center">Validées</th><th>Taux val.</th></tr></thead>
+          <thead><tr><th>Technicien</th><th class="text-center">ICP</th><th>Volume</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
