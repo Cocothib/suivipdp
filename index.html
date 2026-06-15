@@ -4043,7 +4043,7 @@ const DataSync = {
             if (!curChanged && remChanged)  { out[key] = rem; continue; }
             // Conflit reel : current != snapshot ET remote != snapshot ET current != remote
             if (!this._deepEqual(cur, rem)) {
-                conflicts.push({ path, currentValue: cur, snapshotValue: snap, remoteValue: rem });
+                conflicts.push({ path, currentValue: cur, snapshotValue: snap, remoteValue: rem, dmCur, dmRem });
                 out[key] = cur; // provisoire (sera patche par _resolveConflicts si choix "other"/"combine")
             } else {
                 out[key] = cur;
@@ -4361,7 +4361,7 @@ const DataSync = {
      * a ecrire. Propage les remappings d'ids entre fichiers (icps.pdpId,
      * pdps.entreprisesExt[]._repoId).
      */
-    async _mergeAllWithRemote(remotes) {
+    async _mergeAllWithRemote(remotes, { interactive = false } = {}) {
         const current = await this._collectRawData();
         let snapshot;
         try {
@@ -4395,7 +4395,19 @@ const DataSync = {
         if (allConflicts.length) {
             const savedBy = remotes.pdp?._meta?.savedBy || remotes.icp?._meta?.savedBy || remotes.shared?._meta?.savedBy || 'un collegue';
             const byUser  = this.getUserName() || 'inconnu';
-            const choices = await this._resolveConflicts(allConflicts, savedBy);
+            // #10 : ne JAMAIS ouvrir la modale bloquante en contexte automatique
+            // (auto-save / poll). Modale uniquement si appel explicite interactif.
+            // Sinon : résolution déterministe = la date de modification la plus
+            // récente gagne (au lieu du défaut silencieux 'mine'), tracée ci-dessous.
+            let choices;
+            if (interactive && document.getElementById('modal-merge-conflict')) {
+                choices = await this._resolveConflicts(allConflicts, savedBy);
+            } else {
+                choices = {};
+                for (const c of allConflicts) {
+                    choices[c.path] = { choice: ((c.dmRem || '') > (c.dmCur || '')) ? 'other' : 'mine' };
+                }
+            }
             for (const c of allConflicts) {
                 const decision = choices[c.path]?.choice || 'mine';
                 let finalValue;
