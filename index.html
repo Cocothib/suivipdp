@@ -1336,13 +1336,8 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     <!-- Avancement ICP Maintenance (réservé admin, affiché par renderICPMaintenance) -->
     <div class="card mb-3" style="display:none">
       <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <span><i class="bi bi-speedometer2 me-1"></i>Avancement ICP — Maintenance</span>
-        <select id="icp-maint-period" class="form-select form-select-sm" style="width:auto" onchange="App.renderICPMaintenance(this.value)">
-          <option value="7">7 derniers jours</option>
-          <option value="30" selected>30 derniers jours</option>
-          <option value="90">90 derniers jours</option>
-          <option value="0">Tout</option>
-        </select>
+        <span><i class="bi bi-speedometer2 me-1"></i>ICP Maintenance — par mois</span>
+        <select id="icp-maint-annee" class="form-select form-select-sm" style="width:auto" onchange="App.renderICPMaintenance(this.value)"></select>
       </div>
       <div class="card-body p-2" id="dashboard-icp-maint"></div>
     </div>
@@ -7233,7 +7228,7 @@ const App = {
             <span class="text-muted small">${p.dateFin}</span></div>`;
         }).join('');
 
-    await this.renderICPMaintenance(this._icpMaintPeriod != null ? this._icpMaintPeriod : 30);
+    await this.renderICPMaintenance(this._icpMaintAnnee);
   },
 
   // ========================================
@@ -7373,11 +7368,7 @@ const App = {
     return Math.max(n, 1);
   },
 
-  async renderICPMaintenance(period) {
-    period = parseInt(period != null ? period : 30) || 0;
-    this._icpMaintPeriod = period;
-    const sel = document.getElementById('icp-maint-period');
-    if (sel && sel.value !== String(period)) sel.value = String(period);
+  async renderICPMaintenance(annee) {
     const el = document.getElementById('dashboard-icp-maint');
     if (!el) return;
 
@@ -7387,57 +7378,62 @@ const App = {
     if (card) card.style.display = '';
 
     const all = await db.icps.toArray();
-    const now = new Date();
-    let from = null;
-    if (period > 0) { from = new Date(); from.setDate(from.getDate() - period); from.setHours(0,0,0,0); }
-
     const dateOf = (v) => new Date(v.dateVisite || (v.dateCreation||'').slice(0,10) || v.dateCreation);
-    const inPeriod = all.filter(v => {
-      if (!from) return true;
-      const d = dateOf(v);
-      return d && !isNaN(d) && d >= from;
-    });
 
-    const stats = new Map(this._maintTeam.map(m => [m.nom, { m, total:0 }]));
-    let nonAttribuees = 0, totalMaint = 0;
-    inPeriod.forEach(v => {
-      const m = this._icpRealisateurMaint(v);
-      if (!m) { nonAttribuees++; return; }
-      stats.get(m.nom).total++;
-      totalMaint++;
-    });
+    // Années disponibles (depuis les données) + année courante, pour le sélecteur
+    const curYear = new Date().getFullYear();
+    const yearsSet = new Set([curYear]);
+    all.forEach(v => { const d = dateOf(v); if (d && !isNaN(d)) yearsSet.add(d.getFullYear()); });
+    const years = [...yearsSet].sort((a,b)=>b-a);
+    annee = parseInt(annee) || this._icpMaintAnnee || curYear;
+    if (!years.includes(annee)) annee = years[0];
+    this._icpMaintAnnee = annee;
 
-    let cadenceTxt = '';
-    if (totalMaint > 0) {
-      let minD = from;
-      if (!minD) { minD = inPeriod.map(dateOf).filter(d => d && !isNaN(d)).sort((a,b)=>a-b)[0] || now; }
-      const nbJO = this._joursOuvres(minD, now);
-      const moy = totalMaint / nbJO;
-      const okCad = moy >= 4;
-      cadenceTxt = `<span class="badge bg-${okCad?'success':'warning'} text-${okCad?'white':'dark'}">${moy.toFixed(1)} ICP/jour ouvré</span> <span class="text-muted small">(objectif ~4/j)</span>`;
+    const selA = document.getElementById('icp-maint-annee');
+    if (selA) {
+      selA.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+      selA.value = String(annee);
     }
 
-    const maxT = Math.max(1, ...[...stats.values()].map(s => s.total));
+    // Mois affichés : jusqu'au mois courant pour l'année en cours, sinon les 12 mois
+    const moisLabels = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Aoû','Sep','Oct','Nov','Déc'];
+    const nbMois = (annee === curYear) ? (new Date().getMonth() + 1) : 12;
+
+    const stats = new Map(this._maintTeam.map(m => [m.nom, { m, mois: new Array(12).fill(0), total:0 }]));
+    const moisTotaux = new Array(12).fill(0);
+    let nonAttribuees = 0, totalMaint = 0;
+    all.forEach(v => {
+      const d = dateOf(v);
+      if (!d || isNaN(d) || d.getFullYear() !== annee) return;
+      const m = this._icpRealisateurMaint(v);
+      if (!m) { nonAttribuees++; return; }
+      const mo = d.getMonth();
+      const s = stats.get(m.nom);
+      s.mois[mo]++; s.total++;
+      moisTotaux[mo]++; totalMaint++;
+    });
+
+    const cell = (n) => n ? `<td class="text-center">${n}</td>` : `<td class="text-center text-muted">·</td>`;
+    const thMois = moisLabels.slice(0, nbMois).map(l => `<th class="text-center">${l}</th>`).join('');
     const rows = [...stats.values()]
       .sort((a,b)=> b.total - a.total || a.m.nom.localeCompare(b.m.nom))
       .map(s => `<tr>
-          <td>${this.esc(s.m.nom)} ${this.esc(s.m.prenom)}</td>
+          <td class="text-nowrap">${this.esc(s.m.nom)} ${this.esc(s.m.prenom)}</td>
+          ${s.mois.slice(0, nbMois).map(cell).join('')}
           <td class="text-center fw-bold">${s.total}</td>
-          <td style="min-width:90px"><div class="progress" style="height:8px"><div class="progress-bar bg-info" style="width:${Math.round(s.total/maxT*100)}%"></div></div></td>
         </tr>`).join('');
+    const footMois = moisTotaux.slice(0, nbMois).map(n => `<td class="text-center fw-bold">${n||''}</td>`).join('');
 
     el.innerHTML = `
-      <div class="d-flex flex-wrap gap-3 align-items-center mb-2 px-1">
-        <div><span class="fs-4 fw-bold">${totalMaint}</span> <span class="text-muted small">ICP réalisées</span></div>
-        <div>${cadenceTxt}</div>
-      </div>
+      <div class="mb-2 px-1"><span class="fs-4 fw-bold">${totalMaint}</span> <span class="text-muted small">ICP réalisées en ${annee}</span></div>
       <div class="table-responsive">
-        <table class="table table-sm table-hover mb-1 small align-middle">
-          <thead><tr><th>Technicien</th><th class="text-center">ICP</th><th>Volume</th></tr></thead>
+        <table class="table table-sm table-hover table-bordered mb-1 small align-middle text-center">
+          <thead class="table-light"><tr><th class="text-start">Technicien</th>${thMois}<th>Total</th></tr></thead>
           <tbody>${rows}</tbody>
+          <tfoot class="table-light"><tr><th class="text-start">Total / mois</th>${footMois}<th>${totalMaint}</th></tr></tfoot>
         </table>
       </div>
-      ${nonAttribuees ? `<p class="text-muted small mb-0 px-1"><i class="bi bi-info-circle me-1"></i>${nonAttribuees} ICP sur la période non rattachée(s) à un technicien maintenance (réalisateur non renseigné ou hors équipe).</p>` : ''}
+      ${nonAttribuees ? `<p class="text-muted small mb-0 px-1"><i class="bi bi-info-circle me-1"></i>${nonAttribuees} ICP en ${annee} non rattachée(s) à un technicien maintenance (réalisateur non renseigné ou hors équipe).</p>` : ''}
     `;
   },
 
