@@ -5007,7 +5007,9 @@ const DataSync = {
         const bar = document.getElementById('presence-bar');
         if (!bar) return;
         if (!others || others.length === 0) { bar.innerHTML = ''; return; }
-        const names = others.map(u => u.user).join(', ');
+        // #15 : u.user provient de fichiers .presence écrits par d'AUTRES postes
+        // (donnée distante non fiable) → échapper avant injection innerHTML (XSS stocké).
+        const names = others.map(u => this._escapeHtml(u.user)).join(', ');
         bar.innerHTML = `
             <div class="alert alert-light d-flex align-items-center m-2 py-1" role="alert">
                 <i class="bi bi-people-fill me-2 text-success"></i>
@@ -5047,7 +5049,7 @@ const DataSync = {
             : (connected ? `<span class="badge bg-light text-success border ms-2"><i class="bi bi-check2 me-1"></i>À jour</span>` : '');
 
         const othersHtml = others.length
-            ? `<div class="small mb-2"><i class="bi bi-people-fill text-success me-1"></i>Également connecté(s) : <strong>${others.map(u=>u.user).join(', ')}</strong></div>`
+            ? `<div class="small mb-2"><i class="bi bi-people-fill text-success me-1"></i>Également connecté(s) : <strong>${others.map(u=>this._escapeHtml(u.user)).join(', ')}</strong></div>`
             : (connected ? `<div class="small text-muted mb-2"><i class="bi bi-person me-1"></i>Aucun autre utilisateur en ligne</div>` : '');
 
         const actionsHtml = connected
@@ -7117,7 +7119,10 @@ const App = {
     const icons = { success: 'check-circle-fill', danger: 'x-circle-fill', warning: 'exclamation-triangle-fill', info: 'info-circle-fill' };
     const t = document.createElement('div');
     t.className = `toast align-items-center text-bg-${type} border-0 show`;
-    t.innerHTML = `<div class="d-flex"><div class="toast-body"><i class="bi bi-${icons[type]||'info-circle'} me-1"></i>${msg}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.closest('.toast').remove()"></button></div>`;
+    // #15 défense en profondeur : échapper le message (certains toasts interpolent
+    // savedBy / noms d'utilisateur issus du distant) — aucun appelant ne passe de HTML.
+    const safeMsg = this.esc(String(msg == null ? '' : msg));
+    t.innerHTML = `<div class="d-flex"><div class="toast-body"><i class="bi bi-${icons[type]||'info-circle'} me-1"></i>${safeMsg}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.closest('.toast').remove()"></button></div>`;
     document.getElementById('toast-container').appendChild(t);
     setTimeout(() => t.remove(), duration);
   },
