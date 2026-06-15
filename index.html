@@ -7919,8 +7919,8 @@ const App = {
       document.getElementById('btn-delete-pdp').style.display = '';
       document.getElementById('btn-save-pdp').classList.add('btn-save-flash');
       setTimeout(() => document.getElementById('btn-save-pdp').classList.remove('btn-save-flash'), 600);
-      const newContactsAdded = await this.addNewContactsToRepo(p);
-      this.toast(newContactsAdded ? `PDP enregistré + ${newContactsAdded} nouveau(x) contact(s) ajouté(s) au répertoire` : 'PDP enregistré');
+      const newContactsAdded = await this.addNewContactsToRepo(p, 'pdps');
+      this.toast(newContactsAdded ? `PDP enregistré + ${newContactsAdded} ajout(s) au répertoire` : 'PDP enregistré');
       this._markSaved();
       this.updateProgress();
       DataSync.markDirty();
@@ -10380,49 +10380,127 @@ const App = {
   // ---- Enrichit le répertoire entreprises avec les nouveaux contacts vus dans un PDP/ICP ----
   // Ne MODIFIE PAS le contact principal existant : ajoute juste les personnes non encore connues
   // comme contacts additionnels (non-main). Permet d'enrichir progressivement la base.
-  async addNewContactsToRepo(currentObj) {
+  // Clé de comparaison de noms tolérante : minuscules, sans accents, ponctuation
+  // retirée, tokens triés → "Lion Corentin" == "Corentin Lion" == "LION corentin".
+  // NB : sert UNIQUEMENT à comparer/détecter, jamais à générer un id (les id de
+  // contact restent dérivés du nom brut normalisé, cf. _ensureContactIds).
+  _personKey(s) {
+    return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+      .replace(/[^a-z0-9]+/g,' ').trim().split(' ').filter(Boolean).sort().join(' ');
+  },
+
+  // Distance de Levenshtein (pour la détection de doublons orthographiques en suggestion).
+  _levenshtein(a, b) {
+    a = a||''; b = b||'';
+    if (a === b) return 0;
+    const m = a.length, n = b.length;
+    if (!m) return n; if (!n) return m;
+    let prev = Array.from({length:n+1}, (_,i)=>i);
+    for (let i=1; i<=m; i++) {
+      const cur = [i];
+      for (let j=1; j<=n; j++) cur[j] = Math.min(prev[j]+1, cur[j-1]+1, prev[j-1] + (a[i-1]===b[j-1]?0:1));
+      prev = cur;
+    }
+    return prev[n];
+  },
+
+  // Cherche un contact dans une liste. Retourne { sure, fuzzy } :
+  //  - sure  : même personne avec certitude (id identique, ou _personKey identique → ordre/accents indifférents)
+  //  - fuzzy : ressemblance orthographique forte mais NON certaine (à confirmer par l'utilisateur)
+  _findContactMatch(contacts, nom, id) {
+    const list = contacts||[];
+    if (id != null) { const byId = list.find(c => c.id === id); if (byId) return { sure: byId, fuzzy: null }; }
+    const k = this._personKey(nom);
+    if (!k) return { sure: null, fuzzy: null };
+    const sure = list.find(c => this._personKey(c.nom) === k);
+    if (sure) return { sure, fuzzy: null };
+    const seuil = k.length <= 6 ? 1 : 2;
+    let best = null, bestD = Infinity;
+    for (const c of list) { const d = this._levenshtein(k, this._personKey(c.nom)); if (d < bestD) { bestD = d; best = c; } }
+    if (best && bestD > 0 && bestD <= seuil) return { sure: null, fuzzy: best };
+    return { sure: null, fuzzy: null };
+  },
+
+  // Enrichit le répertoire (db.entreprises) à partir des saisies du PDP/ICP courant :
+  //  - crée/complète les ENTREPRISES extérieures saisies manuellement (adresse, tél, email, SIRET…)
+  //  - ajoute/complète les CONTACTS (représentants EE/EU + participants)
+  // Déduplication SÛRE (id stable ou nom tokens-triés-sans-accents) ; jamais d'écrasement
+  // d'une valeur existante (on ne fait que compléter les champs vides).
+  // storeName ('icps'|'pdps') permet de re-persister les _repoId nouvellement assignés.
+  async addNewContactsToRepo(currentObj, storeName) {
     if (!currentObj) return 0;
-    let added = 0;
-    const tryAddContact = async (entId, p) => {
+    let added = 0, repoIdsAssigned = false;
+    const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,' ').trim();
+
+    const upsertContact = async (entId, p) => {
       if (!entId || !p?.nom) return false;
       try {
         const repo = await db.entreprises.get(entId);
         if (!repo) return false;
-        const contacts = this.getEntrepriseContacts(repo);
-        const norm = s => (s||'').toLowerCase().replace(/\s+/g,' ').trim();
-        const exists = contacts.some(c => norm(c.nom) === norm(p.nom));
-        if (exists) return false;
-        repo.contacts = [...contacts, { nom: p.nom, fonction: p.fonction||'', tel: p.tel||'', email: p.email||'', isMain: false }];
+        if (!Array.isArray(repo.contacts)) repo.contacts = this.getEntrepriseContacts(repo);
+        const { sure } = this._findContactMatch(repo.contacts, p.nom);
+        if (sure) {
+          let changed = false;
+          if (!sure.tel && p.tel) { sure.tel = p.tel; changed = true; }
+          if (!sure.fonction && p.fonction) { sure.fonction = p.fonction; changed = true; }
+          if (!sure.email && p.email) { sure.email = p.email; changed = true; }
+          if (changed) await db.entreprises.put(repo);
+          return false;
+        }
+        repo.contacts = [...repo.contacts, { nom: p.nom, fonction: p.fonction||'', tel: p.tel||'', email: p.email||'', isMain: !repo.contacts.length }];
         await db.entreprises.put(repo);
         return true;
-      } catch (e) { console.warn('addNewContact skipped', e); return false; }
+      } catch (e) { console.warn('upsertContact skipped', e); return false; }
     };
-    // EE additionnelles (entreprisesExt[]) — la personne saisie comme responsable
+
+    const upsertEntreprise = async (ee) => {
+      if (!ee || !ee.nom) return;
+      try {
+        const all = await db.entreprises.toArray();
+        const nk = norm(ee.nom);
+        let repo = (ee.siret && all.find(e => (e.siret||'') === ee.siret)) || all.find(e => norm(e.nom) === nk);
+        if (repo) {
+          let changed = false;
+          for (const f of ['adresse','tel','email','siret','activite']) { if (!repo[f] && ee[f]) { repo[f] = ee[f]; changed = true; } }
+          if (ee.responsable) {
+            if (!Array.isArray(repo.contacts)) repo.contacts = this.getEntrepriseContacts(repo);
+            const { sure } = this._findContactMatch(repo.contacts, ee.responsable);
+            if (!sure) { repo.contacts = [...repo.contacts, { nom: ee.responsable, fonction: ee.fonction||'', tel: ee.tel||'', email: ee.email||'', isMain: !repo.contacts.length }]; changed = true; added++; }
+          }
+          if (changed) await db.entreprises.put(repo);
+          ee._repoId = repo.id; repoIdsAssigned = true;
+        } else {
+          const contacts = ee.responsable ? [{ nom: ee.responsable, fonction: ee.fonction||'', tel: ee.tel||'', email: ee.email||'', isMain: true }] : [];
+          const id = await db.entreprises.add({ nom: ee.nom, adresse: ee.adresse||'', tel: ee.tel||'', email: ee.email||'', siret: ee.siret||'', activite: ee.activite||'', responsable: ee.responsable||'', fonction: ee.fonction||'', contacts });
+          ee._repoId = id; repoIdsAssigned = true;
+          if (ee.responsable) added++;
+        }
+      } catch (e) { console.warn('upsertEntreprise skipped', e); }
+    };
+
+    // 1) Entreprises extérieures / sous-traitants
     for (const ee of (currentObj.entreprisesExt || [])) {
-      if (!ee._repoId) continue;
-      if (await tryAddContact(ee._repoId, { nom: ee.responsable, fonction: ee.fonction, tel: ee.tel, email: ee.email })) added++;
+      if (!ee?.nom) continue;
+      if (!ee._repoId) await upsertEntreprise(ee);
+      else if (ee.responsable) { if (await upsertContact(ee._repoId, { nom: ee.responsable, fonction: ee.fonction, tel: ee.tel, email: ee.email })) added++; }
     }
-    // Représentant EE de l'ICP (côté AGRIWATT/Enersolys)
+    // 2) Représentant EE + participants
     const rep = currentObj.eeRepresentant;
-    if (rep?.entrepriseId && rep.nom) {
-      if (await tryAddContact(rep.entrepriseId, rep)) added++;
-    }
-    // Participants EE additionnels (icp-ee-add-list) liés à la même entreprise EE
+    if (rep?.entrepriseId && rep.nom) { if (await upsertContact(rep.entrepriseId, rep)) added++; }
     if (rep?.entrepriseId && Array.isArray(currentObj.eeParticipants)) {
-      for (const p of currentObj.eeParticipants) {
-        if (await tryAddContact(rep.entrepriseId, p)) added++;
-      }
+      for (const p of currentObj.eeParticipants) { if (await upsertContact(rep.entrepriseId, p)) added++; }
     }
-    // Côté EU : Représentant EU + participants additionnels rattachés à l'entreprise EU Sellsy
+    // 3) Côté EU (entreprise utilisatrice)
     const euLocalId = currentObj.euInfo?.localId;
     const euRep = currentObj.euParticipant;
-    if (euLocalId && euRep?.nom) {
-      if (await tryAddContact(euLocalId, euRep)) added++;
-    }
+    if (euLocalId && euRep?.nom) { if (await upsertContact(euLocalId, euRep)) added++; }
     if (euLocalId && Array.isArray(currentObj.euParticipants)) {
-      for (const p of currentObj.euParticipants) {
-        if (await tryAddContact(euLocalId, p)) added++;
-      }
+      for (const p of currentObj.euParticipants) { if (await upsertContact(euLocalId, p)) added++; }
+    }
+
+    // Persiste les _repoId nouvellement assignés sur le document courant.
+    if (repoIdsAssigned && storeName && currentObj.id != null) {
+      try { await db[storeName].put(currentObj); } catch (e) { console.warn('re-put after repo enrich failed', e); }
     }
     return added;
   },
@@ -11537,13 +11615,23 @@ const App = {
     const persSel = document.getElementById('icp-ee-personne-select');
     const entId = document.getElementById('icp-ee-entreprise-id')?.value;
     if (!nom || !persSel || !entId) return;
+    const list = this._icpEERepCurrentContacts || [];
+    // Déjà sélectionné et c'est la même personne → rien à faire.
+    const cur = list[parseInt(persSel.value)];
+    if (cur && this._personKey(cur.nom) === this._personKey(nom)) return;
+    // Détection de doublon : sûre (ordre/accents indifférents) ou orthographe proche.
+    const { sure, fuzzy } = this._findContactMatch(list, nom);
+    if (sure) {
+      const idx = list.indexOf(sure);
+      persSel.value = String(idx);
+      this.onICPEERepPersonneChange(String(idx)); // applique la forme enregistrée (corrige casse/ordre)
+      return;
+    }
+    if (fuzzy) {
+      const ok = await this.confirm(`Un contact proche existe déjà : « ${fuzzy.nom} ».\n\nEst-ce la même personne ?\n\n• Oui : utiliser « ${fuzzy.nom} »\n• Non : créer un nouveau contact « ${nom} »`);
+      if (ok) { const idx = list.indexOf(fuzzy); persSel.value = String(idx); this.onICPEERepPersonneChange(String(idx)); return; }
+    }
     const norm = s => (s||'').toLowerCase().replace(/\s+/g,' ').trim();
-    // Déjà sélectionné et correspond au nom saisi → rien à faire.
-    const cur = (this._icpEERepCurrentContacts||[])[parseInt(persSel.value)];
-    if (cur && norm(cur.nom) === norm(nom)) return;
-    // Nom déjà présent dans la liste → on le sélectionne sans écraser les champs saisis.
-    const existingIdx = (this._icpEERepCurrentContacts||[]).findIndex(c => norm(c.nom) === norm(nom));
-    if (existingIdx >= 0) { persSel.value = String(existingIdx); return; }
     // Création d'un nouveau contact dans le répertoire.
     try {
       const e = await db.entreprises.get(parseInt(entId));
@@ -11740,8 +11828,8 @@ const App = {
       else { if (!v.uid) v.uid = _uid(); v.id = await db.icps.add(v); v.numero = `ICP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(v.id).padStart(4,'0')}`; await db.icps.put(v); }
       document.getElementById('icp-detail-title').textContent = [v.refOperation, v.numero || ('ICP #' + v.id), v.objet].filter(Boolean).join(' | ');
       document.getElementById('btn-delete-icp').style.display = '';
-      const newContactsAdded = await this.addNewContactsToRepo(v);
-      this.toast(newContactsAdded ? `ICP enregistrée + ${newContactsAdded} nouveau(x) contact(s) ajouté(s) au répertoire` : 'ICP enregistrée');
+      const newContactsAdded = await this.addNewContactsToRepo(v, 'icps');
+      this.toast(newContactsAdded ? `ICP enregistrée + ${newContactsAdded} ajout(s) au répertoire` : 'ICP enregistrée');
       DataSync.markDirty();
       if (typeof ActivityLog !== 'undefined') ActivityLog.log(wasNew ? 'icp.create' : 'icp.update', { id: v.id, numero: v.numero, site: v.site, pdpId: v.pdpId || null });
       // Auto-export PDF + Word à la transition vers Validée
