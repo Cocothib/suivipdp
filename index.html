@@ -3618,6 +3618,17 @@ async function _readJsonFileMeta(filePath) {
     return { data: await resp.json(), etag };
 }
 
+// Lit UNIQUEMENT l'eTag (metadata, pas le contenu) d'un fichier — léger.
+// Sert à émuler une protection optimiste sur l'upload chunké (>4Mo) où Graph
+// ne supporte pas l'en-tête If-Match. Best-effort : renvoie null si indisponible.
+async function _getRemoteMetaEtag(filePath) {
+    const driveId = await _getDriveId();
+    const resp = await _graphFetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${filePath}?$select=eTag`);
+    if (!resp.ok) return null;
+    const j = await resp.json().catch(() => ({}));
+    return j.eTag || null;
+}
+
 // Upload binaire (PDF) sur SharePoint
 async function _uploadBinaryFromDataURL(filePath, dataUrl, mime) {
     const driveId = await _getDriveId();
@@ -3678,7 +3689,7 @@ function _fdsFilePath(fds) {
     return `${SP_CONFIG.FDS_FOLDER}/${fds.id}_${slug}`;
 }
 
-async function _writeJsonFile(filePath, data, etag = null) {
+async function _writeJsonFile(filePath, data, etag = null, metaEtag = null) {
     const driveId = await _getDriveId();
     const body = JSON.stringify(data);
     const bytes = new TextEncoder().encode(body);
@@ -3696,7 +3707,22 @@ async function _writeJsonFile(filePath, data, etag = null) {
         if (!resp.ok) throw new Error('Erreur écriture: ' + resp.status);
         return resp.json();
     }
-    // Au-delà : uploadSession (chunked, jusqu'à 250 Go par fichier)
+    // Au-delà : uploadSession (chunked, jusqu'à 250 Go par fichier).
+    // Graph ne pose pas d'If-Match sur l'upload session → on émule la protection
+    // optimiste : si l'eTag courant diffère de celui lu (metaEtag), le fichier a
+    // changé depuis la lecture → 412 → la boucle save() relit, fusionne, réessaie.
+    if (metaEtag) {
+        const cur = await _getRemoteMetaEtag(filePath).catch(() => null);
+        if (cur && cur !== metaEtag) {
+            const err = new Error('Conflit de version concurrente (412, chunked)'); err._precondition = true; throw err;
+        }
+    } else {
+        // metaEtag indisponible : la garde de version applicative (_meta.version
+        // dans _saveOnce) reste le filet de sécurité. On rend la perte de garantie
+        // ETag visible plutôt que silencieuse.
+        console.warn('DataSync: écriture chunkée (>4Mo) sans garde ETag — ' + filePath + ' (' + Math.round(totalSize/1048576) + ' Mo)');
+        if (typeof ActivityLog !== 'undefined') ActivityLog.log('ecriture_chunked_sans_etag', { fichier: filePath, mo: Math.round(totalSize/1048576) });
+    }
     const sessResp = await _graphFetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${filePath}:/createUploadSession`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ item: { '@microsoft.graph.conflictBehavior': 'replace' } })
@@ -4552,6 +4578,13 @@ const DataSync = {
             const err = new Error('Lecture distante échouée avant écriture'); err._readError = true; throw err;
         }
         const remotePdp = rp.data, remoteIcp = ri.data, remoteShared = rs.data;
+        // ETags metadata lus au même instant : servent à émuler la protection 412
+        // sur la branche chunkée (>4Mo) de _writeJsonFile (cf. audit #2). Best-effort.
+        const [mp, mi, ms] = await Promise.all([
+            _getRemoteMetaEtag(SP_CONFIG.PDP_DATA_FILE).catch(() => null),
+            _getRemoteMetaEtag(SP_CONFIG.ICP_DATA_FILE).catch(() => null),
+            _getRemoteMetaEtag(SP_CONFIG.SHARED_DATA_FILE).catch(() => null),
+        ]);
 
         const remoteVers = {
             pdp:    remotePdp?._meta?.version    || 0,
@@ -4598,9 +4631,9 @@ const DataSync = {
 
         // 4. Écriture conditionnelle (If-Match sur l'ETag lu) : 412 si modifié entre-temps
         await Promise.all([
-            _writeJsonFile(SP_CONFIG.PDP_DATA_FILE, pdpData, useEtag ? rp.etag : null),
-            _writeJsonFile(SP_CONFIG.ICP_DATA_FILE, icpData, useEtag ? ri.etag : null),
-            _writeJsonFile(SP_CONFIG.SHARED_DATA_FILE, sharedData, useEtag ? rs.etag : null),
+            _writeJsonFile(SP_CONFIG.PDP_DATA_FILE, pdpData, useEtag ? rp.etag : null, useEtag ? mp : null),
+            _writeJsonFile(SP_CONFIG.ICP_DATA_FILE, icpData, useEtag ? ri.etag : null, useEtag ? mi : null),
+            _writeJsonFile(SP_CONFIG.SHARED_DATA_FILE, sharedData, useEtag ? rs.etag : null, useEtag ? ms : null),
         ]);
         this._loadedMeta = { pdp:pdpData._meta, icp:icpData._meta, shared:sharedData._meta };
         this._dirty = false;
