@@ -3421,6 +3421,7 @@ async function loadAgences() {
 async function saveAgences(arr) {
   _agencesCache = arr;
   await db.settings.put({ key: 'agences', value: arr });
+  if (typeof DataSync !== 'undefined' && DataSync._connected) DataSync.markDirty();
 }
 function getAgenceById(id) { return (_agencesCache || AGENCES_DEFAULT).find(a => a.id === id) || null; }
 // Retourne les infos d'entite pour un PDP (utilise agence si presente, sinon ENTITY_PRESETS)
@@ -5532,10 +5533,12 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
   async saveTemplate(tpl) {
     await db.settings.put({ key: 'autorisation_template', value: tpl });
     this._templateCache = tpl;
+    if (typeof DataSync !== 'undefined' && DataSync._connected) DataSync.markDirty();
   },
   async resetTemplate() {
     await db.settings.delete('autorisation_template');
     this._templateCache = null;
+    if (typeof DataSync !== 'undefined' && DataSync._connected) DataSync.markDirty();
     return this.loadTemplate();
   },
 
@@ -6380,6 +6383,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     if (!url) { alert('URL vide.'); return; }
     if (!/^https?:\/\//i.test(url)) { alert('URL invalide (doit commencer par https://).'); return; }
     await this._saveSourceConfig({ url });
+    if (typeof DataSync !== 'undefined' && DataSync._connected) DataSync.markDirty();
     this._renderSyncStatus();
     this._toast('Source enregistrée', 'success');
   },
@@ -10654,6 +10658,7 @@ const App = {
         const newEnt = { nom, adresse:'', siret:'', responsable:'', fonction:'', tel:'', email:'', contacts:[] };
         try {
           const id = await db.entreprises.add(newEnt);
+          if (typeof DataSync !== 'undefined' && DataSync._connected) DataSync.markDirty();
           this.showEntrepriseForm(id);
         } catch(e) { this.toast('Erreur création entreprise', 'danger'); }
       }
@@ -10852,6 +10857,7 @@ const App = {
             const newEnt = { nom:c.nom, siret:c.siret, adresse:c.adresse, tel:c.tel, email:c.email, responsable:c.responsable, fonction:c.fonction, activite:c.activite };
             this.syncMainContact(newEnt);
             await db.entreprises.add(newEnt);
+            if (typeof DataSync !== 'undefined' && DataSync._connected) DataSync.markDirty();
           }
         } catch {}
         this.renderEEList(); this.renderSignaturesEE && this.renderSignaturesEE(); this.prefillEmargements && this.prefillEmargements();
@@ -11152,6 +11158,7 @@ const App = {
               this.syncMainContact(newEnt);
               euLocalId = await db.entreprises.add(newEnt);
             }
+            if (typeof DataSync !== 'undefined' && DataSync._connected) DataSync.markDirty();
           } catch {}
         }
         this.currentPDP.euInfo = {
@@ -11264,6 +11271,7 @@ const App = {
                 this.syncMainContact(newEnt);
                 euLocalId = await db.entreprises.add(newEnt);
               }
+              if (typeof DataSync !== 'undefined' && DataSync._connected) DataSync.markDirty();
             } catch (err) { console.warn('[Sellsy] sync EU répertoire échoué', err); }
           }
           // Stocke les infos EU complètes dans l'ICP pour passage vers PDP
@@ -11610,6 +11618,8 @@ const App = {
       target.tel = tel;
       c.tel = tel; // maj du cache en mémoire → re-sélection immédiate restaure le bon numéro
       await db.entreprises.put(e);
+      // Pousser la modif vers SharePoint, sinon elle reste locale et invisible des autres postes.
+      if (typeof DataSync !== 'undefined' && DataSync._connected) DataSync.markDirty();
       if (typeof ActivityLog !== 'undefined') ActivityLog.log('entreprise.contact.tel', { ent: e.nom, contact: c.nom });
       this.toast(`Téléphone enregistré pour ${c.nom}`, 'success', 2500);
     } catch (err) { console.warn('persistICPEERepContactPhone:', err?.message||err); }
@@ -11650,6 +11660,8 @@ const App = {
       const nc = { id: 'c:' + norm(nom), nom, fonction, tel, email:'', isMain: false };
       if (!e.contacts.some(c => c.id === nc.id)) e.contacts.push(nc);
       await db.entreprises.put(e);
+      // Pousser la création vers SharePoint, sinon elle reste locale et invisible des autres postes.
+      if (typeof DataSync !== 'undefined' && DataSync._connected) DataSync.markDirty();
       if (typeof ActivityLog !== 'undefined') ActivityLog.log('entreprise.contact.add', { ent: e.nom, contact: nom });
       // Rafraîchir la liste sans réinitialiser les champs, puis sélectionner le nouveau contact.
       await this.onICPEERepEntrepriseChange(entId, true);
@@ -12240,6 +12252,7 @@ const App = {
     pdp.visite.participants = this._buildICPParticipants(v);
     pdp.dateModification = new Date().toISOString();
     await db.pdps.put(pdp);
+    if (typeof DataSync !== 'undefined' && DataSync._connected) DataSync.markDirty();
     this.toast(`${added} risque(s) envoyé(s) au PDP (${icpRisques.length - added} déjà présent(s))`);
   },
 
