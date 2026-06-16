@@ -4992,6 +4992,8 @@ const DataSync = {
             btn.onclick = async () => { const ok = await this.connectFolder(); if (ok) { this.updateConnectButton('connected'); App.updateDashboard(); } };
             if (btnSave) btnSave.style.display = 'none';
         }
+        // Le nom d'utilisateur (donc le statut admin) change avec la connexion : réappliquer les droits UI.
+        try { App.applyAdminUI(); } catch (e) {}
     },
 
     /* ---- Bandeaux visuels ---- */
@@ -6947,10 +6949,16 @@ const App = {
     if (DataSync.isFirstLaunch()) await DataSync.showFirstLaunchGuide();
     else if (state === 'need-permission') DataSync.showPermissionBanner();
     else if (state === 'no-handle') DataSync.showConnectReminder();
+    try { await this.applyAdminUI(); } catch (e) { console.warn('applyAdminUI:', e); }
   },
 
   // ---- NAVIGATION ----
   showView(view) {
+    // Paramètres réservé aux administrateurs (garde synchrone via cache isAdmin)
+    if (view === 'settings' && this._isAdminCached === false) {
+      this.toast('Accès réservé aux administrateurs', 'warning');
+      view = 'dashboard';
+    }
     // Libère le lock optimiste si on quitte la vue détail PDP/ICP
     if (view !== 'pdp-detail' && view !== 'icp-detail' && DataSync.setEditing) DataSync.setEditing(null);
     document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
@@ -12723,6 +12731,20 @@ const App = {
     const me = DataSync.getUserName() || '';
     return admins.some(a => a.toLowerCase() === me.toLowerCase());
   },
+  _isAdminCached: undefined,
+  // Applique les droits admin à l'UI : masque l'onglet Paramètres aux non-admins
+  // (nav haut + nav basse mobile) et rebascule vers le tableau de bord si besoin.
+  async applyAdminUI() {
+    let ok = true;
+    try { ok = await this.isAdmin(); } catch (e) { ok = true; }
+    this._isAdminCached = ok;
+    const disp = ok ? '' : 'none';
+    document.querySelectorAll('[data-page="settings"]').forEach(n => {
+      const target = n.closest('.nav-item') || n;
+      target.style.display = disp;
+    });
+    if (!ok && this.currentView === 'settings') this.showView('dashboard');
+  },
   async addAdmin(name) {
     name = (name||'').trim();
     if (!name) return;
@@ -13537,6 +13559,11 @@ const App = {
         ${isAdmin ? `<button class="btn btn-sm btn-outline-danger" onclick="App.doRemoveAdmin('${a.replace(/'/g,"\\'")}')"><i class="bi bi-x"></i></button>` : ''}
       </li>`).join('') || '<li class="list-group-item small text-muted">Aucun administrateur</li>';
 
+    const meIsAdmin = me && admins.some(a => a.toLowerCase() === me.toLowerCase());
+    const selfBtn = (isAdmin && me && !meIsAdmin) ? `
+      <button class="btn btn-sm btn-success mt-2" onclick="App.doAddSelfAdmin()"><i class="bi bi-person-plus me-1"></i>M'ajouter comme administrateur (${this.esc(me)})</button>
+      <p class="small text-muted mt-1 mb-0">Recommandé : utilise votre nom Microsoft exact, sans risque d'erreur de saisie.</p>` : '';
+
     const form = isAdmin ? `
       <div class="input-group input-group-sm mt-2">
         <input type="text" class="form-control" id="new-admin-name" placeholder="Nom Microsoft exact (ex: Thibault HOCEDEZ)">
@@ -13544,7 +13571,17 @@ const App = {
       </div>
       <p class="small text-muted mt-1 mb-0">Le nom doit correspondre exactement au nom affiché sur le compte Microsoft de la personne.</p>` : '';
 
-    el.innerHTML = info + '<ul class="list-group list-group-flush">' + rows + '</ul>' + form;
+    el.innerHTML = info + '<ul class="list-group list-group-flush">' + rows + '</ul>' + selfBtn + form;
+  },
+
+  async doAddSelfAdmin() {
+    const me = DataSync.getUserName() || '';
+    if (!me) { this.toast('Nom Microsoft non détecté — connectez-vous à SharePoint', 'warning'); return; }
+    await this.addAdmin(me);
+    this.toast('Vous êtes administrateur');
+    await this.renderAdminsSection();
+    try { await this.renderPendingRisksSection(); } catch (e) {}
+    try { await this.applyAdminUI(); } catch (e) {}
   },
 
   async doAddAdmin() {
@@ -14170,6 +14207,11 @@ const App = {
   },
 
   async importData(ev, mode) {
+    if (!(await this.isAdmin())) {
+      this.toast('Import réservé aux administrateurs', 'warning');
+      if (ev?.target) ev.target.value = '';
+      return;
+    }
     const f = ev.target.files[0]; if (!f) return;
     const isReplace = mode === 'replace';
     const msg = isReplace
