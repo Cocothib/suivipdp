@@ -24,6 +24,30 @@
     --agw-light: #f8f9fa;
 }
 
+/* ---- Trophées maintenance ---- */
+.trophee-card {
+    border:1px solid #e9ecef; border-radius:.75rem; padding:.85rem; height:100%;
+    display:flex; flex-direction:column; gap:.35rem; background:#fff;
+    transition:box-shadow .15s, transform .15s;
+}
+.trophee-card:hover { box-shadow:0 .25rem .75rem rgba(0,0,0,.08); transform:translateY(-2px); }
+.trophee-card.locked { opacity:.45; filter:grayscale(.7); }
+.trophee-icon { font-size:1.9rem; line-height:1; }
+.trophee-medal { font-size:1.35rem; }
+.trophee-name { font-weight:600; font-size:.92rem; }
+.trophee-desc { font-size:.78rem; color:#6c757d; }
+.trophee-progress { height:6px; border-radius:3px; background:#e9ecef; overflow:hidden; }
+.trophee-progress > span { display:block; height:100%; border-radius:3px; background:var(--agw-green); }
+.trophee-card.lvl-1 { border-color:#cd7f32; }
+.trophee-card.lvl-2 { border-color:#c0c0c0; }
+.trophee-card.lvl-3 { border-color:#ffd700; box-shadow:0 0 0 1px #ffd70066; }
+.medal-bronze { color:#cd7f32; }
+.medal-silver { color:#c0c0c0; }
+.medal-gold   { color:#ffd700; text-shadow:0 0 2px #b8860b55; }
+.medal-none   { color:#ced4da; }
+.trophee-row-me { background:#e8f5ee !important; font-weight:600; }
+.trophee-mini { font-size:.95rem; margin-right:1px; }
+
 /* Override Bootstrap primary */
 .bg-primary, .btn-primary {
     background-color: var(--agw-green) !important;
@@ -1235,6 +1259,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <ul class="navbar-nav ms-auto">
         <li class="nav-item"><a class="nav-link active" href="#" data-page="dashboard" onclick="App.showView('dashboard')"><i class="bi bi-speedometer2 me-1"></i>Tableau de bord</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-page="icps" onclick="App.showView('icps')"><i class="bi bi-clipboard-check me-1"></i>ICP</a></li>
+        <li class="nav-item" style="display:none"><a class="nav-link" href="#" data-page="trophees" onclick="App.showView('trophees')"><i class="bi bi-trophy me-1"></i>Trophées</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-page="list" onclick="App.showView('list')"><i class="bi bi-list-ul me-1"></i>PDP</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-page="entreprises" onclick="App.showView('entreprises')"><i class="bi bi-building me-1"></i>Entreprises</a></li>
         <li class="nav-item"><a class="nav-link" href="#" data-page="settings" onclick="App.showView('settings')"><i class="bi bi-gear me-1"></i>Paramètres</a></li>
@@ -2948,6 +2973,17 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     </div>
   </div>
 
+  <!-- ==================== TROPHÉES (équipe maintenance) ==================== -->
+  <div id="view-trophees" class="view fade-in" style="display:none">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <h5 class="mb-0">&#x1F3C6; Trophées maintenance</h5>
+    </div>
+    <p class="text-muted small mb-3">Reconnaissance de la qualité et de la régularité des inspections communes préalables réalisées par l'équipe maintenance.</p>
+    <div id="trophees-collection" class="mb-4"></div>
+    <h6 class="text-primary mb-2"><i class="bi bi-people me-1"></i>Mur d'équipe</h6>
+    <div id="trophees-mur"></div>
+  </div>
+
 </main>
 
 <!-- ===== MOBILE BOTTOM NAV ===== -->
@@ -2959,6 +2995,10 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
   <a class="bottom-nav-item" data-page="icps" onclick="App.showView('icps')">
     <span class="bottom-nav-icon">&#x1F50D;</span>
     <span class="bottom-nav-label">ICP</span>
+  </a>
+  <a class="bottom-nav-item" data-page="trophees" onclick="App.showView('trophees')" style="display:none">
+    <span class="bottom-nav-icon">&#x1F3C6;</span>
+    <span class="bottom-nav-label">Trophées</span>
   </a>
   <a class="bottom-nav-item bottom-nav-fab" onclick="App.showNewMenu()">
     <div class="bottom-nav-fab-btn">&#x2795;</div>
@@ -4995,6 +5035,7 @@ const DataSync = {
         }
         // Le nom d'utilisateur (donc le statut admin) change avec la connexion : réappliquer les droits UI.
         try { App.applyAdminUI(); } catch (e) {}
+        try { App.applyMaintenanceUI(); } catch (e) {}
     },
 
     /* ---- Bandeaux visuels ---- */
@@ -6954,6 +6995,7 @@ const App = {
     else if (state === 'need-permission') DataSync.showPermissionBanner();
     else if (state === 'no-handle') DataSync.showConnectReminder();
     try { await this.applyAdminUI(); } catch (e) { console.warn('applyAdminUI:', e); }
+    try { await this.applyMaintenanceUI(); } catch (e) { console.warn('applyMaintenanceUI:', e); }
   },
 
   // ---- NAVIGATION ----
@@ -6961,6 +7003,11 @@ const App = {
     // Paramètres réservé aux administrateurs (garde synchrone via cache isAdmin)
     if (view === 'settings' && this._isAdminCached === false) {
       this.toast('Accès réservé aux administrateurs', 'warning');
+      view = 'dashboard';
+    }
+    // Trophées réservé à l'équipe maintenance + admins (garde synchrone via cache)
+    if (view === 'trophees' && this._canSeeTropheesCached === false) {
+      this.toast('Réservé à l\'équipe maintenance', 'warning');
       view = 'dashboard';
     }
     // Libère le lock optimiste si on quitte la vue détail PDP/ICP
@@ -6981,6 +7028,7 @@ const App = {
     if (view === 'entreprises') this.renderEntreprises();
     if (view === 'habilitations') AutorisationInterne.init();
     if (view === 'settings') this.renderSettingsView();
+    if (view === 'trophees') this.renderTrophees();
     if (view === 'tutoriel') this.helpInit();
     // Collapse mobile navbar
     const navCollapse = document.getElementById('navbarMain');
@@ -12758,6 +12806,270 @@ const App = {
     });
     if (!ok && this.currentView === 'settings') this.showView('dashboard');
   },
+
+  // ---- TROPHÉES MAINTENANCE ----
+  // Vrai si l'utilisateur connecté fait partie de l'équipe maintenance (_maintTeam).
+  // Match exigeant : les tokens du nom connecté doivent contenir À LA FOIS le prénom
+  // ET le nom de famille du technicien (anti-homonyme, distingue les 2 Franck).
+  async isMaintenance() {
+    const me = DataSync.getUserName() || '';
+    const tokens = this._normTxt(me).split(' ').filter(Boolean);
+    if (!tokens.length) return false;
+    return this._maintTeam.some(m =>
+      tokens.includes(this._normTxt(m.prenom)) && tokens.includes(this._normTxt(m.nom))
+    );
+  },
+
+  _isMaintCached: undefined,
+  _canSeeTropheesCached: undefined,
+  // Applique les droits maintenance à l'UI : onglet Trophées visible pour l'équipe
+  // maintenance ET les admins (nav haut + nav basse mobile), rebascule si besoin.
+  async applyMaintenanceUI() {
+    let isMaint = false, isAdm = false;
+    try { isMaint = await this.isMaintenance(); } catch (e) { isMaint = false; }
+    try { isAdm = await this.isAdmin(); } catch (e) { isAdm = false; }
+    const ok = isMaint || isAdm;
+    this._isMaintCached = isMaint;
+    this._canSeeTropheesCached = ok;
+    const disp = ok ? '' : 'none';
+    document.querySelectorAll('[data-page="trophees"]').forEach(n => {
+      const target = n.closest('.nav-item') || n;
+      target.style.display = disp;
+    });
+    if (!ok && this.currentView === 'trophees') this.showView('dashboard');
+  },
+
+  // Définitions des trophées : QUALITÉ + RÉGULARITÉ (pas de volume cumulé brut).
+  // Chaque trophée : id, nom, icône, description, unité, paliers [bronze, argent, or].
+  _tropheesDefs: [
+    { id:'dossier',   icon:'📋', nom:'Dossier complet',     unite:'',  desc:'ICP complètes : risques, conformité, observations.', paliers:[3,10,25] },
+    { id:'signatures',icon:'✍️', nom:'Signatures au complet',unite:'',  desc:'ICP signées EU et représentant EE.',                paliers:[3,10,25] },
+    { id:'reporter',  icon:'📸', nom:'Reporter',            unite:'',  desc:'ICP comportant au moins une photo.',                paliers:[3,10,25] },
+    { id:'reactif',   icon:'⚡', nom:'Réactif',             unite:'',  desc:'ICP signées le jour même de la visite.',            paliers:[3,10,25] },
+    { id:'sansfaille',icon:'✅', nom:'Sans faille',         unite:'%', desc:'Taux de complétude moyen (≥ 5 ICP requises).',      paliers:[70,85,95] },
+    { id:'serie',     icon:'🔥', nom:'Série',               unite:'mois', desc:'Plus longue série de mois consécutifs avec ICP.', paliers:[2,3,6] },
+    { id:'assidu',    icon:'📅', nom:'Assidu',              unite:'mois', desc:'Mois distincts avec ICP sur les 12 derniers mois.', paliers:[3,6,9] },
+  ],
+
+  // Vrai si l'ICP est considérée comme réalisée (effectuée ou validée).
+  _icpRealisee(icp) {
+    return icp && (icp.statut === 'effectuee' || icp.statut === 'validee');
+  },
+
+  // Les 6 critères de complétude d'une ICP, sous forme de booléens.
+  _icpCompletudeBools(icp) {
+    const c = icp.conformite || {};
+    const cfOk = !!(c.secteur?.ok && c.zonesDanger?.ok && c.circulation?.ok && c.acces?.ok && c.consignes?.ok);
+    return [
+      (icp.risques || []).length > 0,
+      cfOk,
+      !!(icp.observations && String(icp.observations).trim()),
+      !!(icp.signatureEU && icp.signatureEU.data),
+      !!(icp.signatureEERep && icp.signatureEERep.data),
+      (icp.photos || []).length > 0,
+    ];
+  },
+
+  // Niveau atteint (0..3) selon les paliers [bronze, argent, or].
+  _tropheeLevel(value, paliers) {
+    let lvl = 0;
+    for (let i = 0; i < paliers.length; i++) if (value >= paliers[i]) lvl = i + 1;
+    return lvl;
+  },
+
+  // Calcule l'ensemble des trophées d'un technicien (_maintTeam membre).
+  // Retourne { trophees:[{id,nom,icon,desc,unite,value,level,next,paliers}], score, nbDebloques }.
+  async computeTropheesFor(tech) {
+    const all = await db.icps.toArray();
+    const mine = all.filter(icp =>
+      this._icpRealisee(icp) && (() => { const r = this._icpRealisateurMaint(icp); return r && r.nom === tech.nom && r.prenom === tech.prenom; })()
+    );
+
+    let nbDossier = 0, nbSign = 0, nbPhoto = 0, nbReactif = 0;
+    let sommeCompletude = 0;
+    const moisSet = new Set();           // 'YYYY-MM' de toutes les ICP réalisées
+    for (const icp of mine) {
+      const b = this._icpCompletudeBools(icp);
+      // Dossier complet : risques + conformité (5 pts) + observations
+      if (b[0] && b[1] && b[2]) nbDossier++;
+      // Signatures au complet : EU + représentant EE
+      if (b[3] && b[4]) nbSign++;
+      // Reporter : au moins une photo
+      if (b[5]) nbPhoto++;
+      // Réactif : signée le jour de la visite
+      const dv = icp.dateVisite || '';
+      const dSign = (icp.signatureEU && icp.signatureEU.date) || (icp.signatureEERep && icp.signatureEERep.date) || '';
+      if (dv && dSign && String(dSign).slice(0,10) === String(dv).slice(0,10)) nbReactif++;
+      // Complétude moyenne (6 booléens)
+      sommeCompletude += b.filter(Boolean).length / 6;
+      // Mois civil de la visite
+      const mk = String(dv).slice(0,7);
+      if (/^\d{4}-\d{2}$/.test(mk)) moisSet.add(mk);
+    }
+
+    // Sans faille : taux moyen de complétude (%) si ≥ 5 ICP, sinon 0
+    const tauxCompletude = mine.length >= 5 ? Math.round((sommeCompletude / mine.length) * 100) : 0;
+
+    // Série : plus longue suite de mois civils consécutifs avec ≥1 ICP
+    const serie = this._plusLongueSerieMois([...moisSet]);
+
+    // Assidu : nb de mois distincts avec ICP sur les 12 derniers mois
+    const now = new Date();
+    const limite = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+    let assidu = 0;
+    for (const mk of moisSet) {
+      const [y, mo] = mk.split('-').map(Number);
+      const d = new Date(y, mo - 1, 1);
+      if (d >= limite && d <= now) assidu++;
+    }
+
+    const valeurs = {
+      dossier: nbDossier, signatures: nbSign, reporter: nbPhoto, reactif: nbReactif,
+      sansfaille: tauxCompletude, serie: serie, assidu: assidu,
+    };
+
+    const trophees = this._tropheesDefs.map(def => {
+      const value = valeurs[def.id] || 0;
+      const level = this._tropheeLevel(value, def.paliers);
+      const next = level < def.paliers.length ? def.paliers[level] : null;
+      return { id:def.id, nom:def.nom, icon:def.icon, desc:def.desc, unite:def.unite, paliers:def.paliers, value, level, next };
+    });
+
+    const score = trophees.reduce((s, t) => s + t.level, 0);
+    const nbDebloques = trophees.filter(t => t.level >= 1).length;
+    return { trophees, score, nbDebloques, nbICP: mine.length };
+  },
+
+  // Plus longue série de mois civils consécutifs dans une liste de 'YYYY-MM'.
+  _plusLongueSerieMois(moisList) {
+    if (!moisList.length) return 0;
+    const idx = moisList.map(mk => { const [y, m] = mk.split('-').map(Number); return y * 12 + (m - 1); })
+                        .sort((a, b) => a - b);
+    let best = 1, cur = 1;
+    for (let i = 1; i < idx.length; i++) {
+      if (idx[i] === idx[i-1] + 1) cur++;
+      else if (idx[i] !== idx[i-1]) cur = 1;
+      if (cur > best) best = cur;
+    }
+    return best;
+  },
+
+  _medalIcon(level) {
+    if (level >= 3) return '<span class="trophee-medal medal-gold">🥇</span>';
+    if (level === 2) return '<span class="trophee-medal medal-silver">🥈</span>';
+    if (level === 1) return '<span class="trophee-medal medal-bronze">🥉</span>';
+    return '<span class="trophee-medal medal-none">○</span>';
+  },
+
+  _medalMini(level) {
+    if (level >= 3) return '<span class="trophee-mini medal-gold">🥇</span>';
+    if (level === 2) return '<span class="trophee-mini medal-silver">🥈</span>';
+    if (level === 1) return '<span class="trophee-mini medal-bronze">🥉</span>';
+    return '';
+  },
+
+  // Rend la vue Trophées : collection individuelle + mur d'équipe.
+  async renderTrophees() {
+    const colEl = document.getElementById('trophees-collection');
+    const murEl = document.getElementById('trophees-mur');
+    if (!colEl || !murEl) return;
+
+    // Technicien correspondant à l'utilisateur connecté (ou null si admin non-technicien)
+    const me = DataSync.getUserName() || '';
+    const tokens = this._normTxt(me).split(' ').filter(Boolean);
+    const moiTech = this._maintTeam.find(m =>
+      tokens.includes(this._normTxt(m.prenom)) && tokens.includes(this._normTxt(m.nom))
+    ) || null;
+
+    // Technicien à afficher dans la collection : le sien, ou la sélection admin, ou le 1er.
+    let cible = moiTech;
+    if (!cible) {
+      const sel = this._tropheesSelTech;
+      cible = this._maintTeam.find(m => `${m.prenom} ${m.nom}` === sel) || this._maintTeam[0];
+    }
+
+    // --- Collection individuelle ---
+    const data = await this.computeTropheesFor(cible);
+    let selectorHtml = '';
+    if (!moiTech) {
+      // Admin non-technicien : sélecteur de technicien
+      selectorHtml = `<div class="mb-3" style="max-width:320px">
+        <label class="form-label small mb-1">Voir la collection de</label>
+        <select class="form-select form-select-sm" onchange="App._tropheesSelTech=this.value;App.renderTrophees()">
+          ${this._maintTeam.map(m => {
+            const v = `${m.prenom} ${m.nom}`;
+            return `<option value="${this.esc(v)}"${(cible.prenom===m.prenom&&cible.nom===m.nom)?' selected':''}>${this.esc(v)}</option>`;
+          }).join('')}
+        </select></div>`;
+    }
+
+    const cardsHtml = data.trophees.map(t => {
+      const locked = t.level === 0;
+      const seuilAff = t.next != null ? t.next : t.paliers[t.paliers.length - 1];
+      const pct = Math.max(0, Math.min(100, Math.round((t.value / (seuilAff || 1)) * 100)));
+      const progLabel = t.next != null
+        ? `${t.value}${t.unite ? ' ' + t.unite : ''} / ${t.next}${t.unite ? ' ' + t.unite : ''}`
+        : `Palier maximal atteint (${t.value}${t.unite ? ' ' + t.unite : ''})`;
+      return `<div class="col-6 col-md-4 col-lg-3 mb-3">
+        <div class="trophee-card ${locked ? 'locked' : 'lvl-' + t.level}">
+          <div class="d-flex justify-content-between align-items-start">
+            <span class="trophee-icon">${t.icon}</span>
+            ${this._medalIcon(t.level)}
+          </div>
+          <div class="trophee-name">${this.esc(t.nom)}</div>
+          <div class="trophee-desc flex-grow-1">${this.esc(t.desc)}</div>
+          <div class="trophee-progress"><span style="width:${pct}%"></span></div>
+          <div class="small text-muted">${this.esc(progLabel)}</div>
+        </div></div>`;
+    }).join('');
+
+    const titreCol = moiTech
+      ? `Ma collection — ${this.esc(cible.prenom)} ${this.esc(cible.nom)}`
+      : `Collection — ${this.esc(cible.prenom)} ${this.esc(cible.nom)}`;
+    colEl.innerHTML = `
+      ${selectorHtml}
+      <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+        <h6 class="text-primary mb-0"><i class="bi bi-award me-1"></i>${titreCol}</h6>
+        <span class="badge bg-success">${data.nbDebloques}/${this._tropheesDefs.length} trophées · score ${data.score}</span>
+      </div>
+      <div class="row g-0">${cardsHtml}</div>`;
+
+    // --- Mur d'équipe ---
+    const equipe = [];
+    for (const m of this._maintTeam) {
+      const d = await this.computeTropheesFor(m);
+      equipe.push({ tech: m, data: d });
+    }
+    equipe.sort((a, b) => b.data.score - a.data.score || b.data.nbDebloques - a.data.nbDebloques);
+
+    const rows = equipe.map((e, i) => {
+      const isMe = moiTech && e.tech.prenom === moiTech.prenom && e.tech.nom === moiTech.nom;
+      const medals = e.data.trophees.filter(t => t.level >= 1).map(t => `<span title="${this.esc(t.nom)}">${this._medalMini(t.level)}</span>`).join('') || '<span class="text-muted small">—</span>';
+      const rang = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+      return `<tr class="${isMe ? 'trophee-row-me' : ''}">
+        <td class="text-center">${rang}</td>
+        <td>${this.esc(e.tech.prenom)} ${this.esc(e.tech.nom)}${isMe ? ' <span class="badge bg-success ms-1">Vous</span>' : ''}</td>
+        <td class="text-center"><span class="badge bg-secondary">${e.data.nbDebloques}/${this._tropheesDefs.length}</span></td>
+        <td class="text-center">${e.data.score}</td>
+        <td>${medals}</td>
+      </tr>`;
+    }).join('');
+
+    murEl.innerHTML = `
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead><tr class="table-light">
+            <th class="text-center" style="width:48px">#</th>
+            <th>Technicien</th>
+            <th class="text-center">Débloqués</th>
+            <th class="text-center">Score</th>
+            <th>Médailles</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+  },
+
   async addAdmin(name) {
     name = (name||'').trim();
     if (!name) return;
