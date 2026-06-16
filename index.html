@@ -2636,6 +2636,12 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     </div>
 
     <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-trophy"></i>🏆 Trophées maintenance</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Activez/désactivez chaque trophée, ajustez les paliers (bronze/argent/or) et les règles de calcul. La configuration est partagée via SharePoint.</div>
+      <div id="settings-trophees"></div>
+    </div>
+
+    <div class="form-section">
       <div class="form-section-title"><i class="bi bi-database"></i>Données</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Exportez vos données pour les transférer vers un autre appareil ou créer une sauvegarde.</div>
       <div class="d-flex flex-wrap gap-2 mb-2">
@@ -12841,15 +12847,195 @@ const App = {
 
   // Définitions des trophées : QUALITÉ + RÉGULARITÉ (pas de volume cumulé brut).
   // Chaque trophée : id, nom, icône, description, unité, paliers [bronze, argent, or].
+  // Valeurs PAR DÉFAUT (l'admin peut surcharger via Paramètres → db.settings.tropheesConfig).
+  // Chaque trophée : actif, paliers [bronze,argent,or], + params de calcul spécifiques.
   _tropheesDefs: [
-    { id:'dossier',   icon:'📋', nom:'Dossier complet',     unite:'',  desc:'ICP complètes : risques, conformité, observations.', paliers:[3,10,25] },
-    { id:'signatures',icon:'✍️', nom:'Signatures au complet',unite:'',  desc:'ICP signées EU et représentant EE.',                paliers:[3,10,25] },
-    { id:'reporter',  icon:'📸', nom:'Reporter',            unite:'',  desc:'ICP comportant au moins une photo.',                paliers:[3,10,25] },
-    { id:'reactif',   icon:'⚡', nom:'Réactif',             unite:'',  desc:'ICP signées le jour même de la visite.',            paliers:[3,10,25] },
-    { id:'sansfaille',icon:'✅', nom:'Sans faille',         unite:'%', desc:'Taux de complétude moyen (≥ 5 ICP requises).',      paliers:[70,85,95] },
-    { id:'serie',     icon:'🔥', nom:'Série',               unite:'mois', desc:'Plus longue série de mois consécutifs avec ICP.', paliers:[2,3,6] },
-    { id:'assidu',    icon:'📅', nom:'Assidu',              unite:'mois', desc:'Mois distincts avec ICP sur les 12 derniers mois.', paliers:[3,6,9] },
+    { id:'dossier',   icon:'📋', nom:'Dossier complet',     unite:'',  desc:'ICP complètes : risques, conformité, observations.', paliers:[3,10,25], actif:true, criteres:{risques:true, conformite:true, observations:true} },
+    { id:'signatures',icon:'✍️', nom:'Signatures au complet',unite:'',  desc:'ICP signées EU et représentant EE.',                paliers:[3,10,25], actif:true },
+    { id:'reporter',  icon:'📸', nom:'Reporter',            unite:'',  desc:'ICP comportant au moins une photo.',                paliers:[3,10,25], actif:true, minPhotos:1 },
+    { id:'reactif',   icon:'⚡', nom:'Réactif',             unite:'',  desc:'ICP signées le jour même de la visite.',            paliers:[3,10,25], actif:true, toleranceJours:0 },
+    { id:'sansfaille',icon:'✅', nom:'Sans faille',         unite:'%', desc:'Taux de complétude moyen (≥ 5 ICP requises).',      paliers:[70,85,95], actif:true, minICP:5, criteres:{risques:true, conformite:true, observations:true, signatureEU:true, signatureEE:true, photos:true} },
+    { id:'serie',     icon:'🔥', nom:'Série',               unite:'mois', desc:'Plus longue série de mois consécutifs avec ICP.', paliers:[2,3,6], actif:true },
+    { id:'assidu',    icon:'📅', nom:'Assidu',              unite:'mois', desc:'Mois distincts avec ICP sur les 12 derniers mois.', paliers:[3,6,9], actif:true, fenetreMois:12 },
   ],
+
+  // Config trophées chargée depuis db.settings (clé 'tropheesConfig'), fusionnée sur les défauts.
+  _tropheesConfig: null,
+
+  // Libellés des critères (pour l'UI et la fusion).
+  _tropheesCritLabels: {
+    dossier:    { risques:'Risques', conformite:'Conformité', observations:'Observations' },
+    sansfaille: { risques:'Risques', conformite:'Conformité', observations:'Observations', signatureEU:'Signature EU', signatureEE:'Signature EE', photos:'Photos' },
+  },
+
+  // Clone profond des défauts (objet indexé par id).
+  _tropheesDefaults() {
+    const out = {};
+    for (const d of this._tropheesDefs) {
+      const o = { id:d.id, icon:d.icon, nom:d.nom, unite:d.unite, desc:d.desc, paliers:d.paliers.slice(), actif:d.actif !== false };
+      if (d.minPhotos != null) o.minPhotos = d.minPhotos;
+      if (d.toleranceJours != null) o.toleranceJours = d.toleranceJours;
+      if (d.minICP != null) o.minICP = d.minICP;
+      if (d.fenetreMois != null) o.fenetreMois = d.fenetreMois;
+      if (d.criteres) o.criteres = Object.assign({}, d.criteres);
+      out[d.id] = o;
+    }
+    return out;
+  },
+
+  // Charge et fusionne PROFONDÉMENT la config sur les défauts. Ne perd jamais un trophée.
+  async loadTropheesConfig() {
+    const defaults = this._tropheesDefaults();
+    let stored = null;
+    try { const s = await db.settings.get('tropheesConfig'); stored = s && s.value; } catch (e) { stored = null; }
+    if (stored && typeof stored === 'object') {
+      for (const id in defaults) {
+        const sc = stored[id];
+        if (!sc || typeof sc !== 'object') continue;
+        const d = defaults[id];
+        if (typeof sc.actif === 'boolean') d.actif = sc.actif;
+        if (Array.isArray(sc.paliers) && sc.paliers.length === 3 && sc.paliers.every(n => typeof n === 'number')) d.paliers = sc.paliers.slice();
+        if (d.minPhotos != null && typeof sc.minPhotos === 'number') d.minPhotos = sc.minPhotos;
+        if (d.toleranceJours != null && typeof sc.toleranceJours === 'number') d.toleranceJours = sc.toleranceJours;
+        if (d.minICP != null && typeof sc.minICP === 'number') d.minICP = sc.minICP;
+        if (d.fenetreMois != null && typeof sc.fenetreMois === 'number') d.fenetreMois = sc.fenetreMois;
+        if (d.criteres && sc.criteres && typeof sc.criteres === 'object') {
+          for (const k in d.criteres) if (typeof sc.criteres[k] === 'boolean') d.criteres[k] = sc.criteres[k];
+        }
+      }
+    }
+    this._tropheesConfig = defaults;
+    return defaults;
+  },
+
+  // Sauvegarde la config (+ markDirty pour synchro SharePoint), met à jour le cache, toast.
+  async saveTropheesConfig(cfg) {
+    await db.settings.put({ key:'tropheesConfig', value: cfg });
+    if (typeof DataSync !== 'undefined' && DataSync._connected) DataSync.markDirty();
+    this._tropheesConfig = cfg;
+    this.toast('Configuration des trophées enregistrée');
+  },
+
+  // Réinitialise aux défauts (supprime la config en base + markDirty + recharge + re-render).
+  async resetTropheesConfig() {
+    if (!await this.confirm('Réinitialiser tous les trophées à leur configuration par défaut ?')) return;
+    try { await db.settings.delete('tropheesConfig'); } catch (e) {}
+    if (typeof DataSync !== 'undefined' && DataSync._connected) DataSync.markDirty();
+    await this.loadTropheesConfig();
+    this.toast('Trophées réinitialisés');
+    try { await this.renderTropheesConfigSection(); } catch (e) {}
+    try { await this.renderTrophees(); } catch (e) {}
+  },
+
+  // Rend la section de configuration des trophées dans les Paramètres (réservé admin).
+  async renderTropheesConfigSection() {
+    const c = document.getElementById('settings-trophees');
+    if (!c) return;
+    await this.loadTropheesConfig();
+    const cfg = this._tropheesConfig;
+
+    const numInput = (id, val, min, max, label) =>
+      `<div class="col-auto">
+        <label class="form-label small mb-0">${this.esc(label)}</label>
+        <input type="number" class="form-control form-control-sm" id="${id}" value="${val}" min="${min}"${max != null ? ` max="${max}"` : ''} style="width:90px">
+      </div>`;
+
+    const critCheck = (tropheeId, key, checked, label) =>
+      `<div class="form-check form-check-inline mb-0">
+        <input class="form-check-input" type="checkbox" id="troph-${tropheeId}-crit-${key}" ${checked ? 'checked' : ''}>
+        <label class="form-check-label small" for="troph-${tropheeId}-crit-${key}">${this.esc(label)}</label>
+      </div>`;
+
+    const cards = this._tropheesDefs.map(def => {
+      const o = cfg[def.id];
+      const u = def.unite ? ' (' + def.unite + ')' : '';
+      // Paliers
+      let palierHtml = `<div class="row g-2 align-items-end mb-2">
+        ${numInput(`troph-${def.id}-p0`, o.paliers[0], 0, null, '🥉 Bronze' + u)}
+        ${numInput(`troph-${def.id}-p1`, o.paliers[1], 0, null, '🥈 Argent' + u)}
+        ${numInput(`troph-${def.id}-p2`, o.paliers[2], 0, null, '🥇 Or' + u)}
+      </div>`;
+      // Params de calcul spécifiques
+      let paramHtml = '';
+      if (def.id === 'reporter') {
+        paramHtml = `<div class="row g-2 align-items-end mb-2">${numInput(`troph-reporter-minPhotos`, o.minPhotos, 1, null, 'Photos min. / ICP')}</div>`;
+      } else if (def.id === 'reactif') {
+        paramHtml = `<div class="row g-2 align-items-end mb-2">${numInput(`troph-reactif-toleranceJours`, o.toleranceJours, 0, 7, 'Tolérance (jours)')}</div>`;
+      } else if (def.id === 'assidu') {
+        paramHtml = `<div class="row g-2 align-items-end mb-2">${numInput(`troph-assidu-fenetreMois`, o.fenetreMois, 1, 24, 'Fenêtre (mois)')}</div>`;
+      } else if (def.id === 'dossier') {
+        const lbl = this._tropheesCritLabels.dossier;
+        paramHtml = `<div class="mb-2"><div class="small text-muted mb-1">Critères exigés :</div>
+          ${critCheck('dossier','risques', o.criteres.risques, lbl.risques)}
+          ${critCheck('dossier','conformite', o.criteres.conformite, lbl.conformite)}
+          ${critCheck('dossier','observations', o.criteres.observations, lbl.observations)}</div>`;
+      } else if (def.id === 'sansfaille') {
+        const lbl = this._tropheesCritLabels.sansfaille;
+        paramHtml = `<div class="row g-2 align-items-end mb-2">${numInput(`troph-sansfaille-minICP`, o.minICP, 1, null, 'ICP min. requises')}</div>
+          <div class="mb-2"><div class="small text-muted mb-1">Critères du taux de complétude :</div>
+          ${critCheck('sansfaille','risques', o.criteres.risques, lbl.risques)}
+          ${critCheck('sansfaille','conformite', o.criteres.conformite, lbl.conformite)}
+          ${critCheck('sansfaille','observations', o.criteres.observations, lbl.observations)}
+          ${critCheck('sansfaille','signatureEU', o.criteres.signatureEU, lbl.signatureEU)}
+          ${critCheck('sansfaille','signatureEE', o.criteres.signatureEE, lbl.signatureEE)}
+          ${critCheck('sansfaille','photos', o.criteres.photos, lbl.photos)}</div>`;
+      }
+      return `<div class="border rounded p-2 mb-2">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="troph-${def.id}-actif" ${o.actif ? 'checked' : ''}>
+          </div>
+          <span style="font-size:1.3rem">${def.icon}</span>
+          <span class="fw-semibold">${this.esc(def.nom)}</span>
+        </div>
+        <div class="small text-muted mb-2">${this.esc(def.desc)}</div>
+        ${palierHtml}
+        ${paramHtml}
+      </div>`;
+    }).join('');
+
+    c.innerHTML = `${cards}
+      <div class="d-flex flex-wrap gap-2 mt-2">
+        <button class="btn btn-primary btn-sm" onclick="App.saveTropheesConfigFromForm()"><i class="bi bi-save me-1"></i>Enregistrer les trophées</button>
+        <button class="btn btn-outline-danger btn-sm" onclick="App.resetTropheesConfig()"><i class="bi bi-arrow-counterclockwise me-1"></i>Réinitialiser par défaut</button>
+      </div>`;
+  },
+
+  // Lit le formulaire, reconstruit la config, valide, sauvegarde, re-render.
+  async saveTropheesConfigFromForm() {
+    const gN = (id, def) => { const el = document.getElementById(id); const v = parseInt(el && el.value, 10); return (isNaN(v) || v < 0) ? def : v; };
+    const gB = (id) => { const el = document.getElementById(id); return !!(el && el.checked); };
+
+    const cfg = this._tropheesDefaults();
+    let avert = false;
+    for (const def of this._tropheesDefs) {
+      const o = cfg[def.id];
+      o.actif = gB(`troph-${def.id}-actif`);
+      let p0 = gN(`troph-${def.id}-p0`, o.paliers[0]);
+      let p1 = gN(`troph-${def.id}-p1`, o.paliers[1]);
+      let p2 = gN(`troph-${def.id}-p2`, o.paliers[2]);
+      // Corrige les paliers non croissants (bronze <= argent <= or)
+      if (!(p0 <= p1 && p1 <= p2)) { const s = [p0, p1, p2].sort((a, b) => a - b); p0 = s[0]; p1 = s[1]; p2 = s[2]; avert = true; }
+      o.paliers = [p0, p1, p2];
+      if (def.id === 'reporter') o.minPhotos = Math.max(1, gN('troph-reporter-minPhotos', o.minPhotos));
+      if (def.id === 'reactif') o.toleranceJours = Math.min(7, gN('troph-reactif-toleranceJours', o.toleranceJours));
+      if (def.id === 'assidu') o.fenetreMois = Math.min(24, Math.max(1, gN('troph-assidu-fenetreMois', o.fenetreMois)));
+      if (def.id === 'sansfaille') o.minICP = Math.max(1, gN('troph-sansfaille-minICP', o.minICP));
+      if (def.id === 'dossier') {
+        o.criteres.risques = gB('troph-dossier-crit-risques');
+        o.criteres.conformite = gB('troph-dossier-crit-conformite');
+        o.criteres.observations = gB('troph-dossier-crit-observations');
+      }
+      if (def.id === 'sansfaille') {
+        for (const k of ['risques','conformite','observations','signatureEU','signatureEE','photos'])
+          o.criteres[k] = gB(`troph-sansfaille-crit-${k}`);
+      }
+    }
+    await this.saveTropheesConfig(cfg);
+    if (avert) this.toast('Paliers réordonnés (bronze ≤ argent ≤ or)', 'warning');
+    await this.renderTropheesConfigSection();
+    try { await this.renderTrophees(); } catch (e) {}
+  },
 
   // Vrai si l'ICP est considérée comme réalisée (effectuée ou validée).
   _icpRealisee(icp) {
@@ -12880,6 +13066,9 @@ const App = {
   // Calcule l'ensemble des trophées d'un technicien (_maintTeam membre).
   // Retourne { trophees:[{id,nom,icon,desc,unite,value,level,next,paliers}], score, nbDebloques }.
   async computeTropheesFor(tech) {
+    if (!this._tropheesConfig) await this.loadTropheesConfig();
+    const cfg = this._tropheesConfig;
+
     const all = await db.icps.toArray();
     const mine = all.filter(icp =>
       this._icpRealisee(icp) && (() => { const r = this._icpRealisateurMaint(icp); return r && r.nom === tech.nom && r.prenom === tech.prenom; })()
@@ -12888,34 +13077,57 @@ const App = {
     let nbDossier = 0, nbSign = 0, nbPhoto = 0, nbReactif = 0;
     let sommeCompletude = 0;
     const moisSet = new Set();           // 'YYYY-MM' de toutes les ICP réalisées
+    const cd = cfg.dossier.criteres || {};
+    const cs = cfg.sansfaille.criteres || {};
+    // Critères actifs pour le taux "Sans faille" (au moins 1 sinon /1 neutre)
+    const sfKeys = ['risques','conformite','observations','signatureEU','signatureEE','photos'];
+    const sfActifs = sfKeys.filter(k => cs[k]);
     for (const icp of mine) {
-      const b = this._icpCompletudeBools(icp);
-      // Dossier complet : risques + conformité (5 pts) + observations
-      if (b[0] && b[1] && b[2]) nbDossier++;
-      // Signatures au complet : EU + représentant EE
+      const b = this._icpCompletudeBools(icp); // [risques, conformite, observations, sigEU, sigEE, photos]
+      const bMap = { risques:b[0], conformite:b[1], observations:b[2], signatureEU:b[3], signatureEE:b[4], photos:b[5] };
+      // Dossier complet : seuls les critères ACTIVÉS sont exigés
+      let dossierOk = true;
+      if (cd.risques && !b[0]) dossierOk = false;
+      if (cd.conformite && !b[1]) dossierOk = false;
+      if (cd.observations && !b[2]) dossierOk = false;
+      if (dossierOk) nbDossier++;
+      // Signatures au complet : EU + représentant EE (calcul fixe)
       if (b[3] && b[4]) nbSign++;
-      // Reporter : au moins une photo
-      if (b[5]) nbPhoto++;
-      // Réactif : signée le jour de la visite
+      // Reporter : au moins minPhotos photos
+      if ((icp.photos || []).length >= (cfg.reporter.minPhotos || 1)) nbPhoto++;
+      // Réactif : écart en jours entre visite et signature <= toleranceJours
       const dv = icp.dateVisite || '';
       const dSign = (icp.signatureEU && icp.signatureEU.date) || (icp.signatureEERep && icp.signatureEERep.date) || '';
-      if (dv && dSign && String(dSign).slice(0,10) === String(dv).slice(0,10)) nbReactif++;
-      // Complétude moyenne (6 booléens)
-      sommeCompletude += b.filter(Boolean).length / 6;
+      if (dv && dSign) {
+        const d1 = new Date(String(dv).slice(0,10));
+        const d2 = new Date(String(dSign).slice(0,10));
+        if (!isNaN(d1) && !isNaN(d2)) {
+          const ecart = Math.abs(Math.round((d2 - d1) / 86400000));
+          if (ecart <= (cfg.reactif.toleranceJours || 0)) nbReactif++;
+        }
+      }
+      // Complétude moyenne sur les critères ACTIVÉS de "Sans faille"
+      if (sfActifs.length) {
+        const remplis = sfActifs.filter(k => bMap[k]).length;
+        sommeCompletude += remplis / sfActifs.length;
+      }
       // Mois civil de la visite
       const mk = String(dv).slice(0,7);
       if (/^\d{4}-\d{2}$/.test(mk)) moisSet.add(mk);
     }
 
-    // Sans faille : taux moyen de complétude (%) si ≥ 5 ICP, sinon 0
-    const tauxCompletude = mine.length >= 5 ? Math.round((sommeCompletude / mine.length) * 100) : 0;
+    // Sans faille : taux moyen de complétude (%) si ≥ minICP, sinon 0
+    const minICP = cfg.sansfaille.minICP || 0;
+    const tauxCompletude = (mine.length >= minICP && mine.length > 0)
+      ? Math.round((sommeCompletude / mine.length) * 100) : 0;
 
     // Série : plus longue suite de mois civils consécutifs avec ≥1 ICP
     const serie = this._plusLongueSerieMois([...moisSet]);
 
-    // Assidu : nb de mois distincts avec ICP sur les 12 derniers mois
+    // Assidu : nb de mois distincts avec ICP sur la fenêtre glissante
+    const fenetre = cfg.assidu.fenetreMois || 12;
     const now = new Date();
-    const limite = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+    const limite = new Date(now.getFullYear(), now.getMonth() - (fenetre - 1), 1);
     let assidu = 0;
     for (const mk of moisSet) {
       const [y, mo] = mk.split('-').map(Number);
@@ -12928,11 +13140,14 @@ const App = {
       sansfaille: tauxCompletude, serie: serie, assidu: assidu,
     };
 
-    const trophees = this._tropheesDefs.map(def => {
+    // Ne retenir QUE les trophées actifs.
+    const trophees = this._tropheesDefs.filter(def => cfg[def.id] && cfg[def.id].actif).map(def => {
+      const c = cfg[def.id];
+      const paliers = c.paliers;
       const value = valeurs[def.id] || 0;
-      const level = this._tropheeLevel(value, def.paliers);
-      const next = level < def.paliers.length ? def.paliers[level] : null;
-      return { id:def.id, nom:def.nom, icon:def.icon, desc:def.desc, unite:def.unite, paliers:def.paliers, value, level, next };
+      const level = this._tropheeLevel(value, paliers);
+      const next = level < paliers.length ? paliers[level] : null;
+      return { id:def.id, nom:def.nom, icon:def.icon, desc:def.desc, unite:def.unite, paliers, value, level, next };
     });
 
     const score = trophees.reduce((s, t) => s + t.level, 0);
@@ -12973,6 +13188,15 @@ const App = {
     const colEl = document.getElementById('trophees-collection');
     const murEl = document.getElementById('trophees-mur');
     if (!colEl || !murEl) return;
+
+    // Recharge la config pour toujours refléter le paramétrage courant.
+    await this.loadTropheesConfig();
+    const nbActifs = this._tropheesDefs.filter(d => this._tropheesConfig[d.id] && this._tropheesConfig[d.id].actif).length;
+    if (nbActifs === 0) {
+      colEl.innerHTML = '<div class="alert alert-info mb-0"><i class="bi bi-info-circle me-1"></i>Aucun trophée actif — activez-en depuis Paramètres.</div>';
+      murEl.innerHTML = '';
+      return;
+    }
 
     // Technicien correspondant à l'utilisateur connecté (ou null si admin non-technicien)
     const me = DataSync.getUserName() || '';
@@ -13033,7 +13257,7 @@ const App = {
       ${selectorHtml}
       <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
         <h6 class="text-primary mb-0"><i class="bi bi-award me-1"></i>${titreCol}</h6>
-        <span class="badge bg-success">${data.nbDebloques}/${this._tropheesDefs.length} trophées · score ${data.score}</span>
+        <span class="badge bg-success">${data.nbDebloques}/${nbActifs} trophées · score ${data.score}</span>
       </div>
       <div class="small text-muted mb-2"><i class="bi bi-info-circle me-1"></i>Survolez (ou touchez) un trophée pour afficher sa règle et ses paliers.</div>
       <div class="row g-0">${cardsHtml}</div>`;
@@ -13053,7 +13277,7 @@ const App = {
       return `<tr class="${isMe ? 'trophee-row-me' : ''}">
         <td class="text-center">${rang}</td>
         <td>${this.esc(e.tech.prenom)} ${this.esc(e.tech.nom)}${isMe ? ' <span class="badge bg-success ms-1">Vous</span>' : ''}</td>
-        <td class="text-center"><span class="badge bg-secondary">${e.data.nbDebloques}/${this._tropheesDefs.length}</span></td>
+        <td class="text-center"><span class="badge bg-secondary">${e.data.nbDebloques}/${nbActifs}</span></td>
         <td class="text-center">${e.data.score}</td>
         <td>${medals}</td>
       </tr>`;
@@ -13690,6 +13914,7 @@ const App = {
     try { await this.renderPendingRisksSection(); } catch (e) { console.warn('renderPendingRisksSection:', e); }
     try { await this.renderHiddenRisksSection(); } catch (e) { console.warn('renderHiddenRisksSection:', e); }
     try { await this.renderMaintenanceToggle(); } catch (e) { console.warn('renderMaintenanceToggle:', e); }
+    try { await this.renderTropheesConfigSection(); } catch (e) { console.warn('renderTropheesConfigSection:', e); }
     try {
       const sum = document.getElementById('habilitations-summary');
       if (sum) {
