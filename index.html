@@ -2270,6 +2270,9 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <select class="form-select form-select-sm" style="width:auto" id="filter-icp-conducteur" onchange="App.filterICPs()">
         <option value="">Tous conducteurs</option>
       </select>
+      <select class="form-select form-select-sm" style="width:auto" id="filter-icp-technicien" onchange="App.filterICPs()">
+        <option value="">Tous techniciens</option>
+      </select>
       <select class="form-select form-select-sm" style="width:auto" id="filter-icp-annee" onchange="App.filterICPs()">
         <option value="">Toutes années</option>
       </select>
@@ -11952,9 +11955,11 @@ const App = {
       const editors = editorsMap[String(v.id)] || [];
       const editingBadge = editors.length ? `<span class="badge bg-warning text-dark" style="font-size:0.7rem" title="${this.esc(editors.join(', '))} édite${editors.length>1?'nt':''} en ce moment"><i class="bi bi-pencil-square me-1"></i>${this.esc(editors[0])}${editors.length>1?` +${editors.length-1}`:''}</span>` : '';
       const conducteurICP = this._getConducteurAgriwatt(v);
+      const techMaint = this._icpRealisateurMaint(v);
+      const techKey = techMaint ? this._normTxt(techMaint.prenom + ' ' + techMaint.nom) : '';
       const agenceICP = (v.agenceId && getAgenceById(v.agenceId)) ? getAgenceById(v.agenceId) : null;
       const agenceICPLabel = agenceICP ? agenceICP.nomComplet : '';
-      return `<div class="card pdp-card" data-statut="${v.statut||''}" data-site="${(v.site||'').toLowerCase()}" data-ref="${(v.refOperation||'').toLowerCase()}" data-numero="${(v.numero||'').toLowerCase()}" data-objet="${(v.objet||'').toLowerCase()}" data-conducteur="${(conducteurICP||'').toLowerCase()}" data-agence="${(v.agenceId||'').toLowerCase()}" data-annee="${annee}" onclick="App.openICP(${v.id})">
+      return `<div class="card pdp-card" data-statut="${v.statut||''}" data-site="${(v.site||'').toLowerCase()}" data-ref="${(v.refOperation||'').toLowerCase()}" data-numero="${(v.numero||'').toLowerCase()}" data-objet="${(v.objet||'').toLowerCase()}" data-conducteur="${(conducteurICP||'').toLowerCase()}" data-agence="${(v.agenceId||'').toLowerCase()}" data-annee="${annee}" data-technicien="${techKey}" onclick="App.openICP(${v.id})">
       <div class="card-body p-2">
         <div class="d-flex justify-content-between align-items-start">
           <div class="flex-grow-1">
@@ -11986,6 +11991,7 @@ const App = {
     const agence = (document.getElementById('filter-icp-agence')?.value||'').toLowerCase();
     const site = (document.getElementById('filter-icp-site')?.value||'').toLowerCase();
     const conducteur = (document.getElementById('filter-icp-conducteur')?.value||'').toLowerCase();
+    const technicien = document.getElementById('filter-icp-technicien')?.value || '';
     const annee = document.getElementById('filter-icp-annee')?.value || '';
     let visible = 0, total = 0;
     document.querySelectorAll('#icps-list-container .pdp-card').forEach(c => {
@@ -11996,8 +12002,9 @@ const App = {
       const matchAgence = !agence || (c.dataset.agence||'') === agence;
       const matchSite = !site || (c.dataset.site||'') === site;
       const matchConducteur = !conducteur || (c.dataset.conducteur||'') === conducteur;
+      const matchTech = !technicien || (technicien === '__none__' ? !c.dataset.technicien : (c.dataset.technicien||'') === technicien);
       const matchAnnee = !annee || c.dataset.annee === annee;
-      const show = matchSearch && matchStatut && matchAgence && matchSite && matchConducteur && matchAnnee;
+      const show = matchSearch && matchStatut && matchAgence && matchSite && matchConducteur && matchTech && matchAnnee;
       c.style.display = show ? '' : 'none';
       if (show) visible++;
     });
@@ -12006,7 +12013,7 @@ const App = {
   },
 
   resetICPFilters() {
-    ['search-icp','filter-icp-statut','filter-icp-agence','filter-icp-site','filter-icp-conducteur','filter-icp-annee'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['search-icp','filter-icp-statut','filter-icp-agence','filter-icp-site','filter-icp-conducteur','filter-icp-technicien','filter-icp-annee'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     this.filterICPs();
   },
 
@@ -12041,6 +12048,14 @@ const App = {
       const agences = _agencesCache || [];
       selA.innerHTML = '<option value="">Toutes agences</option>' + agences.map(a => `<option value="${this.esc(a.id.toLowerCase())}">${this.esc(a.nomComplet||a.ville||a.id)}</option>`).join('');
       selA.value = cur;
+    }
+    // Filtre Technicien (équipe maintenance — liste fixe + non attribué)
+    const selT = document.getElementById('filter-icp-technicien');
+    if (selT) {
+      const cur = selT.value;
+      const opts = this._maintTeam.map(m => `<option value="${this.esc(this._normTxt(m.prenom + ' ' + m.nom))}">${this.esc(m.prenom + ' ' + m.nom)}</option>`).join('');
+      selT.innerHTML = '<option value="">Tous techniciens</option>' + opts + '<option value="__none__">— Non attribué —</option>';
+      selT.value = cur;
     }
     const dl = document.getElementById('search-icp-list');
     if (dl) dl.innerHTML = [...refs, ...sites].slice(0, 100).map(v => `<option value="${this.esc(v)}"></option>`).join('');
