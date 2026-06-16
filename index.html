@@ -46,6 +46,12 @@
 .medal-gold   { color:#ffd700; text-shadow:0 0 2px #b8860b55; }
 .medal-none   { color:#ced4da; }
 .trophee-row-me { background:#e8f5ee !important; font-weight:600; }
+.troph-unlock-overlay { position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; animation:trophFade .25s ease; }
+.troph-unlock-box { background:#fff; border-radius:16px; padding:24px 28px; max-width:360px; width:90%; text-align:center; box-shadow:0 10px 40px rgba(0,0,0,.3); animation:trophPop .35s cubic-bezier(.2,.8,.3,1.4); }
+.troph-unlock-emoji { font-size:3rem; line-height:1; margin-bottom:6px; animation:trophBounce 1s ease infinite; }
+@keyframes trophFade { from{opacity:0} to{opacity:1} }
+@keyframes trophPop { from{transform:scale(.7);opacity:0} to{transform:scale(1);opacity:1} }
+@keyframes trophBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
 .trophee-mini { font-size:.95rem; margin-right:1px; }
 
 /* Override Bootstrap primary */
@@ -5042,6 +5048,8 @@ const DataSync = {
         // Le nom d'utilisateur (donc le statut admin) change avec la connexion : réappliquer les droits UI.
         try { App.applyAdminUI(); } catch (e) {}
         try { App.applyMaintenanceUI(); } catch (e) {}
+        // Après synchro : vérifier si le technicien a débloqué de nouvelles médailles.
+        if (state === 'connected') { setTimeout(() => { try { App.checkTropheesUnlocks(); } catch (e) {} }, 1500); }
     },
 
     /* ---- Bandeaux visuels ---- */
@@ -13350,6 +13358,56 @@ const App = {
         try { new bootstrap.Tooltip(el); } catch (e) {}
       });
     }
+    try { await this.checkTropheesUnlocks(); } catch (e) {}
+  },
+
+  // Détecte les nouvelles médailles débloquées par le technicien CONNECTÉ et l'en informe.
+  // L'état vu est mémorisé en localStorage (par technicien) : au 1er passage on initialise
+  // sans notifier (baseline), ensuite on ne signale que les montées de niveau.
+  async checkTropheesUnlocks() {
+    const me = DataSync.getUserName() || '';
+    const tokens = this._normTxt(me).split(' ').filter(Boolean);
+    if (!tokens.length) return;
+    const moiTech = this._maintTeam.find(m =>
+      tokens.includes(this._normTxt(m.prenom)) && tokens.includes(this._normTxt(m.nom)));
+    if (!moiTech) return; // seul le technicien lui-même est notifié
+    const key = 'pdp_troph_seen_' + this._normTxt(moiTech.prenom + ' ' + moiTech.nom).replace(/\s+/g, '_');
+    const data = await this.computeTropheesFor(moiTech);
+    const hadBaseline = localStorage.getItem(key) != null;
+    let seen = {};
+    try { seen = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (e) { seen = {}; }
+    const current = {};
+    const unlocks = [];
+    for (const t of data.trophees) {
+      current[t.id] = t.level;
+      if (hadBaseline && t.level >= 1 && t.level > (seen[t.id] || 0)) unlocks.push(t);
+    }
+    try { localStorage.setItem(key, JSON.stringify(current)); } catch (e) {}
+    if (hadBaseline && unlocks.length) this._showTropheeUnlockModal(unlocks);
+  },
+
+  // Fenêtre festive de félicitations listant les médailles fraîchement débloquées.
+  _showTropheeUnlockModal(list) {
+    const medal = lvl => lvl >= 3 ? '🥇' : lvl === 2 ? '🥈' : '🥉';
+    const niveau = lvl => lvl >= 3 ? 'Or' : lvl === 2 ? 'Argent' : 'Bronze';
+    const items = list.map(t => `<div class="d-flex align-items-center gap-2 mb-2 justify-content-center">
+        <span style="font-size:1.5rem">${t.icon}</span>
+        <span style="font-size:1.4rem">${medal(t.level)}</span>
+        <span class="fw-semibold">${this.esc(t.nom)}</span>
+        <span class="badge bg-secondary">${niveau(t.level)}</span>
+      </div>`).join('');
+    const plural = list.length > 1 ? 's' : '';
+    const ov = document.createElement('div');
+    ov.className = 'troph-unlock-overlay';
+    ov.innerHTML = `<div class="troph-unlock-box">
+        <div class="troph-unlock-emoji">🎉</div>
+        <h5 class="mb-1">Nouvelle${plural} médaille${plural} débloquée${plural} !</h5>
+        <div class="text-muted small mb-3">Bravo, continue comme ça 💪</div>
+        ${items}
+        <button class="btn btn-success mt-2" onclick="this.closest('.troph-unlock-overlay').remove()">Super !</button>
+      </div>`;
+    ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+    document.body.appendChild(ov);
   },
 
   async addAdmin(name) {
