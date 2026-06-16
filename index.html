@@ -13010,8 +13010,11 @@ const App = {
       const progLabel = t.next != null
         ? `${t.value}${t.unite ? ' ' + t.unite : ''} / ${t.next}${t.unite ? ' ' + t.unite : ''}`
         : `Palier maximal atteint (${t.value}${t.unite ? ' ' + t.unite : ''})`;
+      const u = t.unite ? ' ' + t.unite : '';
+      // Légende au survol : règle + 3 paliers (rendu HTML via tooltip Bootstrap).
+      const legende = `<strong>${this.esc(t.nom)}</strong><br>${this.esc(t.desc)}<br><span style="white-space:nowrap">🥉 ${t.paliers[0]}${u} &nbsp;·&nbsp; 🥈 ${t.paliers[1]}${u} &nbsp;·&nbsp; 🥇 ${t.paliers[2]}${u}</span>`;
       return `<div class="col-6 col-md-4 col-lg-3 mb-3">
-        <div class="trophee-card ${locked ? 'locked' : 'lvl-' + t.level}">
+        <div class="trophee-card ${locked ? 'locked' : 'lvl-' + t.level}" tabindex="0" data-bs-toggle="tooltip" data-bs-html="true" data-bs-placement="top" title="${legende}">
           <div class="d-flex justify-content-between align-items-start">
             <span class="trophee-icon">${t.icon}</span>
             ${this._medalIcon(t.level)}
@@ -13032,6 +13035,7 @@ const App = {
         <h6 class="text-primary mb-0"><i class="bi bi-award me-1"></i>${titreCol}</h6>
         <span class="badge bg-success">${data.nbDebloques}/${this._tropheesDefs.length} trophées · score ${data.score}</span>
       </div>
+      <div class="small text-muted mb-2"><i class="bi bi-info-circle me-1"></i>Survolez (ou touchez) un trophée pour afficher sa règle et ses paliers.</div>
       <div class="row g-0">${cardsHtml}</div>`;
 
     // --- Mur d'équipe ---
@@ -13068,6 +13072,14 @@ const App = {
           <tbody>${rows}</tbody>
         </table>
       </div>`;
+
+    // Active les bulles d'aide (légendes) au survol/toucher des trophées.
+    if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+      colEl.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+        try { bootstrap.Tooltip.getInstance(el)?.dispose(); } catch (e) {}
+        try { new bootstrap.Tooltip(el); } catch (e) {}
+      });
+    }
   },
 
   async addAdmin(name) {
