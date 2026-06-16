@@ -12857,6 +12857,14 @@ const App = {
     { id:'sansfaille',icon:'✅', nom:'Sans faille',         unite:'%', desc:'Taux de complétude moyen (≥ 5 ICP requises).',      paliers:[70,85,95], actif:true, minICP:5, criteres:{risques:true, conformite:true, observations:true, signatureEU:true, signatureEE:true, photos:true} },
     { id:'serie',     icon:'🔥', nom:'Série',               unite:'mois', desc:'Plus longue série de mois consécutifs avec ICP.', paliers:[2,3,6], actif:true },
     { id:'assidu',    icon:'📅', nom:'Assidu',              unite:'mois', desc:'Mois distincts avec ICP sur les 12 derniers mois.', paliers:[3,6,9], actif:true, fenetreMois:12 },
+    { id:'geoloc',    icon:'📍', nom:'Géolocalisé',        unite:'',  desc:'ICP avec coordonnées GPS renseignées.',             paliers:[3,10,25], actif:false },
+    { id:'conformite',icon:'✔️', nom:'Conformité parfaite', unite:'',  desc:'ICP avec les 5 points R4512 conformes.',            paliers:[3,10,25], actif:false },
+    { id:'analyse',   icon:'⚠️', nom:'Analyse de risques',  unite:'',  desc:'ICP documentant un nombre suffisant de risques.',   paliers:[3,10,25], actif:false, minRisques:2 },
+    { id:'relie',     icon:'🔗', nom:'Bien relié',          unite:'',  desc:'ICP rattachée à un PDP.',                           paliers:[3,10,25], actif:false },
+    { id:'boucle',    icon:'🏁', nom:'Bouclé',              unite:'',  desc:'ICP finalisée (statut « Validée »).',               paliers:[3,10,25], actif:false },
+    { id:'saisie',    icon:'📲', nom:'Saisie terrain',      unite:'',  desc:'ICP créée le jour même de la visite.',              paliers:[3,10,25], actif:false, toleranceJoursSaisie:0 },
+    { id:'emargement',icon:'🖊️', nom:'Émargement complet',  unite:'',  desc:'Toutes les signatures présentes (EU, EE, participants).', paliers:[3,10,25], actif:false },
+    { id:'polyvalent',icon:'🗺️', nom:'Polyvalent',          unite:'sites', desc:'Nombre de sites/communes différents visités.',  paliers:[3,6,10], actif:false },
   ],
 
   // Config trophées chargée depuis db.settings (clé 'tropheesConfig'), fusionnée sur les défauts.
@@ -12877,6 +12885,8 @@ const App = {
       if (d.toleranceJours != null) o.toleranceJours = d.toleranceJours;
       if (d.minICP != null) o.minICP = d.minICP;
       if (d.fenetreMois != null) o.fenetreMois = d.fenetreMois;
+      if (d.minRisques != null) o.minRisques = d.minRisques;
+      if (d.toleranceJoursSaisie != null) o.toleranceJoursSaisie = d.toleranceJoursSaisie;
       if (d.criteres) o.criteres = Object.assign({}, d.criteres);
       out[d.id] = o;
     }
@@ -12899,6 +12909,8 @@ const App = {
         if (d.toleranceJours != null && typeof sc.toleranceJours === 'number') d.toleranceJours = sc.toleranceJours;
         if (d.minICP != null && typeof sc.minICP === 'number') d.minICP = sc.minICP;
         if (d.fenetreMois != null && typeof sc.fenetreMois === 'number') d.fenetreMois = sc.fenetreMois;
+        if (d.minRisques != null && typeof sc.minRisques === 'number') d.minRisques = sc.minRisques;
+        if (d.toleranceJoursSaisie != null && typeof sc.toleranceJoursSaisie === 'number') d.toleranceJoursSaisie = sc.toleranceJoursSaisie;
         if (d.criteres && sc.criteres && typeof sc.criteres === 'object') {
           for (const k in d.criteres) if (typeof sc.criteres[k] === 'boolean') d.criteres[k] = sc.criteres[k];
         }
@@ -12979,8 +12991,12 @@ const App = {
           ${critCheck('sansfaille','signatureEU', o.criteres.signatureEU, lbl.signatureEU)}
           ${critCheck('sansfaille','signatureEE', o.criteres.signatureEE, lbl.signatureEE)}
           ${critCheck('sansfaille','photos', o.criteres.photos, lbl.photos)}</div>`;
+      } else if (def.id === 'analyse') {
+        paramHtml = `<div class="row g-2 align-items-end mb-2">${numInput('troph-analyse-minRisques', o.minRisques, 1, null, 'Risques min. / ICP')}</div>`;
+      } else if (def.id === 'saisie') {
+        paramHtml = `<div class="row g-2 align-items-end mb-2">${numInput('troph-saisie-toleranceJoursSaisie', o.toleranceJoursSaisie, 0, 7, 'Tolérance saisie (jours)')}</div>`;
       }
-      return `<div class="border rounded p-2 mb-2">
+      return `<div class="col d-flex"><div class="border rounded p-2 mb-0 flex-fill">
         <div class="d-flex align-items-center gap-2 mb-2">
           <div class="form-check form-switch mb-0">
             <input class="form-check-input" type="checkbox" id="troph-${def.id}-actif" ${o.actif ? 'checked' : ''}>
@@ -12991,10 +13007,10 @@ const App = {
         <div class="small text-muted mb-2">${this.esc(def.desc)}</div>
         ${palierHtml}
         ${paramHtml}
-      </div>`;
+      </div></div>`;
     }).join('');
 
-    c.innerHTML = `${cards}
+    c.innerHTML = `<div class="row g-2 row-cols-1 row-cols-md-2 row-cols-xl-3">${cards}</div>
       <div class="d-flex flex-wrap gap-2 mt-2">
         <button class="btn btn-primary btn-sm" onclick="App.saveTropheesConfigFromForm()"><i class="bi bi-save me-1"></i>Enregistrer les trophées</button>
         <button class="btn btn-outline-danger btn-sm" onclick="App.resetTropheesConfig()"><i class="bi bi-arrow-counterclockwise me-1"></i>Réinitialiser par défaut</button>
@@ -13021,6 +13037,8 @@ const App = {
       if (def.id === 'reactif') o.toleranceJours = Math.min(7, gN('troph-reactif-toleranceJours', o.toleranceJours));
       if (def.id === 'assidu') o.fenetreMois = Math.min(24, Math.max(1, gN('troph-assidu-fenetreMois', o.fenetreMois)));
       if (def.id === 'sansfaille') o.minICP = Math.max(1, gN('troph-sansfaille-minICP', o.minICP));
+      if (def.id === 'analyse') o.minRisques = Math.max(1, gN('troph-analyse-minRisques', o.minRisques));
+      if (def.id === 'saisie') o.toleranceJoursSaisie = Math.min(7, gN('troph-saisie-toleranceJoursSaisie', o.toleranceJoursSaisie));
       if (def.id === 'dossier') {
         o.criteres.risques = gB('troph-dossier-crit-risques');
         o.criteres.conformite = gB('troph-dossier-crit-conformite');
@@ -13056,6 +13074,16 @@ const App = {
     ];
   },
 
+  // Vrai si toutes les signatures attendues sont présentes (EU + rep EE + tous les additionnels).
+  _icpEmargementComplet(icp) {
+    if (!(icp.signatureEU && icp.signatureEU.data)) return false;
+    if (!(icp.signatureEERep && icp.signatureEERep.data)) return false;
+    for (const arr of [icp.signaturesEUAdd, icp.signaturesEEAdd, icp.signaturesEE]) {
+      if (Array.isArray(arr)) for (const s of arr) { if (!(s && s.data)) return false; }
+    }
+    return true;
+  },
+
   // Niveau atteint (0..3) selon les paliers [bronze, argent, or].
   _tropheeLevel(value, paliers) {
     let lvl = 0;
@@ -13075,8 +13103,10 @@ const App = {
     );
 
     let nbDossier = 0, nbSign = 0, nbPhoto = 0, nbReactif = 0;
+    let nbGeo = 0, nbConf = 0, nbAnalyse = 0, nbRelie = 0, nbBoucle = 0, nbSaisie = 0, nbEmarg = 0;
     let sommeCompletude = 0;
     const moisSet = new Set();           // 'YYYY-MM' de toutes les ICP réalisées
+    const sitesSet = new Set();          // sites/communes distincts (trophée Polyvalent)
     const cd = cfg.dossier.criteres || {};
     const cs = cfg.sansfaille.criteres || {};
     // Critères actifs pour le taux "Sans faille" (au moins 1 sinon /1 neutre)
@@ -13111,6 +13141,20 @@ const App = {
         const remplis = sfActifs.filter(k => bMap[k]).length;
         sommeCompletude += remplis / sfActifs.length;
       }
+      // --- Trophées additionnels (désactivés par défaut) ---
+      if (icp.lieu && String(icp.lieu).trim()) nbGeo++;                          // Géolocalisé
+      if (b[1]) nbConf++;                                                        // Conformité parfaite (5 pts)
+      if ((icp.risques || []).length >= (cfg.analyse?.minRisques || 1)) nbAnalyse++; // Analyse de risques
+      if (icp.pdpId != null) nbRelie++;                                          // Bien relié
+      if (icp.statut === 'validee') nbBoucle++;                                  // Bouclé
+      if (icp.dateCreation && dv) {                                             // Saisie terrain
+        const dc = new Date(String(icp.dateCreation).slice(0,10));
+        const dvv = new Date(String(dv).slice(0,10));
+        if (!isNaN(dc) && !isNaN(dvv) && Math.abs(Math.round((dc - dvv) / 86400000)) <= (cfg.saisie?.toleranceJoursSaisie || 0)) nbSaisie++;
+      }
+      if (this._icpEmargementComplet(icp)) nbEmarg++;                            // Émargement complet
+      const sk = this._normTxt(icp.site || icp.lieu || '');                      // Polyvalent
+      if (sk) sitesSet.add(sk);
       // Mois civil de la visite
       const mk = String(dv).slice(0,7);
       if (/^\d{4}-\d{2}$/.test(mk)) moisSet.add(mk);
@@ -13138,6 +13182,8 @@ const App = {
     const valeurs = {
       dossier: nbDossier, signatures: nbSign, reporter: nbPhoto, reactif: nbReactif,
       sansfaille: tauxCompletude, serie: serie, assidu: assidu,
+      geoloc: nbGeo, conformite: nbConf, analyse: nbAnalyse, relie: nbRelie,
+      boucle: nbBoucle, saisie: nbSaisie, emargement: nbEmarg, polyvalent: sitesSet.size,
     };
 
     // Ne retenir QUE les trophées actifs.
