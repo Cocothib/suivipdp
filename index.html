@@ -12929,11 +12929,11 @@ const App = {
   },
 
   // Sauvegarde la config (+ markDirty pour synchro SharePoint), met à jour le cache, toast.
-  async saveTropheesConfig(cfg) {
+  async saveTropheesConfig(cfg, silent) {
     await db.settings.put({ key:'tropheesConfig', value: cfg });
     if (typeof DataSync !== 'undefined' && DataSync._connected) DataSync.markDirty();
     this._tropheesConfig = cfg;
-    this.toast('Configuration des trophées enregistrée');
+    if (!silent) this.toast('Configuration des trophées enregistrée');
   },
 
   // Réinitialise aux défauts (supprime la config en base + markDirty + recharge + re-render).
@@ -12957,12 +12957,12 @@ const App = {
     const numInput = (id, val, min, max, label) =>
       `<div class="col-auto">
         <label class="form-label small mb-0">${this.esc(label)}</label>
-        <input type="number" class="form-control form-control-sm" id="${id}" value="${val}" min="${min}"${max != null ? ` max="${max}"` : ''} style="width:90px">
+        <input type="number" class="form-control form-control-sm" id="${id}" value="${val}" min="${min}"${max != null ? ` max="${max}"` : ''} style="width:90px" onchange="App.autoSaveTropheesConfig()">
       </div>`;
 
     const critCheck = (tropheeId, key, checked, label) =>
       `<div class="form-check form-check-inline mb-0">
-        <input class="form-check-input" type="checkbox" id="troph-${tropheeId}-crit-${key}" ${checked ? 'checked' : ''}>
+        <input class="form-check-input" type="checkbox" id="troph-${tropheeId}-crit-${key}" ${checked ? 'checked' : ''} onchange="App.autoSaveTropheesConfig()">
         <label class="form-check-label small" for="troph-${tropheeId}-crit-${key}">${this.esc(label)}</label>
       </div>`;
 
@@ -13007,7 +13007,7 @@ const App = {
       return `<div class="col d-flex"><div class="border rounded p-2 mb-0 flex-fill">
         <div class="d-flex align-items-center gap-2 mb-2">
           <div class="form-check form-switch mb-0">
-            <input class="form-check-input" type="checkbox" id="troph-${def.id}-actif" ${o.actif ? 'checked' : ''}>
+            <input class="form-check-input" type="checkbox" id="troph-${def.id}-actif" ${o.actif ? 'checked' : ''} onchange="App.autoSaveTropheesConfig()">
           </div>
           <span style="font-size:1.3rem">${def.icon}</span>
           <span class="fw-semibold">${this.esc(def.nom)}</span>
@@ -13019,19 +13019,20 @@ const App = {
     }).join('');
 
     c.innerHTML = `<div class="row g-2 row-cols-1 row-cols-md-2 row-cols-xl-3">${cards}</div>
-      <div class="d-flex flex-wrap gap-2 mt-2">
-        <button class="btn btn-primary btn-sm" onclick="App.saveTropheesConfigFromForm()"><i class="bi bi-save me-1"></i>Enregistrer les trophées</button>
-        <button class="btn btn-outline-danger btn-sm" onclick="App.resetTropheesConfig()"><i class="bi bi-arrow-counterclockwise me-1"></i>Réinitialiser par défaut</button>
+      <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+        <span class="text-muted small" id="trophees-save-status"><i class="bi bi-lightning-charge me-1"></i>Enregistrement automatique à chaque changement</span>
+        <button class="btn btn-outline-danger btn-sm ms-auto" onclick="App.resetTropheesConfig()"><i class="bi bi-arrow-counterclockwise me-1"></i>Réinitialiser par défaut</button>
       </div>`;
   },
 
-  // Lit le formulaire, reconstruit la config, valide, sauvegarde, re-render.
-  async saveTropheesConfigFromForm() {
+  // Enregistrement AUTOMATIQUE à chaque changement (interrupteur, palier, critère).
+  // Ne re-render PAS la section (évite la perte de focus pendant la saisie) ;
+  // met à jour la vue Trophées et l'indicateur "Enregistré".
+  async autoSaveTropheesConfig() {
     const gN = (id, def) => { const el = document.getElementById(id); const v = parseInt(el && el.value, 10); return (isNaN(v) || v < 0) ? def : v; };
     const gB = (id) => { const el = document.getElementById(id); return !!(el && el.checked); };
 
     const cfg = this._tropheesDefaults();
-    let avert = false;
     for (const def of this._tropheesDefs) {
       const o = cfg[def.id];
       o.actif = gB(`troph-${def.id}-actif`);
@@ -13039,7 +13040,7 @@ const App = {
       let p1 = gN(`troph-${def.id}-p1`, o.paliers[1]);
       let p2 = gN(`troph-${def.id}-p2`, o.paliers[2]);
       // Corrige les paliers non croissants (bronze <= argent <= or)
-      if (!(p0 <= p1 && p1 <= p2)) { const s = [p0, p1, p2].sort((a, b) => a - b); p0 = s[0]; p1 = s[1]; p2 = s[2]; avert = true; }
+      if (!(p0 <= p1 && p1 <= p2)) { const s = [p0, p1, p2].sort((a, b) => a - b); p0 = s[0]; p1 = s[1]; p2 = s[2]; }
       o.paliers = [p0, p1, p2];
       if (def.id === 'reporter') o.minPhotos = Math.max(1, gN('troph-reporter-minPhotos', o.minPhotos));
       if (def.id === 'reactif') o.toleranceJours = Math.min(7, gN('troph-reactif-toleranceJours', o.toleranceJours));
@@ -13057,9 +13058,9 @@ const App = {
           o.criteres[k] = gB(`troph-sansfaille-crit-${k}`);
       }
     }
-    await this.saveTropheesConfig(cfg);
-    if (avert) this.toast('Paliers réordonnés (bronze ≤ argent ≤ or)', 'warning');
-    await this.renderTropheesConfigSection();
+    await this.saveTropheesConfig(cfg, true);
+    const st = document.getElementById('trophees-save-status');
+    if (st) { st.className = 'text-success small'; st.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Enregistré'; }
     try { await this.renderTrophees(); } catch (e) {}
   },
 
