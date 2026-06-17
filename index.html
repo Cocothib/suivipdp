@@ -3793,15 +3793,26 @@ async function _writeJsonFile(filePath, data, etag = null, metaEtag = null) {
     // changé depuis la lecture → 412 → la boucle save() relit, fusionne, réessaie.
     if (metaEtag) {
         const cur = await _getRemoteMetaEtag(filePath).catch(() => null);
-        if (cur && cur !== metaEtag) {
+        if (cur == null) {
+            // #7 : eTag distant illisible juste avant l'upload chunké → on NE PEUT
+            // PAS vérifier l'état distant. Plutôt qu'un 'replace' à l'aveugle (qui
+            // écraserait un gros fichier modifié entre-temps), on lève une erreur
+            // retryable (_readError, comme la garde lecture distante de _saveOnce) :
+            // la boucle save() relit, fusionne et réessaie (max 5, pas de boucle
+            // infinie ; abandon propre ensuite, données conservées localement).
+            const err = new Error('Vérification eTag distante impossible avant écriture chunkée'); err._readError = true; throw err;
+        }
+        if (cur !== metaEtag) {
             const err = new Error('Conflit de version concurrente (412, chunked)'); err._precondition = true; throw err;
         }
     } else {
-        // metaEtag indisponible : la garde de version applicative (_meta.version
-        // dans _saveOnce) reste le filet de sécurité. On rend la perte de garantie
-        // ETag visible plutôt que silencieuse.
-        console.warn('DataSync: écriture chunkée (>4Mo) sans garde ETag — ' + filePath + ' (' + Math.round(totalSize/1048576) + ' Mo)');
-        if (typeof ActivityLog !== 'undefined') ActivityLog.log('ecriture_chunked_sans_etag', { fichier: filePath, mo: Math.round(totalSize/1048576) });
+        // #7 : metaEtag indisponible au moment de l'écriture chunkée → on ne dispose
+        // d'AUCUNE garde optimiste. On ne fait plus un 'replace' inconditionnel
+        // (TOCTOU/écrasement à l'aveugle) : erreur retryable → la boucle save()
+        // relit, fusionne, réessaie (puis abandon propre, jamais d'écrasement).
+        console.warn('DataSync: écriture chunkée (>4Mo) refusée faute de garde ETag — ' + filePath + ' (' + Math.round(totalSize/1048576) + ' Mo)');
+        if (typeof ActivityLog !== 'undefined') ActivityLog.log('ecriture_chunked_sans_etag_refusee', { fichier: filePath, mo: Math.round(totalSize/1048576) });
+        const err = new Error('Écriture chunkée refusée sans garde ETag (' + filePath + ')'); err._readError = true; throw err;
     }
     const sessResp = await _graphFetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${filePath}:/createUploadSession`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -3824,7 +3835,27 @@ async function _writeJsonFile(filePath, data, etag = null, metaEtag = null) {
         lastResp = r;
         offset = end;
     }
-    try { return await lastResp.json(); } catch { return {}; }
+    let result = {};
+    try { result = await lastResp.json(); } catch { result = {}; }
+    // #7 : contrôle post-upload. L'upload chunké réussi renvoie le DriveItem créé
+    // (avec son eTag). On relit l'eTag distant : s'il diffère de celui retourné par
+    // l'upload, une autre écriture est survenue APRÈS la nôtre (notre version risque
+    // d'être déjà écrasée, ou inversement). On NE refait PAS de read-merge-write ici
+    // (l'écriture a déjà eu lieu ; un merge post-hoc serait risqué) — on logue un
+    // warning explicite et on marque pour resynchronisation au prochain cycle.
+    // LIMITE connue : la fenêtre entre la garde metaEtag (pré-upload) et la fin de
+    // l'upload reste non protégée par Graph (pas d'If-Match natif sur uploadSession) ;
+    // ceci la rend visible et déclenche un re-sync, sans la fermer totalement.
+    try {
+        const writtenEtag = result && (result.eTag || result.etag);
+        const after = await _getRemoteMetaEtag(filePath).catch(() => null);
+        if (writtenEtag && after && after !== writtenEtag) {
+            console.warn('DataSync: écriture chunkée — eTag distant divergent après upload (' + filePath + '), écriture concurrente probable → resynchronisation planifiée');
+            if (typeof ActivityLog !== 'undefined') ActivityLog.log('ecriture_chunked_divergence_postupload', { fichier: filePath });
+            try { if (typeof DataSync !== 'undefined') { DataSync._dirty = true; } } catch (e) { /* DataSync non prêt : ignoré */ }
+        }
+    } catch (e) { /* contrôle best-effort : ne pas faire échouer une écriture réussie */ }
+    return result;
 }
 
 async function _deleteFile(filePath) {
@@ -4059,6 +4090,21 @@ const DataSync = {
         return out;
     },
 
+    // #5 : Clamp défensif d'horloge. `dateModification` provient d'un
+    // `new Date().toISOString()` côté client : une horloge déréglée EN AVANCE
+    // ferait gagner systématiquement ce poste (last-write-wins déguisé) et
+    // masquerait des modifs réellement plus récentes. Une date au-delà de
+    // maintenant + marge est suspecte d'horloge faussée → on la neutralise ('')
+    // pour qu'elle ne l'emporte pas dans les comparaisons (tie-break / max).
+    // Renvoie une chaîne ISO comparable, ou '' si absente/aberrante.
+    _saneDate(d) {
+        if (!d) return '';
+        const t = Date.parse(d);
+        if (!Number.isFinite(t)) return '';
+        if (t > Date.now() + 5 * 60 * 1000) return ''; // > maintenant + 5 min → suspecte
+        return d;
+    },
+
     /**
      * Merge 3-way par champ d'un objet (record ou sous-objet).
      * - Scalaires en conflit reel => ajoute a `conflicts` (decision differee), valeur "current" provisoire.
@@ -4077,10 +4123,14 @@ const DataSync = {
         snapshot = snapshot ?? {};
         remote   = remote   ?? {};
 
-        // dateModification : on prend le max
+        // dateModification : on prend le max (sur dates SAINES, cf. #5 _saneDate :
+        // une date distante/locale aberrante dans le futur ne doit pas l'emporter).
         const dmCur = current.dateModification || '';
         const dmRem = remote.dateModification  || '';
-        const dmMax = dmCur > dmRem ? dmCur : dmRem;
+        const dmCurS = this._saneDate(dmCur);
+        const dmRemS = this._saneDate(dmRem);
+        // max sur dates saines ; fallback sur la valeur brute si les deux neutralisées
+        const dmMax = (dmCurS > dmRemS ? dmCurS : dmRemS) || dmCur || dmRem;
 
         const out = {};
         const allKeys = new Set([...Object.keys(current), ...Object.keys(remote), ...Object.keys(snapshot)]);
@@ -4427,6 +4477,43 @@ const DataSync = {
         return result;
     },
 
+    // #14 : Fusion dédiée des FDS (bibliothèque). On NE réutilise PAS _mergeByKey
+    // car il réattribue les `id` en collision → or les PDP référencent les FDS par
+    // `fdsRef: f.id` (et le fichier SharePoint par _fdsFilePath = `${id}_${slug}`),
+    // sans aucun mécanisme de remap. Réattribuer un id orphelinerait ces références.
+    // Ici : on PRÉSERVE TOUJOURS l'id (PK Dexie = clé de fusion demandée), on
+    // déduplique par identité stable (_spPath unique inter-poste si uploadée, sinon
+    // 'id:'+id), on détecte les suppressions locales (snapshot vs local) pour ne pas
+    // ressusciter une FDS supprimée, et en cas de doublon réel on garde la version
+    // la plus récente. Le `data` base64 reste reconstitué par id dans _writeLocalData
+    // (les FDS distantes nouvelles ont data=null tant qu'elles ne sont pas
+    // téléchargées — comportement voulu).
+    _mergeFds(localArr, snapshotArr, remoteArr) {
+        const keyOf = f => (f && f._spPath) ? ('sp:' + f._spPath) : ('id:' + (f ? f.id : ''));
+        const ts = f => { const v = f && (f.dateModification || f.dateAjout); if (v == null) return 0; const n = typeof v === 'number' ? v : Date.parse(v); return Number.isFinite(n) ? n : 0; };
+        const local = localArr || [], remote = remoteArr || [], snap = snapshotArr || [];
+        // Suppression locale : clé présente au dernier sync mais absente en local.
+        const localKeys = new Set(local.map(keyOf));
+        const deletedLocally = new Set();
+        for (const f of snap) { const k = keyOf(f); if (!localKeys.has(k)) deletedLocally.add(k); }
+        const byKey = new Map();
+        for (const f of local) {
+            const k = keyOf(f); const ex = byKey.get(k);
+            if (!ex || ts(f) >= ts(ex)) byKey.set(k, f);
+        }
+        for (const f of remote) {
+            const k = keyOf(f);
+            if (deletedLocally.has(k)) continue; // supprimée en local → ne pas ressusciter
+            const ex = byKey.get(k);
+            // PRÉSERVER l'id : si un record local existe pour cette clé, on garde son
+            // id (références fdsRef stables) ; un record purement distant garde son
+            // propre id (jamais réattribué).
+            if (!ex) byKey.set(k, f);
+            else if (ts(f) > ts(ex)) byKey.set(k, { ...f, id: ex.id });
+        }
+        return Array.from(byKey.values());
+    },
+
     // Applique sites / habilitations / signataires depuis un objet shared.
     // Ne touche PAS un store dont le champ est absent (compat anciens fichiers).
     async _applySharedAuxStores(shared) {
@@ -4485,7 +4572,13 @@ const DataSync = {
             } else {
                 choices = {};
                 for (const c of allConflicts) {
-                    choices[c.path] = { choice: ((c.dmRem || '') > (c.dmCur || '')) ? 'other' : 'mine' };
+                    // #5 : tie-break sur dates SAINES (clamp horloge). Une date
+                    // distante (ou locale) aberrante dans le futur est neutralisée
+                    // → elle ne fait plus gagner ce poste à tort. À égalité (les deux
+                    // neutralisées ou identiques) : on conserve 'mine' (défaut sûr,
+                    // pas d'écrasement du local). Tracé en dessous (ActivityLog).
+                    const cur = this._saneDate(c.dmCur), rem = this._saneDate(c.dmRem);
+                    choices[c.path] = { choice: (rem > cur) ? 'other' : 'mine' };
                 }
             }
             for (const c of allConflicts) {
@@ -4518,6 +4611,15 @@ const DataSync = {
                     });
                 }
             }
+            // #5 : visibilité utilisateur. En mode NON interactif (auto-save/poll),
+            // les conflits sont arbitrés automatiquement et silencieusement → on
+            // informe l'utilisateur du nombre de champs arbitrés (déjà tracés dans
+            // ActivityLog 'conflit_merge' pour le détail). Best-effort, sans risque.
+            if (!(interactive && document.getElementById('modal-merge-conflict'))) {
+                try {
+                    App.toast(`${allConflicts.length} champ(s) en conflit arbitré(s) automatiquement (modif la plus récente conservée). Détail dans le journal d'activité.`, 'info', 7000);
+                } catch (e) { /* toast non disponible : silencieux */ }
+            }
         }
 
         // Propager remappings : icps.pdpId suit les pdps remappes
@@ -4546,7 +4648,11 @@ const DataSync = {
             icp:    { _meta: remotes.icp?._meta    || null, icps:        icpRes.merged },
             shared: {
                 _meta: remotes.shared?._meta || null,
-                entreprises: entRes.merged, settings: setRes.merged, fds: current.fds,
+                entreprises: entRes.merged, settings: setRes.merged,
+                // #14 : fusionner les FDS distantes (avant : `fds: current.fds` →
+                // une FDS ajoutée par un autre poste disparaissait du shared après
+                // merge, puis _writeLocalData (clear+bulkPut) la supprimait en local).
+                fds: this._mergeFds(current.fds, snapshot.fds, remotes.shared?.fds || []),
                 sites:                  this._mergeByKey(current.sites,                  snapshot.sites,                  remotes.shared?.sites                  || [], r => (r.nom||'').toLowerCase().trim()+'|'+(r.entite||'').toLowerCase().trim()),
                 salaries_habilitations: this._mergeByKey(current.salaries_habilitations, snapshot.salaries_habilitations, remotes.shared?.salaries_habilitations || [], r => (r.nom||'').toUpperCase().trim()+'|'+(r.prenom||'').toUpperCase().trim()),
                 signataires:            this._mergeByKey(current.signataires,            snapshot.signataires,            remotes.shared?.signataires            || [], r => (r.nom||'').toLowerCase().trim()+'|'+(r.fonction||'').toLowerCase().trim()),
