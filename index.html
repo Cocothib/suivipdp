@@ -2729,16 +2729,19 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <li><strong>PDP</strong> — création, suivi, exports avec recherche multi-champs et filtres</li>
           <li><strong>ICP</strong> — visite préalable avec risques, photos, signatures multiples</li>
           <li><strong>Entreprises</strong> — répertoire partagé avec multi-contacts par entreprise</li>
-          <li><strong>Réglages</strong> — EU par défaut, sites, bibliothèque FDS, sync SharePoint</li>
+          <li><strong>Paramètres</strong> — agences, bibliothèque FDS, habilitations, sync SharePoint, intégration Sellsy… (admin uniquement, voir §16)</li>
+          <li><strong>Aide</strong> — ce guide ; et <strong>Trophées</strong> (équipe maintenance / admin, voir §15)</li>
         </ul>
       </div></div></div>
 
       <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-2">2. Workflow type ICP → PDP (chantier externe)</button></h2><div id="tuto-2" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-2">
         <ol>
-          <li>Sur l'onglet <strong>ICP</strong>, clique sur <strong>Nouvelle ICP</strong></li>
-          <li>Dans le champ <strong>N° d'opération</strong> (préfixe OPP- automatique), tape juste les chiffres ou clique 🔍 vert pour <strong>rechercher dans Sellsy</strong></li>
-          <li>Le clic sur une opportunité Sellsy <strong>auto-remplit</strong> : adresse, GPS (géocodage automatique), Représentant EU (BAYART, etc.), tél, email + crée l'entreprise client dans le répertoire</li>
-          <li>Section <strong>Participants à la visite</strong> : choisis l'<strong>Entreprise EE</strong> (AGRIWATT/Enersolys) puis la <strong>Personne enregistrée</strong> (54 contacts AGRIWATT importés tri alpha). Bouton <em>+ Ajouter une 2e personne</em> pour les binômes</li>
+          <li>Sur l'onglet <strong>ICP</strong>, clique sur <strong>Nouvelle ICP</strong> (bouton bleu en haut)</li>
+          <li>Dans le champ <strong>N° d'opération</strong> (préfixe OPP- automatique), tape les chiffres ou le nom du client (autocomplétion), ou clique la loupe 🔍 verte pour <strong>parcourir toutes les opportunités Sellsy</strong></li>
+          <li>Le clic sur une opportunité Sellsy <strong>auto-remplit</strong> : adresse, GPS (géocodage automatique), Représentant EU, tél, email + crée l'entreprise client dans le répertoire</li>
+          <li>Section <strong>Participants à la visite</strong> : choisis l'<strong>Entreprise EE</strong> (AGRIWATT/Enersolys) puis la <strong>Personne enregistrée</strong> (liste des contacts de l'entreprise, tri alpha). Bouton <em>+ Ajouter une personne</em> pour les binômes</li>
+          <li><strong>Chantier interne</strong> : si la visite a lieu dans nos locaux (AGRIWATT/Enersolys = EU), coche <em>« Chantier interne »</em> en haut — une sélection rapide d'un site enregistré apparaît</li>
+          <li><strong>Mode Express</strong> (interrupteur en haut) : masque les sections avancées (autres intervenants, liaison PDP) pour une visite simple et rapide</li>
           <li>Identifie les risques (sélecteur par catégories), prends des photos, vérifie l'objet</li>
           <li>Section <strong>Signatures</strong> : tous les participants (EU + EE) ont leur propre case signature, pré-remplie avec leur nom</li>
           <li><strong>Enregistrer</strong> ✓ — le statut "Effectuée" archive la donnée. Passage à "Validée (signée)" déclenche un <strong>auto-archivage Word + PDF</strong> sur SharePoint</li>
@@ -2747,18 +2750,23 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       </div></div></div>
 
       <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-3">3. Compléter un PDP</button></h2><div id="tuto-3" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-3">
-        <p>Les onglets sont organisés selon la barre de progression. Beaucoup de champs sont déjà pré-remplis depuis l'ICP liée :</p>
+        <p>Le formulaire PDP est découpé en onglets (barre en haut, scrollable sur mobile). La <strong>barre de progression</strong> indique le taux de complétion. Beaucoup de champs sont déjà pré-remplis depuis l'ICP liée :</p>
         <ul>
-          <li><strong>Général</strong> — Titre, statut, dates (la <em>Durée prévisionnelle</em> se calcule auto à partir des dates), numéro auto</li>
+          <li><strong>Général</strong> — Intitulé, N° PDP (auto), N° d'opération (OPP-), version, statut, <strong>type de chantier (Interne / Externe)</strong>, agence, localisation et dates</li>
           <li><strong>Entreprises</strong> — EU pré-remplie depuis Sellsy + EE (sous-traitants)</li>
           <li><strong>Visite</strong> — Liste de tous les participants ICP, photos, observations</li>
-          <li><strong>Risques / Mesures</strong> — Catalogue par catégories, mesures cochables individuellement</li>
+          <li><strong>Risques</strong> — Catalogue de risques par catégories (sélection + niveau)</li>
+          <li><strong>Mesures</strong> — Mesures de prévention cochables individuellement (seules les cochées sont exportées)</li>
+          <li><strong>Exigences</strong> — Règles imposées par le client sur son site (boutons rapides pour les exigences courantes)</li>
           <li><strong>Urgence</strong> — Responsable site + tél pré-remplis depuis le contact EU. Inclut l'encart <em>Environnement</em> : matériaux absorbants à disposition en cas de déversement accidentel (Oui/Non + précisions)</li>
-          <li><strong>Signatures</strong> — EU + EE sous-traitantes + tous les participants ICP EE (HESSE, BURTIN…)</li>
-          <li><strong>Permis de feu</strong> — Rep EU et Rep Entreprise Intervenante pré-remplis. Émargement signature pour chaque ronde de surveillance (preuve légale &gt; 2h après points chauds)</li>
-          <li><strong>Émargement</strong> — Liste auto-générée de tous les intervenants à signer avant accès chantier</li>
-          <li><strong>Pictogrammes</strong> — Cochés par défaut : interdiction vapoter/fumer + accès limité + 5 EPI essentiels (casque, chaussures, vêtement, gants, antichute)</li>
-          <li><strong>Annexes</strong> — Documents joints + 10 FDS standards (9 Würth + 1 Polywater) rattachées automatiquement</li>
+          <li><strong>Signatures</strong> — EU + EE sous-traitantes + tous les participants ICP EE</li>
+          <li><strong>Modif.</strong> — Historique des modifications / avenants ; chaque ajout incrémente le numéro de version</li>
+          <li><strong>Pictogrammes</strong> — Cochés par défaut : interdiction vapoter + accès limité + 5 EPI essentiels (casque, chaussures, vêtement, gants, antichute)</li>
+          <li><strong>Permis de feu</strong> — onglet masqué par défaut, s'affiche dès qu'un risque/mesure « points chauds » est coché (voir §6 et §14)</li>
+          <li><strong>Émargement</strong> — Liste auto-générée des intervenants à signer avant accès chantier + un bloc de <strong>20 lignes vierges</strong> pour les visiteurs / intervenants occasionnels</li>
+          <li><strong>Autorisations</strong> — Génère les autorisations internes AGRIWATT pour chaque intervenant identifié en base habilitations (bouton <em>Tout générer</em>) ; les PDF sont rattachés aux documents joints</li>
+          <li><strong>Documents joints</strong> — Pièces jointes par catégorie (plans, FDS, habilitations…) + bouton vert <em>Importer FDS standard</em> (voir §4)</li>
+          <li><strong>Export</strong> — Word, PDF, ZIP complet et exports papier pour sous-traitants (voir §7)</li>
         </ul>
         <p><strong>Astuce</strong> : à chaque sauvegarde, les <strong>nouvelles personnes saisies</strong> sont automatiquement ajoutées au répertoire entreprises (sans modifier le contact principal existant) — la base s'enrichit au fil de l'eau.</p>
       </div></div></div>
@@ -2771,7 +2779,8 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <li>Pour un PDP existant : onglet <strong>Annexes → bouton vert "Importer FDS standard"</strong></li>
           <li>Les FDS apparaissent avec le badge <span class="badge bg-info text-white">REF</span> indiquant qu'elles pointent vers la bibliothèque</li>
           <li>Mise à jour d'une FDS dans la bibliothèque = mise à jour automatique dans tous les PDP qui la référencent</li>
-          <li>Les FDS sont incluses dans le ZIP d'export (dossier <code>Documents_joints/</code>)</li>
+          <li>Les FDS sont incluses dans le <strong>ZIP</strong> (dossier <code>Documents_joints/</code>) <strong>et désormais dans l'export PDF</strong> (les pages réelles des FDS sont annexées à la fin du document). L'export <strong>Word</strong> les liste dans une section « Annexes — FDS » (fournies séparément, car un PDF ne s'incruste pas dans un .docx)</li>
+          <li>Si une FDS ne peut pas être incluse (hors-ligne ou introuvable), le fichier PDF/ZIP est préfixé <code>INCOMPLET_</code> et un message vous prévient — reconnectez-vous puis relancez l'export</li>
         </ul>
         <p><strong>FDS importées par défaut</strong> : 9 FDS Würth (PURLOGIC CLEAN/DUO, GALVA SPRAY CLAIR, MULTI, NETTOYANT MULTI-USAGE 1L+5L, WNC 50, CARTOUCHE BUTANE/PROPANE) + 1 Polywater AFT-16.</p>
       </div></div></div>
@@ -2783,17 +2792,18 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <li>Le <strong>contact principal</strong> est le défaut affiché dans les champs racine (responsable, fonction, tel, email)</li>
           <li>Dans le formulaire ICP, le <strong>select "Personne enregistrée"</strong> propose la liste complète des contacts de l'entreprise sélectionnée (tri alpha)</li>
           <li>Les nouvelles personnes saisies dans une ICP/PDP enrichissent automatiquement le répertoire de l'entreprise (ajoutées comme contacts additionnels, sans toucher au contact principal)</li>
-          <li>54 contacts AGRIWATT importés depuis le registre du personnel (terrain : conducteurs, électriciens, poseurs, techniciens, chefs d'équipe…)</li>
+          <li>Les contacts AGRIWATT du personnel terrain (conducteurs, électriciens, poseurs, techniciens, chefs d'équipe…) sont présents en base et la liste s'enrichit au fil de l'eau</li>
         </ul>
-        <p><strong>Recherche d'entreprise</strong> dans la modal "Ajouter EE" : tape les premières lettres, recherche live dans 5000+ entreprises Sellsy synchronisées.</p>
+        <p><strong>Alimenter le répertoire</strong> : bouton <strong>Ajouter</strong> (saisie manuelle), <strong>Import Sellsy (CSV)</strong>, ou la synchronisation automatique Sellsy (Réglages → Intégration Sellsy, par SIRET).</p>
+        <p><strong>Recherche d'entreprise</strong> dans la modal "Ajouter EE" : tape les premières lettres, recherche live dans les entreprises Sellsy synchronisées (plusieurs milliers).</p>
       </div></div></div>
 
       <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-6">6. Permis de Feu</button></h2><div id="tuto-6" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-6">
-        <p>Onglet <strong>Permis de Feu</strong> du PDP — activable au cas par cas (déclenché automatiquement si un risque "Soudure", "Incendie", "Échauffement" est identifié).</p>
+        <p>Onglet <strong>Permis de feu</strong> du PDP — <strong>masqué par défaut</strong>. Il apparaît automatiquement dès qu'un risque « point chaud » est identifié dans l'onglet <strong>Risques</strong> (Soudure, Incendie / Explosion, Échauffement, Paille / Fourrage), ou reste affiché si un permis a déjà été activé. Un message t'avertit lorsqu'un risque point chaud est détecté.</p>
         <ul>
           <li>Types de travaux : soudage, tronçonnage, meulage, thermosoudure, etc.</li>
           <li>Risques structure / activité / environnement</li>
-          <li>Dates et horaires de validité (24h max sans renouvellement)</li>
+          <li>Dates et horaires de validité (24h max sans renouvellement). <strong>Rappel affiché dans l'app</strong> : travaux par points chauds interdits après <strong>12h00 (midi)</strong> afin de laisser le temps aux rondes de surveillance, et permis à signer/valider par le client (EU) avant tout démarrage</li>
           <li>Opérateurs autorisés</li>
           <li>Consignes avant / pendant / après les travaux (cases à cocher)</li>
           <li><strong>Signataires pré-remplis</strong> : Représentant EU (= contact EU PDP) + Représentant Entreprise Intervenante (= Rep EE de l'ICP). L'Exécutant point chaud reste à saisir manuellement.</li>
@@ -2805,12 +2815,12 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-7">7. Exports (Word, PDF, ZIP)</button></h2><div id="tuto-7" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-7">
         <p><strong>Boutons d'export</strong> en bas du PDP/ICP :</p>
         <ul>
-          <li><strong>Export Word (.docx)</strong> — document seul, mise en forme professionnelle</li>
-          <li><strong>Export PDF</strong> — document seul, figé pour impression</li>
+          <li><strong>Export Word (.docx)</strong> — mise en forme professionnelle. Les FDS référencées sont listées en annexe (« Annexes — FDS », fournies séparément)</li>
+          <li><strong>Export PDF</strong> — figé pour impression. <strong>Les FDS sont intégrées en pages réelles à la fin du PDF</strong> → dossier complet sans passer par le ZIP</li>
           <li><strong>ZIP complet (Word + annexes)</strong> — Word + dossier <code>Documents_joints/</code> avec toutes les FDS et docs joints</li>
           <li><strong>ZIP complet (PDF + annexes)</strong> — pareil avec le PDF</li>
           <li><strong>Permis de feu seul (Word/PDF)</strong> — extrait juste le permis</li>
-          <li><strong>PDP sous-traitant</strong> — variante allégée à transmettre aux EE</li>
+          <li><strong>PDP simplifié sous-traitant (Word)</strong> — variante allégée à imprimer et transmettre aux EE qui n'ont pas l'app</li>
         </ul>
         <p><i class="bi bi-droplet-half"></i> <strong>Fiche réflexe FR-01 « Pollution accidentelle »</strong> : annexée automatiquement en dernière page de chaque export Word et PDF du PDP, pour consultation par les techniciens sur le chantier.</p>
         <p><strong>Format de nom de fichier</strong> :</p>
@@ -2862,8 +2872,13 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <li>Compteur <em>X / Y PDP affichés</em> quand un filtre est actif</li>
           <li>Bouton <strong>X</strong> pour reset tous les filtres</li>
         </ul>
-        <p><strong>Liste ICP :</strong> recherche similaire (site, OPP, objet) + filtres statut/année.</p>
-        <p><strong>Affichage</strong> : chaque carte montre badge statut, badge OPP-XXXX bleu, n° et titre. Format identique aux noms de fichier export.</p>
+        <p><strong>Liste ICP :</strong> recherche multi-champs (site, OPP, objet) + filtres <strong>statut</strong>, <strong>type</strong>, <strong>agence</strong>, <strong>site</strong>, <strong>conducteur</strong>, <strong>technicien</strong> et <strong>année</strong>.</p>
+        <ul>
+          <li>Filtre <strong>Type</strong> : <em>Maintenance</em> / <em>Travaux / PDP</em> — permet d'isoler les ICP réalisées par l'équipe maintenance des ICP liées à un chantier travaux/PDP.</li>
+          <li>Filtre <strong>Technicien</strong> : liste l'équipe maintenance (+ option <em>« — Non attribué — »</em> = ICP sans réalisateur maintenance identifié, donc en général travaux).</li>
+        </ul>
+        <p><strong>Affichage</strong> : chaque carte montre le badge statut, un badge vert <span class="badge" style="background:#00693E;color:#fff"><i class="bi bi-tools me-1"></i>Maintenance</span> si l'ICP a été réalisée par l'équipe maintenance, le badge <span class="badge bg-info text-white">OPP-XXXX</span> bleu, le n° et le titre. Une ICP rattachée à un PDP porte aussi un badge <span class="badge bg-info">PDP lié</span>.</p>
+        <p class="text-muted"><i class="bi bi-info-circle me-1"></i>La détection « Maintenance » est automatique : l'app reconnaît le nom d'un membre de l'équipe maintenance parmi les participants de l'ICP.</p>
       </div></div></div>
 
       <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-11">11. Risques et Pictogrammes</button></h2><div id="tuto-11" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-11">
@@ -2897,6 +2912,8 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <li>Le préfixe <strong>OPP-</strong> est automatique : tape juste les chiffres (<em>04146</em>)</li>
           <li>La <strong>barre de progression</strong> en haut du PDP indique le taux de complétion</li>
           <li>Le <strong>point vert/orange</strong> à côté de "Enregistré" indique si des modifications non sauvegardées existent</li>
+          <li><strong>Protection anti-perte</strong> : si tu quittes/fermes l'onglet avec une fiche non enregistrée, l'app t'avertit. Sur mobile, basculer d'appli ou verrouiller l'écran <strong>sauvegarde automatiquement</strong> la fiche en cours (dès le premier caractère saisi, même une nouvelle ICP/PDP jamais enregistrée). Pense quand même à cliquer <strong>Enregistrer</strong> pour figer le statut</li>
+          <li>Une <strong>signature effacée</strong> à l'écran disparaît bien des exports (elle ne réapparaît plus)</li>
           <li>Sur mobile, bouton <strong>+</strong> en bas pour créer rapidement un PDP/ICP</li>
           <li>App fonctionne <strong>hors-ligne</strong> grâce au service worker — sync auto à la reconnexion</li>
           <li>Le <strong>nom du fichier exporté</strong> = format complet OPP_PDP-XXX_titre — pratique pour retrouver dans SharePoint</li>
@@ -2925,11 +2942,12 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <li><strong>Validité maximale : 24 heures</strong> à compter de la signature</li>
           <li>Au-delà : nouveau permis avec <strong>nouvelle signature de l'EU</strong> obligatoire — pas de simple "reconduction"</li>
           <li>Sur un chantier pluri-journées, prévoir <strong>un permis par jour</strong> dans le planning de l'équipe</li>
+          <li class="text-danger"><strong>Règle Agriwatt affichée dans l'app</strong> : les travaux par points chauds sont <strong>interdits après 12h00 (midi)</strong> — tout point chaud doit être terminé avant midi pour laisser le temps aux rondes de surveillance post-intervention.</li>
         </ul>
 
         <h6 class="mt-3 mb-2 text-primary">Procédure dans l'application — étape par étape</h6>
         <ol>
-          <li>Ouvrir le PDP concerné. Si l'onglet <strong>🔥 Permis de feu</strong> n'apparaît pas en haut, cocher la mesure <em>« Permis de feu pour travaux par points chauds »</em> dans <strong>Risques → Mesures de prévention</strong> ; l'onglet s'affichera automatiquement.</li>
+          <li>Ouvrir le PDP concerné. Si l'onglet <strong>🔥 Permis de feu</strong> n'apparaît pas en haut, identifier dans l'onglet <strong>Risques</strong> un risque « point chaud » (Soudure, Incendie / Explosion, Échauffement, Paille / Fourrage) ; l'onglet s'affichera automatiquement. La mesure de prévention <em>« Permis de feu pour travaux par points chauds »</em> est disponible en bouton rapide dans l'onglet <strong>Mesures</strong>.</li>
           <li>Aller sur l'onglet <strong>Permis de feu</strong>. Renseigner :
             <ul>
               <li><strong>Localisation précise</strong> du point chaud (zone, étage, repère)</li>
@@ -2988,6 +3006,103 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <li>En cas de doute sur la nécessité (ex : meulage léger sur acier inox propre), <strong>par défaut on émet un permis</strong> — c'est gratuit, ça protège tout le monde</li>
         </ul>
 
+      </div></div></div>
+
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-15">15. Suivi maintenance : tableau de bord &amp; trophées</button></h2><div id="tuto-15" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-15">
+        <p>L'app pilote l'activité <strong>ICP de l'équipe maintenance</strong> (Burkarth, Burtin, Guillaume, Huleux, Karquel, Kleische, Lion). La détection est automatique : une ICP est rattachée à un technicien dès que son nom apparaît parmi les participants (voir aussi le badge <span class="badge" style="background:#00693E;color:#fff"><i class="bi bi-tools me-1"></i>Maintenance</span> et le filtre Type au §10).</p>
+
+        <h6 class="mt-3 mb-2 text-primary">Tableau de bord — « ICP Maintenance — par mois »</h6>
+        <ul>
+          <li><strong>Réservé aux administrateurs</strong> (indicateur de pilotage managérial, masqué pour les autres comptes).</li>
+          <li>Tableau croisé <strong>technicien × mois</strong> : nombre d'ICP réalisées par chacun, total par technicien et total par mois.</li>
+          <li><strong>Sélecteur d'année</strong> en haut du bloc ; l'année en cours n'affiche que les mois écoulés.</li>
+          <li>Une ligne signale les <strong>ICP non rattachées</strong> à un technicien maintenance (réalisateur non renseigné ou hors équipe) — utile pour repérer les saisies à compléter.</li>
+        </ul>
+
+        <h6 class="mt-3 mb-2 text-primary">Trophées maintenance</h6>
+        <p>Reconnaissance de la <strong>qualité et de la régularité</strong> des ICP. Accessibles à <strong>l'équipe maintenance et aux administrateurs</strong> (onglet Trophées). Chaque trophée a 3 paliers <strong>bronze / argent / or</strong>.</p>
+        <ul>
+          <li>📋 <strong>Dossier complet</strong> — ICP avec risques, conformité et observations renseignés</li>
+          <li>✍️ <strong>Signatures au complet</strong> — ICP signées EU et représentant EE</li>
+          <li>📸 <strong>Reporter</strong> — ICP comportant au moins une photo</li>
+          <li>⚡ <strong>Réactif</strong> — ICP signées le jour même de la visite</li>
+          <li>✅ <strong>Sans faille</strong> — taux de complétude moyen (≥ 5 ICP requises)</li>
+          <li>🔥 <strong>Série</strong> — plus longue série de mois consécutifs avec ICP</li>
+          <li>📅 <strong>Assidu</strong> — mois distincts avec ICP sur les 12 derniers mois</li>
+          <li>📍 <strong>Géolocalisé</strong> — ICP avec coordonnées GPS (désactivé par défaut)</li>
+        </ul>
+        <ul>
+          <li><strong>Mur d'équipe</strong> : classement collectif pour valoriser la dynamique du groupe (ta ligne est surlignée).</li>
+          <li><strong>Configuration</strong> : <em>Réglages → 🏆 Trophées maintenance</em> (admin) — activer/désactiver chaque trophée et ajuster les paliers. La config est <strong>partagée via SharePoint</strong>.</li>
+        </ul>
+        <p class="text-muted"><i class="bi bi-info-circle me-1"></i>Thibault HOCEDEZ (QSE) et Franck LAMY (conducteur travaux) sont volontairement exclus du décompte maintenance.</p>
+      </div></div></div>
+
+      <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-16">16. Paramètres (Réglages)</button></h2><div id="tuto-16" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-16">
+        <p>L'onglet <strong><i class="bi bi-gear"></i> Paramètres</strong> regroupe toute la configuration de l'application. Il est <strong>visible uniquement par les administrateurs</strong> (masqué pour les autres comptes), et la plupart des réglages sont <strong>partagés via SharePoint</strong>. Les sections, dans l'ordre :</p>
+
+        <h6 class="mt-3 mb-2 text-primary">1. Aide</h6>
+        <p><strong>Réactiver le tour d'aide</strong> : relance le guide d'accueil à la prochaine ouverture d'une fiche ICP ou PDP.</p>
+
+        <h6 class="mt-3 mb-2 text-primary">2. Mode « Travail en cours »</h6>
+        <p>Affiche un <strong>bandeau d'avertissement</strong> à tous les utilisateurs quand une maintenance de l'app est en cours (évite les saisies pendant une intervention technique).</p>
+
+        <h6 class="mt-3 mb-2 text-primary">3. Agences Agriwatt / Enersolys</h6>
+        <p>Liste des <strong>agences sélectionnables</strong> à la création d'un PDP. Renseigne <strong>adresse et SIRET</strong> de chaque agence pour qu'ils apparaissent dans les exports. Bouton <em>Ajouter une agence</em>.</p>
+
+        <h6 class="mt-3 mb-2 text-primary">4. Bibliothèque FDS</h6>
+        <p>Import des PDF de Fiches de Données de Sécurité et gestion du marquage <strong>« Standard »</strong> (rattachées automatiquement à chaque nouveau PDP). Détails au §4.</p>
+
+        <h6 class="mt-3 mb-2 text-primary">5. Habilitations &amp; Signataires</h6>
+        <ul>
+          <li>Base de référence des <strong>salariés, habilitations et signataires</strong> (alimente l'onglet « Autorisations » des PDP). Bouton <em>Gérer</em>.</li>
+          <li><strong>Template autorisation interne</strong> — valeurs par défaut du tableau d'habilitation électrique (NF C 18-510) et du périmètre.</li>
+          <li><strong>Synchronisation auto depuis SharePoint</strong> — colle l'URL du fichier Excel RH partagé ; l'app le relit avant chaque génération d'autorisations.</li>
+        </ul>
+
+        <h6 class="mt-3 mb-2 text-primary">6. Synchronisation SharePoint</h6>
+        <p>État de la connexion, bouton <strong>Synchroniser maintenant</strong>, et <strong>Re-archiver tous les PDP/ICP</strong> (régénère Word + PDF de tous les documents avec le format de nom à jour et les ré-uploade). Détails au §8.</p>
+
+        <h6 class="mt-3 mb-2 text-primary">7. Administrateurs</h6>
+        <p><strong>Ajouter / retirer</strong> les personnes ayant les droits admin (liste partagée entre appareils). Tant qu'<strong>aucun admin n'est défini</strong>, tout le monde a les droits (le temps de la première configuration).</p>
+
+        <h6 class="mt-3 mb-2 text-primary">8. Notifications par mail</h6>
+        <p>Adresses qui reçoivent un <strong>mail à chaque nouveau risque proposé</strong>. Le mail part depuis le compte SharePoint de la personne qui propose.</p>
+
+        <h6 class="mt-3 mb-2 text-primary">9. Étapes de prise de photos (ICP / visite)</h6>
+        <p>Définit l'<strong>ordre guidé</strong> de prise de photos par zones (entrée, cheminement, tableau, toiture…). Adaptable selon le type de site.</p>
+
+        <h6 class="mt-3 mb-2 text-primary">10. Risques en attente de validation</h6>
+        <p>Nouveaux risques proposés par les utilisateurs. Un <strong>admin les valide</strong> pour qu'ils intègrent le Document Unique (DUERP), ou les rejette.</p>
+
+        <h6 class="mt-3 mb-2 text-primary">11. Risques masqués du catalogue</h6>
+        <p>Risques standard <strong>retirés du sélecteur</strong> par un admin. Ils peuvent être <strong>restaurés</strong> ici.</p>
+
+        <h6 class="mt-3 mb-2 text-primary">12. Document Unique (DUERP)</h6>
+        <p><strong>Exporter le DUERP (Word)</strong> : document regroupant tous les risques validés par catégorie (standard + personnalisés approuvés).</p>
+
+        <h6 class="mt-3 mb-2 text-primary">13. Journal d'activité</h6>
+        <p>Historique des <strong>connexions, sauvegardes et modifications</strong> (5000 derniers événements), avec export CSV — utile pour retrouver qui a fait quoi et quand.</p>
+
+        <h6 class="mt-3 mb-2 text-primary">14. 🏆 Trophées maintenance</h6>
+        <p>Activer/désactiver chaque trophée et ajuster les <strong>paliers bronze/argent/or</strong>. Config partagée via SharePoint. Détails au §15.</p>
+
+        <h6 class="mt-3 mb-2 text-primary">15. Données (sauvegarde / transfert)</h6>
+        <ul>
+          <li><strong>Exporter toutes les données</strong> — fichier <code>.json</code> complet (PDP, ICP, entreprises, FDS, paramètres).</li>
+          <li><strong>Exporter l'app avec données</strong> — génère une version autonome de l'app contenant les données (dépannage / consultation hors-ligne).</li>
+          <li><strong>Importer (ajouter)</strong> — fusionne <strong>sans écraser</strong> (peut créer des doublons si les fiches existent déjà).</li>
+          <li><strong>Importer (remplacer tout)</strong> — <span class="text-danger">efface toutes les données actuelles</span> puis importe (transfert d'appareil).</li>
+          <li><strong>Réinitialiser</strong> — <span class="text-danger">supprime toutes les données locales</span> (à utiliser avec prudence).</li>
+        </ul>
+        <p class="text-muted"><i class="bi bi-info-circle me-1"></i>En usage normal les données circulent automatiquement via SharePoint : l'export/import manuel sert aux sauvegardes ponctuelles ou à récupérer une fiche depuis un appareil non synchronisé.</p>
+
+        <h6 class="mt-3 mb-2 text-primary">16. Intégration Sellsy</h6>
+        <ul>
+          <li><strong>URL du proxy PHP</strong> — par défaut <code>sellsy-proxy.php</code> à la racine du site.</li>
+          <li><strong>Test de connexion</strong> — vérifie que le proxy répond.</li>
+          <li><strong>Synchroniser le répertoire entreprises</strong> — importe / met à jour les sociétés Sellsy dans le répertoire local (par SIRET).</li>
+        </ul>
       </div></div></div>
 
     </div>
