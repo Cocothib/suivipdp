@@ -5363,6 +5363,16 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
+// Garde anti-perte de saisie : avertit si une fiche PDP/ICP a des modifs non enregistrées
+window.addEventListener('beforeunload', e => {
+    if (typeof App !== 'undefined' && App._formDirty) { e.preventDefault(); e.returnValue = ''; }
+});
+// Flush automatique silencieux de la fiche en cours (protection mobile : onglet en arrière-plan / fermeture)
+window.addEventListener('pagehide', () => { if (typeof App !== 'undefined') App._flushCurrentForm(); });
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && typeof App !== 'undefined') App._flushCurrentForm();
+});
+
 // ========================================
 // SELLSY API (via PHP proxy)
 // ========================================
@@ -6934,6 +6944,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
 const App = {
   currentPDP: null,
   currentView: 'dashboard',
+  _formDirty: false,
 
   async init() {
     const _step = (txt, pct) => { const s=document.getElementById('loading-step'); const b=document.getElementById('loading-bar'); if(s)s.textContent=txt; if(b)b.style.width=pct+'%'; };
@@ -7039,6 +7050,9 @@ const App = {
     document.querySelectorAll('.navbar-nav .nav-link').forEach(n => n.classList.remove('active'));
     document.querySelector(`.navbar-nav .nav-link[data-page="${view}"]`)?.classList.add('active');
     this.currentView = view;
+    // Reset du flag "saisie non enregistrée" à chaque (ré)ouverture/sortie de fiche
+    // pour éviter les faux positifs de la garde anti-perte (beforeunload/flush).
+    this._formDirty = false;
     if (view === 'dashboard') this.updateDashboard();
     if (view === 'list') this.renderPDPList();
     if (view === 'icps') this.renderICPList();
@@ -8133,16 +8147,81 @@ const App = {
 
   // Statut de sauvegarde
   _markEditing() {
+    this._formDirty = true;
     const el = document.getElementById('save-status');
     if (el) el.innerHTML = '<span class="dot dot-editing"></span>Non enregistré';
     const fab = document.getElementById('fab-save');
     if (fab && fab.classList.contains('visible')) fab.classList.add('unsaved');
+    // LOT 1 (lazy create) : au 1er édit d'une fiche NOUVELLE (pas encore d'id),
+    // on la matérialise en base pour obtenir un id, afin que _flushCurrentForm
+    // (qui exige un id) puisse ensuite la protéger en cas de bascule d'onglet/fermeture.
+    // Fire-and-forget : _markEditing est synchrone et tous ses appelants ignorent
+    // sa valeur de retour, donc on ne bloque pas la frappe.
+    this._materializeNewForm();
+  },
+
+  // Création paresseuse : transforme la fiche en cours (NOUVELLE, sans id) en
+  // enregistrement persistant. Idempotent (guard __creatingForm) car _markEditing est
+  // appelé en rafale par les listeners input/change avant que le 1er add résolve.
+  async _materializeNewForm() {
+    const v = this.currentView;
+    let cur = null, table = null;
+    if (v === 'pdp-detail' && this.currentPDP) { cur = this.currentPDP; table = db.pdps; }
+    else if (v === 'icp-detail' && this.currentICP) { cur = this.currentICP; table = db.icps; }
+    else return;
+    if (cur.id || this.__creatingForm) return; // déjà persistée ou création en cours
+    this.__creatingForm = true; // guard sur l'App (non sérialisé dans la fiche)
+    try {
+      // Sérialise la saisie courante dans l'objet avant le add, pour que le brouillon
+      // matérialisé contienne déjà ce que l'utilisateur vient de taper.
+      if (v === 'pdp-detail') { try { this.collectForm(); this.captureAllSigs(); } catch {} }
+      else { try { this.collectICPForm(); } catch {} }
+      if (cur.id) return; // un save concurrent a pu lui donner un id entre-temps
+      if (!cur.uid) cur.uid = _uid();
+      const newId = await table.add(cur);
+      cur.id = newId;
+      // Numérotation identique à savePDP/saveICP (basée sur l'id), puis put.
+      const yyyymm = `${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}`;
+      if (v === 'pdp-detail') cur.numero = `PDP-${yyyymm}-${String(newId).padStart(4,'0')}`;
+      else cur.numero = `ICP-${yyyymm}-${String(newId).padStart(4,'0')}`;
+      await table.put(cur);
+      // Le bouton Supprimer devient pertinent dès que la fiche existe en base.
+      const delBtn = document.getElementById(v === 'pdp-detail' ? 'btn-delete-pdp' : 'btn-delete-icp');
+      if (delBtn) delBtn.style.display = '';
+    } catch (e) {
+      console.warn('_materializeNewForm:', e);
+    } finally {
+      this.__creatingForm = false;
+    }
   },
   _markSaved() {
+    this._formDirty = false;
     const el = document.getElementById('save-status');
     if (el) el.innerHTML = '<span class="dot dot-saved"></span>Enregistré';
     const fab = document.getElementById('fab-save');
     if (fab) fab.classList.remove('unsaved');
+  },
+
+  // Flush silencieux de la fiche en cours : persiste en base la saisie non enregistrée
+  // quand l'onglet passe en arrière-plan ou se ferme (protection mobile).
+  // Volontairement sans validation/toast/navigation/auto-export : on réutilise
+  // uniquement la sérialisation DOM->objet (collectForm/collectICPForm + signatures)
+  // puis un db.put direct. Ne persiste que les fiches déjà existantes (id présent).
+  _flushCurrentForm() {
+    if (!this._formDirty) return;
+    try {
+      if (this.currentView === 'pdp-detail' && this.currentPDP?.id) {
+        this.captureEmargementSigs();
+        this.collectForm();
+        this.captureAllSigs();
+        db.pdps.put(this.currentPDP);
+        this._formDirty = false;
+      } else if (this.currentView === 'icp-detail' && this.currentICP?.id) {
+        this.collectICPForm();
+        db.icps.put(this.currentICP);
+        this._formDirty = false;
+      }
+    } catch (e) { console.warn('_flushCurrentForm:', e); }
   },
 
   // ---- EE ----
@@ -8211,6 +8290,7 @@ const App = {
     bootstrap.Modal.getInstance(document.getElementById('modal-entreprise'))?.hide();
     setTimeout(() => this.resetEntModal(), 300);
     this.currentPDP.entreprisesExt.push({ nom:e.nom, adresse:e.adresse, responsable:e.responsable, fonction:e.fonction, tel:e.tel, email:e.email, siret:e.siret, activite:e.activite, sousTraitantDe:'', _repoId:e.id });
+    if (this.currentPDP?.id) { this.currentPDP.dateModification = new Date().toISOString(); await db.pdps.put(this.currentPDP); }
     this.renderEEList(); this.renderSignaturesEE(); this.prefillEmargements(); this.addHist(`EE ajoutée: ${e.nom}`); this.toast('EE ajoutée');
   },
 
@@ -8268,6 +8348,7 @@ const App = {
     const n = this.currentPDP.entreprisesExt[i]?.nom||'';
     if (!await this.confirm(`Retirer ${n} ?`)) return;
     this.currentPDP.entreprisesExt.splice(i,1);
+    if (this.currentPDP?.id) { this.currentPDP.dateModification = new Date().toISOString(); await db.pdps.put(this.currentPDP); }
     this.renderEEList(); this.renderSignaturesEE(); this.addHist(`EE retirée: ${n}`);
   },
 
@@ -10794,8 +10875,8 @@ const App = {
     const hasMain = main.nom || main.fonction || main.tel || main.email;
     data.contacts = hasMain ? [main, ...additional] : additional;
     const editId = document.getElementById('ent-edit-id').value;
-    if (editId === 'new-ee') { const repoId = await db.entreprises.add(data); data._repoId = repoId; this.currentPDP.entreprisesExt.push(data); this.renderEEList(); this.renderSignaturesEE(); this.prefillEmargements(); this.addHist(`EE ajoutée: ${nom}`); }
-    else if (editId?.startsWith('ee-')) { const idx = parseInt(editId.replace('ee-','')); const repoId = this.currentPDP.entreprisesExt[idx]?._repoId; if (repoId) { data._repoId = repoId; await db.entreprises.put({...data, id:repoId}); } data._repoId = repoId||undefined; this.currentPDP.entreprisesExt[idx] = data; this.renderEEList(); this.renderSignaturesEE(); }
+    if (editId === 'new-ee') { const repoId = await db.entreprises.add(data); data._repoId = repoId; this.currentPDP.entreprisesExt.push(data); if (this.currentPDP?.id) { this.currentPDP.dateModification = new Date().toISOString(); await db.pdps.put(this.currentPDP); } this.renderEEList(); this.renderSignaturesEE(); this.prefillEmargements(); this.addHist(`EE ajoutée: ${nom}`); }
+    else if (editId?.startsWith('ee-')) { const idx = parseInt(editId.replace('ee-','')); const repoId = this.currentPDP.entreprisesExt[idx]?._repoId; if (repoId) { data._repoId = repoId; await db.entreprises.put({...data, id:repoId}); } data._repoId = repoId||undefined; this.currentPDP.entreprisesExt[idx] = data; if (this.currentPDP?.id) { this.currentPDP.dateModification = new Date().toISOString(); await db.pdps.put(this.currentPDP); } this.renderEEList(); this.renderSignaturesEE(); }
     else if (editId && editId!=='') { data.id = parseInt(editId); await db.entreprises.put(data); }
     else { await db.entreprises.add(data); }
     bootstrap.Modal.getInstance(document.getElementById('modal-entreprise')).hide();
@@ -11915,6 +11996,7 @@ const App = {
       document.getElementById('btn-delete-icp').style.display = '';
       const newContactsAdded = await this.addNewContactsToRepo(v, 'icps');
       this.toast(newContactsAdded ? `ICP enregistrée + ${newContactsAdded} ajout(s) au répertoire` : 'ICP enregistrée');
+      this._formDirty = false;
       DataSync.markDirty();
       if (typeof ActivityLog !== 'undefined') ActivityLog.log(wasNew ? 'icp.create' : 'icp.update', { id: v.id, numero: v.numero, site: v.site, pdpId: v.pdpId || null });
       // Auto-export PDF + Word à la transition vers Validée
