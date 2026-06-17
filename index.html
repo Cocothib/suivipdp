@@ -1434,7 +1434,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       </div>
     </div>
     <div class="alert alert-danger small mb-2" id="pdp-locked-banner" style="display:none">
-      <i class="bi bi-lock me-1"></i><strong>PDP clôturé</strong> — Ce PDP est en lecture seule. Cliquez sur <strong>Réouvrir</strong> pour le modifier.
+      <i class="bi bi-lock me-1"></i><strong>PDP clôturé</strong> — Ce PDP est en lecture seule. Cliquer sur <strong>Réouvrir</strong> pour le modifier.
     </div>
     <div class="alert alert-warning small mb-2" id="pdp-editing-banner" style="display:none"></div>
 
@@ -1487,7 +1487,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
                 <div class="input-group">
                   <span class="input-group-text"><i class="bi bi-bookmark"></i></span>
                   <span class="input-group-text">OPP-</span>
-                  <input type="text" class="form-control" id="pdp-ref-operation" placeholder="Tapez un n° ou un nom de client…" autocomplete="off" oninput="App.oppAutocomplete('pdp')" onfocus="App.oppAutocomplete('pdp')" onblur="App.hideOppAutocomplete('pdp')">
+                  <input type="text" class="form-control" id="pdp-ref-operation" placeholder="Saisir un n° ou un nom de client…" autocomplete="off" oninput="App.oppAutocomplete('pdp')" onfocus="App.oppAutocomplete('pdp')" onblur="App.hideOppAutocomplete('pdp')">
                   <button class="btn btn-outline-success" type="button" onclick="App.openSellsyOppSearchModal('pdp')" title="Parcourir toutes les opportunités Sellsy"><i class="bi bi-search"></i></button>
                 </div>
                 <div id="pdp-opp-ac" class="list-group shadow-sm" style="display:none; position:absolute; z-index:1080; top:100%; left:0; right:0; max-height:280px; overflow-y:auto;"></div>
@@ -1608,9 +1608,9 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
 
     <!-- Section: Entreprises -->
     <div id="section-entreprises" class="pdp-section" style="display:none">
-      <div class="section-helper" data-type-label="ent-helper"><i class="bi bi-lightbulb"></i>Identifiez l'entreprise utilisatrice (votre client) et les entreprises qui interviennent. Le PDP est obligatoire dès qu'une entreprise extérieure travaille sur le site.</div>
+      <div class="section-helper" data-type-label="ent-helper"><i class="bi bi-lightbulb"></i>Identifier l'entreprise utilisatrice (le client) et les entreprises qui interviennent. Le PDP est obligatoire dès qu'une entreprise extérieure travaille sur le site.</div>
       <div class="form-section">
-        <div class="form-section-title"><i class="bi bi-building"></i><span data-type-label="ent-eu-title">Entreprise Utilisatrice (EU) — votre client</span></div>
+        <div class="form-section-title"><i class="bi bi-building"></i><span data-type-label="ent-eu-title">Entreprise Utilisatrice (EU) — le client</span></div>
         <div class="field-group" id="eu-site-select-group">
           <div class="field-group-title"><i class="bi bi-geo-alt-fill"></i> Sélection rapide du site (chantier interne)</div>
           <select class="form-select mb-2" id="eu-site-select" onchange="App.onSiteSelect(this.value)">
@@ -1731,7 +1731,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
 
     <!-- Section: Risques -->
     <div id="section-risques" class="pdp-section" style="display:none">
-      <div class="section-helper"><i class="bi bi-lightbulb"></i>C'est le coeur du PDP : identifiez les dangers liés à la co-activité. Sélectionnez les risques pertinents, ils seront automatiquement intégrés aux documents.</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i>C'est le coeur du PDP : identifier les dangers liés à la co-activité. Sélectionner les risques pertinents, ils seront automatiquement intégrés aux documents.</div>
       <div class="form-section">
         <div class="form-section-title d-flex justify-content-between align-items-center">
           <span><i class="bi bi-exclamation-triangle"></i>Analyse des risques</span>
@@ -1757,7 +1757,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
 
     <!-- Section: Mesures -->
     <div id="section-mesures" class="pdp-section" style="display:none">
-      <div class="section-helper"><i class="bi bi-lightbulb"></i>Ajoutez les mesures de prévention en un clic avec les boutons rapides. Elles apparaitront dans le document final face aux risques identifiés.</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i>Ajouter les mesures de prévention en un clic avec les boutons rapides. Elles apparaitront dans le document final face aux risques identifiés.</div>
       <div class="form-section">
         <div class="form-section-title d-flex justify-content-between align-items-center">
           <span><i class="bi bi-shield-check"></i>Mesures de prévention</span>
@@ -1789,7 +1789,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
 
     <!-- Section: Exigences EU -->
     <div id="section-exigences" class="pdp-section" style="display:none">
-      <div class="section-helper"><i class="bi bi-lightbulb"></i><span data-type-label="exigences-helper">Les exigences sont les règles imposées par le client sur son site. Utilisez les boutons rapides pour les exigences courantes.</span></div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i><span data-type-label="exigences-helper">Les exigences sont les règles imposées par le client sur son site. Utiliser les boutons rapides pour les exigences courantes.</span></div>
       <div class="form-section">
         <div class="form-section-title d-flex justify-content-between align-items-center">
           <span><i class="bi bi-clipboard-check"></i><span data-type-label="exigences-title">Exigences Entreprise Utilisatrice</span></span>
@@ -1817,7 +1817,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
 
     <!-- Section: Urgence -->
     <div id="section-urgence" class="pdp-section" style="display:none">
-      <div class="section-helper"><i class="bi bi-lightbulb"></i>Ces informations sont essentielles en cas d'accident. Vérifiez les numéros et le nom du SST pour chaque chantier.</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i>Ces informations sont essentielles en cas d'accident. Vérifier les numéros et le nom du SST pour chaque chantier.</div>
       <div class="form-section">
         <div class="form-section-title"><i class="bi bi-telephone"></i>Consignes d'urgence</div>
         <div class="field-group" style="border-left: 3px solid #dc3545;">
@@ -2146,7 +2146,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
             <label class="btn btn-outline-primary btn-sm"><i class="bi bi-upload me-1"></i>Ajouter<input type="file" class="d-none" onchange="App.addDocument(event)" multiple></label>
             <button class="btn btn-outline-success btn-sm" onclick="App.attachStandardFDSManually()" title="Rattacher les FDS marquées Standard depuis la bibliothèque"><i class="bi bi-file-earmark-pdf me-1"></i>Importer FDS standard</button>
           </div>
-          <div class="small text-muted mt-1"><i class="bi bi-info-circle me-1"></i>Pour générer les autorisations internes des intervenants AGRIWATT, utilisez l'onglet <b>Autorisations</b>.</div>
+          <div class="small text-muted mt-1"><i class="bi bi-info-circle me-1"></i>Pour générer les autorisations internes des intervenants AGRIWATT, utiliser l'onglet <b>Autorisations</b>.</div>
         </div>
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-folder2-open"></i> Documents attachés</div>
@@ -2224,7 +2224,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <!-- Onglet Signataires -->
       <div class="tab-pane fade" id="tab-hab-signataires">
         <div class="d-flex justify-content-between mb-2 flex-wrap gap-2">
-          <div class="small text-muted">Les signataires sont enregistrés automatiquement lors de la première génération d'autorisation. Vous pouvez aussi les pré-enregistrer ici.</div>
+          <div class="small text-muted">Les signataires sont enregistrés automatiquement lors de la première génération d'autorisation. Pré-enregistrement également possible ici.</div>
           <button class="btn btn-primary btn-sm" onclick="AutorisationInterne.openSignataireForm()"><i class="bi bi-plus-lg me-1"></i>Ajouter signataire</button>
         </div>
         <div id="signataires-list-container"></div>
@@ -2316,7 +2316,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
               <div class="input-group input-group-sm">
                 <span class="input-group-text"><i class="bi bi-bookmark"></i></span>
                 <span class="input-group-text">OPP-</span>
-                <input type="text" class="form-control" id="icp-ref-operation" placeholder="Tapez un n° ou un nom de client…" autocomplete="off" oninput="App.oppAutocomplete('icp')" onfocus="App.oppAutocomplete('icp')" onblur="App.hideOppAutocomplete('icp')">
+                <input type="text" class="form-control" id="icp-ref-operation" placeholder="Saisir un n° ou un nom de client…" autocomplete="off" oninput="App.oppAutocomplete('icp')" onfocus="App.oppAutocomplete('icp')" onblur="App.hideOppAutocomplete('icp')">
                 <button class="btn btn-outline-success" type="button" onclick="App.openSellsyOppSearchModal()" title="Parcourir toutes les opportunités Sellsy"><i class="bi bi-search"></i></button>
               </div>
               <div id="icp-opp-ac" class="list-group shadow-sm" style="display:none; position:absolute; z-index:1080; top:100%; left:0; right:0; max-height:280px; overflow-y:auto;"></div>
@@ -2394,7 +2394,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <div class="row g-2">
           <div class="col-md-6">
             <label class="form-label" for="icp-ee-entreprise-input">Entreprise</label>
-            <input type="text" class="form-control" id="icp-ee-entreprise-input" list="icp-ee-ent-list" placeholder="Tapez pour rechercher…" oninput="App.onICPEERepEntrepriseInput(this.value)" onfocus="App.populateICPEERepEntreprises()" autocomplete="off">
+            <input type="text" class="form-control" id="icp-ee-entreprise-input" list="icp-ee-ent-list" placeholder="Saisir pour rechercher…" oninput="App.onICPEERepEntrepriseInput(this.value)" onfocus="App.populateICPEERepEntreprises()" autocomplete="off">
             <datalist id="icp-ee-ent-list"></datalist>
             <input type="hidden" id="icp-ee-entreprise-id">
           </div>
@@ -2422,7 +2422,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     <!-- ICP Délimitation, circulation & consignes (Code du travail R4512-3 / R4512-4) -->
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-cone-striped"></i>Délimitation, circulation &amp; consignes</div>
-      <div class="section-helper"><i class="bi bi-info-circle"></i> Points obligatoires de l'inspection commune (art. R4512-3 &amp; R4512-4). Cochez ce qui a été réalisé/abordé avec le client ; précisez si besoin.</div>
+      <div class="section-helper"><i class="bi bi-info-circle"></i> Points obligatoires de l'inspection commune (art. R4512-3 &amp; R4512-4). Cocher ce qui a été réalisé/abordé avec le client ; préciser si besoin.</div>
       <div id="icp-conformite">
         <div class="row g-2 align-items-center mb-2">
           <div class="col-12 col-md-5"><label class="check-card mb-0"><input class="form-check-input" type="checkbox" id="icp-conf-secteur-ok"> Secteur d'intervention délimité</label></div>
@@ -2557,7 +2557,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <span><i class="bi bi-buildings"></i>Agences Agriwatt / Enersolys</span>
         <button class="btn btn-sm btn-outline-primary" onclick="App.openAgenceForm()"><i class="bi bi-plus-lg me-1"></i>Ajouter une agence</button>
       </div>
-      <div class="section-helper"><i class="bi bi-lightbulb"></i> Liste des agences sélectionnables à la création d'un PDP. Modifiez l'adresse et le SIRET pour qu'ils apparaissent dans les exports.</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Liste des agences sélectionnables à la création d'un PDP. Modifier l'adresse et le SIRET pour qu'ils apparaissent dans les exports.</div>
       <div id="agences-list-container"></div>
     </div>
     <div class="form-section">
@@ -2600,7 +2600,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     </div>
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-cloud"></i>Synchronisation SharePoint</div>
-      <div class="section-helper"><i class="bi bi-lightbulb"></i> Synchronise vos PDP, ICP et entreprises avec SharePoint pour les partager entre appareils et collègues.</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Synchronise les PDP, ICP et entreprises avec SharePoint pour les partager entre appareils et collègues.</div>
       <div id="settings-sync-status"></div>
       <button class="btn btn-outline-warning btn-sm mt-2" onclick="App.archiveAllOldExports()" title="Génère les Word + PDF de tous les PDP/ICP existants et les uploade sur SharePoint avec les nouveaux noms"><i class="bi bi-cloud-arrow-up me-1"></i>Re-archiver tous les PDP/ICP</button>
     </div>
@@ -2631,7 +2631,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
 
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-eye-slash"></i>Risques masqués du catalogue</div>
-      <div class="section-helper"><i class="bi bi-lightbulb"></i> Risques du catalogue standard retirés du sélecteur par un administrateur. Vous pouvez les restaurer ici.</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Risques du catalogue standard retirés du sélecteur par un administrateur. Restauration possible ici.</div>
       <div id="settings-hidden-risks"></div>
     </div>
 
@@ -2651,13 +2651,13 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
 
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-trophy"></i>🏆 Trophées maintenance</div>
-      <div class="section-helper"><i class="bi bi-lightbulb"></i> Activez/désactivez chaque trophée, ajustez les paliers (bronze/argent/or) et les règles de calcul. La configuration est partagée via SharePoint.</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Activer/désactiver chaque trophée, ajuster les paliers (bronze/argent/or) et les règles de calcul. La configuration est partagée via SharePoint.</div>
       <div id="settings-trophees"></div>
     </div>
 
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-database"></i>Données</div>
-      <div class="section-helper"><i class="bi bi-lightbulb"></i> Exportez vos données pour les transférer vers un autre appareil ou créer une sauvegarde.</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Exporter les données pour les transférer vers un autre appareil ou créer une sauvegarde.</div>
       <div class="d-flex flex-wrap gap-2 mb-2">
         <button class="btn btn-outline-primary btn-sm" onclick="App.exportAllData()"><i class="bi bi-download me-1"></i>Exporter toutes les données</button>
         <button class="btn btn-primary btn-sm" onclick="App.exportStandaloneApp()"><i class="bi bi-box-arrow-up me-1"></i>Exporter l'app avec données</button>
@@ -2673,11 +2673,11 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     </div>
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-plug"></i>Intégration Sellsy</div>
-      <div class="section-helper"><i class="bi bi-lightbulb"></i> Connecte l'app à votre compte Sellsy via un proxy PHP hébergé sur OVH. Permet la recherche live et la synchronisation du répertoire entreprises depuis Sellsy.</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Connecte l'app au compte Sellsy via un proxy PHP hébergé sur OVH. Permet la recherche live et la synchronisation du répertoire entreprises depuis Sellsy.</div>
       <div class="field-group">
         <div class="field-group-title"><i class="bi bi-link-45deg"></i> URL du proxy PHP</div>
         <div class="row g-2">
-          <div class="col-md-9"><input type="text" class="form-control" id="sellsy-proxy-url" placeholder="sellsy-proxy.php (relatif) ou https://votre-site.fr/sellsy-proxy.php"></div>
+          <div class="col-md-9"><input type="text" class="form-control" id="sellsy-proxy-url" placeholder="sellsy-proxy.php (relatif) ou https://exemple-site.fr/sellsy-proxy.php"></div>
           <div class="col-md-3 d-flex gap-1"><button class="btn btn-primary btn-sm w-100" onclick="App.saveSellsyProxyUrl()"><i class="bi bi-check-lg me-1"></i>Enregistrer</button></div>
         </div>
         <div class="form-text">Si vide, l'app utilise <code>sellsy-proxy.php</code> à la racine du site.</div>
@@ -2689,7 +2689,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       </div>
       <div class="field-group">
         <div class="field-group-title"><i class="bi bi-arrow-repeat"></i> Synchroniser le répertoire entreprises</div>
-        <p class="small text-muted mb-2">Importe ou met à jour toutes les sociétés Sellsy dans votre répertoire local (mise à jour par SIRET).</p>
+        <p class="small text-muted mb-2">Importe ou met à jour toutes les sociétés Sellsy dans le répertoire local (mise à jour par SIRET).</p>
         <button class="btn btn-outline-success btn-sm" onclick="App.syncEntreprisesFromSellsy()"><i class="bi bi-cloud-download me-1"></i>Synchroniser depuis Sellsy</button>
       </div>
       <div class="alert alert-info small mb-0">
@@ -2736,13 +2736,13 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
 
       <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-2">2. Workflow type ICP → PDP (chantier externe)</button></h2><div id="tuto-2" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-2">
         <ol>
-          <li>Sur l'onglet <strong>ICP</strong>, clique sur <strong>Nouvelle ICP</strong> (bouton bleu en haut)</li>
-          <li>Dans le champ <strong>N° d'opération</strong> (préfixe OPP- automatique), tape les chiffres ou le nom du client (autocomplétion), ou clique la loupe 🔍 verte pour <strong>parcourir toutes les opportunités Sellsy</strong></li>
+          <li>Sur l'onglet <strong>ICP</strong>, cliquer sur <strong>Nouvelle ICP</strong> (bouton bleu en haut)</li>
+          <li>Dans le champ <strong>N° d'opération</strong> (préfixe OPP- automatique), taper les chiffres ou le nom du client (autocomplétion), ou cliquer la loupe 🔍 verte pour <strong>parcourir toutes les opportunités Sellsy</strong></li>
           <li>Le clic sur une opportunité Sellsy <strong>auto-remplit</strong> : adresse, GPS (géocodage automatique), Représentant EU, tél, email + crée l'entreprise client dans le répertoire</li>
-          <li>Section <strong>Participants à la visite</strong> : choisis l'<strong>Entreprise EE</strong> (AGRIWATT/Enersolys) puis la <strong>Personne enregistrée</strong> (liste des contacts de l'entreprise, tri alpha). Bouton <em>+ Ajouter une personne</em> pour les binômes</li>
-          <li><strong>Chantier interne</strong> : si la visite a lieu dans nos locaux (AGRIWATT/Enersolys = EU), coche <em>« Chantier interne »</em> en haut — une sélection rapide d'un site enregistré apparaît</li>
+          <li>Section <strong>Participants à la visite</strong> : choisir l'<strong>Entreprise EE</strong> (AGRIWATT/Enersolys) puis la <strong>Personne enregistrée</strong> (liste des contacts de l'entreprise, tri alpha). Bouton <em>+ Ajouter une personne</em> pour les binômes</li>
+          <li><strong>Chantier interne</strong> : si la visite a lieu dans nos locaux (AGRIWATT/Enersolys = EU), cocher <em>« Chantier interne »</em> en haut — une sélection rapide d'un site enregistré apparaît</li>
           <li><strong>Mode Express</strong> (interrupteur en haut) : masque les sections avancées (autres intervenants, liaison PDP) pour une visite simple et rapide</li>
-          <li>Identifie les risques (sélecteur par catégories), prends des photos, vérifie l'objet</li>
+          <li>Identifier les risques (sélecteur par catégories), prendre des photos, vérifier l'objet</li>
           <li>Section <strong>Signatures</strong> : tous les participants (EU + EE) ont leur propre case signature, pré-remplie avec leur nom</li>
           <li><strong>Enregistrer</strong> ✓ — le statut "Effectuée" archive la donnée. Passage à "Validée (signée)" déclenche un <strong>auto-archivage Word + PDF</strong> sur SharePoint</li>
           <li>Sur l'ICP, bouton <strong>Créer un PDP depuis cette ICP</strong> — le PDP hérite de toutes les infos (entreprise EU, adresse, GPS, participants, risques, photos)</li>
@@ -2750,7 +2750,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       </div></div></div>
 
       <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-3">3. Compléter un PDP</button></h2><div id="tuto-3" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-3">
-        <p>Le formulaire PDP est découpé en onglets (barre en haut, scrollable sur mobile). La <strong>barre de progression</strong> indique le taux de complétion. Beaucoup de champs sont déjà pré-remplis depuis l'ICP liée :</p>
+        <p>Le formulaire PDP est découpé en onglets (barre en haut, scrollable sur mobile). La <strong>barre de progression</strong> indique le taux de complétion. De nombreux champs sont déjà pré-remplis depuis l'ICP liée :</p>
         <ul>
           <li><strong>Général</strong> — Intitulé, N° PDP (auto), N° d'opération (OPP-), version, statut, <strong>type de chantier (Interne / Externe)</strong>, agence, localisation et dates</li>
           <li><strong>Entreprises</strong> — EU pré-remplie depuis Sellsy + EE (sous-traitants)</li>
@@ -2774,13 +2774,13 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-4">4. Bibliothèque FDS</button></h2><div id="tuto-4" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-4">
         <p>Les <strong>Fiches de Données de Sécurité</strong> sont gérées dans une bibliothèque centrale partagée — pas de duplication par PDP.</p>
         <ul>
-          <li><strong>Réglages → Bibliothèque FDS</strong> : importe les PDF (multi-sélection), coche/décoche "Standard"</li>
+          <li><strong>Réglages → Bibliothèque FDS</strong> : importer les PDF (multi-sélection), cocher/décocher "Standard"</li>
           <li>Les FDS marquées <strong>Standard</strong> sont <strong>auto-rattachées</strong> à chaque nouveau PDP (référence par ID, pas de copie)</li>
           <li>Pour un PDP existant : onglet <strong>Annexes → bouton vert "Importer FDS standard"</strong></li>
           <li>Les FDS apparaissent avec le badge <span class="badge bg-info text-white">REF</span> indiquant qu'elles pointent vers la bibliothèque</li>
           <li>Mise à jour d'une FDS dans la bibliothèque = mise à jour automatique dans tous les PDP qui la référencent</li>
           <li>Les FDS sont incluses dans le <strong>ZIP</strong> (dossier <code>Documents_joints/</code>) <strong>et désormais dans l'export PDF</strong> (les pages réelles des FDS sont annexées à la fin du document). L'export <strong>Word</strong> les liste dans une section « Annexes — FDS » (fournies séparément, car un PDF ne s'incruste pas dans un .docx)</li>
-          <li>Si une FDS ne peut pas être incluse (hors-ligne ou introuvable), le fichier PDF/ZIP est préfixé <code>INCOMPLET_</code> et un message vous prévient — reconnectez-vous puis relancez l'export</li>
+          <li>Si une FDS ne peut pas être incluse (hors-ligne ou introuvable), le fichier PDF/ZIP est préfixé <code>INCOMPLET_</code> et un message le signale — se reconnecter puis relancer l'export</li>
         </ul>
         <p><strong>FDS importées par défaut</strong> : 9 FDS Würth (PURLOGIC CLEAN/DUO, GALVA SPRAY CLAIR, MULTI, NETTOYANT MULTI-USAGE 1L+5L, WNC 50, CARTOUCHE BUTANE/PROPANE) + 1 Polywater AFT-16.</p>
       </div></div></div>
@@ -2788,18 +2788,18 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-5">5. Entreprises et contacts multiples</button></h2><div id="tuto-5" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-5">
         <p>Chaque entreprise du répertoire peut avoir <strong>plusieurs contacts</strong> (Contact principal + contacts additionnels).</p>
         <ul>
-          <li>Onglet <strong>Entreprises</strong> → édite une entreprise → section "Contacts additionnels" → bouton <em>+ Ajouter</em></li>
+          <li>Onglet <strong>Entreprises</strong> → éditer une entreprise → section "Contacts additionnels" → bouton <em>+ Ajouter</em></li>
           <li>Le <strong>contact principal</strong> est le défaut affiché dans les champs racine (responsable, fonction, tel, email)</li>
           <li>Dans le formulaire ICP, le <strong>select "Personne enregistrée"</strong> propose la liste complète des contacts de l'entreprise sélectionnée (tri alpha)</li>
           <li>Les nouvelles personnes saisies dans une ICP/PDP enrichissent automatiquement le répertoire de l'entreprise (ajoutées comme contacts additionnels, sans toucher au contact principal)</li>
           <li>Les contacts AGRIWATT du personnel terrain (conducteurs, électriciens, poseurs, techniciens, chefs d'équipe…) sont présents en base et la liste s'enrichit au fil de l'eau</li>
         </ul>
         <p><strong>Alimenter le répertoire</strong> : bouton <strong>Ajouter</strong> (saisie manuelle), <strong>Import Sellsy (CSV)</strong>, ou la synchronisation automatique Sellsy (Réglages → Intégration Sellsy, par SIRET).</p>
-        <p><strong>Recherche d'entreprise</strong> dans la modal "Ajouter EE" : tape les premières lettres, recherche live dans les entreprises Sellsy synchronisées (plusieurs milliers).</p>
+        <p><strong>Recherche d'entreprise</strong> dans la modal "Ajouter EE" : taper les premières lettres, recherche live dans les entreprises Sellsy synchronisées (plusieurs milliers).</p>
       </div></div></div>
 
       <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-6">6. Permis de Feu</button></h2><div id="tuto-6" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-6">
-        <p>Onglet <strong>Permis de feu</strong> du PDP — <strong>masqué par défaut</strong>. Il apparaît automatiquement dès qu'un risque « point chaud » est identifié dans l'onglet <strong>Risques</strong> (Soudure, Incendie / Explosion, Échauffement, Paille / Fourrage), ou reste affiché si un permis a déjà été activé. Un message t'avertit lorsqu'un risque point chaud est détecté.</p>
+        <p>Onglet <strong>Permis de feu</strong> du PDP — <strong>masqué par défaut</strong>. Il apparaît automatiquement dès qu'un risque « point chaud » est identifié dans l'onglet <strong>Risques</strong> (Soudure, Incendie / Explosion, Échauffement, Paille / Fourrage), ou reste affiché si un permis a déjà été activé. Un message s'affiche lorsqu'un risque point chaud est détecté.</p>
         <ul>
           <li>Types de travaux : soudage, tronçonnage, meulage, thermosoudure, etc.</li>
           <li>Risques structure / activité / environnement</li>
@@ -2807,8 +2807,8 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <li>Opérateurs autorisés</li>
           <li>Consignes avant / pendant / après les travaux (cases à cocher)</li>
           <li><strong>Signataires pré-remplis</strong> : Représentant EU (= contact EU PDP) + Représentant Entreprise Intervenante (= Rep EE de l'ICP). L'Exécutant point chaud reste à saisir manuellement.</li>
-          <li><strong>Renouvellements</strong> : pour les chantiers &gt; 24h, ajoute des périodes (chacune avec validation EU + Exécutant)</li>
-          <li><strong>Rondes de surveillance</strong> : ajoute une ronde par passage post-travaux (heure, inspecteur, observations, RAS) avec <strong>case signature dédiée</strong> pour émargement de l'inspecteur. Obligatoire au moins une ronde dans les 2h suivant la fin des travaux.</li>
+          <li><strong>Renouvellements</strong> : pour les chantiers &gt; 24h, ajouter des périodes (chacune avec validation EU + Exécutant)</li>
+          <li><strong>Rondes de surveillance</strong> : ajouter une ronde par passage post-travaux (heure, inspecteur, observations, RAS) avec <strong>case signature dédiée</strong> pour émargement de l'inspecteur. Obligatoire au moins une ronde dans les 2h suivant la fin des travaux.</li>
         </ul>
       </div></div></div>
 
@@ -2825,9 +2825,9 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <p><i class="bi bi-droplet-half"></i> <strong>Fiche réflexe FR-01 « Pollution accidentelle »</strong> : annexée automatiquement en dernière page de chaque export Word et PDF du PDP, pour consultation par les techniciens sur le chantier.</p>
         <p><strong>Format de nom de fichier</strong> :</p>
         <ul>
-          <li>PDP : <code>OPP-04146_PDP-202604-0004_BAYART Dominique.docx</code></li>
-          <li>Permis de feu : <code>OPP-04146_PERMIS-FEU_PDP-202604-0004_titre.docx</code></li>
-          <li>ICP : <code>OPP-04146_ICP-202604-0001_titre.docx</code></li>
+          <li>PDP : <code>OPP-XXXXX_PDP-AAAAMM-XXXX_NomClient.docx</code></li>
+          <li>Permis de feu : <code>OPP-XXXXX_PERMIS-FEU_PDP-AAAAMM-XXXX_titre.docx</code></li>
+          <li>ICP : <code>OPP-XXXXX_ICP-AAAAMM-XXXX_titre.docx</code></li>
           <li>L'OPP en tête → tri alphabétique = regroupement par opportunité</li>
         </ul>
         <p><strong>Archivage SharePoint automatique</strong> : tous les exports sont uploadés dans <code>SuiviPDP/PDP/Exports/</code> et <code>SuiviPDP/ICP/Exports/</code> sur le site QHSE.</p>
@@ -2838,7 +2838,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <ul>
           <li><strong>Connexion</strong> : automatique au démarrage (compte Microsoft AGRIWATT). Bouton SharePoint en haut à droite indique le statut</li>
           <li><strong>Push automatique</strong> : à chaque save (PDP, ICP, entreprises, FDS) → sync 2 secondes plus tard</li>
-          <li><strong>Push immédiat</strong> : clique sur la 💾 disquette dans la topbar pour forcer</li>
+          <li><strong>Push immédiat</strong> : cliquer sur la 💾 disquette dans la topbar pour forcer</li>
           <li><strong>Pull automatique</strong> : au boot, l'app charge les dernières données depuis SharePoint et écrase le local</li>
           <li><strong>Multi-appareils</strong> : ouvre l'app sur PC et téléphone, toutes les données sont synchronisées</li>
           <li><strong>Multi-utilisateurs</strong> : le système gère les conflits par fusion (3-way merge)</li>
@@ -2865,7 +2865,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-10">10. Recherche et filtres dans les listes</button></h2><div id="tuto-10" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-10">
         <p><strong>Liste PDP :</strong></p>
         <ul>
-          <li>Recherche multi-champs : tape "Bayart", "OPP-04", "Seclin", "Bourgeois" — matche sur titre, OPP, n° PDP, site, client</li>
+          <li>Recherche multi-champs : taper le nom d'un client, un numéro "OPP-XXXXX", une commune — matche sur titre, OPP, n° PDP, site, client</li>
           <li>Filtre <strong>Statut</strong> : tous statuts</li>
           <li>Filtre <strong>Client</strong> : liste auto-générée des clients EU</li>
           <li>Filtre <strong>Année</strong> : depuis les dates de début</li>
@@ -2909,10 +2909,10 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
 
       <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-13">13. Raccourcis et Astuces</button></h2><div id="tuto-13" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-13">
         <ul>
-          <li>Le préfixe <strong>OPP-</strong> est automatique : tape juste les chiffres (<em>04146</em>)</li>
+          <li>Le préfixe <strong>OPP-</strong> est automatique : taper juste les chiffres (<em>XXXXX</em>)</li>
           <li>La <strong>barre de progression</strong> en haut du PDP indique le taux de complétion</li>
           <li>Le <strong>point vert/orange</strong> à côté de "Enregistré" indique si des modifications non sauvegardées existent</li>
-          <li><strong>Protection anti-perte</strong> : si tu quittes/fermes l'onglet avec une fiche non enregistrée, l'app t'avertit. Sur mobile, basculer d'appli ou verrouiller l'écran <strong>sauvegarde automatiquement</strong> la fiche en cours (dès le premier caractère saisi, même une nouvelle ICP/PDP jamais enregistrée). Pense quand même à cliquer <strong>Enregistrer</strong> pour figer le statut</li>
+          <li><strong>Protection anti-perte</strong> : en cas de fermeture de l'onglet avec une fiche non enregistrée, l'app affiche un avertissement. Sur mobile, basculer d'appli ou verrouiller l'écran <strong>sauvegarde automatiquement</strong> la fiche en cours (dès le premier caractère saisi, même une nouvelle ICP/PDP jamais enregistrée). Penser quand même à cliquer <strong>Enregistrer</strong> pour figer le statut</li>
           <li>Une <strong>signature effacée</strong> à l'écran disparaît bien des exports (elle ne réapparaît plus)</li>
           <li>Sur mobile, bouton <strong>+</strong> en bas pour créer rapidement un PDP/ICP</li>
           <li>App fonctionne <strong>hors-ligne</strong> grâce au service worker — sync auto à la reconnexion</li>
@@ -2963,7 +2963,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
               <li><strong>Représentant Entreprise Extérieure (EE)</strong> — Agriwatt/Enersolys, responsable du chantier</li>
               <li><strong>Exécutant</strong> — le compagnon qui réalise effectivement le point chaud</li>
             </ul>
-            Les noms sont pré-remplis depuis l'ICP et l'EU pré-configurée. Tu signes au doigt ou stylet sur le canvas tactile.
+            Les noms sont pré-remplis depuis l'ICP et l'EU pré-configurée. Signature au doigt ou au stylet sur le canvas tactile.
           </li>
           <li><strong>Pendant les travaux</strong> : aération, surveillance permanente, extincteur à portée immédiate, retrait de tout combustible dans un rayon de <strong>10 mètres</strong> autour du point chaud.</li>
           <li><strong>À la fin des travaux par points chauds</strong> : démarrer les <strong>rondes de surveillance</strong> (voir ci-dessous).</li>
@@ -3009,7 +3009,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       </div></div></div>
 
       <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-15">15. Suivi maintenance : tableau de bord &amp; trophées</button></h2><div id="tuto-15" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-15">
-        <p>L'app pilote l'activité <strong>ICP de l'équipe maintenance</strong> (Burkarth, Burtin, Guillaume, Huleux, Karquel, Kleische, Lion). La détection est automatique : une ICP est rattachée à un technicien dès que son nom apparaît parmi les participants (voir aussi le badge <span class="badge" style="background:#00693E;color:#fff"><i class="bi bi-tools me-1"></i>Maintenance</span> et le filtre Type au §10).</p>
+        <p>L'app pilote l'activité <strong>ICP de l'équipe maintenance</strong>. La détection est automatique : une ICP est rattachée à un technicien dès que son nom apparaît parmi les participants (voir aussi le badge <span class="badge" style="background:#00693E;color:#fff"><i class="bi bi-tools me-1"></i>Maintenance</span> et le filtre Type au §10).</p>
 
         <h6 class="mt-3 mb-2 text-primary">Tableau de bord — « ICP Maintenance — par mois »</h6>
         <ul>
@@ -3035,7 +3035,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <li><strong>Mur d'équipe</strong> : classement collectif pour valoriser la dynamique du groupe (ta ligne est surlignée).</li>
           <li><strong>Configuration</strong> : <em>Réglages → 🏆 Trophées maintenance</em> (admin) — activer/désactiver chaque trophée et ajuster les paliers. La config est <strong>partagée via SharePoint</strong>.</li>
         </ul>
-        <p class="text-muted"><i class="bi bi-info-circle me-1"></i>Thibault HOCEDEZ (QSE) et Franck LAMY (conducteur travaux) sont volontairement exclus du décompte maintenance.</p>
+        <p class="text-muted"><i class="bi bi-info-circle me-1"></i>Le responsable QSE et le conducteur de travaux sont volontairement exclus du décompte maintenance.</p>
       </div></div></div>
 
       <div class="accordion-item tuto-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tuto-16">16. Paramètres (Réglages)</button></h2><div id="tuto-16" class="accordion-collapse collapse" data-bs-parent="#tuto-accordion"><div class="accordion-body small" data-help-id="tuto-16">
@@ -3450,7 +3450,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <h5 class="modal-title"><i class="bi bi-exclamation-triangle text-warning me-1"></i>Conflits de modifications simultanees</h5>
       </div>
       <div class="modal-body" id="modal-merge-conflict-body">
-        <p class="small text-muted mb-2">Un autre utilisateur a modifie les memes champs que vous. Choisissez la valeur a conserver pour chaque champ :</p>
+        <p class="small text-muted mb-2">Un autre utilisateur a modifié les mêmes champs. Choisir la valeur à conserver pour chaque champ :</p>
         <div id="modal-merge-conflict-list"></div>
       </div>
       <div class="modal-footer">
@@ -3763,19 +3763,19 @@ function _friendlyAuthError(e) {
     const m = (code + ' ' + msg);
     if (/user_cancelled|user_cancel/i.test(m)) return null;
     if (/50020|does not exist in tenant|wrong_tenant|external|account.*not.*found in/i.test(m))
-        return "Ce compte Microsoft n'appartient pas à l'organisation AGRIWATT / Enersolys. Connectez-vous avec votre compte professionnel.";
+        return "Ce compte Microsoft n'appartient pas à l'organisation AGRIWATT / Enersolys. Se connecter avec le compte professionnel.";
     if (/65001|consent_required|interaction_required|90008/i.test(m))
-        return "Autorisations Microsoft non accordées. Reconnectez-vous et acceptez les autorisations demandées (Accepter).";
+        return "Autorisations Microsoft non accordées. Se reconnecter et accepter les autorisations demandées (Accepter).";
     if (/50076|mfa|strong.?auth/i.test(m))
-        return "Une authentification renforcée (MFA) est requise. Validez la demande sur votre application Microsoft Authenticator.";
+        return "Une authentification renforcée (MFA) est requise. Valider la demande dans l'application Microsoft Authenticator.";
     if (/popup|window_error|block/i.test(m))
-        return "La fenêtre de connexion Microsoft a été bloquée. Autorisez les fenêtres pop-up pour ce site puis réessayez.";
+        return "La fenêtre de connexion Microsoft a été bloquée. Autoriser les fenêtres pop-up pour ce site puis réessayer.";
     if (/interaction_in_progress|monitor_window|hash_empty|hash_does_not|no_token_request|BrowserAuth/i.test(m))
-        return "Connexion interrompue. Ouvrez l'application dans Safari ou Chrome (pas depuis un lien Teams / Outlook / WhatsApp), sans navigation privée, puis réessayez.";
+        return "Connexion interrompue. Ouvrir l'application dans Safari ou Chrome (pas depuis un lien Teams / Outlook / WhatsApp), sans navigation privée, puis réessayer.";
     if (/\b403\b|forbidden|access.?denied/i.test(m))
-        return "Accès au site SharePoint QHSE refusé. Demandez à l'administrateur de vous ajouter au site.";
+        return "Accès au site SharePoint QHSE refusé. Demander à l'administrateur l'ajout au site.";
     if (/network|failed to fetch|timeout|ERR_/i.test(m))
-        return "Connexion réseau impossible. Vérifiez votre connexion internet puis réessayez.";
+        return "Connexion réseau impossible. Vérifier la connexion internet puis réessayer.";
     return "Erreur de connexion Microsoft : " + (msg || code || 'inconnue');
 }
 
@@ -4024,7 +4024,7 @@ const DataSync = {
     setUserName(name) { localStorage.setItem('pdp_user_name', (name||'').trim()); },
     _ensureUserName() {
         let name = this.getUserName();
-        if (!name) { name = prompt('Votre nom (pour les sauvegardes) :'); if (name) this.setUserName(name); else { this.setUserName('Utilisateur'); name='Utilisateur'; } }
+        if (!name) { name = prompt('Nom (pour les sauvegardes) :'); if (name) this.setUserName(name); else { this.setUserName('Utilisateur'); name='Utilisateur'; } }
         return name;
     },
 
@@ -4876,13 +4876,13 @@ const DataSync = {
             const m = (e && e.message) || '';
             const compte = (_msalAccount && _msalAccount.name) || '';
             if (e && (e._persistentConflict || e._readError)) {
-                App.toast('Conflit de sauvegarde persistant (un collègue enregistre en même temps) ou réseau instable. Vos données restent enregistrées localement et NE sont PAS perdues — réessai automatique au prochain cycle.', 'warning', 12000);
+                App.toast('Conflit de sauvegarde persistant (un collègue enregistre en même temps) ou réseau instable. Les données restent enregistrées localement et NE sont PAS perdues — réessai automatique au prochain cycle.', 'warning', 12000);
                 if (typeof ActivityLog !== 'undefined') ActivityLog.log('conflit_persistant', { type: e._readError ? 'lecture' : '412' });
                 // _dirty conservé (non remis à false) → le poll relancera la sauvegarde.
             } else if (/\b403\b|forbidden|access.?denied/i.test(m)) {
-                App.toast(`Sauvegarde refusée : le compte ${compte} a un accès en LECTURE SEULE au site SharePoint QHSE. Demandez à l'administrateur les droits d'édition (rôle « Membres » / « Contribution »). Vos données restent enregistrées localement.`, 'danger', 14000);
+                App.toast(`Sauvegarde refusée : le compte ${compte} a un accès en LECTURE SEULE au site SharePoint QHSE. Demander à l'administrateur les droits d'édition (rôle « Membres » / « Contribution »). Les données restent enregistrées localement.`, 'danger', 14000);
             } else if (/\b401\b|unauthor/i.test(m)) {
-                App.toast('Session Microsoft expirée. Cliquez sur « Se reconnecter ». Vos données restent enregistrées localement.', 'danger', 11000);
+                App.toast('Session Microsoft expirée. Cliquer sur « Se reconnecter ». Les données restent enregistrées localement.', 'danger', 11000);
             } else {
                 App.toast('Erreur sauvegarde SharePoint. Données conservées localement.', 'warning', 8000);
             }
@@ -4932,7 +4932,7 @@ const DataSync = {
             const merged = await this._mergeAllWithRemote({ pdp: remotePdp, icp: remoteIcp, shared: remoteShared });
             await this._writeLocalData(merged);
             const savedBy = remotePdp?._meta?.savedBy || remoteIcp?._meta?.savedBy || remoteShared?._meta?.savedBy || 'un collègue';
-            App.toast(`Synchronisé avec les modifications de ${savedBy} — vos données et les siennes sont conservées ✓`, 'success');
+            App.toast(`Synchronisé avec les modifications de ${savedBy} — les données locales et les siennes sont conservées ✓`, 'success');
         }
 
         // 3. Collecter les donnees locales (post-merge) et forcer version > remote.
@@ -5058,8 +5058,8 @@ const DataSync = {
                     const access = await this._checkSiteAccess();
                     if (!access.ok) {
                         App.toast(access.status === '403'
-                            ? `Connecté à Microsoft (${_msalAccount.name||''}), mais accès au site SharePoint QHSE refusé. Demandez à l'administrateur de vous ajouter au site.`
-                            : `Connecté à Microsoft, mais le site SharePoint est injoignable (${access.status||'erreur'}). Réessayez plus tard.`,
+                            ? `Connecté à Microsoft (${_msalAccount.name||''}), mais accès au site SharePoint QHSE refusé. Demander à l'administrateur l'ajout au site.`
+                            : `Connecté à Microsoft, mais le site SharePoint est injoignable (${access.status||'erreur'}). Réessayer plus tard.`,
                             'danger', 9000);
                         return 'no-handle';
                     }
@@ -5099,8 +5099,8 @@ const DataSync = {
             const access = await this._checkSiteAccess();
             if (!access.ok) {
                 App.toast(access.status === '403'
-                    ? `Connecté à Microsoft (${_msalAccount.name||''}), mais accès au site SharePoint QHSE refusé. Demandez à l'administrateur de vous ajouter au site.`
-                    : `Connecté à Microsoft, mais le site SharePoint est injoignable (${access.status||'erreur'}). Réessayez plus tard.`,
+                    ? `Connecté à Microsoft (${_msalAccount.name||''}), mais accès au site SharePoint QHSE refusé. Demander à l'administrateur l'ajout au site.`
+                    : `Connecté à Microsoft, mais le site SharePoint est injoignable (${access.status||'erreur'}). Réessayer plus tard.`,
                     'danger', 9000);
                 return false;
             }
@@ -5265,7 +5265,7 @@ const DataSync = {
         } else if (state === 'need-permission') {
             btn.className = 'btn btn-sm btn-warning';
             btn.innerHTML = '<i class="bi bi-shield-lock"></i><span class="ms-1 d-none d-md-inline">Autoriser</span>';
-            btn.title = 'Session expirée — reconnectez-vous';
+            btn.title = 'Session expirée — se reconnecter';
             btn.onclick = async () => { const ok = await this.connectFolder(); if (ok) { this.updateConnectButton('connected'); App.updateDashboard(); } };
             if (btnSave) btnSave.style.display = 'none';
         } else {
@@ -5289,7 +5289,7 @@ const DataSync = {
         bar.innerHTML = `
             <div class="alert alert-warning alert-dismissible d-flex align-items-center m-2" role="alert">
                 <i class="bi bi-shield-lock me-2 fs-5"></i>
-                <div class="flex-grow-1">Session expirée — cliquez pour vous reconnecter à SharePoint.</div>
+                <div class="flex-grow-1">Session expirée — cliquer pour se reconnecter à SharePoint.</div>
                 <button class="btn btn-sm btn-warning ms-2" id="btn-reauth">Se reconnecter</button>
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>`;
@@ -5305,7 +5305,7 @@ const DataSync = {
         bar.innerHTML = `
             <div class="alert alert-info alert-dismissible d-flex align-items-center m-2" role="alert">
                 <i class="bi bi-cloud-slash me-2 fs-5"></i>
-                <div class="flex-grow-1">Mode hors-ligne — connectez-vous à SharePoint pour synchroniser les données.</div>
+                <div class="flex-grow-1">Mode hors-ligne — se connecter à SharePoint pour synchroniser les données.</div>
                 <button class="btn btn-sm btn-primary ms-2" id="btn-connect-reminder"><i class="bi bi-microsoft me-1"></i>Connexion</button>
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>`;
@@ -5389,8 +5389,8 @@ const DataSync = {
             overlay.innerHTML = `<div class="modal-dialog modal-dialog-centered"><div class="modal-content">
                 <div class="modal-header bg-primary text-white"><h5 class="modal-title">Bienvenue dans Suivi PDP</h5></div>
                 <div class="modal-body">
-                    <div class="mb-3"><label class="form-label fw-bold" for="guide-name">Votre nom :</label><input type="text" class="form-control" id="guide-name" placeholder="Prénom Nom"></div>
-                    <p class="text-muted small">Connectez-vous pour synchroniser vos PDP et ICP avec SharePoint (dossiers séparés). Votre compte Microsoft sera utilisé.</p>
+                    <div class="mb-3"><label class="form-label fw-bold" for="guide-name">Nom :</label><input type="text" class="form-control" id="guide-name" placeholder="Prénom Nom"></div>
+                    <p class="text-muted small">Se connecter pour synchroniser les PDP et ICP avec SharePoint (dossiers séparés). Le compte Microsoft sera utilisé.</p>
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-outline-secondary" id="guide-skip">Plus tard</button>
@@ -5498,7 +5498,7 @@ const ActivityLog = {
     },
 
     async clear() {
-        if (!DataSync._connected) { App.toast('Connectez-vous à SharePoint pour vider le journal', 'warning'); return false; }
+        if (!DataSync._connected) { App.toast('Se connecter à SharePoint pour vider le journal', 'warning'); return false; }
         const ok = await App.confirm('Vider tout le journal d\'activité ?\n\nCette action est irréversible. Un seul événement "journal.clear" sera conservé comme trace.');
         if (!ok) return false;
         try {
@@ -5535,7 +5535,7 @@ const ActivityLog = {
     async render(container) {
         if (!container) return;
         if (!DataSync._connected) {
-            container.innerHTML = '<p class="text-muted small mb-0"><i class="bi bi-cloud-slash me-1"></i>Connectez-vous à SharePoint pour consulter le journal.</p>';
+            container.innerHTML = '<p class="text-muted small mb-0"><i class="bi bi-cloud-slash me-1"></i>Se connecter à SharePoint pour consulter le journal.</p>';
             return;
         }
         container.innerHTML = '<p class="text-muted small mb-0"><i class="bi bi-hourglass-split me-1"></i>Chargement du journal…</p>';
@@ -6115,7 +6115,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     const f = this._norm(filter);
     const filtered = f ? all.filter(s => this._norm(s.nom+' '+s.prenom+' '+(s.service||'')+' '+(s.poste||'')).includes(f)) : all;
     if (!filtered.length) {
-      list.innerHTML = `<div class="text-muted text-center p-4">Aucun salarié enregistré. Importez votre fichier Excel RH ou ajoutez manuellement.</div>`;
+      list.innerHTML = `<div class="text-muted text-center p-4">Aucun salarié enregistré. Importer le fichier Excel RH ou ajouter manuellement.</div>`;
       return;
     }
     list.innerHTML = `<div class="table-responsive"><table class="table table-sm table-hover align-middle"><thead><tr><th>Nom</th><th>Prénom</th><th>Service</th><th>Poste</th><th>Statut</th><th>Habilitations</th><th>Visite médicale</th><th></th></tr></thead><tbody>${
@@ -6244,7 +6244,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     if (!list) return;
     const all = await db.signataires.orderBy('updated_at').reverse().toArray();
     if (!all.length) {
-      list.innerHTML = `<div class="text-muted text-center p-4">Aucun signataire enregistré. Ajoutez-en un manuellement ou il sera créé automatiquement à la première génération.</div>`;
+      list.innerHTML = `<div class="text-muted text-center p-4">Aucun signataire enregistré. En ajouter un manuellement ou il sera créé automatiquement à la première génération.</div>`;
       return;
     }
     list.innerHTML = `<div class="row g-2">${
@@ -6389,7 +6389,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
   async importExcel(event) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
-    if (typeof XLSX === 'undefined') { alert('SheetJS pas encore chargé, réessayez dans 1s.'); return; }
+    if (typeof XLSX === 'undefined') { alert('SheetJS pas encore chargé, réessayer dans 1s.'); return; }
     const buf = await file.arrayBuffer();
 
     // Essai parser AGRIWATT (wide), fallback parser générique (long)
@@ -6696,7 +6696,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     let token;
     try { token = await _getToken(); } catch(e) { token = null; }
     if (!token) {
-      if (!silent) alert('Non connecté à SharePoint. Connectez-vous d\'abord depuis l\'icône Microsoft en haut.');
+      if (!silent) alert('Non connecté à SharePoint. Se connecter d\'abord depuis l\'icône Microsoft en haut.');
       await this._saveSourceConfig({ last_status:'error', last_error:'Non authentifié', last_sync: Date.now() });
       this._renderSyncStatus();
       return { ok:false, reason:'not_authenticated' };
@@ -6801,7 +6801,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
 
   // === GÉNÉRATION DEPUIS UN PDP ===
   async generateForPDPIntervenants() {
-    if (!App.currentPDP) { alert('Ouvrez un PDP d\'abord.'); return; }
+    if (!App.currentPDP) { alert('Ouvrir un PDP d\'abord.'); return; }
     const pdp = App.currentPDP;
     const emargements = Array.isArray(pdp.emargements) ? pdp.emargements : [];
     const status = document.getElementById('autorisation-interne-status');
@@ -6825,7 +6825,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
     // Choisir signataire commun
     const sigs = await db.signataires.orderBy('updated_at').reverse().toArray();
     if (!sigs.length) {
-      if (!confirm('Aucun signataire enregistré. Continuer sans signature ? (Cliquez Annuler pour aller en créer un dans l\'onglet Habilitations)')) return;
+      if (!confirm('Aucun signataire enregistré. Continuer sans signature ? (Cliquer Annuler pour aller en créer un dans l\'onglet Habilitations)')) return;
     }
     let signataireChoisi = null;
     if (sigs.length) {
@@ -6896,7 +6896,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
       return !soc || soc.includes('agriwatt');
     });
     if (!intervenants.length) {
-      container.innerHTML = '<div class="alert alert-info">Aucun intervenant AGRIWATT dans la section Émargement de ce PDP. Ajoutez-les d\'abord.</div>';
+      container.innerHTML = '<div class="alert alert-info">Aucun intervenant AGRIWATT dans la section Émargement de ce PDP. Les ajouter d\'abord.</div>';
       return;
     }
 
@@ -7311,31 +7311,31 @@ const App = {
 
   _onboardingStepsICP: [
     { selector: '#icp-ref-operation', title: 'Récupérer une opportunité Sellsy',
-      body: "Tapez directement un n° d'opportunité (ex: 04146) ou un nom de client : la liste se propose sous le champ. Cliquez sur l'opportunité voulue, toutes les données client se remplissent automatiquement. La loupe permet de parcourir toute la liste.",
+      body: "Saisir directement un n° d'opportunité (ex: XXXXX) ou un nom de client : la liste se propose sous le champ. Cliquer sur l'opportunité voulue, toutes les données client se remplissent automatiquement. La loupe permet de parcourir toute la liste.",
       placement: 'bottom' },
     { selector: '#icp-mode-express-toggle', title: 'Mode Express',
-      body: "Activez ce mode pour masquer les sections avancées (autres intervenants, liaison PDP). Idéal pour une visite simple.",
+      body: "Activer ce mode pour masquer les sections avancées (autres intervenants, liaison PDP). Idéal pour une visite simple.",
       placement: 'bottom' },
     { selector: '.risk-picker-btn', title: 'Sélectionner les risques',
-      body: "Cliquez ici pour ouvrir le sélecteur arborescent et choisir les risques identifiés sur le chantier.",
+      body: "Cliquer ici pour ouvrir le sélecteur arborescent et choisir les risques identifiés sur le chantier.",
       placement: 'bottom' },
     { selector: '#fab-save', title: 'Bouton Enregistrer flottant',
-      body: "Ce bouton vert reste toujours visible en bas à droite. Appuyez dessus dès que vous avez fait des modifications pour ne rien perdre.",
+      body: "Ce bouton vert reste toujours visible en bas à droite. Appuyer dessus après chaque modification pour ne rien perdre.",
       placement: 'top-left' },
   ],
 
   _onboardingStepsPDP: [
     { selector: '#pdp-ref-operation, #pdp-numero', title: 'N° d\'opération Sellsy',
-      body: "Tapez directement un n° d'opportunité (ou un nom de client) : la liste se propose sous le champ. La loupe permet de parcourir toute la liste.",
+      body: "Saisir directement un n° d'opportunité (ou un nom de client) : la liste se propose sous le champ. La loupe permet de parcourir toute la liste.",
       placement: 'bottom' },
     { selector: '#pdp-section-tabs', title: 'Naviguer entre les sections',
-      body: "Le PDP est découpé en sections : général, entreprises, risques, signatures… Utilisez ces onglets pour passer de l'une à l'autre.",
+      body: "Le PDP est découpé en sections : général, entreprises, risques, signatures… Utiliser ces onglets pour passer de l'une à l'autre.",
       placement: 'bottom' },
     { selector: '[onclick*="showPDPSection(\'signatures\')"]', title: 'Section Signatures',
-      body: "Quand vous êtes prêt à faire signer le client et les intervenants, allez ici. Chaque personne signe sur sa zone.",
+      body: "Au moment de faire signer le client et les intervenants, venir ici. Chaque personne signe sur sa zone.",
       placement: 'bottom' },
     { selector: '#fab-save', title: 'Bouton Enregistrer flottant',
-      body: "Ce bouton vert reste toujours visible. Appuyez dessus régulièrement pour sauvegarder vos modifications.",
+      body: "Ce bouton vert reste toujours visible. Appuyer dessus régulièrement pour sauvegarder les modifications.",
       placement: 'top-left' },
   ],
 
@@ -7520,7 +7520,7 @@ const App = {
 
     const recent = pdps.sort((a,b) => new Date(b.dateModification||b.dateCreation) - new Date(a.dateModification||a.dateCreation)).slice(0,5);
     document.getElementById('dashboard-recent').innerHTML = recent.length === 0
-      ? '<p class="text-muted small m-2">Aucun PDP. Cliquez sur + pour commencer.</p>'
+      ? '<p class="text-muted small m-2">Aucun PDP. Cliquer sur + pour commencer.</p>'
       : recent.map(p => this.renderPDPCard(p)).join('');
 
     // ICP dashboard — exclure les ICP déjà liées à un PDP (elles font partie du PDP)
@@ -7963,7 +7963,7 @@ const App = {
 
   async onStatutChange(val) {
     if (val === 'cloture') {
-      if (!await this.confirm('Clôturer ce PDP ?\nIl passera en lecture seule. Vous pourrez le réouvrir plus tard si nécessaire.')) {
+      if (!await this.confirm('Clôturer ce PDP ?\nIl passera en lecture seule. Réouverture possible plus tard si nécessaire.')) {
         document.getElementById('pdp-statut').value = this.currentPDP?.statut || 'actif';
         return;
       }
@@ -8333,7 +8333,7 @@ const App = {
     if (pctEl) pctEl.textContent = pct + '%';
     if (label) {
       if (pct === 0) label.textContent = 'Commencez par remplir les informations générales';
-      else if (pct < 50) label.textContent = 'Bon début ! Continuez avec les sections suivantes';
+      else if (pct < 50) label.textContent = 'Bon début ! Continuer avec les sections suivantes';
       else if (pct < 100) label.textContent = 'Presque complet, encore quelques sections';
       else label.textContent = 'PDP complet — prêt pour signature et export';
     }
@@ -8483,7 +8483,7 @@ const App = {
     if (ents.length) {
       this._addEECache = ents.sort((a,b) => (a.nom||'').localeCompare(b.nom||'', 'fr', { sensitivity: 'base' }));
       const html = `
-        <div class="mb-2"><input type="text" class="form-control form-control-sm" id="addee-search" placeholder="Tapez pour rechercher…" oninput="App.filterAddEE(this.value)" autofocus></div>
+        <div class="mb-2"><input type="text" class="form-control form-control-sm" id="addee-search" placeholder="Saisir pour rechercher…" oninput="App.filterAddEE(this.value)" autofocus></div>
         <p class="fw-bold small mb-1">Depuis le répertoire (${ents.length} entreprises) :</p>
         <div id="addee-list" style="max-height: 320px; overflow-y: auto;"></div>
         <p id="addee-empty" class="text-muted small text-center mt-2"></p>
@@ -8507,12 +8507,12 @@ const App = {
     const cache = this._addEECache || [];
     if (!term) {
       list.innerHTML = '';
-      if (empty) empty.textContent = `Tapez quelques lettres pour rechercher parmi les ${cache.length} entreprises.`;
+      if (empty) empty.textContent = `Saisir quelques lettres pour rechercher parmi les ${cache.length} entreprises.`;
       return;
     }
     const matches = cache.filter(e => (e.nom||'').toLowerCase().includes(term)).slice(0, 50);
     list.innerHTML = matches.map(e => `<div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.addEEFromRepo(${e.id})"><i class="bi bi-building"></i><span class="small">${this.esc(e.nom)}</span></div>`).join('');
-    if (empty) empty.textContent = matches.length ? (matches.length === 50 ? '50+ résultats — affinez votre recherche.' : '') : 'Aucune entreprise correspondante.';
+    if (empty) empty.textContent = matches.length ? (matches.length === 50 ? '50+ résultats — affiner la recherche.' : '') : 'Aucune entreprise correspondante.';
   },
 
   async addEEFromRepo(id) {
@@ -9183,7 +9183,7 @@ const App = {
     const sitInp = document.getElementById('risk-picker-custom-situation');
     const prevInp = document.getElementById('risk-picker-custom-prevention');
     const nom = (inp.value || '').trim();
-    if (!nom) { this.toast('Saisissez un nom de risque', 'warning'); return; }
+    if (!nom) { this.toast('Saisir un nom de risque', 'warning'); return; }
     const entry = await this.proposeCustomRisk({
       nom,
       categorie: catSel?.value || 'Personnalisés',
@@ -9385,7 +9385,7 @@ const App = {
       }
     }
 
-    if (!html) { c.innerHTML = '<p class="text-muted small">Ajoutez une EE ou liez une ICP.</p>'; return; }
+    if (!html) { c.innerHTML = '<p class="text-muted small">Ajouter une EE ou lier une ICP.</p>'; return; }
     c.innerHTML = html;
     setTimeout(() => {
       ees.forEach((_,i) => {
@@ -9543,7 +9543,7 @@ const App = {
         eu_section_title: 'Entreprise Utilisatrice (EU) — notre entité',
         ee_section_title: 'Entreprise(s) intervenante(s) — sous-traitants / prestataires',
         exigences_title: 'Nos exigences de sécurité (EU)',
-        exigences_helper: 'Listez les règles de sécurité que vous imposez aux entreprises qui interviennent dans vos locaux.',
+        exigences_helper: 'Lister les règles de sécurité imposées aux entreprises qui interviennent dans les locaux.',
         sig_eu_title: 'Notre signature (EU)',
         sig_ee_title: 'Signatures des intervenants',
         pf_oblig: "Ce permis de feu doit être obligatoirement signé et validé par <strong>notre représentant (EU)</strong> avant le début des travaux par points chauds.",
@@ -9573,7 +9573,7 @@ const App = {
       eu_section_title: 'Client (Entreprise Utilisatrice — EU)',
       ee_section_title: 'Intervenants (Entreprises Extérieures — EE)',
       exigences_title: 'Exigences du client (EU)',
-      exigences_helper: 'Les exigences sont les règles de sécurité imposées par le client sur son site. Utilisez les boutons rapides pour les exigences courantes.',
+      exigences_helper: 'Les exigences sont les règles de sécurité imposées par le client sur son site. Utiliser les boutons rapides pour les exigences courantes.',
       sig_eu_title: 'Signature du client (EU)',
       sig_ee_title: 'Signatures des intervenants (EE)',
       pf_oblig: "Ce permis de feu doit être <strong>obligatoirement signé et validé par le client (Entreprise Utilisatrice — EU)</strong> avant le début de toute réalisation de travaux par points chauds. Aucun travail ne peut débuter sans cette validation.",
@@ -10224,7 +10224,7 @@ const App = {
     if (!c) return;
     const pf = this.currentPDP?.permisFeu || {};
     const renouv = pf.renouvellements || [];
-    if (!renouv.length) { c.innerHTML = '<p class="text-muted small">Renseignez les dates du permis pour générer automatiquement les périodes de validation et les rondes de surveillance.</p>'; return; }
+    if (!renouv.length) { c.innerHTML = '<p class="text-muted small">Renseigner les dates du permis pour générer automatiquement les périodes de validation et les rondes de surveillance.</p>'; return; }
     // Migration ancien format : déplacer pf.rondes globales dans la 1ère période
     if ((pf.rondes||[]).length && !renouv.some(r => (r.rondes||[]).length)) {
       renouv[0].rondes = [...(pf.rondes||[])];
@@ -10283,7 +10283,7 @@ const App = {
             <span class="small fw-bold text-primary"><i class="bi bi-binoculars me-1"></i>Rondes de surveillance — Période n°${i+1}</span>
             <button class="btn btn-sm btn-outline-primary py-0 px-2" onclick="App.addPFRonde(${i})"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
           </div>
-          ${nbRondes ? rondesHtml : '<p class="text-muted small mb-1">Aucune ronde enregistrée pour cette période. Ajoutez les rondes réalisées après chaque opération par point chaud.</p>'}
+          ${nbRondes ? rondesHtml : '<p class="text-muted small mb-1">Aucune ronde enregistrée pour cette période. Ajouter les rondes réalisées après chaque opération par point chaud.</p>'}
         </div>
       </div>
     </div>`}).join('');
@@ -10401,7 +10401,7 @@ const App = {
     const site = (document.getElementById('pdp-site')?.value||'').trim();
     const lieu = (document.getElementById('pdp-lieu')?.value||'').trim();
     const q = [site, lieu].filter(Boolean).join(' ');
-    if (q.length < 3) { this.toast('Saisissez d\'abord un site/lieu', 'warning'); return; }
+    if (q.length < 3) { this.toast('Saisir d\'abord un site/lieu', 'warning'); return; }
     this.toast('Recherche…', 'info');
     const r = await this.geocodeFR(q);
     if (!r) { this.toast('Adresse introuvable', 'warning'); return; }
@@ -10418,7 +10418,7 @@ const App = {
 
   async geocodeICPSite() {
     const site = (document.getElementById('icp-site')?.value||'').trim();
-    if (site.length < 3) { this.toast('Saisissez d\'abord une adresse dans Site', 'warning'); return; }
+    if (site.length < 3) { this.toast('Saisir d\'abord une adresse dans Site', 'warning'); return; }
     this.toast('Recherche…', 'info');
     const r = await this.geocodeFR(site);
     if (!r) { this.toast('Adresse introuvable', 'warning'); return; }
@@ -10462,7 +10462,7 @@ const App = {
 
   async geocodeEUAddress() {
     const adresse = (document.getElementById('eu-adresse')?.value||'').trim();
-    if (!adresse) { this.toast('Saisissez d\'abord une adresse', 'warning'); return; }
+    if (!adresse) { this.toast('Saisir d\'abord une adresse', 'warning'); return; }
     this.toast('Recherche…', 'info');
     const r = await this.geocodeFR(adresse);
     if (!r) { this.toast('Adresse introuvable', 'warning'); return; }
@@ -11027,7 +11027,7 @@ const App = {
         }
       } else {
         const nom = (document.getElementById('eu-nom')?.value || '').trim();
-        if (!nom) { this.toast('Sélectionnez d\'abord une entreprise EU', 'warning'); return; }
+        if (!nom) { this.toast('Sélectionner d\'abord une entreprise EU', 'warning'); return; }
         const all = await db.entreprises.toArray();
         ent = all.find(e => (e.nom||'').toLowerCase() === nom.toLowerCase());
       }
@@ -11148,7 +11148,7 @@ const App = {
       <div class="mb-2">
         <label for="sellsy-search-q" class="visually-hidden">Recherche société Sellsy</label>
         <input type="search" id="sellsy-search-q" name="sellsy-search-q" class="form-control" placeholder="Nom de société, SIRET..." autocomplete="off">
-        <div class="form-text">Tapez ≥ 2 caractères puis Entrée — la recherche utilise l'API Sellsy.</div>
+        <div class="form-text">Saisir ≥ 2 caractères puis Entrée — la recherche utilise l'API Sellsy.</div>
       </div>
       <div id="sellsy-search-status" class="small text-muted"></div>
       <div id="sellsy-search-results" class="mt-2"></div>`;
@@ -11329,7 +11329,7 @@ const App = {
           <input type="search" id="sellsy-opp-q" name="sellsy-opp-q" class="form-control" placeholder="Filtrer par intitulé, référence ou société..." autocomplete="off" oninput="App.filterSellsyOppCache()">
           <button class="btn btn-outline-secondary" type="button" onclick="App.loadSellsyOppList()" title="Rafraîchir la liste"><i class="bi bi-arrow-clockwise"></i></button>
         </div>
-        <div class="form-text">La liste se filtre automatiquement à mesure que vous tapez.</div>
+        <div class="form-text">La liste se filtre automatiquement à mesure de la saisie.</div>
       </div>
       <div id="sellsy-opp-status" class="small text-muted"></div>
       <div id="sellsy-opp-results" class="mt-2" style="max-height: 50vh; overflow-y: auto;"></div>`;
@@ -12396,7 +12396,7 @@ const App = {
       // Cache trié pour recherche rapide ; on ne rend pas tout d'un coup (peut être >5000 entrées).
       this._addICPEECache = ents.sort((a,b) => (a.nom||'').localeCompare(b.nom||'', 'fr', { sensitivity: 'base' }));
       const html = `
-        <div class="mb-2"><input type="text" class="form-control form-control-sm" id="addicpee-search" placeholder="Tapez pour rechercher…" oninput="App.filterAddICPEE(this.value)" autofocus></div>
+        <div class="mb-2"><input type="text" class="form-control form-control-sm" id="addicpee-search" placeholder="Saisir pour rechercher…" oninput="App.filterAddICPEE(this.value)" autofocus></div>
         <p class="fw-bold small mb-1">Depuis le répertoire (${ents.length} entreprises) :</p>
         <div id="addicpee-list" style="max-height: 320px; overflow-y: auto;"></div>
         <p id="addicpee-empty" class="text-muted small text-center mt-2"></p>
@@ -12418,12 +12418,12 @@ const App = {
     const cache = this._addICPEECache || [];
     if (!term) {
       list.innerHTML = '';
-      if (empty) empty.textContent = `Tapez quelques lettres pour rechercher parmi les ${cache.length} entreprises.`;
+      if (empty) empty.textContent = `Saisir quelques lettres pour rechercher parmi les ${cache.length} entreprises.`;
       return;
     }
     const matches = cache.filter(e => (e.nom||'').toLowerCase().includes(term)).slice(0, 50);
     list.innerHTML = matches.map(e => `<div class="d-flex align-items-center gap-2 mb-1 p-2 rounded border" style="cursor:pointer" onclick="App.addICPEEFromRepo(${e.id})"><i class="bi bi-building"></i><span class="small">${this.esc(e.nom)}</span></div>`).join('');
-    if (empty) empty.textContent = matches.length ? (matches.length === 50 ? '50+ résultats — affinez votre recherche.' : '') : 'Aucune entreprise correspondante.';
+    if (empty) empty.textContent = matches.length ? (matches.length === 50 ? '50+ résultats — affiner la recherche.' : '') : 'Aucune entreprise correspondante.';
   },
 
   async addICPEEFromRepo(id) {
@@ -12593,7 +12593,7 @@ const App = {
     const ees = this.currentICP.entreprisesExt||[];
     this.currentICP.signaturesEE = this.currentICP.signaturesEE||[];
     while (this.currentICP.signaturesEE.length < ees.length) this.currentICP.signaturesEE.push({nom:'',date:'',data:null});
-    if (!ees.length) { c.innerHTML = '<p class="text-muted small">Aucune EE sous-traitante. Utilisez « Ajouter EE » dans la section Participants pour ajouter un sous-traitant.</p>'; return; }
+    if (!ees.length) { c.innerHTML = '<p class="text-muted small">Aucune EE sous-traitante. Utiliser « Ajouter EE » dans la section Participants pour ajouter un sous-traitant.</p>'; return; }
     c.innerHTML = ees.map((ee,i) => `<div class="mb-3 p-2 border rounded"><strong class="small">${this.esc(ee.nom)}</strong><div class="row g-2 mt-1"><div class="col-md-6"><input type="text" class="form-control form-control-sm" placeholder="Signataire" value="${this.esc((this.currentICP.signaturesEE[i]||{}).nom||'')}" onchange="App.currentICP.signaturesEE[${i}].nom=this.value"></div><div class="col-md-6"><input type="date" class="form-control form-control-sm" value="${(this.currentICP.signaturesEE[i]||{}).date||''}" onchange="App.currentICP.signaturesEE[${i}].date=this.value"></div><div class="col-12"><div class="signature-pad-wrapper"><canvas id="icp-sig-ee-canvas-${i}" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('icp-sig-ee-canvas-${i}')"><i class="bi bi-eraser me-1"></i>Effacer</button></div></div></div>`).join('');
     setTimeout(() => {
       ees.forEach((_,i) => {
@@ -12727,7 +12727,7 @@ const App = {
     if (!pdps.length) { this.toast('Aucun PDP existant','warning'); return; }
     const _icps = await db.icps.toArray();
     const _refById = new Map(_icps.map(v => [v.id, v.refOperation || '']));
-    let html = '<p class="fw-bold small">Sélectionnez un PDP :</p>';
+    let html = '<p class="fw-bold small">Sélectionner un PDP :</p>';
     html += pdps.map(p => {
       const ref = p.refOperation || (p.icpId ? _refById.get(p.icpId) : '') || '';
       const meta = [ref, p.eu?.nom, p.site].filter(Boolean).map(x => this.esc(x)).join(' · ');
@@ -12832,7 +12832,7 @@ const App = {
     if (!this.currentPDP) return;
     const icpList = await db.icps.orderBy('dateCreation').reverse().toArray();
     if (!icpList.length) { this.toast('Aucune ICP existante','warning'); return; }
-    let html = '<p class="fw-bold small">Sélectionnez une ICP :</p>';
+    let html = '<p class="fw-bold small">Sélectionner une ICP :</p>';
     html += icpList.map(v => {
       const head = [v.refOperation, v.numero || ('ICP #'+v.id)].filter(Boolean).map(x => this.esc(x)).join(' — ');
       const meta = [v.euInfo?.nom, v.objet, v.site, v.dateVisite].filter(Boolean).map(x => this.esc(x)).join(' · ');
@@ -13584,7 +13584,7 @@ const App = {
     await this.loadTropheesConfig();
     const nbActifs = this._tropheesDefs.filter(d => this._tropheesConfig[d.id] && this._tropheesConfig[d.id].actif).length;
     if (nbActifs === 0) {
-      colEl.innerHTML = '<div class="alert alert-info mb-0"><i class="bi bi-info-circle me-1"></i>Aucun trophée actif — activez-en depuis Paramètres.</div>';
+      colEl.innerHTML = '<div class="alert alert-info mb-0"><i class="bi bi-info-circle me-1"></i>Aucun trophée actif — en activer depuis Paramètres.</div>';
       murEl.innerHTML = '';
       return;
     }
@@ -13666,7 +13666,7 @@ const App = {
       const rang = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
       return `<tr class="${isMe ? 'trophee-row-me' : ''}">
         <td class="text-center">${rang}</td>
-        <td>${this.esc(e.tech.prenom)} ${this.esc(e.tech.nom)}${isMe ? ' <span class="badge bg-success ms-1">Vous</span>' : ''}</td>
+        <td>${this.esc(e.tech.prenom)} ${this.esc(e.tech.nom)}${isMe ? ' <span class="badge bg-success ms-1">Moi</span>' : ''}</td>
         <td class="text-center"><span class="badge bg-secondary">${e.data.nbDebloques}/${nbActifs}</span></td>
         <td class="text-center">${e.data.score}</td>
         <td>${medals}</td>
@@ -13845,7 +13845,7 @@ const App = {
         <button class="btn btn-sm btn-outline-danger" onclick="App.removeNotifyEmail('${this.esc(e)}')"><i class="bi bi-trash"></i></button>
       </div>`).join('');
     el.innerHTML = `
-      ${rows || '<p class="text-muted small">Aucun destinataire. Ajoutez au moins un email pour activer les notifications.</p>'}
+      ${rows || '<p class="text-muted small">Aucun destinataire. Ajouter au moins un email pour activer les notifications.</p>'}
       <div class="input-group input-group-sm mt-2" style="max-width:420px">
         <input type="email" class="form-control" id="notify-email-input" placeholder="email@exemple.fr">
         <button class="btn btn-outline-primary" onclick="App.addNotifyEmail(document.getElementById('notify-email-input').value); document.getElementById('notify-email-input').value='';"><i class="bi bi-plus-lg"></i> Ajouter</button>
@@ -14367,7 +14367,7 @@ const App = {
     const c = document.getElementById('fds-list-container');
     if (!c) return;
     const all = await db.fds.toArray();
-    if (!all.length) { c.innerHTML = '<p class="text-muted small">Aucune FDS importée. Cliquez sur « Importer FDS » pour ajouter des PDF.</p>'; return; }
+    if (!all.length) { c.innerHTML = '<p class="text-muted small">Aucune FDS importée. Cliquer sur « Importer FDS » pour ajouter des PDF.</p>'; return; }
     c.innerHTML = all.map(f => `
       <div class="border rounded p-2 mb-2 d-flex align-items-center gap-2 flex-wrap">
         <i class="bi bi-file-earmark-pdf text-danger fs-5"></i>
@@ -14545,7 +14545,7 @@ const App = {
     if (admins.length === 0) {
       info = '<div class="alert alert-info small mb-2"><i class="bi bi-info-circle me-1"></i>Aucun administrateur défini. Le premier utilisateur à en ajouter un deviendra administrateur.</div>';
     } else if (!isAdmin) {
-      info = `<div class="alert alert-light small mb-2"><i class="bi bi-info-circle me-1"></i>Vous n'êtes pas administrateur (connecté en tant que <strong>${this.esc(me)}</strong>). Seul un administrateur peut modifier la liste.</div>`;
+      info = `<div class="alert alert-light small mb-2"><i class="bi bi-info-circle me-1"></i>Compte non administrateur (connecté en tant que <strong>${this.esc(me)}</strong>). Seul un administrateur peut modifier la liste.</div>`;
     }
 
     const rows = admins.map(a => `
@@ -14557,11 +14557,11 @@ const App = {
     const meIsAdmin = me && admins.some(a => a.toLowerCase() === me.toLowerCase());
     const selfBtn = (isAdmin && me && !meIsAdmin) ? `
       <button class="btn btn-sm btn-success mt-2" onclick="App.doAddSelfAdmin()"><i class="bi bi-person-plus me-1"></i>M'ajouter comme administrateur (${this.esc(me)})</button>
-      <p class="small text-muted mt-1 mb-0">Recommandé : utilise votre nom Microsoft exact, sans risque d'erreur de saisie.</p>` : '';
+      <p class="small text-muted mt-1 mb-0">Recommandé : utiliser le nom Microsoft exact, sans risque d'erreur de saisie.</p>` : '';
 
     const form = isAdmin ? `
       <div class="input-group input-group-sm mt-2">
-        <input type="text" class="form-control" id="new-admin-name" placeholder="Nom Microsoft exact (ex: Thibault HOCEDEZ)">
+        <input type="text" class="form-control" id="new-admin-name" placeholder="Nom Microsoft exact (ex: Prénom NOM)">
         <button class="btn btn-outline-primary" onclick="App.doAddAdmin()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
       </div>
       <p class="small text-muted mt-1 mb-0">Le nom doit correspondre exactement au nom affiché sur le compte Microsoft de la personne.</p>` : '';
@@ -14571,9 +14571,9 @@ const App = {
 
   async doAddSelfAdmin() {
     const me = DataSync.getUserName() || '';
-    if (!me) { this.toast('Nom Microsoft non détecté — connectez-vous à SharePoint', 'warning'); return; }
+    if (!me) { this.toast('Nom Microsoft non détecté — se connecter à SharePoint', 'warning'); return; }
     await this.addAdmin(me);
-    this.toast('Vous êtes administrateur');
+    this.toast('Compte administrateur activé');
     await this.renderAdminsSection();
     try { await this.renderPendingRisksSection(); } catch (e) {}
     try { await this.applyAdminUI(); } catch (e) {}
@@ -14582,7 +14582,7 @@ const App = {
   async doAddAdmin() {
     const inp = document.getElementById('new-admin-name');
     const name = (inp?.value || '').trim();
-    if (!name) { this.toast('Saisissez un nom', 'warning'); return; }
+    if (!name) { this.toast('Saisir un nom', 'warning'); return; }
     await this.addAdmin(name);
     this.toast('Administrateur ajouté');
     await this.renderAdminsSection();
@@ -14676,7 +14676,7 @@ const App = {
     if (actif) {
       await db.settings.put({ key: 'maintenanceMode', value: {
         actif: true,
-        message: (message || '').trim() || 'Application en cours de modification : pensez à enregistrer régulièrement, des bugs ou pertes de données ponctuels sont possibles.',
+        message: (message || '').trim() || 'Application en cours de modification : penser à enregistrer régulièrement, des bugs ou pertes de données ponctuels sont possibles.',
         par: DataSync.getUserName() || 'un administrateur',
         depuis: new Date().toISOString(),
         expire: new Date(Date.now() + 4 * 3600 * 1000).toISOString()
@@ -14731,7 +14731,7 @@ const App = {
     } else {
       el.innerHTML = `
         <input type="text" class="form-control form-control-sm mb-1" id="maintenance-msg" placeholder="Message (optionnel) — ex: mise à jour des risques en cours">
-        <p class="small text-muted mb-2"><i class="bi bi-info-circle me-1"></i>Si laissé vide, le message par défaut sera : « Application en cours de modification : pensez à enregistrer régulièrement, des bugs ou pertes de données ponctuels sont possibles. »</p>
+        <p class="small text-muted mb-2"><i class="bi bi-info-circle me-1"></i>Si laissé vide, le message par défaut sera : « Application en cours de modification : penser à enregistrer régulièrement, des bugs ou pertes de données ponctuels sont possibles. »</p>
         <button class="btn btn-warning btn-sm" onclick="App.setMaintenance(true, document.getElementById('maintenance-msg').value)"><i class="bi bi-cone-striped me-1"></i>Activer le bandeau « Travail en cours »</button>`;
     }
   },
@@ -14979,7 +14979,7 @@ const App = {
     const c = document.getElementById('agences-list-container');
     if (!c) return;
     const agences = await loadAgences();
-    if (!agences.length) { c.innerHTML = '<p class="text-muted text-center small mt-2">Aucune agence. Cliquez sur "Ajouter" pour commencer.</p>'; return; }
+    if (!agences.length) { c.innerHTML = '<p class="text-muted text-center small mt-2">Aucune agence. Cliquer sur "Ajouter" pour commencer.</p>'; return; }
     c.innerHTML = `<div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Nom</th><th>Marque</th><th>Responsable</th><th>Adresse</th><th>SIRET</th><th>Téléphone</th><th></th></tr></thead><tbody>${
       agences.map(a => `<tr>
         <td><b>${this.esc(a.nomComplet||a.ville||a.id)}</b></td>
@@ -15072,7 +15072,7 @@ const App = {
     const c = document.getElementById('sites-list-container');
     if (!c) return;
     const sites = await db.sites.toArray();
-    if (!sites.length) { c.innerHTML = '<p class="text-muted text-center small mt-2">Aucun site. Cliquez sur "Ajouter" pour commencer.</p>'; return; }
+    if (!sites.length) { c.innerHTML = '<p class="text-muted text-center small mt-2">Aucun site. Cliquer sur "Ajouter" pour commencer.</p>'; return; }
     const grouped = {};
     sites.forEach(s => {
       const ent = s.entite || 'autre';
@@ -15255,7 +15255,7 @@ const App = {
   // ========================================
   async exportDOCX() {
     if (!this.currentPDP) return;
-    if (typeof docx === 'undefined' || typeof saveAs === 'undefined') { this.toast('Chargement en cours, réessayez dans quelques secondes','warning'); return; }
+    if (typeof docx === 'undefined' || typeof saveAs === 'undefined') { this.toast('Chargement en cours, réessayer dans quelques secondes','warning'); return; }
     // En mode batch/blob (archivage), currentPDP vient de la base et n'est PAS affiché :
     // ne pas relire le DOM (collectForm/captureAllSigs liraient le PDP affiché → corruption croisée).
     if (!this._returnDOCXBlob) { this.collectForm(); this.captureAllSigs(); }
@@ -15986,8 +15986,8 @@ const App = {
     }
     // Le Word ne contient pas le contenu des FDS : prévenir avant téléchargement (cohérent avec le ZIP).
     if (_fdsRefsDocx.length) {
-      const ok = await this.confirm(`Le Word ne contient pas le contenu des ${_fdsRefsDocx.length} FDS référencée(s) (listées en annexe seulement). Pour un dossier réglementaire complet, utilisez l'export ZIP ou PDF. Continuer le téléchargement du Word ?`);
-      if (!ok) { this.toast('Export Word annulé — utilisez l\'export ZIP ou PDF pour inclure les FDS', 'info', 6000); return; }
+      const ok = await this.confirm(`Le Word ne contient pas le contenu des ${_fdsRefsDocx.length} FDS référencée(s) (listées en annexe seulement). Pour un dossier réglementaire complet, utiliser l'export ZIP ou PDF. Continuer le téléchargement du Word ?`);
+      if (!ok) { this.toast('Export Word annulé — utiliser l\'export ZIP ou PDF pour inclure les FDS', 'info', 6000); return; }
       this.toast(`Word généré — ${_fdsRefsDocx.length} FDS NON incluse(s), à fournir via ZIP/SharePoint`, 'warning', 8000);
     } else {
       this.toast('Word généré');
@@ -16515,7 +16515,7 @@ const App = {
   // ---- PDF EXPORT ----
   async exportPDF() {
     if (!this.currentPDP) return;
-    if (typeof window.jspdf === 'undefined') { this.toast('Chargement en cours, réessayez dans quelques secondes','warning'); return; }
+    if (typeof window.jspdf === 'undefined') { this.toast('Chargement en cours, réessayer dans quelques secondes','warning'); return; }
     // En mode batch/blob (archivage) : ne pas relire le DOM (cf. exportDOCX).
     if (!this._returnPDFBlob) { this.collectForm(); this.captureAllSigs(); }
     const p = this.currentPDP;
@@ -17208,8 +17208,8 @@ const App = {
     // Si des FDS manquent : confirmation d'incomplétude (cohérent avec le ZIP), sans bloquer l'export.
     let pdfFnFinal = pdfFn;
     if (skippedPDF.length) {
-      const ok = await this.confirm(`${skippedPDF.length} FDS ne peuvent être annexées au PDF (hors-ligne, introuvables ou corrompues) : ${skippedPDF.join(', ')}. Le dossier PDF sera INCOMPLET. Reconnectez-vous à SharePoint puis régénérez pour un dossier complet. Télécharger quand même un PDF incomplet ?`);
-      if (!ok) { this.toast('Export PDF annulé — reconnectez-vous pour annexer toutes les FDS', 'info', 6000); return; }
+      const ok = await this.confirm(`${skippedPDF.length} FDS ne peuvent être annexées au PDF (hors-ligne, introuvables ou corrompues) : ${skippedPDF.join(', ')}. Le dossier PDF sera INCOMPLET. Se reconnecter à SharePoint puis régénérer pour un dossier complet. Télécharger quand même un PDF incomplet ?`);
+      if (!ok) { this.toast('Export PDF annulé — se reconnecter pour annexer toutes les FDS', 'info', 6000); return; }
       pdfFnFinal = 'INCOMPLET_' + pdfFn;
     }
     saveAs(pdfBlob, pdfFnFinal);
@@ -17270,9 +17270,9 @@ const App = {
     // 3. Si des pièces manquent : confirmation EXPLICITE avant de livrer un dossier
     // réglementaire (R4512) incomplet — ne pas livrer un ZIP qui paraît complet (#5).
     if (skipped.length) {
-      const ok = await this.confirm(`${skipped.length} pièce(s) FDS ne peuvent être incluses (hors-ligne ou introuvables) : ${skipped.join(', ')}. Le dossier PDP sera INCOMPLET. Reconnectez-vous à SharePoint puis régénérez pour un dossier complet. Télécharger quand même un dossier incomplet ?`);
-      if (!ok) { this.toast('Export ZIP annulé — reconnectez-vous pour inclure toutes les FDS', 'info', 6000); return; }
-      zip.file('Documents_joints/_PIECES_MANQUANTES.txt', 'Pièces non incluses dans ce ZIP (FDS introuvable ou hors-ligne) :\n' + skipped.join('\n') + '\n\nReconnectez-vous à SharePoint puis régénérez le ZIP pour les inclure.');
+      const ok = await this.confirm(`${skipped.length} pièce(s) FDS ne peuvent être incluses (hors-ligne ou introuvables) : ${skipped.join(', ')}. Le dossier PDP sera INCOMPLET. Se reconnecter à SharePoint puis régénérer pour un dossier complet. Télécharger quand même un dossier incomplet ?`);
+      if (!ok) { this.toast('Export ZIP annulé — se reconnecter pour inclure toutes les FDS', 'info', 6000); return; }
+      zip.file('Documents_joints/_PIECES_MANQUANTES.txt', 'Pièces non incluses dans ce ZIP (FDS introuvable ou hors-ligne) :\n' + skipped.join('\n') + '\n\nSe reconnecter à SharePoint puis régénérer le ZIP pour les inclure.');
     }
     try {
       const zipBlob = await zip.generateAsync({type:'blob'});
