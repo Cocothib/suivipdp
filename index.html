@@ -2261,6 +2261,11 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <option value="effectuee">Effectuée</option>
         <option value="validee">Validée</option>
       </select>
+      <select class="form-select form-select-sm" style="width:auto" id="filter-icp-type" onchange="App.filterICPs()">
+        <option value="">Tous types</option>
+        <option value="maintenance">Maintenance</option>
+        <option value="travaux">Travaux / PDP</option>
+      </select>
       <select class="form-select form-select-sm" style="width:auto" id="filter-icp-agence" onchange="App.filterICPs()">
         <option value="">Toutes agences</option>
       </select>
@@ -12157,12 +12162,13 @@ const App = {
       const techKey = techMaint ? this._normTxt(techMaint.prenom + ' ' + techMaint.nom) : '';
       const agenceICP = (v.agenceId && getAgenceById(v.agenceId)) ? getAgenceById(v.agenceId) : null;
       const agenceICPLabel = agenceICP ? agenceICP.nomComplet : '';
-      return `<div class="card pdp-card" data-statut="${v.statut||''}" data-site="${(v.site||'').toLowerCase()}" data-ref="${(v.refOperation||'').toLowerCase()}" data-numero="${(v.numero||'').toLowerCase()}" data-objet="${(v.objet||'').toLowerCase()}" data-conducteur="${(conducteurICP||'').toLowerCase()}" data-agence="${(v.agenceId||'').toLowerCase()}" data-annee="${annee}" data-technicien="${techKey}" onclick="App.openICP(${v.id})">
+      return `<div class="card pdp-card" data-statut="${v.statut||''}" data-site="${(v.site||'').toLowerCase()}" data-ref="${(v.refOperation||'').toLowerCase()}" data-numero="${(v.numero||'').toLowerCase()}" data-objet="${(v.objet||'').toLowerCase()}" data-conducteur="${(conducteurICP||'').toLowerCase()}" data-agence="${(v.agenceId||'').toLowerCase()}" data-annee="${annee}" data-technicien="${techKey}" data-type="${techMaint?'maintenance':'travaux'}" onclick="App.openICP(${v.id})">
       <div class="card-body p-2">
         <div class="d-flex justify-content-between align-items-start">
           <div class="flex-grow-1">
             <div class="d-flex align-items-center gap-1 mb-1 flex-wrap">
               <span class="badge bg-${statutColors[v.statut]||'secondary'}">${statutLabels[v.statut]||v.statut}</span>
+              ${techMaint ? `<span class="badge" style="background:#00693E;color:#fff;font-size:0.7rem" title="ICP réalisée par ${this.esc(techMaint.prenom+' '+techMaint.nom)} (équipe maintenance)"><i class="bi bi-tools me-1"></i>Maintenance</span>`:''}
               ${v.refOperation ? `<span class="badge bg-info text-white" style="font-size:0.7rem">${this.esc(v.refOperation)}</span>`:''}
               ${editingBadge}
               <span class="text-muted" style="font-size:0.75rem">${this.esc(v.numero||'ICP #'+v.id)}</span>
@@ -12186,6 +12192,7 @@ const App = {
   filterICPs() {
     const s = (document.getElementById('search-icp').value||'').toLowerCase().trim();
     const st = document.getElementById('filter-icp-statut')?.value || '';
+    const type = document.getElementById('filter-icp-type')?.value || '';
     const agence = (document.getElementById('filter-icp-agence')?.value||'').toLowerCase();
     const site = (document.getElementById('filter-icp-site')?.value||'').toLowerCase();
     const conducteur = (document.getElementById('filter-icp-conducteur')?.value||'').toLowerCase();
@@ -12197,12 +12204,13 @@ const App = {
       const haystack = [c.dataset.site, c.dataset.ref, c.dataset.numero, c.dataset.objet, c.dataset.conducteur].filter(Boolean).join(' ');
       const matchSearch = !s || haystack.includes(s);
       const matchStatut = !st || c.dataset.statut === st;
+      const matchType = !type || (c.dataset.type||'') === type;
       const matchAgence = !agence || (c.dataset.agence||'') === agence;
       const matchSite = !site || (c.dataset.site||'') === site;
       const matchConducteur = !conducteur || (c.dataset.conducteur||'') === conducteur;
       const matchTech = !technicien || (technicien === '__none__' ? !c.dataset.technicien : (c.dataset.technicien||'') === technicien);
       const matchAnnee = !annee || c.dataset.annee === annee;
-      const show = matchSearch && matchStatut && matchAgence && matchSite && matchConducteur && matchTech && matchAnnee;
+      const show = matchSearch && matchStatut && matchType && matchAgence && matchSite && matchConducteur && matchTech && matchAnnee;
       c.style.display = show ? '' : 'none';
       if (show) visible++;
     });
@@ -12211,7 +12219,7 @@ const App = {
   },
 
   resetICPFilters() {
-    ['search-icp','filter-icp-statut','filter-icp-agence','filter-icp-site','filter-icp-conducteur','filter-icp-technicien','filter-icp-annee'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['search-icp','filter-icp-statut','filter-icp-type','filter-icp-agence','filter-icp-site','filter-icp-conducteur','filter-icp-technicien','filter-icp-annee'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     this.filterICPs();
   },
 
