@@ -3354,6 +3354,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
 <script defer src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script defer src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js" integrity="sha384-weMABwrltA6jWR8DDe9Jp5blk+tZQh7ugpCsF3JwSA53WZM9/14PjS5LAJNHNjAI" crossorigin="anonymous"></script>
 
 <script>
 // ========================================
@@ -7931,7 +7932,9 @@ const App = {
     p.signatureEU.fonction = document.getElementById('sig-eu-fonction').value.trim();
     p.signatureEU.date = document.getElementById('sig-eu-date').value;
     const canvas = document.getElementById('sig-eu-canvas');
-    if (canvas && canvas._hasDrawing) p.signatureEU.data = canvas.toDataURL();
+    // #15 : si le canvas est présent, refléter exactement son état (effacé → null) ;
+    // s'il est absent (section non rendue), préserver la donnée existante.
+    if (canvas) p.signatureEU.data = canvas._hasDrawing ? canvas.toDataURL() : null;
     // Émargements
     this.captureEmargementSigs();
     // Pictogrammes
@@ -7965,18 +7968,20 @@ const App = {
       r.signatureEU = r.signatureEU || {};
       r.signatureExec = r.signatureExec || {};
       const canvasEU = document.getElementById('pf-renouv-sig-eu-'+i);
-      if (canvasEU?._hasDrawing) r.signatureEU.data = canvasEU.toDataURL();
+      if (canvasEU) r.signatureEU.data = canvasEU._hasDrawing ? canvasEU.toDataURL() : null;
       const canvasExec = document.getElementById('pf-renouv-sig-exec-'+i);
-      if (canvasExec?._hasDrawing) r.signatureExec.data = canvasExec.toDataURL();
+      if (canvasExec) r.signatureExec.data = canvasExec._hasDrawing ? canvasExec.toDataURL() : null;
       // Émargements des rondes
       (r.rondes||[]).forEach((rd, ri) => {
         const cv = document.getElementById(`pf-renouv-ronde-sig-${i}-${ri}`);
-        if (cv?._hasDrawing) rd.signature = cv.toDataURL();
+        if (cv) rd.signature = cv._hasDrawing ? cv.toDataURL() : null;
       });
     });
-    p.permisFeu.signatureEU = { nom: document.getElementById('pf-sig-eu-nom').value.trim(), date: document.getElementById('pf-sig-eu-date').value, data: document.getElementById('pf-sig-eu-canvas')?._hasDrawing ? document.getElementById('pf-sig-eu-canvas').toDataURL() : (p.permisFeu.signatureEU?.data||null) };
-    p.permisFeu.signatureEE = { nom: document.getElementById('pf-sig-ee-nom').value.trim(), date: document.getElementById('pf-sig-ee-date').value, data: document.getElementById('pf-sig-ee-canvas')?._hasDrawing ? document.getElementById('pf-sig-ee-canvas').toDataURL() : (p.permisFeu.signatureEE?.data||null) };
-    p.permisFeu.signatureExec = { nom: document.getElementById('pf-sig-exec-nom').value.trim(), societe: document.getElementById('pf-sig-exec-societe').value.trim(), date: document.getElementById('pf-sig-exec-date').value, data: document.getElementById('pf-sig-exec-canvas')?._hasDrawing ? document.getElementById('pf-sig-exec-canvas').toDataURL() : (p.permisFeu.signatureExec?.data||null) };
+    // #15 : canvas présent → reflète son état (effacé → null) ; canvas absent → préserve l'ancienne donnée.
+    const _sigCanvasData = (id, prev) => { const cv = document.getElementById(id); return cv ? (cv._hasDrawing ? cv.toDataURL() : null) : (prev||null); };
+    p.permisFeu.signatureEU = { nom: document.getElementById('pf-sig-eu-nom').value.trim(), date: document.getElementById('pf-sig-eu-date').value, data: _sigCanvasData('pf-sig-eu-canvas', p.permisFeu.signatureEU?.data) };
+    p.permisFeu.signatureEE = { nom: document.getElementById('pf-sig-ee-nom').value.trim(), date: document.getElementById('pf-sig-ee-date').value, data: _sigCanvasData('pf-sig-ee-canvas', p.permisFeu.signatureEE?.data) };
+    p.permisFeu.signatureExec = { nom: document.getElementById('pf-sig-exec-nom').value.trim(), societe: document.getElementById('pf-sig-exec-societe').value.trim(), date: document.getElementById('pf-sig-exec-date').value, data: _sigCanvasData('pf-sig-exec-canvas', p.permisFeu.signatureExec?.data) };
 
     p.dateModification = new Date().toISOString();
     if (!p.numero) { const y = new Date().getFullYear(); const m = String(new Date().getMonth()+1).padStart(2,'0'); p.numero = `PDP-${y}${m}-${String(p.id||Date.now()).slice(-4)}`; }
@@ -9236,16 +9241,20 @@ const App = {
   },
 
   captureAllSigs() {
+    // #15 : écrire SYSTÉMATIQUEMENT la valeur quand le canvas EST présent dans le DOM
+    // (drawn → dataURL ; effacé → null). Si le canvas est ABSENT (section signatures
+    // non ouverte), on préserve la donnée stockée (loadSigImg met _hasDrawing=true à
+    // la réouverture d'une fiche signée → pas de régression).
     const c = document.getElementById('sig-eu-canvas');
-    if (c && c._hasDrawing) this.currentPDP.signatureEU.data = c.toDataURL();
+    if (c) this.currentPDP.signatureEU.data = c._hasDrawing ? c.toDataURL() : null;
     (this.currentPDP.entreprisesExt||[]).forEach((_,i) => {
       const cv = document.getElementById(`sig-ee-canvas-${i}`);
-      if (cv && cv._hasDrawing) this.currentPDP.signaturesEE[i].data = cv.toDataURL();
+      if (cv && this.currentPDP.signaturesEE[i]) this.currentPDP.signaturesEE[i].data = cv._hasDrawing ? cv.toDataURL() : null;
     });
     // Signatures EE depuis ICP (Rep EE + participants EE additionnels)
     (this.currentPDP.signaturesICPEE||[]).forEach((_,i) => {
       const cv = document.getElementById(`sig-ee-icp-canvas-${i}`);
-      if (cv && cv._hasDrawing) this.currentPDP.signaturesICPEE[i].data = cv.toDataURL();
+      if (cv && this.currentPDP.signaturesICPEE[i]) this.currentPDP.signaturesICPEE[i].data = cv._hasDrawing ? cv.toDataURL() : null;
     });
   },
 
@@ -11937,15 +11946,16 @@ const App = {
     // Capture signatures additionnelles (canvas + nom/date déjà mis à jour via onchange)
     v.signaturesEUAdd = v.signaturesEUAdd || [];
     v.signaturesEEAdd = v.signaturesEEAdd || [];
+    // #15 : canvas présent → reflète son état (effacé → null) ; absent → préserve.
     v.euParticipants.forEach((_,i) => {
       const cv = document.getElementById(`icp-sig-eu-add-canvas-${i}`);
       if (!v.signaturesEUAdd[i]) v.signaturesEUAdd[i] = {nom:'',date:'',data:null};
-      if (cv && cv._hasDrawing) v.signaturesEUAdd[i].data = cv.toDataURL();
+      if (cv) v.signaturesEUAdd[i].data = cv._hasDrawing ? cv.toDataURL() : null;
     });
     v.eeParticipants.forEach((_,i) => {
       const cv = document.getElementById(`icp-sig-ee-add-canvas-${i}`);
       if (!v.signaturesEEAdd[i]) v.signaturesEEAdd[i] = {nom:'',date:'',data:null};
-      if (cv && cv._hasDrawing) v.signaturesEEAdd[i].data = cv.toDataURL();
+      if (cv) v.signaturesEEAdd[i].data = cv._hasDrawing ? cv.toDataURL() : null;
     });
     // Tronquer si on a supprimé des participants
     v.signaturesEUAdd = v.signaturesEUAdd.slice(0, v.euParticipants.length);
@@ -11954,17 +11964,17 @@ const App = {
     v.signatureEU.nom = document.getElementById('icp-sig-eu-nom').value.trim();
     v.signatureEU.date = document.getElementById('icp-sig-eu-date').value;
     const canvas = document.getElementById('icp-sig-eu-canvas');
-    if (canvas && canvas._hasDrawing) v.signatureEU.data = canvas.toDataURL();
+    if (canvas) v.signatureEU.data = canvas._hasDrawing ? canvas.toDataURL() : null;
     // Signature Représentant EE (lié au champ icp-ee-rep-*)
     v.signatureEERep = v.signatureEERep||{};
     v.signatureEERep.nom = document.getElementById('icp-sig-ee-rep-nom').value.trim();
     v.signatureEERep.date = document.getElementById('icp-sig-ee-rep-date').value;
     const cvERep = document.getElementById('icp-sig-ee-rep-canvas');
-    if (cvERep && cvERep._hasDrawing) v.signatureEERep.data = cvERep.toDataURL();
+    if (cvERep) v.signatureEERep.data = cvERep._hasDrawing ? cvERep.toDataURL() : null;
     // Capture EE signatures additionnelles
     (v.entreprisesExt||[]).forEach((_,i) => {
       const cv = document.getElementById(`icp-sig-ee-canvas-${i}`);
-      if (cv && cv._hasDrawing) { v.signaturesEE = v.signaturesEE||[]; if (!v.signaturesEE[i]) v.signaturesEE[i]={nom:'',date:'',data:null}; v.signaturesEE[i].data = cv.toDataURL(); }
+      if (cv) { v.signaturesEE = v.signaturesEE||[]; if (!v.signaturesEE[i]) v.signaturesEE[i]={nom:'',date:'',data:null}; v.signaturesEE[i].data = cv._hasDrawing ? cv.toDataURL() : null; }
     });
     v.dateModification = new Date().toISOString();
     if (!v.numero) { const y = new Date().getFullYear(); const m = String(new Date().getMonth()+1).padStart(2,'0'); v.numero = `ICP-${y}${m}-${String(v.id||Date.now()).slice(-4)}`; }
@@ -15660,6 +15670,29 @@ const App = {
       });
     }
 
+    // ---- Annexes — Fiches de Données de Sécurité (référencées, fournies séparément) ----
+    // Un DOCX ne peut pas incruster de façon fiable le contenu d'un PDF FDS : on les LISTE,
+    // en signalant qu'elles sont fournies séparément (ZIP / SharePoint). Cohérent avec le ZIP.
+    const _fdsRefsDocx = (p.documents||[]).filter(d => d && d.fdsRef);
+    if (_fdsRefsDocx.length) {
+      // Résoudre les références pour afficher le bon nom (map local, ne pas polluer le modèle).
+      const _fdsNoms = new Map();
+      for (const d of _fdsRefsDocx) {
+        try { const f = await this.ensureFDSData(d.fdsRef); if (f?.nom) _fdsNoms.set(d, f.nom); } catch (e) { /* nom de secours plus bas */ }
+      }
+      secNum++;
+      children.push(secTitle(String(secNum),'ANNEXES — FICHES DE DONNÉES DE SÉCURITÉ'));
+      children.push(new Paragraph({children:[new TextRun({text:'Le présent document Word ne contient pas le contenu des FDS. Les fiches suivantes sont fournies séparément (voir export ZIP / SharePoint) :',size:18,font:'Calibri',italics:true,color:'666666'})],spacing:{after:100}}));
+      _fdsRefsDocx.forEach((d,i) => {
+        const nm = _fdsNoms.get(d) || d.nom || ('FDS#'+(d.fdsRef||'?'));
+        children.push(new Paragraph({children:[
+          new TextRun({text:`${i+1}. `,size:20,bold:true,font:'Calibri'}),
+          new TextRun({text:nm,size:20,font:'Calibri'}),
+          new TextRun({text:'  —  Fournie séparément (voir export ZIP / SharePoint)',size:18,font:'Calibri',italics:true,color:'888888'})
+        ],spacing:{after:60}}));
+      });
+    }
+
     // Modifications
     if ((p.modifications||[]).length) {
       secNum++;
@@ -15722,9 +15755,16 @@ const App = {
       this._docxBlobResult = blob;
       return;
     }
+    // Le Word ne contient pas le contenu des FDS : prévenir avant téléchargement (cohérent avec le ZIP).
+    if (_fdsRefsDocx.length) {
+      const ok = await this.confirm(`Le Word ne contient pas le contenu des ${_fdsRefsDocx.length} FDS référencée(s) (listées en annexe seulement). Pour un dossier réglementaire complet, utilisez l'export ZIP ou PDF. Continuer le téléchargement du Word ?`);
+      if (!ok) { this.toast('Export Word annulé — utilisez l\'export ZIP ou PDF pour inclure les FDS', 'info', 6000); return; }
+      this.toast(`Word généré — ${_fdsRefsDocx.length} FDS NON incluse(s), à fournir via ZIP/SharePoint`, 'warning', 8000);
+    } else {
+      this.toast('Word généré');
+    }
     saveAs(blob, fn);
     DataSync.uploadExport(blob, fn, 'pdp', {notify:true});
-    this.toast('Word généré');
   },
 
   // ---- EXPORT PERMIS DE FEU SÉPARÉ (WORD) ----
@@ -16891,14 +16931,62 @@ const App = {
 
     const pdfFn = await this.buildPDPFilename(p, 'pdf');
     if (this._returnPDFBlob) {
+      // Le ZIP ajoute les FDS comme fichiers séparés : on renvoie le PDF de base sans fusion.
       this._pdfBlobResult = doc.output('blob');
       return;
     }
-    const pdfBlob = doc.output('blob');
-    // Export PDF seul (sans annexes). Pour le ZIP avec annexes, utiliser exportZIP('pdf').
-    doc.save(pdfFn);
-    try { DataSync.uploadExport(pdfBlob, pdfFn, 'pdp', {notify:true}); } catch(e) {}
-    this.toast('PDF généré');
+    // Export PDF seul : on ANNEXE les pages réelles des FDS au PDF via pdf-lib.
+    const skippedPDF = []; // FDS non incluses (corrompues / introuvables / hors-ligne)
+    const fdsDocsPDF = (p.documents||[]).filter(d => d && (d.fdsRef || (d.data && /^data:application\/pdf/i.test(d.data))));
+    let pdfBlob;
+    if (fdsDocsPDF.length && typeof PDFLib !== 'undefined') {
+      try {
+        const { PDFDocument } = PDFLib;
+        const baseBytes = doc.output('arraybuffer');
+        const out = await PDFDocument.load(baseBytes);
+        for (const d of fdsDocsPDF) {
+          let dataUrl = d.data;
+          let nm = d.nom;
+          if (d.fdsRef) {
+            try {
+              const f = await this.ensureFDSData(d.fdsRef);
+              if (f?.data) { dataUrl = f.data; nm = f.nom||nm; }
+            } catch (e) { console.warn('FDS ref non résolue:', d.fdsRef, e); }
+          }
+          if (!dataUrl || !/^data:application\/pdf/i.test(dataUrl)) { skippedPDF.push(nm || d.nom || ('FDS#'+(d.fdsRef||'?'))); continue; }
+          try {
+            const fdsBytes = Uint8Array.from(atob(dataUrl.split(',')[1]||''), c => c.charCodeAt(0));
+            const fdsDoc = await PDFDocument.load(fdsBytes);
+            const pages = await out.copyPages(fdsDoc, fdsDoc.getPageIndices());
+            pages.forEach(pg => out.addPage(pg));
+          } catch (e) {
+            console.warn('Fusion FDS échouée (corrompue ?):', nm, e);
+            skippedPDF.push(nm || d.nom || ('FDS#'+(d.fdsRef||'?')));
+          }
+        }
+        const mergedBytes = await out.save();
+        pdfBlob = new Blob([mergedBytes], {type:'application/pdf'});
+      } catch (e) {
+        console.error('Fusion PDF FDS échouée, export sans annexes:', e);
+        pdfBlob = doc.output('blob');
+      }
+    } else {
+      if (fdsDocsPDF.length && typeof PDFLib === 'undefined') {
+        fdsDocsPDF.forEach(d => skippedPDF.push(d.nom || ('FDS#'+(d.fdsRef||'?'))));
+      }
+      pdfBlob = doc.output('blob');
+    }
+    // Si des FDS manquent : confirmation d'incomplétude (cohérent avec le ZIP), sans bloquer l'export.
+    let pdfFnFinal = pdfFn;
+    if (skippedPDF.length) {
+      const ok = await this.confirm(`${skippedPDF.length} FDS ne peuvent être annexées au PDF (hors-ligne, introuvables ou corrompues) : ${skippedPDF.join(', ')}. Le dossier PDF sera INCOMPLET. Reconnectez-vous à SharePoint puis régénérez pour un dossier complet. Télécharger quand même un PDF incomplet ?`);
+      if (!ok) { this.toast('Export PDF annulé — reconnectez-vous pour annexer toutes les FDS', 'info', 6000); return; }
+      pdfFnFinal = 'INCOMPLET_' + pdfFn;
+    }
+    saveAs(pdfBlob, pdfFnFinal);
+    try { DataSync.uploadExport(pdfBlob, pdfFnFinal, 'pdp', {notify:true}); } catch(e) {}
+    if (skippedPDF.length) this.toast(`PDF INCOMPLET téléchargé — ${skippedPDF.length} FDS non annexée(s) : ${skippedPDF.join(', ')}`, 'warning', 9000);
+    else this.toast('PDF généré');
   },
 
   // ---- EXPORT ZIP COMPLET ----
