@@ -1302,6 +1302,9 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <button class="btn btn-warning btn-sm fw-bold" onclick="App.newPDP()">
         <i class="bi bi-file-earmark-plus me-1"></i>Nouveau PDP
       </button>
+      <button class="btn btn-outline-secondary btn-sm fw-bold" onclick="App.openProposeRisk()">
+        <i class="bi bi-shield-plus me-1"></i>Proposer un risque
+      </button>
     </div>
     <!-- KPIs -->
     <div class="row g-2 mb-3">
@@ -3340,6 +3343,60 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <span>risque(s)</span>
         </div>
         <button class="btn btn-primary btn-sm px-4" data-bs-dismiss="modal"><i class="bi bi-check-lg me-1"></i>Valider</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal : proposer un risque (autonome, sans PDP/ICP) -->
+<div class="modal fade" id="modal-propose-risk" tabindex="-1">
+  <div class="modal-dialog modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title"><i class="bi bi-shield-plus me-2"></i>Proposer un risque</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted mb-2">Le risque proposé part en <strong>attente de validation</strong> par un administrateur (notification par mail), puis sera coté et intégré au catalogue / DUERP.</p>
+        <div class="row g-2">
+          <div class="col-md-7">
+            <label class="form-label small mb-0" for="propose-std-nom">Nom du risque *</label>
+            <input type="text" class="form-control form-control-sm" id="propose-std-nom" placeholder="Ex: Exposition au CO2">
+          </div>
+          <div class="col-md-5">
+            <label class="form-label small mb-0" for="propose-std-cat">Catégorie</label>
+            <select class="form-select form-select-sm" id="propose-std-cat"></select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small mb-0" for="propose-std-niveau">Niveau</label>
+            <select class="form-select form-select-sm" id="propose-std-niveau">
+              <option value="1">1 - Faible</option>
+              <option value="2" selected>2 - Moyen</option>
+              <option value="3">3 - Élevé</option>
+              <option value="4">4 - Critique</option>
+            </select>
+          </div>
+          <div class="col-md-9">
+            <label class="form-label small mb-0" for="propose-std-situation">Situation dangereuse</label>
+            <input type="text" class="form-control form-control-sm" id="propose-std-situation" placeholder="Quand/où ce risque se présente...">
+          </div>
+          <div class="col-12">
+            <label class="form-label small mb-0" for="propose-std-prevention">Mesures de prévention</label>
+            <input type="text" class="form-control form-control-sm" id="propose-std-prevention" placeholder="EPI, formation, procédure...">
+          </div>
+          <div class="col-12">
+            <label class="form-label small mb-0"><i class="bi bi-camera me-1"></i>Photo du risque <span class="text-muted">(optionnel)</span></label>
+            <div class="d-flex gap-2 mb-1">
+              <label class="btn btn-outline-primary btn-sm mb-0"><i class="bi bi-camera me-1"></i>Photo<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addProposeRiskPhoto(event)"></label>
+              <label class="btn btn-outline-secondary btn-sm mb-0"><i class="bi bi-images me-1"></i>Galerie<input type="file" accept="image/*" multiple class="d-none" onchange="App.addProposeRiskPhoto(event)"></label>
+            </div>
+            <div id="propose-std-photos" class="d-flex flex-wrap gap-1"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+        <button class="btn btn-primary" onclick="App.submitProposeRisk()"><i class="bi bi-send me-1"></i>Proposer le risque</button>
       </div>
     </div>
   </div>
@@ -9267,10 +9324,13 @@ const App = {
   _proposeRiskPhotos: [],
 
   _renderProposeRiskPhotos() {
-    const el = document.getElementById('propose-risk-photos');
-    if (!el) return;
     const list = this._proposeRiskPhotos || [];
-    el.innerHTML = list.map((p, i) => `<div class="position-relative" style="display:inline-block"><img src="${p.data}" class="rounded border" style="width:60px;height:60px;object-fit:cover;cursor:pointer" onclick="App.viewImage('${p.data}')"><button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0" style="padding:0 3px;font-size:0.55rem;line-height:1.1" onclick="App.removeProposeRiskPhoto(${i})"><i class="bi bi-x"></i></button></div>`).join('');
+    const html = list.map((p, i) => `<div class="position-relative" style="display:inline-block"><img src="${p.data}" class="rounded border" style="width:60px;height:60px;object-fit:cover;cursor:pointer" onclick="App.viewImage('${p.data}')"><button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0" style="padding:0 3px;font-size:0.55rem;line-height:1.1" onclick="App.removeProposeRiskPhoto(${i})"><i class="bi bi-x"></i></button></div>`).join('');
+    // Rendu dans le sélecteur (PDP/ICP) ET le modal autonome — un seul est ouvert à la fois
+    ['propose-risk-photos', 'propose-std-photos'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = html;
+    });
     this._renderExistingRiskPhotos();
   },
 
@@ -9344,6 +9404,38 @@ const App = {
     const entry = all.find(r => r.id === id);
     const p = entry && entry.photos && entry.photos[pi];
     if (p && p.data) this.viewImage(p.data);
+  },
+
+  // ---- Proposition autonome d'un risque (depuis le tableau de bord, sans PDP/ICP) ----
+  openProposeRisk() {
+    this._proposeRiskPhotos = [];
+    const sel = document.getElementById('propose-std-cat');
+    if (sel) {
+      const opts = this.RISK_CATALOG.map(c => `<option value="${this.esc(c.cat)}">${this.esc(c.cat)}</option>`).join('');
+      sel.innerHTML = opts + '<option value="Personnalisés" selected>Personnalisés</option>';
+    }
+    ['propose-std-nom', 'propose-std-situation', 'propose-std-prevention'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+    const niv = document.getElementById('propose-std-niveau'); if (niv) niv.value = '2';
+    this._renderProposeRiskPhotos();
+    if (!this._proposeRiskModal) this._proposeRiskModal = new bootstrap.Modal(document.getElementById('modal-propose-risk'));
+    this._proposeRiskModal.show();
+  },
+
+  async submitProposeRisk() {
+    const nom = (document.getElementById('propose-std-nom').value || '').trim();
+    if (!nom) { this.toast('Saisir un nom de risque', 'warning'); return; }
+    const entry = await this.proposeCustomRisk({
+      nom,
+      categorie: document.getElementById('propose-std-cat')?.value || 'Personnalisés',
+      niveau: Number(document.getElementById('propose-std-niveau')?.value) || 2,
+      situation: (document.getElementById('propose-std-situation')?.value || '').trim(),
+      prevention: (document.getElementById('propose-std-prevention')?.value || '').trim(),
+      photos: this._proposeRiskPhotos || []
+    });
+    if (!entry) return; // doublon / échec : toast déjà affiché par proposeCustomRisk
+    this._proposeRiskPhotos = [];
+    this._proposeRiskModal?.hide();
+    this.toast('Risque proposé — en attente de validation');
   },
 
   async addCustomRiskFromPicker() {
