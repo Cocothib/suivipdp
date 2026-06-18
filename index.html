@@ -11702,24 +11702,52 @@ const App = {
   // ---- Autocomplete Sellsy directement dans le champ N° d'opération (ICP et PDP) ----
   // ctx = 'icp' ou 'pdp' : détermine le champ (#<ctx>-ref-operation), le dropdown
   // (#<ctx>-opp-ac) et la cible d'application (applySellsyOpp route vers ICP ou PDP).
+  // Recherche SERVEUR (Sellsy opp_search) à la frappe : ne charge plus les milliers
+  // d'opportunités. Rapide même en réseau faible, et couvre toutes les années.
   oppAutocomplete(ctx) {
     ctx = ctx || 'icp';
     this._sellsyOppTarget = ctx;
     const inp = document.getElementById(ctx + '-ref-operation');
     const box = document.getElementById(ctx + '-opp-ac');
     if (!inp || !box) return;
-    // Charge le cache des opportunités une seule fois (en tâche de fond)
-    if (!this._sellsyOppCache || !this._sellsyOppCache.length) {
-      if (!this._oppAcLoading) {
-        this._oppAcLoading = true;
-        this._oppAcCtx = ctx;
-        box.style.display = 'block';
-        box.innerHTML = '<div class="list-group-item small text-muted"><i class="bi bi-hourglass-split me-1"></i>Chargement des opportunités Sellsy…</div>';
-        this.loadSellsyOppList().finally(() => { this._oppAcLoading = false; this.renderOppAutocomplete(ctx); });
-      }
+    const q = (inp.value || '').trim();
+    clearTimeout(this._oppAcTimer);
+    if (q.length < 2) {
+      box.style.display = 'block';
+      box.innerHTML = `<div class="list-group-item small text-muted">Tapez ≥ 2 caractères (nom du client ou n° OPP) — <a href="#" onmousedown="event.preventDefault();App.openSellsyOppSearchModal('${ctx}')">tout parcourir</a></div>`;
       return;
     }
-    this.renderOppAutocomplete(ctx);
+    box.style.display = 'block';
+    box.innerHTML = '<div class="list-group-item small text-muted"><i class="bi bi-hourglass-split me-1"></i>Recherche…</div>';
+    this._oppAcTimer = setTimeout(async () => {
+      if (document.activeElement !== inp) return;
+      try {
+        const items = await SellsyAPI.searchOpportunities(q);
+        if (document.activeElement !== inp) return;
+        this._renderOppItems(ctx, (items || []).slice(0, 10));
+      } catch (e) {
+        console.warn('opp_search:', e);
+        box.innerHTML = `<div class="list-group-item small text-danger">Recherche indisponible — <a href="#" onmousedown="event.preventDefault();App.openSellsyOppSearchModal('${ctx}')">tout parcourir</a></div>`;
+      }
+    }, 350);
+  },
+
+  _renderOppItems(ctx, items) {
+    const box = document.getElementById(ctx + '-opp-ac');
+    if (!box) return;
+    if (!items || !items.length) {
+      box.innerHTML = `<div class="list-group-item small text-muted">Aucune opportunité trouvée — <a href="#" onmousedown="event.preventDefault();App.openSellsyOppSearchModal('${ctx}')">tout parcourir</a></div>`;
+      box.style.display = 'block';
+      return;
+    }
+    box.innerHTML = items.map(o => {
+      const meta = [o.companyName, o.etape].filter(Boolean).join(' · ');
+      return `<button type="button" class="list-group-item list-group-item-action py-1" onmousedown="event.preventDefault();App.applySellsyOpp(${Number(o.id)||0});App.hideOppAutocomplete('${ctx}')">
+        <strong>${this.esc(o.ref||'')}</strong> — ${this.esc(o.nom||'')}
+        <div class="small text-muted">${this.esc(meta)}</div>
+      </button>`;
+    }).join('');
+    box.style.display = 'block';
   },
 
   renderOppAutocomplete(ctx) {
