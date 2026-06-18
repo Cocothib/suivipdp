@@ -9067,13 +9067,34 @@ const App = {
     const hidden = new Set(await this.loadHiddenRisks());
     // Copie defensive : ne pas muter RISK_CATALOG en filtrant les risques masques
     const cats = this.RISK_CATALOG
-      .map(c => ({ ...c, risks: c.risks.filter(r => !hidden.has(r)) }))
-      .filter(c => c.risks.length);
-    const customList = (await this.loadCustomRisks()).filter(r => !hidden.has(r));
-    if (customList.length) {
-      cats.push({ cat: 'Personnalisés', icon: 'bi-star-fill', color: '#0dcaf0', risks: customList });
+      .map(c => ({ ...c, risks: c.risks.filter(r => !hidden.has(r)) }));
+    const byCat = new Map(cats.map(c => [c.cat, c]));
+
+    // Risques personnalisés non rejetés.
+    // - validés (approved) -> rangés sous LEUR vraie catégorie (créée si absente)
+    // - en attente (pending) -> restent groupés sous « Personnalisés » (badge « En attente »)
+    const raw = (await this._loadCustomRisksRaw())
+      .filter(r => r.statut !== 'rejected' && !hidden.has(r.nom));
+    const personnalises = [];
+    for (const r of raw) {
+      const target = (r.statut === 'approved') ? (r.categorie || 'Personnalisés') : 'Personnalisés';
+      if (target === 'Personnalisés') {
+        if (!personnalises.includes(r.nom)) personnalises.push(r.nom);
+        continue;
+      }
+      let cat = byCat.get(target);
+      if (!cat) {
+        cat = { cat: target, icon: 'bi-shield-exclamation', color: '#0dcaf0', risks: [] };
+        byCat.set(target, cat); cats.push(cat);
+      }
+      if (!cat.risks.includes(r.nom)) cat.risks.push(r.nom);
     }
-    return cats;
+
+    const result = cats.filter(c => c.risks.length);
+    if (personnalises.length) {
+      result.push({ cat: 'Personnalisés', icon: 'bi-star-fill', color: '#0dcaf0', risks: personnalises });
+    }
+    return result;
   },
 
   _countSelectedInCategory(cat) {
