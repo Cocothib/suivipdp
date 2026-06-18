@@ -2643,7 +2643,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
 
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-pencil-square"></i>Modèles de risques (situation / prévention par défaut)</div>
-      <div class="section-helper"><i class="bi bi-lightbulb"></i> Corrige le texte pré-rempli (situation, prévention, niveau) d'un risque du catalogue. La modification est partagée via SharePoint et s'applique aux nouveaux risques ajoutés aux PDP/ICP. N'affecte pas les PDP/ICP déjà saisis.</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Corrige le texte pré-rempli (situation, prévention) et la <strong>cotation par défaut</strong> (Fréquence × Gravité × Maîtrise) d'un risque du catalogue. La modification est partagée via SharePoint, s'applique aux nouveaux risques ajoutés aux PDP/ICP et au DUERP. N'affecte pas les PDP/ICP déjà saisis.</div>
       <div id="settings-risk-templates"></div>
     </div>
 
@@ -15093,8 +15093,14 @@ const App = {
       <div class="row g-2">
         <div class="col-12"><label class="form-label small mb-0" for="rt-situation">Situation dangereuse</label><textarea class="form-control form-control-sm" id="rt-situation" rows="2"></textarea></div>
         <div class="col-12"><label class="form-label small mb-0" for="rt-prevention">Mesures de prévention <span class="text-muted">(séparer par « ; » ou retour à la ligne)</span></label><textarea class="form-control form-control-sm" id="rt-prevention" rows="4"></textarea></div>
-        <div class="col-md-5"><label class="form-label small mb-0" for="rt-niveau">Niveau par défaut</label>
-          <select class="form-select form-select-sm" id="rt-niveau"><option value="1">1 - Faible</option><option value="2">2 - Moyen</option><option value="3">3 - Élevé</option><option value="4">4 - Critique</option></select></div>
+        <div class="col-12"><label class="form-label small mb-0">Cotation par défaut (Fréquence × Gravité × Maîtrise)</label></div>
+        <div class="col-4"><select class="form-select form-select-sm" id="rt-frequence" onchange="App.updateRiskTemplateScore()" title="Fréquence">
+          <option value="1">F1 - Exceptionnel</option><option value="2">F2 - Rare</option><option value="3">F3 - Occasionnel</option><option value="4">F4 - Fréquent</option><option value="5">F5 - Permanent</option></select></div>
+        <div class="col-4"><select class="form-select form-select-sm" id="rt-gravite" onchange="App.updateRiskTemplateScore()" title="Gravité">
+          <option value="1">G1 - Léger</option><option value="2">G2 - Modéré</option><option value="3">G3 - Sérieux</option><option value="4">G4 - Grave</option><option value="5">G5 - Très grave</option></select></div>
+        <div class="col-4"><select class="form-select form-select-sm" id="rt-maitrise" onchange="App.updateRiskTemplateScore()" title="Maîtrise">
+          <option value="1">M1 - Totale</option><option value="2">M2 - Bien</option><option value="3">M3 - Moyenne</option><option value="4">M4 - Faible</option><option value="5">M5 - Nulle</option></select></div>
+        <div class="col-12"><div class="p-2 rounded text-center" id="rt-score-box" style="background:#f8f9fa;border:2px solid #dee2e6"><span class="small text-muted">Score</span> <span id="rt-score-value" style="font-weight:700">—</span> — <span id="rt-score-label" class="fw-bold"></span></div></div>
       </div>
       <div class="d-flex gap-2 mt-2 align-items-center flex-wrap">
         <button class="btn btn-primary btn-sm" onclick="App.saveRiskTemplate()"><i class="bi bi-save me-1"></i>Enregistrer le modèle</button>
@@ -15113,9 +15119,31 @@ const App = {
     const base = override ? { ...fallback, ...override } : fallback;
     const sit = document.getElementById('rt-situation'); if (sit) sit.value = base.situation || '';
     const prev = document.getElementById('rt-prevention'); if (prev) prev.value = base.prevention || '';
-    const niv = document.getElementById('rt-niveau'); if (niv) niv.value = String(base.niveau || 2);
+    // Cotation : valeurs existantes si déjà cotée, sinon défaut 3/3/3
+    const f = document.getElementById('rt-frequence'); if (f) f.value = String(base.frequence || 3);
+    const g = document.getElementById('rt-gravite'); if (g) g.value = String(base.gravite || 3);
+    const m = document.getElementById('rt-maitrise'); if (m) m.value = String(base.maitrise || 3);
+    this.updateRiskTemplateScore();
     const resetBtn = document.getElementById('rt-reset-btn'); if (resetBtn) resetBtn.style.display = override ? '' : 'none';
     const status = document.getElementById('rt-status'); if (status) { status.textContent = override ? '● Modèle personnalisé' : 'Modèle d\'origine'; status.className = override ? 'small text-primary' : 'small text-muted'; }
+  },
+
+  updateRiskTemplateScore() {
+    const f = Number(document.getElementById('rt-frequence')?.value) || 3;
+    const g = Number(document.getElementById('rt-gravite')?.value) || 3;
+    const m = Number(document.getElementById('rt-maitrise')?.value) || 3;
+    const score = f * g * m;
+    let label, color, fg;
+    if (score <= 15)      { label = 'Acceptable'; color = '#D4EDDA'; fg = '#155724'; }
+    else if (score <= 40) { label = 'Modéré';     color = '#FFF3CD'; fg = '#856404'; }
+    else if (score <= 75) { label = 'Élevé';      color = '#FFE5D0'; fg = '#A94B00'; }
+    else                  { label = 'Critique';   color = '#F8D7DA'; fg = '#721C24'; }
+    const box = document.getElementById('rt-score-box');
+    const vEl = document.getElementById('rt-score-value');
+    const lEl = document.getElementById('rt-score-label');
+    if (vEl) { vEl.textContent = score; vEl.style.color = fg; }
+    if (lEl) { lEl.textContent = label; lEl.style.color = fg; }
+    if (box) { box.style.background = color; box.style.borderColor = fg; }
   },
 
   async saveRiskTemplate() {
@@ -15123,9 +15151,13 @@ const App = {
     const name = this._rtSelected; if (!name) return;
     const situation = (document.getElementById('rt-situation').value || '').trim();
     const prevention = (document.getElementById('rt-prevention').value || '').trim();
-    const niveau = Number(document.getElementById('rt-niveau').value) || 2;
+    const f = Number(document.getElementById('rt-frequence').value) || 3;
+    const g = Number(document.getElementById('rt-gravite').value) || 3;
+    const m = Number(document.getElementById('rt-maitrise').value) || 3;
+    const score = f * g * m;
+    const niveau = score <= 15 ? 1 : score <= 40 ? 2 : score <= 75 ? 3 : 4; // niveau dérivé de la cotation
     const map = await this.loadRiskOverrides();
-    map[name] = { situation, prevention, niveau };
+    map[name] = { situation, prevention, frequence: f, gravite: g, maitrise: m, score, criticite: this._scoreCriticite(score), niveau };
     await this._saveRiskOverrides(map);
     try { await DataSync.save(); } catch {}
     if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.modele.edit', { nom: name });
@@ -15339,18 +15371,20 @@ const App = {
       const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, HeadingLevel, BorderStyle, ShadingType } = docx;
 
       // 1. Rassembler les risques par categorie.
-      //    Standard : RISK_CATALOG + RISK_DEFAULTS. Custom : seulement les 'approved'.
+      //    Standard : RISK_CATALOG + modèles (RISK_DEFAULTS + overrides admin). Custom : seulement les 'approved'.
+      await this._refreshRiskOverridesCache();
       const approvedCustom = await this.loadApprovedRisks();
       const approvedByName = new Map(approvedCustom.map(c => [c.nom, c]));
-      const catsData = []; // [{ nom, color, risks: [{nom, situation, prevention, niveau}] }]
+      const catsData = []; // [{ nom, color, risks: [{nom, situation, prevention, niveau, cotation…}] }]
       for (const cat of this.RISK_CATALOG) {
         const risks = cat.risks.map(name => {
-          const def = this.RISK_DEFAULTS[name] || {};
+          const def = this._getRiskDefaults(name); // applique l'override admin (situation/prévention/cotation)
           return {
             nom: name,
             situation: def.situation || '',
             prevention: def.prevention || '',
-            niveau: def.niveau || 2
+            niveau: def.niveau || 2,
+            frequence: def.frequence, gravite: def.gravite, maitrise: def.maitrise, score: def.score, criticite: def.criticite
           };
         });
         // Ajouter les customs approuves qui ont choisi cette categorie
