@@ -15081,9 +15081,8 @@ const App = {
     if (!el) return;
     if (!await this.isAdmin()) { el.innerHTML = '<p class="text-muted small mb-0">Réservé aux administrateurs.</p>'; return; }
     await this._refreshRiskOverridesCache();
-    const overrides = this._riskOverrides || {};
     const groups = this.RISK_CATALOG.map(c => {
-      const opts = c.risks.map(n => `<option value="${this.esc(n)}">${this.esc(n)}${overrides[n] ? ' ✎' : ''}</option>`).join('');
+      const opts = c.risks.map(n => `<option value="${this.esc(n)}">${this.esc(n)}</option>`).join('');
       return `<optgroup label="${this.esc(c.cat)}">${opts}</optgroup>`;
     }).join('');
     const allNames = this.RISK_CATALOG.flatMap(c => c.risks);
@@ -15104,6 +15103,7 @@ const App = {
       </div>
       <div class="d-flex gap-2 mt-2 align-items-center flex-wrap">
         <button class="btn btn-primary btn-sm" onclick="App.saveRiskTemplate()"><i class="bi bi-save me-1"></i>Enregistrer le modèle</button>
+        <button class="btn btn-outline-warning btn-sm" onclick="App.renameRiskTemplate()"><i class="bi bi-input-cursor-text me-1"></i>Renommer</button>
         <button class="btn btn-outline-secondary btn-sm" id="rt-reset-btn" onclick="App.resetRiskTemplate()"><i class="bi bi-arrow-counterclockwise me-1"></i>Réinitialiser au défaut d'origine</button>
         <span id="rt-status" class="small text-muted"></span>
       </div>`;
@@ -15176,6 +15176,48 @@ const App = {
     if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.modele.reset', { nom: name });
     this.toast('Modèle réinitialisé');
     await this.renderRiskTemplatesEditor();
+  },
+
+  // Renomme un risque du catalogue standard : masque l'ancien intitulé + crée un risque
+  // (validé) sous le nouvel intitulé, avec la situation/prévention/cotation actuelles.
+  async renameRiskTemplate() {
+    if (!await this.isAdmin()) { this.toast('Réservé aux administrateurs', 'warning'); return; }
+    const name = this._rtSelected; if (!name) return;
+    const newName = (prompt('Nouvel intitulé du risque :', name) || '').trim();
+    if (!newName || newName === name) return;
+    // Anti-doublon : ni dans le catalogue standard, ni dans les customs non rejetés
+    const customs = await this._loadCustomRisksRaw();
+    if (this._isInStandardCatalog(newName) || customs.some(r => r.statut !== 'rejected' && (r.nom || '').toLowerCase() === newName.toLowerCase())) {
+      this.toast('Un risque portant ce nom existe déjà', 'warning'); return;
+    }
+    if (!await this.confirm(`Renommer « ${name} » en « ${newName} » ?\n\nL'ancien intitulé sera masqué du sélecteur (restaurable). Les PDP/ICP déjà saisis ne sont pas modifiés.`)) return;
+    const def = this._getRiskDefaults(name); // contenu effectif (override fusionné)
+    const cat = (this.RISK_CATALOG.find(c => c.risks.includes(name)) || {}).cat || 'Personnalisés';
+    const now = new Date().toISOString();
+    const me = DataSync.getUserName() || 'inconnu';
+    const entry = {
+      id: 'cr-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+      nom: newName, categorie: cat,
+      situation: def.situation || '', prevention: def.prevention || '', niveau: def.niveau || 2,
+      statut: 'approved', proposedBy: me, proposedByEmail: '', proposedAt: now,
+      reviewedBy: me, reviewedAt: now, reviewComment: `Renommé depuis « ${name} »`
+    };
+    if (def.frequence) { entry.frequence = def.frequence; entry.gravite = def.gravite; entry.maitrise = def.maitrise; entry.score = def.score; entry.criticite = def.criticite; }
+    customs.push(entry);
+    await this._saveCustomRisksRaw(customs);
+    // Masquer l'ancien intitulé
+    const hidden = await this.loadHiddenRisks();
+    if (!hidden.includes(name)) { hidden.push(name); await this._saveHiddenRisks(hidden); }
+    // Nettoyer l'éventuel override de l'ancien nom (devenu inutile)
+    const ov = await this.loadRiskOverrides();
+    if (ov[name]) { delete ov[name]; await this._saveRiskOverrides(ov); }
+    try { await DataSync.save(); } catch {}
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.rename', { de: name, vers: newName });
+    this.toast(`Risque renommé en « ${newName} » ✓`);
+    this._rtSelected = null;
+    await this.renderRiskTemplatesEditor();
+    await this.renderApprovedRisksSection();
+    await this.renderHiddenRisksSection();
   },
 
   async restoreHiddenRisk(name) {
