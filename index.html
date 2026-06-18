@@ -11717,7 +11717,7 @@ const App = {
   // Persistance du cache des opportunités (localStorage) pour NE PAS rappeler Sellsy
   // à chaque démarrage de chaque utilisateur (sinon ~40 appels × N users = rate-limit).
   _OPP_CACHE_KEY: 'sellsyOppCache',
-  _OPP_CACHE_TTL: 72 * 3600 * 1000, // 72 h (bouton « Rafraîchir » pour forcer une MAJ immédiate)
+  _OPP_CACHE_TTL: 168 * 3600 * 1000, // 7 jours (bouton « Rafraîchir » pour forcer une MAJ immédiate)
 
   _loadOppCacheFromStorage() {
     try {
@@ -11736,7 +11736,7 @@ const App = {
 
   // Préchargement du cache des opportunités (au démarrage, en tâche de fond).
   // Utilise d'abord le cache local frais (0 appel Sellsy) ; ne recharge depuis
-  // Sellsy que s'il est absent ou périmé (>72h). Rend l'autocomplétion instantanée.
+  // Sellsy que s'il est absent ou périmé (>7 jours). Rend l'autocomplétion instantanée.
   _preloadOppCache() {
     if (this._sellsyOppCache && this._sellsyOppCache.length) return;
     if (this._loadOppCacheFromStorage()) return; // cache local frais -> aucun appel Sellsy
