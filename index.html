@@ -2602,7 +2602,10 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="form-section-title"><i class="bi bi-cloud"></i>Synchronisation SharePoint</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Synchronise les PDP, ICP et entreprises avec SharePoint pour les partager entre appareils et collègues.</div>
       <div id="settings-sync-status"></div>
-      <button class="btn btn-outline-warning btn-sm mt-2" onclick="App.archiveAllOldExports()" title="Génère les Word + PDF de tous les PDP/ICP existants et les uploade sur SharePoint avec les nouveaux noms"><i class="bi bi-cloud-arrow-up me-1"></i>Re-archiver tous les PDP/ICP</button>
+      <div class="d-flex flex-wrap gap-2 mt-2">
+        <button class="btn btn-outline-primary btn-sm" onclick="App.archiveMissingICP()" title="Archive uniquement les ICP réalisées (effectuée/validée) qui n'ont pas encore de fichier dans SuiviPDP/ICP/Exports"><i class="bi bi-cloud-arrow-up me-1"></i>Archiver les ICP réalisées manquantes</button>
+        <button class="btn btn-outline-warning btn-sm" onclick="App.archiveAllOldExports()" title="Génère les Word + PDF de tous les PDP/ICP existants et les uploade sur SharePoint avec les nouveaux noms"><i class="bi bi-arrow-repeat me-1"></i>Re-archiver tous les PDP/ICP</button>
+      </div>
     </div>
 
     <div class="form-section">
@@ -2750,7 +2753,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <li><strong>Mode Express</strong> (interrupteur en haut) : masque les sections avancées (autres intervenants, liaison PDP) pour une visite simple et rapide</li>
           <li>Identifier les risques (sélecteur par catégories), prendre des photos, vérifier l'objet</li>
           <li>Section <strong>Signatures</strong> : tous les participants (EU + EE) ont leur propre case signature, pré-remplie avec leur nom</li>
-          <li><strong>Enregistrer</strong> ✓ — le statut "Effectuée" archive la donnée. Passage à "Validée (signée)" déclenche un <strong>auto-archivage Word + PDF</strong> sur SharePoint</li>
+          <li><strong>Enregistrer</strong> ✓ — dès qu'une ICP est <strong>"Effectuée" ou "Validée"</strong>, un <strong>auto-archivage Word + PDF</strong> est envoyé sur SharePoint, et <strong>ré-envoyé à chaque modification</strong> (le fichier existant est écrasé). En cas de retard, bouton <em>« Archiver les ICP réalisées manquantes »</em> dans Paramètres › Synchronisation SharePoint</li>
           <li>Sur l'ICP, bouton <strong>Créer un PDP depuis cette ICP</strong> — le PDP hérite de toutes les infos (entreprise EU, adresse, GPS, participants, risques, photos)</li>
         </ol>
       </div></div></div>
@@ -12389,10 +12392,6 @@ const App = {
     }
     document.getElementById('icp-date')?.classList.remove('is-invalid');
     document.getElementById('icp-site')?.classList.remove('is-invalid');
-    // Détecte la transition vers Validée pour auto-export
-    let prevStatut = null;
-    if (v.id) { try { const old = await db.icps.get(v.id); prevStatut = old?.statut||null; } catch {} }
-    const isFinalTransition = v.statut === 'validee' && prevStatut !== 'validee';
     try {
       const wasNew = !v.id;
       if (v.id) { await db.icps.put(v); }
@@ -12404,12 +12403,9 @@ const App = {
       this._formDirty = false;
       DataSync.markDirty();
       if (typeof ActivityLog !== 'undefined') ActivityLog.log(wasNew ? 'icp.create' : 'icp.update', { id: v.id, numero: v.numero, site: v.site, pdpId: v.pdpId || null });
-      // Auto-export PDF + Word à la transition vers Validée
-      if (isFinalTransition) {
-        this.toast('Auto-archivage Word + PDF en cours...', 'info');
-        try { await this.exportICPDOCX(); } catch (e) { console.warn('Auto-export ICP DOCX échoué:', e); }
-        try { await this.exportICPPDF(); } catch (e) { console.warn('Auto-export ICP PDF échoué:', e); }
-      }
+      // Auto-archivage SharePoint dès que l'ICP est réalisée (effectuée ou validée),
+      // et re-archivage à CHAQUE modification ultérieure (garde le PDF/Word à jour, écrase l'ancien).
+      if (this._icpRealisee(v)) await this._autoArchiveICP(v);
     } catch(e) { console.error(e); this.toast('Erreur','danger'); }
   },
 
@@ -14404,6 +14400,59 @@ const App = {
     saveAs(blob, icpDocxFn);
     DataSync.uploadExport(blob, icpDocxFn, 'icp', {notify:true});
     this.toast('Word ICP généré');
+  },
+
+  // Archivage silencieux sur SharePoint (Word + PDF) SANS téléchargement local.
+  // Utilisé à l'enregistrement d'une ICP réalisée. Écrase le fichier existant (nom déterministe).
+  async _autoArchiveICP(v, opts = {}) {
+    if (!DataSync._connected) return 0; // hors connexion : rien à archiver (silencieux)
+    if (!opts.silent) this.toast('Archivage SharePoint en cours…', 'info');
+    let ok = 0;
+    // Word
+    try {
+      this._returnICPDOCXBlob = true;
+      await this.exportICPDOCX();
+      const b = this._icpDocxBlobResult;
+      if (b) { await DataSync.uploadExport(b, this.buildICPFilename(v, 'docx'), 'icp'); ok++; }
+    } catch (e) { console.warn('Auto-archive ICP DOCX:', e); }
+    finally { this._returnICPDOCXBlob = false; this._icpDocxBlobResult = null; }
+    // PDF
+    try {
+      this._returnICPPDFBlob = true;
+      await this.exportICPPDF();
+      const b = this._icpPdfBlobResult;
+      if (b) { await DataSync.uploadExport(b, this.buildICPFilename(v, 'pdf'), 'icp'); ok++; }
+    } catch (e) { console.warn('Auto-archive ICP PDF:', e); }
+    finally { this._returnICPPDFBlob = false; this._icpPdfBlobResult = null; }
+    if (ok && !opts.silent) this.toast('ICP archivée sur SharePoint ✓', 'success');
+    return ok;
+  },
+
+  // Balayage : archive les ICP réalisées (effectuée/validée) absentes de SuiviPDP/ICP/Exports.
+  async archiveMissingICP() {
+    if (!DataSync._connected) { this.toast('SharePoint non connecté', 'warning'); return; }
+    const realisees = (await db.icps.toArray()).filter(i => this._icpRealisee(i));
+    if (!realisees.length) { this.toast('Aucune ICP réalisée à archiver'); return; }
+    let existing = new Set();
+    try {
+      const files = await _listFiles(SP_CONFIG.ICP_FOLDER + '/Exports');
+      existing = new Set((files || []).map(f => f.name));
+    } catch (e) { console.warn('listFiles ICP Exports:', e); }
+    const todo = realisees.filter(i =>
+      !existing.has(this.buildICPFilename(i, 'pdf')) || !existing.has(this.buildICPFilename(i, 'docx')));
+    if (!todo.length) { this.toast('Toutes les ICP réalisées sont déjà archivées ✓', 'success'); return; }
+    if (!await this.confirm(`Archiver ${todo.length} ICP réalisée(s) non archivée(s) sur SharePoint ?\n\nCela peut prendre un moment.`)) return;
+    const saved = this.currentICP;
+    let ok = 0, ko = 0;
+    this.toast(`Archivage de ${todo.length} ICP en cours…`, 'info');
+    for (const v of todo) {
+      this.currentICP = v;
+      try { (await this._autoArchiveICP(v, { silent: true })) ? ok++ : ko++; }
+      catch (e) { ko++; console.error('✗ ICP', v.numero, e); }
+    }
+    this.currentICP = saved;
+    this._icpDocxBlobResult = null; this._icpPdfBlobResult = null;
+    alert(`Archivage terminé.\n\n  ${ok} ICP archivée(s)\n  ${ko} échec(s)`);
   },
 
   // ---- SETTINGS ----
