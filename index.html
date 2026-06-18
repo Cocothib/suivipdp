@@ -7244,6 +7244,9 @@ const App = {
       document.getElementById('loading-screen').style.display = 'none';
       // Initialiser les pictogrammes visuels dans l'UI
       this._initPictoImages();
+      // Lien profond (#settings/risques-en-attente depuis les emails) + écoute des changements de hash
+      this._handleDeepLink();
+      window.addEventListener('hashchange', () => this._handleDeepLink());
       // Écouter les changements de formulaire pour marquer "non enregistré"
       document.querySelectorAll('#view-pdp-detail input, #view-pdp-detail textarea, #view-pdp-detail select').forEach(el => {
         el.addEventListener('input', () => this._markEditing());
@@ -7280,6 +7283,33 @@ const App = {
   },
 
   // ---- NAVIGATION ----
+  // Navigation par lien profond (#hash) — ex. depuis les emails de notification.
+  // #settings/risques-en-attente -> ouvre Paramètres et défile vers la section des risques à valider.
+  async _handleDeepLink() {
+    const route = (location.hash || '').replace(/^#\/?/, '').toLowerCase();
+    if (!route.startsWith('settings')) return;
+    let admin = this._isAdminCached;
+    if (admin === undefined) { try { admin = await this.isAdmin(); this._isAdminCached = admin; } catch (e) { admin = true; } }
+    if (admin === false) { this.toast('Accès réservé aux administrateurs', 'warning'); return; }
+    this.showView('settings');
+    if (route.includes('risque') || route.includes('attente') || route.includes('pending')) {
+      this._scrollToSettingsSection('settings-pending-risks');
+    }
+  },
+
+  _scrollToSettingsSection(id, tries = 0) {
+    const el = document.getElementById(id);
+    if (el) {
+      const card = el.closest('.form-section') || el;
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      card.style.transition = 'background-color .6s';
+      card.style.backgroundColor = '#fff8e1';
+      setTimeout(() => { card.style.backgroundColor = ''; }, 2200);
+      return;
+    }
+    if (tries < 20) setTimeout(() => this._scrollToSettingsSection(id, tries + 1), 200);
+  },
+
   showView(view) {
     // Paramètres réservé aux administrateurs (garde synchrone via cache isAdmin)
     if (view === 'settings' && this._isAdminCached === false) {
@@ -13175,7 +13205,7 @@ const App = {
         ${entry.situation ? `<tr><td style="padding:4px 12px 4px 0;vertical-align:top"><strong>Situation :</strong></td><td>${this.esc(entry.situation)}</td></tr>` : ''}
         ${entry.prevention ? `<tr><td style="padding:4px 12px 4px 0;vertical-align:top"><strong>Prévention :</strong></td><td>${this.esc(entry.prevention)}</td></tr>` : ''}
       </table>
-      <p style="margin-top:16px"><a href="${appUrl}#settings" style="background:#00693e;color:#fff;padding:8px 16px;text-decoration:none;border-radius:4px">Ouvrir l'application</a></p>
+      <p style="margin-top:16px"><a href="${appUrl}#settings/risques-en-attente" style="background:#00693e;color:#fff;padding:8px 16px;text-decoration:none;border-radius:4px">Valider le risque</a></p>
       <p style="font-size:11px;color:#888">Notification automatique SuiviPDP — ne pas répondre à cet email.</p>`;
     await _sendMailViaGraph(recipients, `[SuiviPDP] Nouveau risque à valider : ${entry.nom}`, html);
   },
