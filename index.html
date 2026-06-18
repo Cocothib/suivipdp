@@ -2630,27 +2630,19 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     </div>
 
     <div class="form-section">
-      <div class="form-section-title"><i class="bi bi-shield-check"></i>Risques en attente de validation</div>
-      <div class="section-helper"><i class="bi bi-lightbulb"></i> Nouveaux risques proposés par les utilisateurs. Un administrateur doit les valider pour qu'ils intègrent le Document Unique (DUERP).</div>
-      <div id="settings-pending-risks"></div>
-    </div>
-
-    <div class="form-section">
-      <div class="form-section-title"><i class="bi bi-check2-circle"></i>Risques validés récemment</div>
-      <div class="section-helper"><i class="bi bi-lightbulb"></i> Derniers risques personnalisés validés et cotés. Ils sont intégrés au catalogue et au DUERP.</div>
-      <div id="settings-approved-risks"></div>
-    </div>
-
-    <div class="form-section">
-      <div class="form-section-title"><i class="bi bi-pencil-square"></i>Modèles de risques (situation / prévention par défaut)</div>
-      <div class="section-helper"><i class="bi bi-lightbulb"></i> Corrige le texte pré-rempli (situation, prévention) et la <strong>cotation par défaut</strong> (Fréquence × Gravité × Maîtrise) d'un risque du catalogue. La modification est partagée via SharePoint, s'applique aux nouveaux risques ajoutés aux PDP/ICP et au DUERP. N'affecte pas les PDP/ICP déjà saisis.</div>
-      <div id="settings-risk-templates"></div>
-    </div>
-
-    <div class="form-section">
-      <div class="form-section-title"><i class="bi bi-eye-slash"></i>Risques masqués du catalogue</div>
-      <div class="section-helper"><i class="bi bi-lightbulb"></i> Risques du catalogue standard retirés du sélecteur par un administrateur. Restauration possible ici.</div>
-      <div id="settings-hidden-risks"></div>
+      <div class="form-section-title"><i class="bi bi-shield-exclamation"></i>Gestion des risques</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Un seul endroit pour tous les risques (catalogue standard + personnalisés). <strong>Modifier</strong> ouvre l'éditeur (intitulé, catégorie, situation, prévention, cotation). Les risques <strong>en attente</strong> s'y valident. Synchronisé via SharePoint ; n'affecte pas les PDP/ICP déjà saisis.</div>
+      <div class="d-flex gap-2 mb-2 flex-wrap align-items-center">
+        <input type="search" class="form-control form-control-sm" style="max-width:280px" id="rm-search" placeholder="Rechercher un risque…" oninput="App._rmSearch=this.value;App._renderRisksManagerList()">
+        <select class="form-select form-select-sm" style="max-width:210px" id="rm-filter" onchange="App._rmFilter=this.value;App._renderRisksManagerList()">
+          <option value="all">Tous</option>
+          <option value="pending">En attente de validation</option>
+          <option value="standard">Catalogue standard</option>
+          <option value="custom">Personnalisés validés</option>
+          <option value="hidden">Masqués</option>
+        </select>
+      </div>
+      <div id="settings-risks-manager"></div>
     </div>
 
     <div class="form-section">
@@ -7359,9 +7351,12 @@ const App = {
     let admin = this._isAdminCached;
     if (admin === undefined) { try { admin = await this.isAdmin(); this._isAdminCached = admin; } catch (e) { admin = true; } }
     if (admin === false) { this.toast('Accès réservé aux administrateurs', 'warning'); return; }
+    const wantPending = route.includes('risque') || route.includes('attente') || route.includes('pending');
+    if (wantPending) this._rmFilter = 'pending'; // fixé avant le rendu de la vue
     this.showView('settings');
-    if (route.includes('risque') || route.includes('attente') || route.includes('pending')) {
-      this._scrollToSettingsSection('settings-pending-risks');
+    if (wantPending) {
+      const f = document.getElementById('rm-filter'); if (f) f.value = 'pending';
+      this._scrollToSettingsSection('settings-risks-manager');
     }
   },
 
@@ -14705,10 +14700,7 @@ const App = {
     try { await this.renderAdminsSection(); } catch (e) { console.warn('renderAdminsSection:', e); }
     try { await this.renderNotifyEmails(); } catch (e) { console.warn('renderNotifyEmails:', e); }
     try { await this.renderPhotoEtapesSettings(); } catch (e) { console.warn('renderPhotoEtapesSettings:', e); }
-    try { await this.renderPendingRisksSection(); } catch (e) { console.warn('renderPendingRisksSection:', e); }
-    try { await this.renderApprovedRisksSection(); } catch (e) { console.warn('renderApprovedRisksSection:', e); }
-    try { await this.renderRiskTemplatesEditor(); } catch (e) { console.warn('renderRiskTemplatesEditor:', e); }
-    try { await this.renderHiddenRisksSection(); } catch (e) { console.warn('renderHiddenRisksSection:', e); }
+    try { await this.renderRisksManager(); } catch (e) { console.warn('renderRisksManager:', e); }
     try { await this.renderMaintenanceToggle(); } catch (e) { console.warn('renderMaintenanceToggle:', e); }
     try { await this.renderTropheesConfigSection(); } catch (e) { console.warn('renderTropheesConfigSection:', e); }
     try {
@@ -14938,7 +14930,7 @@ const App = {
     await this.addAdmin(me);
     this.toast('Compte administrateur activé');
     await this.renderAdminsSection();
-    try { await this.renderPendingRisksSection(); } catch (e) {}
+    try { await this.renderRisksManager(); } catch (e) {}
     try { await this.applyAdminUI(); } catch (e) {}
   },
 
@@ -14949,7 +14941,7 @@ const App = {
     await this.addAdmin(name);
     this.toast('Administrateur ajouté');
     await this.renderAdminsSection();
-    await this.renderPendingRisksSection();
+    await this.renderRisksManager();
   },
 
   async doRemoveAdmin(name) {
@@ -14957,7 +14949,158 @@ const App = {
     await this.removeAdmin(name);
     this.toast('Administrateur retiré');
     await this.renderAdminsSection();
-    await this.renderPendingRisksSection();
+    await this.renderRisksManager();
+  },
+
+  // ===== GESTION DES RISQUES — vue unifiée (catalogue standard + personnalisés) =====
+  _rmSearch: '',
+  _rmFilter: 'all',
+  _rmData: null,
+
+  _jsStr(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); },
+
+  async renderRisksManager() {
+    const el = document.getElementById('settings-risks-manager');
+    if (!el) return;
+    if (!await this.isAdmin()) { el.innerHTML = '<p class="text-muted small mb-0">Réservé aux administrateurs.</p>'; return; }
+    await this._refreshRiskOverridesCache();
+    const customs = await this._loadCustomRisksRaw();
+    const hiddenSet = new Set(await this.loadHiddenRisks());
+    const standard = [];
+    for (const c of this.RISK_CATALOG) {
+      for (const n of c.risks) {
+        const def = this._getRiskDefaults(n);
+        standard.push({
+          kind: 'standard', nom: n, categorie: c.cat,
+          situation: def.situation || '', prevention: def.prevention || '', niveau: def.niveau || 2,
+          frequence: def.frequence, gravite: def.gravite, maitrise: def.maitrise, score: def.score, criticite: def.criticite,
+          hidden: hiddenSet.has(n), customized: !!(this._riskOverrides && this._riskOverrides[n])
+        });
+      }
+    }
+    const pending = customs.filter(r => r.statut === 'pending').map(r => ({ kind: 'pending', ...r }));
+    const approved = customs.filter(r => r.statut === 'approved').map(r => ({ kind: 'approved', ...r }));
+    this._rmData = { pending, approved, standard };
+    el.innerHTML = '<div id="rm-list"></div>';
+    const s = document.getElementById('rm-search'); if (s) s.value = this._rmSearch || '';
+    const f = document.getElementById('rm-filter'); if (f) f.value = this._rmFilter || 'all';
+    this._renderRisksManagerList();
+  },
+
+  _renderRisksManagerList() {
+    const cont = document.getElementById('rm-list');
+    if (!cont || !this._rmData) return;
+    const term = (this._rmSearch || '').trim().toLowerCase();
+    const filter = this._rmFilter || 'all';
+    const { pending, approved, standard } = this._rmData;
+    let items;
+    if (filter === 'pending') items = pending;
+    else if (filter === 'custom') items = approved;
+    else if (filter === 'standard') items = standard.filter(r => !r.hidden);
+    else if (filter === 'hidden') items = standard.filter(r => r.hidden);
+    else items = [...pending, ...standard.filter(r => !r.hidden), ...approved]; // "Tous" hors masqués
+    if (term) items = items.filter(r => [r.nom, r.categorie, r.situation, r.prevention].some(x => (x || '').toLowerCase().includes(term)));
+    let head = '';
+    if (pending.length && filter !== 'pending') {
+      head = `<div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-hourglass-split me-1"></i>${pending.length} risque(s) en attente de validation — <a href="#" onclick="App._rmFilter='pending';document.getElementById('rm-filter').value='pending';App._renderRisksManagerList();return false">voir</a></div>`;
+    }
+    if (!items.length) { cont.innerHTML = head + '<p class="text-muted small mb-0"><i class="bi bi-search me-1"></i>Aucun risque.</p>'; return; }
+    cont.innerHTML = head + items.map(r => this._rmCard(r)).join('');
+  },
+
+  _rmCard(r) {
+    const niveauLabel = ['', 'Faible', 'Moyen', 'Élevé', 'Critique'][r.niveau] || '';
+    const critTxt = r.criticite ? `${r.criticite}${r.score ? ` · ${r.score}` : ''}` : niveauLabel;
+    const critColor = r.score
+      ? (r.score <= 15 ? 'success' : r.score <= 40 ? 'warning text-dark' : 'danger')
+      : (r.niveau >= 3 ? 'danger' : r.niveau == 2 ? 'warning text-dark' : 'success');
+    let statusBadge = '', actions = '';
+    if (r.kind === 'pending') {
+      statusBadge = '<span class="badge bg-warning text-dark ms-1"><i class="bi bi-hourglass-split me-1"></i>En attente</span>';
+      actions = `<button class="btn btn-sm btn-success" onclick="App.doApproveRisk('${r.id}')"><i class="bi bi-check-lg me-1"></i>Valider</button>
+                 <button class="btn btn-sm btn-outline-danger" onclick="App.doRejectRisk('${r.id}')"><i class="bi bi-x-lg me-1"></i>Rejeter</button>`;
+    } else if (r.kind === 'approved') {
+      statusBadge = '<span class="badge bg-success ms-1"><i class="bi bi-check-lg me-1"></i>Validé</span>';
+      actions = `<button class="btn btn-sm btn-outline-primary" onclick="App.doApproveRisk('${r.id}')"><i class="bi bi-pencil me-1"></i>Modifier</button>`;
+    } else {
+      statusBadge = r.hidden
+        ? '<span class="badge bg-dark ms-1"><i class="bi bi-eye-slash me-1"></i>Masqué</span>'
+        : '<span class="badge bg-light text-dark border ms-1">Standard</span>' + (r.customized ? '<span class="badge bg-info ms-1" title="Modèle personnalisé">Personnalisé</span>' : '');
+      actions = r.hidden
+        ? `<button class="btn btn-sm btn-outline-success" onclick="App.restoreHiddenRisk('${this._jsStr(r.nom)}')"><i class="bi bi-arrow-counterclockwise me-1"></i>Restaurer</button>`
+        : `<button class="btn btn-sm btn-outline-primary" onclick="App.editStandardRisk('${this._jsStr(r.nom)}')"><i class="bi bi-pencil me-1"></i>Modifier</button>
+           <button class="btn btn-sm btn-outline-secondary" onclick="App.hideStandardRisk('${this._jsStr(r.nom)}')"><i class="bi bi-eye-slash me-1"></i>Masquer</button>`;
+    }
+    return `<div class="card mb-1"><div class="card-body p-2">
+      <div class="d-flex justify-content-between align-items-start gap-2">
+        <div class="flex-grow-1" style="min-width:0">
+          <strong class="small">${this.esc(r.nom)}</strong>
+          <span class="badge bg-secondary ms-1">${this.esc(r.categorie)}</span>
+          ${critTxt ? `<span class="badge bg-${critColor} ms-1">${this.esc(critTxt)}</span>` : ''}
+          ${statusBadge}
+          ${r.situation ? `<div class="small text-muted mt-1"><strong>Situation :</strong> ${this.esc(r.situation)}</div>` : ''}
+          ${r.prevention ? `<div class="small text-muted"><strong>Prévention :</strong> ${this.esc(r.prevention)}</div>` : ''}
+        </div>
+        <div class="d-flex flex-column gap-1 flex-shrink-0">${actions}</div>
+      </div>
+    </div></div>`;
+  },
+
+  async editStandardRisk(name) {
+    this._validatingRiskId = null;
+    this._editingApprovedRisk = false;
+    this._riskEditCtx = { kind: 'standard', name };
+    const def = this._getRiskDefaults(name);
+    const cat = (this.RISK_CATALOG.find(c => c.risks.includes(name)) || {}).cat || 'Personnalisés';
+    const titleEl = document.querySelector('#modal-validate-risk .modal-title');
+    if (titleEl) titleEl.innerHTML = '<i class="bi bi-pencil-square me-2"></i>Modifier le risque (catalogue)';
+    const confirmBtn = document.getElementById('validate-confirm-btn');
+    if (confirmBtn) confirmBtn.innerHTML = '<i class="bi bi-save me-1"></i>Enregistrer';
+    document.getElementById('validate-risk-info').innerHTML = `
+      <div class="card"><div class="card-body p-2">
+        <div><strong>${this.esc(name)}</strong> <span class="badge bg-secondary">${this.esc(cat)}</span> <span class="badge bg-light text-dark border">Catalogue standard</span></div>
+        <div class="small text-muted mt-1">Renommer ou changer la catégorie crée un risque personnalisé et masque l'intitulé d'origine.</div>
+      </div></div>`;
+    this._populateValidateEditCategory(cat);
+    document.getElementById('validate-edit-nom').value = name;
+    document.getElementById('validate-edit-situation').value = def.situation || '';
+    document.getElementById('validate-edit-prevention').value = def.prevention || '';
+    const det = document.getElementById('validate-edit-details'); if (det) det.open = true;
+    document.getElementById('validate-frequence').value = String(def.frequence || 3);
+    document.getElementById('validate-gravite').value = String(def.gravite || 3);
+    document.getElementById('validate-maitrise').value = String(def.maitrise || 3);
+    document.getElementById('validate-comment').value = '';
+    this.updateValidateRiskScore();
+    if (!this._validateRiskModal) this._validateRiskModal = new bootstrap.Modal(document.getElementById('modal-validate-risk'));
+    this._validateRiskModal.show();
+  },
+
+  async hideStandardRisk(name) {
+    if (!await this.isAdmin()) { this.toast('Réservé aux administrateurs', 'warning'); return; }
+    if (!await this.confirm(`Masquer « ${name} » du sélecteur ? (restaurable ici)`)) return;
+    const hidden = await this.loadHiddenRisks();
+    if (!hidden.includes(name)) { hidden.push(name); await this._saveHiddenRisks(hidden); }
+    try { await DataSync.save(); } catch {}
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.hide', { nom: name });
+    this.toast('Risque masqué');
+    await this.renderRisksManager();
+  },
+
+  // Crée un risque "approved" (utilisé lors d'un renommage/recatégorisation d'un risque standard)
+  async _createApprovedRisk({ nom, categorie, situation, prevention, f, g, m, fromName }) {
+    const customs = await this._loadCustomRisksRaw();
+    const score = f * g * m;
+    const niveau = score <= 15 ? 1 : score <= 40 ? 2 : score <= 75 ? 3 : 4;
+    const now = new Date().toISOString();
+    const me = DataSync.getUserName() || 'inconnu';
+    customs.push({
+      id: 'cr-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+      nom, categorie, situation, prevention, niveau,
+      statut: 'approved', proposedBy: me, proposedByEmail: '', proposedAt: now,
+      reviewedBy: me, reviewedAt: now, reviewComment: fromName ? `Issu de « ${fromName} »` : '',
+      frequence: f, gravite: g, maitrise: m, score, criticite: this._scoreCriticite(score)
+    });
+    await this._saveCustomRisksRaw(customs);
   },
 
   async renderPendingRisksSection() {
@@ -15162,7 +15305,7 @@ const App = {
     try { await DataSync.save(); } catch {}
     if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.modele.edit', { nom: name });
     this.toast('Modèle de risque enregistré ✓');
-    await this.renderRiskTemplatesEditor();
+    await this.renderRisksManager();
   },
 
   async resetRiskTemplate() {
@@ -15175,7 +15318,7 @@ const App = {
     try { await DataSync.save(); } catch {}
     if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.modele.reset', { nom: name });
     this.toast('Modèle réinitialisé');
-    await this.renderRiskTemplatesEditor();
+    await this.renderRisksManager();
   },
 
   // Renomme un risque du catalogue standard : masque l'ancien intitulé + crée un risque
@@ -15215,9 +15358,9 @@ const App = {
     if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.rename', { de: name, vers: newName });
     this.toast(`Risque renommé en « ${newName} » ✓`);
     this._rtSelected = null;
-    await this.renderRiskTemplatesEditor();
-    await this.renderApprovedRisksSection();
-    await this.renderHiddenRisksSection();
+    await this.renderRisksManager();
+    await this.renderRisksManager();
+    await this.renderRisksManager();
   },
 
   async restoreHiddenRisk(name) {
@@ -15225,7 +15368,7 @@ const App = {
     const hidden = await this.loadHiddenRisks();
     await this._saveHiddenRisks(hidden.filter(r => r !== name));
     if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.restore', { nom: name });
-    await this.renderHiddenRisksSection();
+    await this.renderRisksManager();
     this.toast('Risque restauré');
   },
 
@@ -15315,6 +15458,7 @@ const App = {
     if (!r) return;
     const isEdit = r.statut === 'approved';
     this._editingApprovedRisk = isEdit;
+    this._riskEditCtx = { kind: 'custom', id, isApproved: isEdit };
     // Adapter titre + bouton selon validation initiale ou édition
     const titleEl = document.querySelector('#modal-validate-risk .modal-title');
     if (titleEl) titleEl.innerHTML = isEdit ? '<i class="bi bi-pencil-square me-2"></i>Modifier le risque validé' : '<i class="bi bi-shield-check me-2"></i>Valider et coter le risque';
@@ -15376,35 +15520,66 @@ const App = {
   },
 
   async confirmValidateRisk() {
-    const id = this._validatingRiskId;
-    if (!id) return;
+    const ctx = this._riskEditCtx || (this._validatingRiskId ? { kind: 'custom', id: this._validatingRiskId, isApproved: this._editingApprovedRisk } : null);
+    if (!ctx) return;
     const f = Number(document.getElementById('validate-frequence').value) || 3;
     const g = Number(document.getElementById('validate-gravite').value) || 3;
     const m = Number(document.getElementById('validate-maitrise').value) || 3;
     const comment = (document.getElementById('validate-comment').value || '').trim();
-    const corrections = {
+    const corr = {
       nom: (document.getElementById('validate-edit-nom').value || '').trim(),
       categorie: document.getElementById('validate-edit-cat').value || '',
-      situation: document.getElementById('validate-edit-situation').value || '',
-      prevention: document.getElementById('validate-edit-prevention').value || ''
+      situation: (document.getElementById('validate-edit-situation').value || '').trim(),
+      prevention: (document.getElementById('validate-edit-prevention').value || '').trim()
     };
-    const isEdit = this._editingApprovedRisk;
-    const ok = await this.approveCustomRisk(id, comment, { frequence: f, gravite: g, maitrise: m }, corrections, { skipNotify: isEdit });
-    if (ok) {
-      this._validateRiskModal?.hide();
-      this.toast(isEdit ? 'Risque modifié' : 'Risque validé et coté');
-      await this.renderPendingRisksSection();
-      await this.renderApprovedRisksSection();
+    let ok = false, msg = '';
+    if (ctx.kind === 'standard') {
+      const oldName = ctx.name;
+      const oldCat = (this.RISK_CATALOG.find(c => c.risks.includes(oldName)) || {}).cat || '';
+      const newName = corr.nom || oldName;
+      const newCat = corr.categorie || oldCat;
+      const structural = (newName !== oldName) || (newCat !== oldCat);
+      if (structural) {
+        // Renommage / recatégorisation : masque le standard + crée un risque personnalisé
+        const customs = await this._loadCustomRisksRaw();
+        if (newName !== oldName && (this._isInStandardCatalog(newName) || customs.some(r => r.statut !== 'rejected' && (r.nom || '').toLowerCase() === newName.toLowerCase()))) {
+          this.toast('Un risque portant ce nom existe déjà', 'warning'); return;
+        }
+        await this._createApprovedRisk({ nom: newName, categorie: newCat, situation: corr.situation, prevention: corr.prevention, f, g, m, fromName: oldName });
+        const hidden = await this.loadHiddenRisks();
+        if (!hidden.includes(oldName)) { hidden.push(oldName); await this._saveHiddenRisks(hidden); }
+        const ov = await this.loadRiskOverrides(); if (ov[oldName]) { delete ov[oldName]; await this._saveRiskOverrides(ov); }
+        msg = `Risque enregistré sous « ${newName} »`;
+      } else {
+        // Édition de contenu seulement -> override du modèle
+        const score = f * g * m;
+        const niveau = score <= 15 ? 1 : score <= 40 ? 2 : score <= 75 ? 3 : 4;
+        const map = await this.loadRiskOverrides();
+        map[oldName] = { situation: corr.situation, prevention: corr.prevention, frequence: f, gravite: g, maitrise: m, score, criticite: this._scoreCriticite(score), niveau };
+        await this._saveRiskOverrides(map);
+        msg = 'Modèle de risque enregistré';
+      }
+      try { await DataSync.save(); } catch {}
+      if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.modele.edit', { nom: oldName });
+      ok = true;
+    } else {
+      ok = await this.approveCustomRisk(ctx.id, comment, { frequence: f, gravite: g, maitrise: m }, corr, { skipNotify: ctx.isApproved });
+      msg = ctx.isApproved ? 'Risque modifié' : 'Risque validé et coté';
     }
+    if (!ok) return; // garder le modal ouvert (ex. doublon)
+    this._validateRiskModal?.hide();
+    this.toast(msg + ' ✓');
     this._validatingRiskId = null;
     this._editingApprovedRisk = false;
+    this._riskEditCtx = null;
+    await this.renderRisksManager();
   },
 
   async doRejectRisk(id) {
     const comment = prompt('Motif du rejet (obligatoire) :') || '';
     if (!comment.trim()) { this.toast('Un motif est requis pour rejeter', 'warning'); return; }
     const ok = await this.rejectCustomRisk(id, comment);
-    if (ok) { this.toast('Risque rejeté'); await this.renderPendingRisksSection(); }
+    if (ok) { this.toast('Risque rejeté'); await this.renderRisksManager(); }
   },
 
   // ---- Export DUERP (Document Unique d'Evaluation des Risques) ----
