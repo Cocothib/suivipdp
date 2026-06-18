@@ -11702,48 +11702,45 @@ const App = {
   // ---- Autocomplete Sellsy directement dans le champ N° d'opération (ICP et PDP) ----
   // ctx = 'icp' ou 'pdp' : détermine le champ (#<ctx>-ref-operation), le dropdown
   // (#<ctx>-opp-ac) et la cible d'application (applySellsyOpp route vers ICP ou PDP).
-  // Recherche SERVEUR (Sellsy opp_search) à la frappe : ne charge plus les milliers
-  // d'opportunités. Rapide même en réseau faible, et couvre toutes les années.
+  // Autocomplétion N° d'opération. Sellsy ne sait chercher que sur le titre côté
+  // serveur ; or les numéros OPP sont des références et le client peut chercher par
+  // société -> on s'appuie sur le cache complet (filtre réf + titre + société, comme
+  // la loupe). Le cache est chargé UNE SEULE FOIS en tâche de fond ; en attendant,
+  // on montre les résultats rapides par titre (recherche serveur).
   oppAutocomplete(ctx) {
     ctx = ctx || 'icp';
     this._sellsyOppTarget = ctx;
     const inp = document.getElementById(ctx + '-ref-operation');
     const box = document.getElementById(ctx + '-opp-ac');
     if (!inp || !box) return;
-    const q = (inp.value || '').trim();
-    clearTimeout(this._oppAcTimer);
-    if (q.length < 2) {
-      box.style.display = 'block';
-      box.innerHTML = `<div class="list-group-item small text-muted">Tapez ≥ 2 caractères (nom du client ou n° OPP) — <a href="#" onmousedown="event.preventDefault();App.openSellsyOppSearchModal('${ctx}')">tout parcourir</a></div>`;
+    // Cache déjà chargé : filtre instantané côté client (réf + titre + société)
+    if (this._sellsyOppCache && this._sellsyOppCache.length) {
+      this.renderOppAutocomplete(ctx);
       return;
     }
     box.style.display = 'block';
-    box.innerHTML = '<div class="list-group-item small text-muted"><i class="bi bi-hourglass-split me-1"></i>Recherche…</div>';
-    this._oppAcTimer = setTimeout(async () => {
-      if (document.activeElement !== inp) return;
-      try {
-        // Recherche par nom (subject) + si q est un nombre, accès DIRECT par id
-        // (OPP-XXXX = identifiant interne Sellsy) -> rapide, trouve les anciens OPP.
-        const qnum = q.replace(/^OPP[-\s]*/i, '').replace(/^0+/, '');
-        const tasks = [ SellsyAPI.searchOpportunities(q).catch(() => []) ];
-        if (/^\d{1,7}$/.test(qnum)) {
-          tasks.push(SellsyAPI.getOpportunity(qnum).then(o => {
-            if (!o) return [];
-            // N'inclure que si la référence correspond vraiment au numéro tapé (évite un faux positif)
-            const refDigits = String(o.ref || '').replace(/\D/g, '').replace(/^0+/, '');
-            return refDigits === qnum ? [o] : [];
-          }).catch(() => []));
-        }
-        const all = (await Promise.all(tasks)).flat();
-        const seen = new Set(); const items = [];
-        for (const o of all) { if (o && !seen.has(o.id)) { seen.add(o.id); items.push(o); } }
+    // Charge le cache complet une seule fois (en tâche de fond)
+    if (!this._oppAcLoading) {
+      this._oppAcLoading = true;
+      this._oppAcCtx = ctx;
+      box.innerHTML = '<div class="list-group-item small text-muted"><i class="bi bi-hourglass-split me-1"></i>Chargement des opportunités…</div>';
+      this.loadSellsyOppList().finally(() => { this._oppAcLoading = false; this.renderOppAutocomplete(ctx); });
+    }
+    // En attendant le cache : résultats rapides par titre (recherche serveur)
+    const q = (inp.value || '').trim();
+    if (q.length >= 2) {
+      clearTimeout(this._oppAcTimer);
+      this._oppAcTimer = setTimeout(async () => {
+        if (this._sellsyOppCache && this._sellsyOppCache.length) return; // cache arrivé entre-temps
         if (document.activeElement !== inp) return;
-        this._renderOppItems(ctx, items.slice(0, 10));
-      } catch (e) {
-        console.warn('opp_search:', e);
-        box.innerHTML = `<div class="list-group-item small text-danger">Recherche indisponible — <a href="#" onmousedown="event.preventDefault();App.openSellsyOppSearchModal('${ctx}')">tout parcourir</a></div>`;
-      }
-    }, 350);
+        try {
+          const items = await SellsyAPI.searchOpportunities(q);
+          if (this._sellsyOppCache && this._sellsyOppCache.length) return;
+          if (document.activeElement !== inp) return;
+          if (items && items.length) this._renderOppItems(ctx, items.slice(0, 8));
+        } catch (_) {}
+      }, 350);
+    }
   },
 
   _renderOppItems(ctx, items) {
