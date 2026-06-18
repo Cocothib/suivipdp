@@ -3353,6 +3353,16 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       </div>
       <div class="modal-body">
         <div id="validate-risk-info" class="mb-3"></div>
+        <details class="mb-3" id="validate-edit-details">
+          <summary class="small text-primary" style="cursor:pointer"><i class="bi bi-pencil-square me-1"></i>Corriger le classement (nom, catégorie, situation…)</summary>
+          <div class="row g-2 mt-1 p-2 border rounded bg-light">
+            <div class="col-12 small text-muted"><i class="bi bi-info-circle me-1"></i>Permet de corriger une erreur de saisie de l'utilisateur sans lui redemander une nouvelle proposition.</div>
+            <div class="col-md-7"><label class="form-label small mb-0" for="validate-edit-nom">Nom du risque</label><input type="text" class="form-control form-control-sm" id="validate-edit-nom"></div>
+            <div class="col-md-5"><label class="form-label small mb-0" for="validate-edit-cat">Catégorie</label><select class="form-select form-select-sm" id="validate-edit-cat"></select></div>
+            <div class="col-12"><label class="form-label small mb-0" for="validate-edit-situation">Situation dangereuse</label><input type="text" class="form-control form-control-sm" id="validate-edit-situation"></div>
+            <div class="col-12"><label class="form-label small mb-0" for="validate-edit-prevention">Mesures de prévention</label><textarea class="form-control form-control-sm" id="validate-edit-prevention" rows="2"></textarea></div>
+          </div>
+        </details>
         <div class="alert alert-light border small mb-3">
           <strong>Méthode d'évaluation : Fréquence × Gravité × Maîtrise</strong><br>
           Chaque critère est noté de 1 (le plus favorable) à 5 (le plus défavorable). Le score final varie de 1 à 125.
@@ -13177,11 +13187,24 @@ const App = {
     await this.proposeCustomRisk({ nom: name });
   },
 
-  async approveCustomRisk(id, comment, cotation) {
+  async approveCustomRisk(id, comment, cotation, corrections) {
     if (!await this.isAdmin()) { this.toast('Seul un administrateur peut valider', 'warning'); return false; }
     const list = await this._loadCustomRisksRaw();
     const entry = list.find(r => r.id === id);
     if (!entry) return false;
+    // Correction du classement par l'admin (nom, catégorie, situation, prévention)
+    if (corrections && typeof corrections === 'object') {
+      const newNom = (corrections.nom || '').trim();
+      if (newNom && newNom.toLowerCase() !== (entry.nom || '').toLowerCase()) {
+        if (list.some(r => r.id !== id && r.statut !== 'rejected' && (r.nom || '').toLowerCase() === newNom.toLowerCase())) {
+          this.toast('Un risque portant ce nom existe déjà', 'warning'); return false;
+        }
+        entry.nom = newNom;
+      }
+      if (corrections.categorie) entry.categorie = corrections.categorie;
+      if (corrections.situation != null) entry.situation = corrections.situation.trim();
+      if (corrections.prevention != null) entry.prevention = corrections.prevention.trim();
+    }
     entry.statut = 'approved';
     entry.reviewedBy = DataSync.getUserName() || 'inconnu';
     entry.reviewedAt = new Date().toISOString();
@@ -14895,6 +14918,12 @@ const App = {
             <div class="small text-muted mt-1"><i class="bi bi-person me-1"></i>Proposé par ${this.esc(r.proposedBy)}</div>
           </div>
         </div>`;
+    // Champs de correction du classement (pré-remplis avec les valeurs proposées)
+    this._populateValidateEditCategory(r.categorie);
+    document.getElementById('validate-edit-nom').value = r.nom || '';
+    document.getElementById('validate-edit-situation').value = r.situation || '';
+    document.getElementById('validate-edit-prevention').value = r.prevention || '';
+    const det = document.getElementById('validate-edit-details'); if (det) det.open = false;
     document.getElementById('validate-frequence').value = '3';
     document.getElementById('validate-gravite').value = '3';
     document.getElementById('validate-maitrise').value = '3';
@@ -14902,6 +14931,15 @@ const App = {
     this.updateValidateRiskScore();
     if (!this._validateRiskModal) this._validateRiskModal = new bootstrap.Modal(document.getElementById('modal-validate-risk'));
     this._validateRiskModal.show();
+  },
+
+  _populateValidateEditCategory(selected) {
+    const sel = document.getElementById('validate-edit-cat');
+    if (!sel) return;
+    const cats = this.RISK_CATALOG.map(c => c.cat);
+    if (!cats.includes('Personnalisés')) cats.push('Personnalisés');
+    if (selected && !cats.includes(selected)) cats.unshift(selected); // garde la catégorie d'origine si custom
+    sel.innerHTML = cats.map(c => `<option value="${this.esc(c)}"${c===selected?' selected':''}>${this.esc(c)}</option>`).join('');
   },
 
   updateValidateRiskScore() {
@@ -14932,7 +14970,13 @@ const App = {
     const g = Number(document.getElementById('validate-gravite').value) || 3;
     const m = Number(document.getElementById('validate-maitrise').value) || 3;
     const comment = (document.getElementById('validate-comment').value || '').trim();
-    const ok = await this.approveCustomRisk(id, comment, { frequence: f, gravite: g, maitrise: m });
+    const corrections = {
+      nom: (document.getElementById('validate-edit-nom').value || '').trim(),
+      categorie: document.getElementById('validate-edit-cat').value || '',
+      situation: document.getElementById('validate-edit-situation').value || '',
+      prevention: document.getElementById('validate-edit-prevention').value || ''
+    };
+    const ok = await this.approveCustomRisk(id, comment, { frequence: f, gravite: g, maitrise: m }, corrections);
     if (ok) {
       this._validateRiskModal?.hide();
       this.toast('Risque validé et coté');
