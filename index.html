@@ -3673,6 +3673,7 @@ function getFR01Buffer() {
 function getFR01DataURL() { return "data:image/png;base64," + FICHE_FR01_BASE64; }
 
 
+
 // Cache pour les logos chargés (ArrayBuffer)
 const _logoCache = {};
 function _withTimeout(promise, ms) {
@@ -8618,7 +8619,7 @@ const App = {
     { cat: 'Chutes', icon: 'bi-arrow-down-circle-fill', color: '#dc3545',
       risks: ['Chute de plain-pied', 'Travail en hauteur', 'Chute d\'objet', 'Glissade', 'Pente toiture > 20°', 'Accès toiture par crinoline'] },
     { cat: 'Électrique', icon: 'bi-lightning-charge-fill', color: '#fd7e14',
-      risks: ['Risque électrique', 'Arc électrique', 'Tension continue PV', 'Contact indirect'] },
+      risks: ['Risque électrique', 'Ligne électrique aérienne', 'Arc électrique', 'Tension continue PV', 'Contact indirect'] },
     { cat: 'Incendie / Explosion', icon: 'bi-fire', color: '#e63946',
       risks: ['Incendie / Explosion', 'ATEX', 'Échauffement', 'Paille / Fourrage'] },
     { cat: 'Chimique / Biologique', icon: 'bi-droplet-half', color: '#6f42c1',
@@ -8729,6 +8730,11 @@ const App = {
       situation: 'Intervention sur ou à proximité d\'installations électriques sous tension ; armoire électrique ; câblage',
       prevention: 'Consignation / mise hors tension ; habilitation électrique requise (B1V/B2V/BR/BC) ; EPI isolants (gants, tapis) ; VAT avant intervention',
       niveau: 3
+    },
+    'Ligne électrique aérienne': {
+      situation: 'Travaux à proximité d\'une ligne électrique aérienne (HTA/BT) sous tension non consignable ; risque d\'amorçage/arc, d\'électrocution et de chute',
+      prevention: 'Mise hors tension impossible : mesures compensatoires ; Distance mini 3 m des conducteurs nus (tenir compte du balancement par vent et du levage) ; Conducteurs isolés : interdiction de toucher ; Vérifier la hauteur réelle de la ligne avant travaux (mini 4 m isolé / 6 m nu / 8 m au-dessus d\'une voie) ; Limiter la hauteur des engins sous la ligne et baliser l\'aplomb au sol ; Portique de gabarit si passage d\'engins ; Surveillant de sécurité électrique ; Habilitation B0/H0V minimum ; En cas de contact : rester dans l\'engin, écarter toute personne, appeler le 4A / 01 81 62 47 01',
+      niveau: 4
     },
     'Arc électrique': {
       situation: 'Court-circuit lors de manœuvres sur cellules HTA/BT ; défaut d\'isolement',
