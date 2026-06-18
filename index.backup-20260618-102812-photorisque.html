@@ -2630,12 +2630,6 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     </div>
 
     <div class="form-section">
-      <div class="form-section-title"><i class="bi bi-check2-circle"></i>Risques validés récemment</div>
-      <div class="section-helper"><i class="bi bi-lightbulb"></i> Derniers risques personnalisés validés et cotés. Ils sont intégrés au catalogue et au DUERP.</div>
-      <div id="settings-approved-risks"></div>
-    </div>
-
-    <div class="form-section">
       <div class="form-section-title"><i class="bi bi-eye-slash"></i>Risques masqués du catalogue</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Risques du catalogue standard retirés du sélecteur par un administrateur. Restauration possible ici.</div>
       <div id="settings-hidden-risks"></div>
@@ -3314,15 +3308,6 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
               <div class="col-12">
                 <label class="form-label small mb-0" for="risk-picker-custom-prevention">Mesures de prévention</label>
                 <input type="text" class="form-control form-control-sm" id="risk-picker-custom-prevention" placeholder="EPI, formation, procédure...">
-              </div>
-              <div class="col-12">
-                <label class="form-label small mb-0"><i class="bi bi-camera me-1"></i>Photo du risque <span class="text-muted">(optionnel — aide à comprendre la situation)</span></label>
-                <div class="d-flex gap-2 mb-1">
-                  <label class="btn btn-outline-primary btn-sm mb-0"><i class="bi bi-camera me-1"></i>Photo<input type="file" accept="image/*" capture="environment" class="d-none" onchange="App.addProposeRiskPhoto(event)"></label>
-                  <label class="btn btn-outline-secondary btn-sm mb-0"><i class="bi bi-images me-1"></i>Galerie<input type="file" accept="image/*" multiple class="d-none" onchange="App.addProposeRiskPhoto(event)"></label>
-                </div>
-                <div id="propose-risk-photos" class="d-flex flex-wrap gap-1"></div>
-                <div id="propose-risk-existing" class="mt-2"></div>
               </div>
               <div class="col-12 d-flex justify-content-end">
                 <button class="btn btn-primary btn-sm" onclick="App.addCustomRiskFromPicker()"><i class="bi bi-send me-1"></i>Proposer le risque</button>
@@ -9038,8 +9023,6 @@ const App = {
     this._riskPickerView = 'categories';
     this._riskPickerSelectedCat = null;
     document.getElementById('risk-picker-search').value = '';
-    this._proposeRiskPhotos = [];
-    this._renderProposeRiskPhotos();
     this._populateCustomCategorySelect();
     await this.renderRiskPickerContent();
     this.updateRiskCounters();
@@ -9193,89 +9176,6 @@ const App = {
     this.renderRiskPickerContent();
   },
 
-  // ---- Photos jointes à une proposition de risque ----
-  _proposeRiskPhotos: [],
-
-  _renderProposeRiskPhotos() {
-    const el = document.getElementById('propose-risk-photos');
-    if (!el) return;
-    const list = this._proposeRiskPhotos || [];
-    el.innerHTML = list.map((p, i) => `<div class="position-relative" style="display:inline-block"><img src="${p.data}" class="rounded border" style="width:60px;height:60px;object-fit:cover;cursor:pointer" onclick="App.viewImage('${p.data}')"><button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0" style="padding:0 3px;font-size:0.55rem;line-height:1.1" onclick="App.removeProposeRiskPhoto(${i})"><i class="bi bi-x"></i></button></div>`).join('');
-    this._renderExistingRiskPhotos();
-  },
-
-  // Photos déjà attachées aux risques du PDP/ICP en cours, réutilisables pour la proposition
-  _collectExistingRiskPhotos() {
-    const ctx = this._riskPickerCtx;
-    const arr = (ctx === 'icp' ? this.currentICP && this.currentICP.risques : this.currentPDP && this.currentPDP.risques) || [];
-    const out = [];
-    arr.forEach(r => (r.photos || []).forEach(p => { if (p && p.data) out.push({ danger: r.danger || '', photo: p }); }));
-    return out;
-  },
-
-  _renderExistingRiskPhotos() {
-    const el = document.getElementById('propose-risk-existing');
-    if (!el) return;
-    const existing = this._collectExistingRiskPhotos();
-    // Ne pas reproposer une photo déjà reprise (même id)
-    const usedIds = new Set((this._proposeRiskPhotos || []).map(p => p.id));
-    const avail = existing.filter(e => !usedIds.has(e.photo.id));
-    if (!avail.length) { el.innerHTML = ''; return; }
-    el.innerHTML = `<div class="small text-muted mb-1"><i class="bi bi-images me-1"></i>Reprendre une photo des risques du ${this._riskPickerCtx === 'icp' ? 'l\'ICP' : 'PDP'} en cours :</div>
-      <div class="d-flex flex-wrap gap-1">${avail.map(e => `<img src="${e.photo.data}" class="rounded border" style="width:54px;height:54px;object-fit:cover;cursor:pointer;opacity:.85" title="Reprendre cette photo${e.danger ? ' (' + this.esc(e.danger) + ')' : ''}" onclick="App.reuseExistingRiskPhoto('${e.photo.id}')">`).join('')}</div>`;
-  },
-
-  reuseExistingRiskPhoto(photoId) {
-    const found = this._collectExistingRiskPhotos().find(e => e.photo.id === photoId);
-    if (!found) return;
-    this._proposeRiskPhotos = this._proposeRiskPhotos || [];
-    if (this._proposeRiskPhotos.some(p => p.id === photoId)) return;
-    // Copie pour découpler de la photo source
-    this._proposeRiskPhotos.push({ ...found.photo });
-    this._renderProposeRiskPhotos();
-    this.toast('Photo reprise');
-  },
-
-  async addProposeRiskPhoto(ev) {
-    const files = Array.from(ev.target.files || []);
-    ev.target.value = '';
-    if (!files.length) return;
-    this._proposeRiskPhotos = this._proposeRiskPhotos || [];
-    let added = 0, errors = 0;
-    for (const f of files) {
-      try { this._proposeRiskPhotos.push(await this.compressImage(f)); added++; }
-      catch (e) { console.warn('photo proposition risque:', e); errors++; }
-    }
-    this._renderProposeRiskPhotos();
-    if (added) this.toast(`${added} photo${added>1?'s':''} ajoutée${added>1?'s':''}` + (errors?` (${errors} erreur${errors>1?'s':''})`:''));
-    else if (errors) this.toast(`Échec import (${errors})`, 'danger');
-  },
-
-  removeProposeRiskPhoto(i) {
-    if (!this._proposeRiskPhotos) return;
-    this._proposeRiskPhotos.splice(i, 1);
-    this._renderProposeRiskPhotos();
-  },
-
-  // Affiche une image (dataUrl) dans le viewer plein écran
-  viewImage(dataUrl) {
-    if (!dataUrl) return;
-    const img = document.getElementById('photo-viewer-img');
-    const modalEl = document.getElementById('modal-photo');
-    if (img && modalEl) {
-      img.src = dataUrl;
-      new bootstrap.Modal(modalEl).show();
-    } else { window.open(dataUrl); }
-  },
-
-  // Affiche une photo d'un risque personnalisé (par id, depuis la base customRisks)
-  async viewCustomRiskPhoto(id, pi) {
-    const all = await this._loadCustomRisksRaw();
-    const entry = all.find(r => r.id === id);
-    const p = entry && entry.photos && entry.photos[pi];
-    if (p && p.data) this.viewImage(p.data);
-  },
-
   async addCustomRiskFromPicker() {
     const inp = document.getElementById('risk-picker-custom-input');
     const catSel = document.getElementById('risk-picker-custom-cat');
@@ -9289,13 +9189,11 @@ const App = {
       categorie: catSel?.value || 'Personnalisés',
       niveau: Number(nivSel?.value) || 2,
       situation: (sitInp?.value || '').trim(),
-      prevention: (prevInp?.value || '').trim(),
-      photos: this._proposeRiskPhotos || []
+      prevention: (prevInp?.value || '').trim()
     });
     if (!entry) return;
     // Vider le formulaire
     inp.value = ''; if (sitInp) sitInp.value = ''; if (prevInp) prevInp.value = '';
-    this._proposeRiskPhotos = []; this._renderProposeRiskPhotos();
     // Ajouter le risque directement au PDP/ICP courant (option A : utilisable immediatement)
     this.toggleRiskInPicker(nom);
     await this.renderRiskPickerContent();
@@ -13107,7 +13005,6 @@ const App = {
       situation: data.situation || '',
       prevention: data.prevention || '',
       niveau: Number(data.niveau) || 2,
-      photos: Array.isArray(data.photos) ? data.photos : [],
       statut: 'pending',
       proposedBy: DataSync.getUserName() || 'inconnu',
       proposedByEmail: DataSync.getUserEmail() || '',
@@ -13201,8 +13098,6 @@ const App = {
       else if (entry.score <= 75) entry.niveau = 3;
       else entry.niveau = 4;
     }
-    // La photo a servi à la validation : on la retire pour ne pas alourdir le JSON synchronisé
-    if (entry.photos) delete entry.photos;
     await this._saveCustomRisksRaw(list);
     if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.approve', { nom: entry.nom, score: entry.score, criticite: entry.criticite });
     this._notifyRiskReviewed(entry, 'approved').catch(e => console.warn('Notif réponse risque:', e));
@@ -13225,7 +13120,6 @@ const App = {
     entry.reviewedBy = DataSync.getUserName() || 'inconnu';
     entry.reviewedAt = new Date().toISOString();
     entry.reviewComment = comment || '';
-    if (entry.photos) delete entry.photos;
     await this._saveCustomRisksRaw(list);
     if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.reject', { nom: entry.nom, comment });
     this._notifyRiskReviewed(entry, 'rejected').catch(e => console.warn('Notif réponse risque:', e));
@@ -14451,7 +14345,6 @@ const App = {
     try { await this.renderNotifyEmails(); } catch (e) { console.warn('renderNotifyEmails:', e); }
     try { await this.renderPhotoEtapesSettings(); } catch (e) { console.warn('renderPhotoEtapesSettings:', e); }
     try { await this.renderPendingRisksSection(); } catch (e) { console.warn('renderPendingRisksSection:', e); }
-    try { await this.renderApprovedRisksSection(); } catch (e) { console.warn('renderApprovedRisksSection:', e); }
     try { await this.renderHiddenRisksSection(); } catch (e) { console.warn('renderHiddenRisksSection:', e); }
     try { await this.renderMaintenanceToggle(); } catch (e) { console.warn('renderMaintenanceToggle:', e); }
     try { await this.renderTropheesConfigSection(); } catch (e) { console.warn('renderTropheesConfigSection:', e); }
@@ -14734,47 +14627,12 @@ const App = {
             </div>
             ${r.situation ? `<div class="small text-muted mt-1"><strong>Situation :</strong> ${this.esc(r.situation)}</div>` : ''}
             ${r.prevention ? `<div class="small text-muted"><strong>Prévention :</strong> ${this.esc(r.prevention)}</div>` : ''}
-            ${(r.photos && r.photos.length) ? `<div class="d-flex flex-wrap gap-1 mt-2">${r.photos.map((p,pi) => `<img src="${p.data}" class="rounded border" style="width:60px;height:60px;object-fit:cover;cursor:pointer" title="Agrandir" onclick="App.viewCustomRiskPhoto('${r.id}',${pi})">`).join('')}</div>` : ''}
             <div class="small text-muted mt-1"><i class="bi bi-person me-1"></i>${this.esc(r.proposedBy)} · ${dt}</div>
             ${actions}
           </div>
         </div>`;
     }).join('');
     el.innerHTML = rows;
-  },
-
-  async renderApprovedRisksSection() {
-    const el = document.getElementById('settings-approved-risks');
-    if (!el) return;
-    const approved = (await this.loadApprovedRisks())
-      .filter(r => r.reviewedAt)            // ignorer les anciens risques importés sans date de revue
-      .sort((a, b) => new Date(b.reviewedAt) - new Date(a.reviewedAt))
-      .slice(0, 10);                        // 10 plus récents
-    if (!approved.length) {
-      el.innerHTML = '<p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i>Aucun risque validé récemment.</p>';
-      return;
-    }
-    el.innerHTML = approved.map(r => {
-      const dt = new Date(r.reviewedAt).toLocaleString('fr-FR');
-      const crit = r.criticite ? `<span class="badge bg-${r.niveau>=3?'danger':r.niveau==2?'warning text-dark':'success'} ms-1">${this.esc(r.criticite)}${r.score?` · ${r.score}`:''}</span>` : '';
-      return `
-        <div class="card mb-2">
-          <div class="card-body p-2">
-            <div class="d-flex justify-content-between align-items-start">
-              <div>
-                <strong class="small">${this.esc(r.nom)}</strong>
-                <span class="badge bg-secondary ms-1">${this.esc(r.categorie)}</span>
-                ${crit}
-              </div>
-              <span class="badge bg-success"><i class="bi bi-check-lg me-1"></i>Validé</span>
-            </div>
-            ${r.situation ? `<div class="small text-muted mt-1"><strong>Situation :</strong> ${this.esc(r.situation)}</div>` : ''}
-            ${r.prevention ? `<div class="small text-muted"><strong>Prévention :</strong> ${this.esc(r.prevention)}</div>` : ''}
-            <div class="small text-muted mt-1"><i class="bi bi-person-check me-1"></i>Validé par ${this.esc(r.reviewedBy||'—')} · ${dt}${r.proposedBy?` · proposé par ${this.esc(r.proposedBy)}`:''}</div>
-            ${r.reviewComment ? `<div class="small fst-italic text-muted"><i class="bi bi-chat-left-text me-1"></i>${this.esc(r.reviewComment)}</div>` : ''}
-          </div>
-        </div>`;
-    }).join('');
   },
 
   async renderHiddenRisksSection() {
@@ -14891,7 +14749,6 @@ const App = {
             <div><strong>${this.esc(r.nom)}</strong> <span class="badge bg-secondary">${this.esc(r.categorie)}</span></div>
             ${r.situation ? `<div class="small text-muted mt-1"><strong>Situation :</strong> ${this.esc(r.situation)}</div>` : ''}
             ${r.prevention ? `<div class="small text-muted"><strong>Prévention :</strong> ${this.esc(r.prevention)}</div>` : ''}
-            ${(r.photos && r.photos.length) ? `<div class="d-flex flex-wrap gap-1 mt-2">${r.photos.map((p,pi) => `<img src="${p.data}" class="rounded border" style="width:72px;height:72px;object-fit:cover;cursor:pointer" title="Agrandir" onclick="App.viewCustomRiskPhoto('${r.id}',${pi})">`).join('')}</div>` : ''}
             <div class="small text-muted mt-1"><i class="bi bi-person me-1"></i>Proposé par ${this.esc(r.proposedBy)}</div>
           </div>
         </div>`;
@@ -14937,7 +14794,6 @@ const App = {
       this._validateRiskModal?.hide();
       this.toast('Risque validé et coté');
       await this.renderPendingRisksSection();
-      await this.renderApprovedRisksSection();
     }
     this._validatingRiskId = null;
   },
