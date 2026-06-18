@@ -15013,7 +15013,7 @@ const App = {
     }
     if (!pool.length) { cont.innerHTML = head + '<p class="text-muted small mb-0"><i class="bi bi-search me-1"></i>Aucun risque.</p>'; return; }
     // Liste déroulante groupée par catégorie (au lieu d'afficher toutes les cartes)
-    const tag = r => r.kind === 'pending' ? ' — en attente' : r.kind === 'approved' ? ' — validé' : r.hidden ? ' — masqué' : r.customized ? ' — perso' : '';
+    const tag = r => r.kind === 'pending' ? ' — en attente' : r.kind === 'approved' ? ' — validé' : r.hidden ? ' — masqué' : '';
     const byCat = {};
     pool.forEach(r => { (byCat[r.categorie] = byCat[r.categorie] || []).push(r); });
     const options = Object.keys(byCat).sort((a, b) => a.localeCompare(b)).map(cat => {
@@ -15050,7 +15050,7 @@ const App = {
     } else {
       statusBadge = r.hidden
         ? '<span class="badge bg-dark ms-1"><i class="bi bi-eye-slash me-1"></i>Masqué</span>'
-        : '<span class="badge bg-light text-dark border ms-1">Standard</span>' + (r.customized ? '<span class="badge bg-info ms-1" title="Modèle personnalisé">Personnalisé</span>' : '');
+        : '<span class="badge bg-light text-dark border ms-1">Standard</span>';
       actions = r.hidden
         ? `<button class="btn btn-sm btn-outline-success" onclick="App.restoreHiddenRisk('${this._jsStr(r.nom)}')"><i class="bi bi-arrow-counterclockwise me-1"></i>Restaurer</button>`
         : `<button class="btn btn-sm btn-outline-primary" onclick="App.editStandardRisk('${this._jsStr(r.nom)}')"><i class="bi bi-pencil me-1"></i>Modifier</button>
