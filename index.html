@@ -2642,6 +2642,12 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     </div>
 
     <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-pencil-square"></i>Modèles de risques (situation / prévention par défaut)</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Corrige le texte pré-rempli (situation, prévention, niveau) d'un risque du catalogue. La modification est partagée via SharePoint et s'applique aux nouveaux risques ajoutés aux PDP/ICP. N'affecte pas les PDP/ICP déjà saisis.</div>
+      <div id="settings-risk-templates"></div>
+    </div>
+
+    <div class="form-section">
       <div class="form-section-title"><i class="bi bi-eye-slash"></i>Risques masqués du catalogue</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Risques du catalogue standard retirés du sélecteur par un administrateur. Restauration possible ici.</div>
       <div id="settings-hidden-risks"></div>
@@ -5240,6 +5246,7 @@ const DataSync = {
                     await this._captureSnapshot();
                     App.toast(`Données mises à jour par ${by||'un collègue'}`, 'info');
                     if (typeof App._refreshCustomRisksCache === 'function') await App._refreshCustomRisksCache();
+                    if (typeof App._refreshRiskOverridesCache === 'function') await App._refreshRiskOverridesCache();
                     if (typeof App._refreshPhotoEtapesCache === 'function') await App._refreshPhotoEtapesCache();
                     App.refreshMaintenanceBanner();
                     if (App.currentView === 'dashboard') App.updateDashboard();
@@ -7268,6 +7275,7 @@ const App = {
       await this.loadSettings();
       try { await loadAgences(); } catch (e) { console.warn('loadAgences:', e); }
       await this._refreshCustomRisksCache();
+      await this._refreshRiskOverridesCache();
       await this._refreshPhotoEtapesCache();
       // Auto-import embedded data if present and database is empty
       if (window.__EMBEDDED_DATA__) {
@@ -8719,7 +8727,7 @@ const App = {
     { cat: 'Circulation / Co-activité', icon: 'bi-truck', color: '#198754',
       risks: ['Circulation / Co-activité', 'Choc / Heurt', 'Renversement', 'Coactivité multi-entreprises'] },
     { cat: 'Environnement', icon: 'bi-cloud-sun-fill', color: '#20c997',
-      risks: ['Bruit', 'Espace confiné', 'Travail isolé', 'Intempéries', 'Chaleur / Froid', 'Rayonnement solaire', 'Foudroiement', 'Environnement agricole'] },
+      risks: ['Bruit', 'Espace confiné', 'Travail isolé', 'Intempéries', 'Chaleur / Froid', 'Chaleur intense / Canicule', 'Rayonnement solaire', 'Foudroiement', 'Environnement agricole'] },
     { cat: 'Travaux spécifiques', icon: 'bi-tools', color: '#6c757d',
       risks: ['Travaux en toiture', 'Soudure', 'Terrassement', 'Levage', 'Élagage', 'Couverture fibro-ciment'] },
   ],
@@ -8936,6 +8944,11 @@ const App = {
       prevention: 'Hydratation régulière ; pauses à l\'ombre ; horaires aménagés ; vêtements adaptés ; crème solaire',
       niveau: 2
     },
+    'Chaleur intense / Canicule': {
+      situation: 'Travaux en extérieur / toiture lors d\'un épisode de chaleur intense (vigilance Météo-France jaune, orange ou rouge) ; risque de coup de chaleur, de déshydratation et de malaise',
+      prevention: 'Évaluer le risque au DUERP et suivre la vigilance Météo-France ; eau potable et fraîche à volonté (min. 3 L/jour/personne sur chantier sans eau courante) ; adapter les horaires (démarrage tôt, éviter 12h-16h) ; pauses régulières et zones d\'ombre / abris ; limiter la durée et l\'intensité des efforts ; EPI adaptés (vêtements clairs et respirants, couvre-nuque, casque ventilé) ; surveillance mutuelle des signes de coup de chaleur et travail en binôme ; information / formation des intervenants ; report ou arrêt des travaux en vigilance rouge ; conduite à tenir coup de chaleur : mettre à l\'ombre, rafraîchir, alerter le 15 / 112 (Décret n° 2025-482 et arrêté du 27/05/2025)',
+      niveau: 3
+    },
     'Rayonnement solaire': {
       situation: 'Réverbération sur panneaux PV ; exposition UV prolongée en extérieur',
       prevention: 'Lunettes de protection UV ; crème solaire ; chapeau/casquette sous casque ; pauses régulières à l\'ombre',
@@ -9017,6 +9030,22 @@ const App = {
     } catch { /* silencieux */ }
   },
 
+  // ---- Overrides des modèles de risques (situation/prévention par défaut, éditables par un admin) ----
+  _riskOverrides: {}, // cache synchrone { nom: {situation, prevention, niveau} }
+
+  async loadRiskOverrides() {
+    try { const s = await db.settings.get('riskDefaultsOverrides'); return (s && s.value) || {}; }
+    catch { return {}; }
+  },
+  async _saveRiskOverrides(map) {
+    await db.settings.put({ key: 'riskDefaultsOverrides', value: map });
+    DataSync.markDirty();
+    this._riskOverrides = map || {};
+  },
+  async _refreshRiskOverridesCache() {
+    try { this._riskOverrides = await this.loadRiskOverrides(); } catch { this._riskOverrides = {}; }
+  },
+
   async _refreshPhotoEtapesCache() {
     try {
       const s = await db.settings.get('photoEtapes');
@@ -9027,7 +9056,10 @@ const App = {
 
   _getRiskDefaults(name) {
     const custom = this._customRisksByName && this._customRisksByName[name];
-    const def = this.RISK_DEFAULTS[name] || custom || { situation: '', prevention: '', niveau: 2 };
+    const override = this._riskOverrides && this._riskOverrides[name];
+    const fallback = this.RISK_DEFAULTS[name] || custom || { situation: '', prevention: '', niveau: 2 };
+    // L'override admin (synchronisé) supersede le défaut codé, champ par champ
+    const def = override ? { ...fallback, ...override } : fallback;
     return { ...def, preventionItems: this._parsePreventionItems(def.prevention) };
   },
 
@@ -14674,6 +14706,7 @@ const App = {
     try { await this.renderPhotoEtapesSettings(); } catch (e) { console.warn('renderPhotoEtapesSettings:', e); }
     try { await this.renderPendingRisksSection(); } catch (e) { console.warn('renderPendingRisksSection:', e); }
     try { await this.renderApprovedRisksSection(); } catch (e) { console.warn('renderApprovedRisksSection:', e); }
+    try { await this.renderRiskTemplatesEditor(); } catch (e) { console.warn('renderRiskTemplatesEditor:', e); }
     try { await this.renderHiddenRisksSection(); } catch (e) { console.warn('renderHiddenRisksSection:', e); }
     try { await this.renderMaintenanceToggle(); } catch (e) { console.warn('renderMaintenanceToggle:', e); }
     try { await this.renderTropheesConfigSection(); } catch (e) { console.warn('renderTropheesConfigSection:', e); }
@@ -15013,6 +15046,79 @@ const App = {
         <span class="small"><i class="bi bi-eye-slash me-1 text-muted"></i>${this.esc(name)}</span>
         ${isAdmin ? `<button class="btn btn-sm btn-outline-success" onclick="App.restoreHiddenRisk('${name.replace(/'/g,"\\'")}')"><i class="bi bi-arrow-counterclockwise me-1"></i>Restaurer</button>` : ''}
       </div>`).join('');
+  },
+
+  // ---- Éditeur de modèles de risques (situation/prévention par défaut) ----
+  _rtSelected: null,
+
+  async renderRiskTemplatesEditor() {
+    const el = document.getElementById('settings-risk-templates');
+    if (!el) return;
+    if (!await this.isAdmin()) { el.innerHTML = '<p class="text-muted small mb-0">Réservé aux administrateurs.</p>'; return; }
+    await this._refreshRiskOverridesCache();
+    const overrides = this._riskOverrides || {};
+    const groups = this.RISK_CATALOG.map(c => {
+      const opts = c.risks.map(n => `<option value="${this.esc(n)}">${this.esc(n)}${overrides[n] ? ' ✎' : ''}</option>`).join('');
+      return `<optgroup label="${this.esc(c.cat)}">${opts}</optgroup>`;
+    }).join('');
+    const allNames = this.RISK_CATALOG.flatMap(c => c.risks);
+    if (!this._rtSelected || !allNames.includes(this._rtSelected)) this._rtSelected = allNames[0];
+    el.innerHTML = `
+      <select class="form-select form-select-sm mb-2" id="rt-select" onchange="App._rtSelected=this.value;App.onRiskTemplateSelect()">${groups}</select>
+      <div class="row g-2">
+        <div class="col-12"><label class="form-label small mb-0" for="rt-situation">Situation dangereuse</label><textarea class="form-control form-control-sm" id="rt-situation" rows="2"></textarea></div>
+        <div class="col-12"><label class="form-label small mb-0" for="rt-prevention">Mesures de prévention <span class="text-muted">(séparer par « ; » ou retour à la ligne)</span></label><textarea class="form-control form-control-sm" id="rt-prevention" rows="4"></textarea></div>
+        <div class="col-md-5"><label class="form-label small mb-0" for="rt-niveau">Niveau par défaut</label>
+          <select class="form-select form-select-sm" id="rt-niveau"><option value="1">1 - Faible</option><option value="2">2 - Moyen</option><option value="3">3 - Élevé</option><option value="4">4 - Critique</option></select></div>
+      </div>
+      <div class="d-flex gap-2 mt-2 align-items-center flex-wrap">
+        <button class="btn btn-primary btn-sm" onclick="App.saveRiskTemplate()"><i class="bi bi-save me-1"></i>Enregistrer le modèle</button>
+        <button class="btn btn-outline-secondary btn-sm" id="rt-reset-btn" onclick="App.resetRiskTemplate()"><i class="bi bi-arrow-counterclockwise me-1"></i>Réinitialiser au défaut d'origine</button>
+        <span id="rt-status" class="small text-muted"></span>
+      </div>`;
+    document.getElementById('rt-select').value = this._rtSelected;
+    this.onRiskTemplateSelect();
+  },
+
+  onRiskTemplateSelect() {
+    const name = this._rtSelected;
+    if (!name) return;
+    const override = this._riskOverrides && this._riskOverrides[name];
+    const fallback = this.RISK_DEFAULTS[name] || (this._customRisksByName && this._customRisksByName[name]) || { situation: '', prevention: '', niveau: 2 };
+    const base = override ? { ...fallback, ...override } : fallback;
+    const sit = document.getElementById('rt-situation'); if (sit) sit.value = base.situation || '';
+    const prev = document.getElementById('rt-prevention'); if (prev) prev.value = base.prevention || '';
+    const niv = document.getElementById('rt-niveau'); if (niv) niv.value = String(base.niveau || 2);
+    const resetBtn = document.getElementById('rt-reset-btn'); if (resetBtn) resetBtn.style.display = override ? '' : 'none';
+    const status = document.getElementById('rt-status'); if (status) { status.textContent = override ? '● Modèle personnalisé' : 'Modèle d\'origine'; status.className = override ? 'small text-primary' : 'small text-muted'; }
+  },
+
+  async saveRiskTemplate() {
+    if (!await this.isAdmin()) { this.toast('Réservé aux administrateurs', 'warning'); return; }
+    const name = this._rtSelected; if (!name) return;
+    const situation = (document.getElementById('rt-situation').value || '').trim();
+    const prevention = (document.getElementById('rt-prevention').value || '').trim();
+    const niveau = Number(document.getElementById('rt-niveau').value) || 2;
+    const map = await this.loadRiskOverrides();
+    map[name] = { situation, prevention, niveau };
+    await this._saveRiskOverrides(map);
+    try { await DataSync.save(); } catch {}
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.modele.edit', { nom: name });
+    this.toast('Modèle de risque enregistré ✓');
+    await this.renderRiskTemplatesEditor();
+  },
+
+  async resetRiskTemplate() {
+    if (!await this.isAdmin()) { this.toast('Réservé aux administrateurs', 'warning'); return; }
+    const name = this._rtSelected; if (!name) return;
+    if (!await this.confirm(`Réinitialiser « ${name} » au modèle d'origine ? La personnalisation sera supprimée.`)) return;
+    const map = await this.loadRiskOverrides();
+    delete map[name];
+    await this._saveRiskOverrides(map);
+    try { await DataSync.save(); } catch {}
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.modele.reset', { nom: name });
+    this.toast('Modèle réinitialisé');
+    await this.renderRiskTemplatesEditor();
   },
 
   async restoreHiddenRisk(name) {
