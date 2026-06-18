@@ -14987,25 +14987,50 @@ const App = {
     this._renderRisksManagerList();
   },
 
+  _rmKey(r) { return `${r.kind}:${r.id || r.nom}`; },
+
   _renderRisksManagerList() {
     const cont = document.getElementById('rm-list');
     if (!cont || !this._rmData) return;
     const term = (this._rmSearch || '').trim().toLowerCase();
     const filter = this._rmFilter || 'all';
     const { pending, approved, standard } = this._rmData;
-    let items;
-    if (filter === 'pending') items = pending;
-    else if (filter === 'custom') items = approved;
-    else if (filter === 'standard') items = standard.filter(r => !r.hidden);
-    else if (filter === 'hidden') items = standard.filter(r => r.hidden);
-    else items = [...pending, ...standard.filter(r => !r.hidden), ...approved]; // "Tous" hors masqués
-    if (term) items = items.filter(r => [r.nom, r.categorie, r.situation, r.prevention].some(x => (x || '').toLowerCase().includes(term)));
+    let pool;
+    if (filter === 'pending') pool = pending;
+    else if (filter === 'custom') pool = approved;
+    else if (filter === 'standard') pool = standard.filter(r => !r.hidden);
+    else if (filter === 'hidden') pool = standard.filter(r => r.hidden);
+    else pool = [...pending, ...standard.filter(r => !r.hidden), ...approved]; // "Tous" hors masqués
+    if (term) pool = pool.filter(r => [r.nom, r.categorie, r.situation, r.prevention].some(x => (x || '').toLowerCase().includes(term)));
+    // Index + sélection courante
+    this._rmIndex = {};
+    pool.forEach(r => { this._rmIndex[this._rmKey(r)] = r; });
+    if (!this._rmSelKey || !this._rmIndex[this._rmSelKey]) this._rmSelKey = pool.length ? this._rmKey(pool[0]) : null;
+    // Bandeau "en attente"
     let head = '';
     if (pending.length && filter !== 'pending') {
       head = `<div class="alert alert-warning py-1 px-2 small mb-2"><i class="bi bi-hourglass-split me-1"></i>${pending.length} risque(s) en attente de validation — <a href="#" onclick="App._rmFilter='pending';document.getElementById('rm-filter').value='pending';App._renderRisksManagerList();return false">voir</a></div>`;
     }
-    if (!items.length) { cont.innerHTML = head + '<p class="text-muted small mb-0"><i class="bi bi-search me-1"></i>Aucun risque.</p>'; return; }
-    cont.innerHTML = head + items.map(r => this._rmCard(r)).join('');
+    if (!pool.length) { cont.innerHTML = head + '<p class="text-muted small mb-0"><i class="bi bi-search me-1"></i>Aucun risque.</p>'; return; }
+    // Liste déroulante groupée par catégorie (au lieu d'afficher toutes les cartes)
+    const tag = r => r.kind === 'pending' ? ' — en attente' : r.kind === 'approved' ? ' — validé' : r.hidden ? ' — masqué' : r.customized ? ' — perso' : '';
+    const byCat = {};
+    pool.forEach(r => { (byCat[r.categorie] = byCat[r.categorie] || []).push(r); });
+    const options = Object.keys(byCat).sort((a, b) => a.localeCompare(b)).map(cat => {
+      const opts = byCat[cat].map(r => `<option value="${this.esc(this._rmKey(r))}"${this._rmKey(r) === this._rmSelKey ? ' selected' : ''}>${this.esc(r.nom)}${tag(r)}</option>`).join('');
+      return `<optgroup label="${this.esc(cat)}">${opts}</optgroup>`;
+    }).join('');
+    cont.innerHTML = head
+      + `<select class="form-select form-select-sm mb-2" id="rm-select" onchange="App._rmSelKey=this.value;App._renderRisksManagerDetail()">${options}</select>`
+      + `<div id="rm-detail"></div>`;
+    this._renderRisksManagerDetail();
+  },
+
+  _renderRisksManagerDetail() {
+    const d = document.getElementById('rm-detail');
+    if (!d) return;
+    const r = this._rmIndex && this._rmIndex[this._rmSelKey];
+    d.innerHTML = r ? this._rmCard(r) : '';
   },
 
   _rmCard(r) {
