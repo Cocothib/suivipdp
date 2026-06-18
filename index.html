@@ -11634,8 +11634,16 @@ const App = {
     setTimeout(() => {
       const inp = document.getElementById('sellsy-opp-q');
       if (inp) inp.focus();
-      // Chargement automatique de la liste à l'ouverture
-      this.loadSellsyOppList();
+      // Réutilise le cache (mémoire ou local frais) si dispo -> évite de rappeler
+      // Sellsy. Sinon charge. Le bouton « Rafraîchir » force un rechargement.
+      if (!(this._sellsyOppCache && this._sellsyOppCache.length)) this._loadOppCacheFromStorage();
+      if (this._sellsyOppCache && this._sellsyOppCache.length) {
+        const st = document.getElementById('sellsy-opp-status');
+        if (st) st.innerHTML = `<span class="text-muted">${this._sellsyOppCache.length} opportunité(s) en cache</span>`;
+        this.filterSellsyOppCache();
+      } else {
+        this.loadSellsyOppList();
+      }
     }, 250);
   },
 
@@ -11664,6 +11672,7 @@ const App = {
         offset += PAGE;
       }
       this._sellsyOppCache = all;
+      this._saveOppCacheToStorage(); // persiste pour éviter de rappeler Sellsy à chaque démarrage
       if (statusEl) statusEl.innerHTML = `<span class="text-muted">${all.length} opportunité(s) chargée(s)</span>`;
       this.filterSellsyOppCache();
     } catch (e) {
@@ -11705,10 +11714,33 @@ const App = {
   // ---- Autocomplete Sellsy directement dans le champ N° d'opération (ICP et PDP) ----
   // ctx = 'icp' ou 'pdp' : détermine le champ (#<ctx>-ref-operation), le dropdown
   // (#<ctx>-opp-ac) et la cible d'application (applySellsyOpp route vers ICP ou PDP).
+  // Persistance du cache des opportunités (localStorage) pour NE PAS rappeler Sellsy
+  // à chaque démarrage de chaque utilisateur (sinon ~40 appels × N users = rate-limit).
+  _OPP_CACHE_KEY: 'sellsyOppCache',
+  _OPP_CACHE_TTL: 12 * 3600 * 1000, // 12 h
+
+  _loadOppCacheFromStorage() {
+    try {
+      const raw = localStorage.getItem(this._OPP_CACHE_KEY);
+      if (!raw) return false;
+      const obj = JSON.parse(raw);
+      if (!obj || !Array.isArray(obj.items) || !obj.items.length || !obj.ts) return false;
+      if (Date.now() - obj.ts > this._OPP_CACHE_TTL) return false; // périmé
+      this._sellsyOppCache = obj.items;
+      return true;
+    } catch (_) { return false; }
+  },
+  _saveOppCacheToStorage() {
+    try { localStorage.setItem(this._OPP_CACHE_KEY, JSON.stringify({ ts: Date.now(), items: this._sellsyOppCache || [] })); } catch (_) {}
+  },
+
   // Préchargement du cache des opportunités (au démarrage, en tâche de fond).
-  // Rend l'autocomplétion instantanée dès la première saisie. Échec silencieux.
+  // Utilise d'abord le cache local frais (0 appel Sellsy) ; ne recharge depuis
+  // Sellsy que s'il est absent ou périmé (>12h). Rend l'autocomplétion instantanée.
   _preloadOppCache() {
-    if ((this._sellsyOppCache && this._sellsyOppCache.length) || this._oppAcLoading) return;
+    if (this._sellsyOppCache && this._sellsyOppCache.length) return;
+    if (this._loadOppCacheFromStorage()) return; // cache local frais -> aucun appel Sellsy
+    if (this._oppAcLoading) return;
     this._oppAcLoading = true;
     this.loadSellsyOppList().finally(() => {
       this._oppAcLoading = false;
