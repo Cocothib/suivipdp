@@ -11722,9 +11722,23 @@ const App = {
     this._oppAcTimer = setTimeout(async () => {
       if (document.activeElement !== inp) return;
       try {
-        const items = await SellsyAPI.searchOpportunities(q);
+        // Recherche par nom (subject) + si q est un nombre, accès DIRECT par id
+        // (OPP-XXXX = identifiant interne Sellsy) -> rapide, trouve les anciens OPP.
+        const qnum = q.replace(/^OPP[-\s]*/i, '').replace(/^0+/, '');
+        const tasks = [ SellsyAPI.searchOpportunities(q).catch(() => []) ];
+        if (/^\d{1,7}$/.test(qnum)) {
+          tasks.push(SellsyAPI.getOpportunity(qnum).then(o => {
+            if (!o) return [];
+            // N'inclure que si la référence correspond vraiment au numéro tapé (évite un faux positif)
+            const refDigits = String(o.ref || '').replace(/\D/g, '').replace(/^0+/, '');
+            return refDigits === qnum ? [o] : [];
+          }).catch(() => []));
+        }
+        const all = (await Promise.all(tasks)).flat();
+        const seen = new Set(); const items = [];
+        for (const o of all) { if (o && !seen.has(o.id)) { seen.add(o.id); items.push(o); } }
         if (document.activeElement !== inp) return;
-        this._renderOppItems(ctx, (items || []).slice(0, 10));
+        this._renderOppItems(ctx, items.slice(0, 10));
       } catch (e) {
         console.warn('opp_search:', e);
         box.innerHTML = `<div class="list-group-item small text-danger">Recherche indisponible — <a href="#" onmousedown="event.preventDefault();App.openSellsyOppSearchModal('${ctx}')">tout parcourir</a></div>`;

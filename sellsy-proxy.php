@@ -115,29 +115,10 @@ try {
         case 'opp_search':
             $q = trim($_GET['q'] ?? '');
             if ($q === '') { http_response_code(400); echo json_encode(['error' => 'q manquant']); exit; }
-            // Recherche par nom (subject) ET, si q ressemble à un n° OPP, par référence.
-            // q peut être un nom de client OU un numéro d'opportunité (toutes années).
-            $filters = [['subject' => $q]];
-            $qnum = preg_replace('/^OPP[-\s]*/i', '', $q);
-            if ($qnum !== '' && preg_match('/^\d+$/', $qnum)) {
-                $filters[] = ['reference' => $q];
-                $filters[] = ['reference' => 'OPP-' . $qnum];
-                $filters[] = ['number' => $q];
-            }
-            $merged = []; $seen = [];
-            foreach ($filters as $flt) {
-                $raw = sellsy_call('POST', '/opportunities/search?limit=20&embed[]=related&embed[]=step', $token, ['filters' => $flt]);
-                $dec = json_decode($raw, true);
-                // Ignore les filtres rejetés par Sellsy (erreur) : on ne garde que les data valides
-                if (!is_array($dec) || empty($dec['data']) || !is_array($dec['data'])) continue;
-                foreach ($dec['data'] as $o) {
-                    $id = $o['id'] ?? null;
-                    if ($id === null || isset($seen[$id])) continue;
-                    $seen[$id] = true; $merged[] = $o;
-                }
-            }
-            http_response_code(200); // un filtre rejeté a pu laisser un code d'erreur
-            $res = json_encode(['data' => $merged]);
+            // Recherche par nom (subject). La recherche par numéro d'OPP se fait
+            // côté client par accès direct à l'opportunité (action 'opportunity').
+            $body = ['filters' => ['subject' => $q]];
+            $res = sellsy_call('POST', '/opportunities/search?limit=20&embed[]=related&embed[]=step', $token, $body);
             break;
         case 'opp_list':
             $limit = max(1, min(100, (int)($_GET['limit'] ?? 50)));
