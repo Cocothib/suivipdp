@@ -3477,7 +3477,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
-        <button class="btn btn-success" onclick="App.confirmValidateRisk()"><i class="bi bi-check-lg me-1"></i>Valider le risque</button>
+        <button class="btn btn-success" id="validate-confirm-btn" onclick="App.confirmValidateRisk()"><i class="bi bi-check-lg me-1"></i>Valider le risque</button>
       </div>
     </div>
   </div>
@@ -13365,7 +13365,7 @@ const App = {
     await this.proposeCustomRisk({ nom: name });
   },
 
-  async approveCustomRisk(id, comment, cotation, corrections) {
+  async approveCustomRisk(id, comment, cotation, corrections, opts = {}) {
     if (!await this.isAdmin()) { this.toast('Seul un administrateur peut valider', 'warning'); return false; }
     const list = await this._loadCustomRisksRaw();
     const entry = list.find(r => r.id === id);
@@ -13405,8 +13405,9 @@ const App = {
     // La photo a servi à la validation : on la retire pour ne pas alourdir le JSON synchronisé
     if (entry.photos) delete entry.photos;
     await this._saveCustomRisksRaw(list);
-    if (typeof ActivityLog !== 'undefined') ActivityLog.log('risque.approve', { nom: entry.nom, score: entry.score, criticite: entry.criticite });
-    this._notifyRiskReviewed(entry, 'approved').catch(e => console.warn('Notif réponse risque:', e));
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log(opts.skipNotify ? 'risque.edit' : 'risque.approve', { nom: entry.nom, score: entry.score, criticite: entry.criticite });
+    // Pas de notification à l'auteur lors d'une simple édition d'un risque déjà validé
+    if (!opts.skipNotify) this._notifyRiskReviewed(entry, 'approved').catch(e => console.warn('Notif réponse risque:', e));
     return true;
   },
 
@@ -15001,15 +15002,34 @@ const App = {
   async renderApprovedRisksSection() {
     const el = document.getElementById('settings-approved-risks');
     if (!el) return;
-    const approved = (await this.loadApprovedRisks())
+    this._approvedCache = (await this.loadApprovedRisks())
       .filter(r => r.reviewedAt)            // ignorer les anciens risques importés sans date de revue
-      .sort((a, b) => new Date(b.reviewedAt) - new Date(a.reviewedAt))
-      .slice(0, 10);                        // 10 plus récents
-    if (!approved.length) {
+      .sort((a, b) => new Date(b.reviewedAt) - new Date(a.reviewedAt));
+    this._approvedIsAdmin = await this.isAdmin();
+    if (!this._approvedCache.length) {
       el.innerHTML = '<p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i>Aucun risque validé récemment.</p>';
       return;
     }
-    el.innerHTML = approved.map(r => {
+    el.innerHTML = `
+      <input type="search" class="form-control form-control-sm mb-2" id="approved-risk-search" placeholder="Rechercher un risque validé (nom, catégorie, situation…)" value="${this.esc(this._approvedSearch || '')}" oninput="App._approvedSearch=this.value;App._renderApprovedRiskList()">
+      <div id="approved-risk-list"></div>`;
+    this._renderApprovedRiskList();
+  },
+
+  _renderApprovedRiskList() {
+    const cont = document.getElementById('approved-risk-list');
+    if (!cont) return;
+    const term = (this._approvedSearch || '').trim().toLowerCase();
+    const all = this._approvedCache || [];
+    let list = term
+      ? all.filter(r => [r.nom, r.categorie, r.situation, r.prevention, r.reviewedBy, r.proposedBy].some(x => (x || '').toLowerCase().includes(term)))
+      : all.slice(0, 10); // sans recherche : 10 plus récents
+    if (!list.length) {
+      cont.innerHTML = '<p class="text-muted small mb-0"><i class="bi bi-search me-1"></i>Aucun résultat.</p>';
+      return;
+    }
+    const isAdmin = this._approvedIsAdmin;
+    const cards = list.map(r => {
       const dt = new Date(r.reviewedAt).toLocaleString('fr-FR');
       const crit = r.criticite ? `<span class="badge bg-${r.niveau>=3?'danger':r.niveau==2?'warning text-dark':'success'} ms-1">${this.esc(r.criticite)}${r.score?` · ${r.score}`:''}</span>` : '';
       return `
@@ -15027,9 +15047,14 @@ const App = {
             ${r.prevention ? `<div class="small text-muted"><strong>Prévention :</strong> ${this.esc(r.prevention)}</div>` : ''}
             <div class="small text-muted mt-1"><i class="bi bi-person-check me-1"></i>Validé par ${this.esc(r.reviewedBy||'—')} · ${dt}${r.proposedBy?` · proposé par ${this.esc(r.proposedBy)}`:''}</div>
             ${r.reviewComment ? `<div class="small fst-italic text-muted"><i class="bi bi-chat-left-text me-1"></i>${this.esc(r.reviewComment)}</div>` : ''}
+            ${isAdmin ? `<div class="mt-2"><button class="btn btn-sm btn-outline-primary" onclick="App.doApproveRisk('${r.id}')"><i class="bi bi-pencil me-1"></i>Modifier</button></div>` : ''}
           </div>
         </div>`;
     }).join('');
+    const footer = (!term && all.length > 10)
+      ? `<p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i>${all.length - 10} autre(s) risque(s) validé(s) — utilisez la recherche pour les retrouver.</p>`
+      : '';
+    cont.innerHTML = cards + footer;
   },
 
   async renderHiddenRisksSection() {
@@ -15210,9 +15235,17 @@ const App = {
 
   async doApproveRisk(id) {
     this._validatingRiskId = id;
-    const pending = await this.loadPendingRisks();
-    const r = pending.find(x => x.id === id);
+    // Charge depuis l'ensemble des risques (pending OU déjà validé = édition)
+    const all = await this._loadCustomRisksRaw();
+    const r = all.find(x => x.id === id);
     if (!r) return;
+    const isEdit = r.statut === 'approved';
+    this._editingApprovedRisk = isEdit;
+    // Adapter titre + bouton selon validation initiale ou édition
+    const titleEl = document.querySelector('#modal-validate-risk .modal-title');
+    if (titleEl) titleEl.innerHTML = isEdit ? '<i class="bi bi-pencil-square me-2"></i>Modifier le risque validé' : '<i class="bi bi-shield-check me-2"></i>Valider et coter le risque';
+    const confirmBtn = document.getElementById('validate-confirm-btn');
+    if (confirmBtn) confirmBtn.innerHTML = isEdit ? '<i class="bi bi-save me-1"></i>Enregistrer les modifications' : '<i class="bi bi-check-lg me-1"></i>Valider le risque';
     document.getElementById('validate-risk-info').innerHTML = `
         <div class="card">
           <div class="card-body p-2">
@@ -15220,19 +15253,19 @@ const App = {
             ${r.situation ? `<div class="small text-muted mt-1"><strong>Situation :</strong> ${this.esc(r.situation)}</div>` : ''}
             ${r.prevention ? `<div class="small text-muted"><strong>Prévention :</strong> ${this.esc(r.prevention)}</div>` : ''}
             ${(r.photos && r.photos.length) ? `<div class="d-flex flex-wrap gap-1 mt-2">${r.photos.map((p,pi) => `<img src="${p.data}" class="rounded border" style="width:72px;height:72px;object-fit:cover;cursor:pointer" title="Agrandir" onclick="App.viewCustomRiskPhoto('${r.id}',${pi})">`).join('')}</div>` : ''}
-            <div class="small text-muted mt-1"><i class="bi bi-person me-1"></i>Proposé par ${this.esc(r.proposedBy)}</div>
+            <div class="small text-muted mt-1"><i class="bi bi-person me-1"></i>${isEdit ? 'Validé par ' + this.esc(r.reviewedBy||'—') : 'Proposé par ' + this.esc(r.proposedBy)}</div>
           </div>
         </div>`;
-    // Champs de correction du classement (pré-remplis avec les valeurs proposées)
+    // Champs de correction du classement (pré-remplis avec les valeurs actuelles)
     this._populateValidateEditCategory(r.categorie);
     document.getElementById('validate-edit-nom').value = r.nom || '';
     document.getElementById('validate-edit-situation').value = r.situation || '';
     document.getElementById('validate-edit-prevention').value = r.prevention || '';
-    const det = document.getElementById('validate-edit-details'); if (det) det.open = false;
-    document.getElementById('validate-frequence').value = '3';
-    document.getElementById('validate-gravite').value = '3';
-    document.getElementById('validate-maitrise').value = '3';
-    document.getElementById('validate-comment').value = '';
+    const det = document.getElementById('validate-edit-details'); if (det) det.open = isEdit; // ouvert d'emblée en édition
+    document.getElementById('validate-frequence').value = String(r.frequence || 3);
+    document.getElementById('validate-gravite').value = String(r.gravite || 3);
+    document.getElementById('validate-maitrise').value = String(r.maitrise || 3);
+    document.getElementById('validate-comment').value = isEdit ? (r.reviewComment || '') : '';
     this.updateValidateRiskScore();
     if (!this._validateRiskModal) this._validateRiskModal = new bootstrap.Modal(document.getElementById('modal-validate-risk'));
     this._validateRiskModal.show();
@@ -15281,14 +15314,16 @@ const App = {
       situation: document.getElementById('validate-edit-situation').value || '',
       prevention: document.getElementById('validate-edit-prevention').value || ''
     };
-    const ok = await this.approveCustomRisk(id, comment, { frequence: f, gravite: g, maitrise: m }, corrections);
+    const isEdit = this._editingApprovedRisk;
+    const ok = await this.approveCustomRisk(id, comment, { frequence: f, gravite: g, maitrise: m }, corrections, { skipNotify: isEdit });
     if (ok) {
       this._validateRiskModal?.hide();
-      this.toast('Risque validé et coté');
+      this.toast(isEdit ? 'Risque modifié' : 'Risque validé et coté');
       await this.renderPendingRisksSection();
       await this.renderApprovedRisksSection();
     }
     this._validatingRiskId = null;
+    this._editingApprovedRisk = false;
   },
 
   async doRejectRisk(id) {
