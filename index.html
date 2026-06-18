@@ -8329,7 +8329,7 @@ const App = {
     p.permisFeu.signatureExec = { nom: document.getElementById('pf-sig-exec-nom').value.trim(), societe: document.getElementById('pf-sig-exec-societe').value.trim(), date: document.getElementById('pf-sig-exec-date').value, data: _sigCanvasData('pf-sig-exec-canvas', p.permisFeu.signatureExec?.data) };
 
     p.dateModification = new Date().toISOString();
-    if (!p.numero) { const y = new Date().getFullYear(); const m = String(new Date().getMonth()+1).padStart(2,'0'); p.numero = `PDP-${y}${m}-${String(p.id||Date.now()).slice(-4)}`; }
+    if (!p.numero) { const y = new Date().getFullYear(); const m = String(new Date().getMonth()+1).padStart(2,'0'); p.numero = `PDP-${y}${m}-${p.id ? String(p.id).padStart(4,'0') : String(Date.now()).slice(-4)}`; }
     if (oldStatut !== p.statut) this.addHist(`Statut: ${oldStatut} → ${p.statut}`);
     return p;
   },
@@ -12495,7 +12495,7 @@ const App = {
       if (cv) { v.signaturesEE = v.signaturesEE||[]; if (!v.signaturesEE[i]) v.signaturesEE[i]={nom:'',date:'',data:null}; v.signaturesEE[i].data = cv._hasDrawing ? cv.toDataURL() : null; }
     });
     v.dateModification = new Date().toISOString();
-    if (!v.numero) { const y = new Date().getFullYear(); const m = String(new Date().getMonth()+1).padStart(2,'0'); v.numero = `ICP-${y}${m}-${String(v.id||Date.now()).slice(-4)}`; }
+    if (!v.numero) { const y = new Date().getFullYear(); const m = String(new Date().getMonth()+1).padStart(2,'0'); v.numero = `ICP-${y}${m}-${v.id ? String(v.id).padStart(4,'0') : String(Date.now()).slice(-4)}`; }
     return v;
   },
 
@@ -18037,13 +18037,33 @@ if ('serviceWorker' in navigator) {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(()=>{});
   });
-  // Un nouveau service worker a pris le contrôle (nouvelle version déployée) :
-  // recharger pour servir le index.html à jour. Ignoré au tout premier install.
+  // Un nouveau service worker a pris le contrôle (nouvelle version déployée).
+  // NE JAMAIS recharger automatiquement si l'utilisateur est en train de saisir
+  // ou si des données ne sont pas encore synchronisées : un reload relance le
+  // pull qui écrase la base locale -> perte des saisies non poussées (réseau faible).
+  // À la place : bandeau « Nouvelle version » que l'utilisateur clique quand il a fini.
   let _swRefreshing = false;
+  const _swSafeToReload = () => {
+    try {
+      if (typeof DataSync !== 'undefined' && DataSync._dirty) return false; // modifs non synchronisées
+      if (typeof App !== 'undefined' && (App.currentView === 'pdp-detail' || App.currentView === 'icp-detail')) return false; // saisie en cours
+      if (document.querySelector('.modal.show')) return false; // une fenêtre est ouverte
+    } catch (_) {}
+    return true;
+  };
+  const _swShowUpdateBanner = () => {
+    if (document.getElementById('sw-update-banner')) return;
+    const b = document.createElement('div');
+    b.id = 'sw-update-banner';
+    b.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:20000;background:#00693E;color:#fff;padding:8px 14px;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 -2px 8px rgba(0,0,0,.25);font-size:14px';
+    b.innerHTML = '<span><i class="bi bi-arrow-clockwise me-1"></i>Nouvelle version disponible — enregistrez votre saisie puis rechargez.</span><button class="btn btn-light btn-sm fw-bold" id="sw-reload-btn">Recharger</button>';
+    document.body.appendChild(b);
+    document.getElementById('sw-reload-btn').onclick = () => { _swRefreshing = true; location.reload(); };
+  };
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (_swRefreshing || !_hadController) return;
-    _swRefreshing = true;
-    location.reload();
+    if (_swSafeToReload()) { _swRefreshing = true; location.reload(); return; }
+    _swShowUpdateBanner(); // différé : pas de reload tant que la saisie n'est pas sécurisée
   });
 }
 
