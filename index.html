@@ -7307,6 +7307,9 @@ const App = {
       // Lien profond (#settings/risques-en-attente depuis les emails) + écoute des changements de hash
       this._handleDeepLink();
       window.addEventListener('hashchange', () => this._handleDeepLink());
+      // Préchargement des opportunités Sellsy en tâche de fond (si en ligne) :
+      // la liste est prête avant la première saisie d'un n° d'opération.
+      if (navigator.onLine) setTimeout(() => { try { this._preloadOppCache(); } catch(_) {} }, 4000);
       // Écouter les changements de formulaire pour marquer "non enregistré"
       document.querySelectorAll('#view-pdp-detail input, #view-pdp-detail textarea, #view-pdp-detail select').forEach(el => {
         el.addEventListener('input', () => this._markEditing());
@@ -11702,6 +11705,20 @@ const App = {
   // ---- Autocomplete Sellsy directement dans le champ N° d'opération (ICP et PDP) ----
   // ctx = 'icp' ou 'pdp' : détermine le champ (#<ctx>-ref-operation), le dropdown
   // (#<ctx>-opp-ac) et la cible d'application (applySellsyOpp route vers ICP ou PDP).
+  // Préchargement du cache des opportunités (au démarrage, en tâche de fond).
+  // Rend l'autocomplétion instantanée dès la première saisie. Échec silencieux.
+  _preloadOppCache() {
+    if ((this._sellsyOppCache && this._sellsyOppCache.length) || this._oppAcLoading) return;
+    this._oppAcLoading = true;
+    this.loadSellsyOppList().finally(() => {
+      this._oppAcLoading = false;
+      const ae = document.activeElement;
+      if (ae && (ae.id === 'icp-ref-operation' || ae.id === 'pdp-ref-operation')) {
+        this.renderOppAutocomplete(ae.id.startsWith('icp') ? 'icp' : 'pdp');
+      }
+    });
+  },
+
   // Autocomplétion N° d'opération. Sellsy ne sait chercher que sur le titre côté
   // serveur ; or les numéros OPP sont des références et le client peut chercher par
   // société -> on s'appuie sur le cache complet (filtre réf + titre + société, comme
