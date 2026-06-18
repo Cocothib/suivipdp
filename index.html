@@ -10492,7 +10492,8 @@ const App = {
   addModification() {
     document.getElementById('modif-date').value = new Date().toISOString().slice(0,10);
     document.getElementById('modif-description').value = '';
-    document.getElementById('modif-auteur').value = '';
+    // Pré-remplir l'auteur avec l'utilisateur connecté (modifiable)
+    document.getElementById('modif-auteur').value = (DataSync.getUserName && DataSync.getUserName()) || '';
     new bootstrap.Modal(document.getElementById('modal-modification')).show();
   },
 
