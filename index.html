@@ -2618,6 +2618,12 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     </div>
 
     <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-tools"></i>Équipe maintenance (techniciens ICP)</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Liste des techniciens dont les ICP sont rattachées automatiquement (badge « Maintenance », filtre Technicien, Trophées, dashboard d'avancement). La détection se fait sur le prénom <em>et</em> le nom de famille — indispensable pour distinguer deux personnes ayant le même prénom.</div>
+      <div id="settings-maintenance-team"></div>
+    </div>
+
+    <div class="form-section">
       <div class="form-section-title"><i class="bi bi-envelope-at"></i>Notifications par mail</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Adresses qui reçoivent un mail à chaque nouveau risque proposé. Le mail est envoyé depuis le compte SharePoint de l'utilisateur qui propose.</div>
       <div id="settings-notify-emails"></div>
@@ -5240,6 +5246,7 @@ const DataSync = {
                     if (typeof App._refreshCustomRisksCache === 'function') await App._refreshCustomRisksCache();
                     if (typeof App._refreshRiskOverridesCache === 'function') await App._refreshRiskOverridesCache();
                     if (typeof App._refreshPhotoEtapesCache === 'function') await App._refreshPhotoEtapesCache();
+                    if (typeof App.loadMaintTeam === 'function') await App.loadMaintTeam();
                     App.refreshMaintenanceBanner();
                     if (App.currentView === 'dashboard') App.updateDashboard();
                     if (App.currentView === 'list') App.renderPDPList();
@@ -7266,6 +7273,7 @@ const App = {
       _step('Chargement des paramètres...', 40);
       await this.loadSettings();
       try { await loadAgences(); } catch (e) { console.warn('loadAgences:', e); }
+      try { await this.loadMaintTeam(); } catch (e) { console.warn('loadMaintTeam:', e); }
       await this._refreshCustomRisksCache();
       await this._refreshRiskOverridesCache();
       await this._refreshPhotoEtapesCache();
@@ -7756,7 +7764,8 @@ const App = {
   // Équipe maintenance habilitée à réaliser les ICP.
   // Thibault HOCEDEZ (QSE) et Franck LAMY (conducteur travaux) sont volontairement exclus.
   // NB : il y a 2 Franck → le match se fait sur le NOM DE FAMILLE pour distinguer Huleux de Lamy.
-  _maintTeam: [
+  // Liste par défaut utilisée tant qu'aucune équipe personnalisée n'est enregistrée dans les Paramètres.
+  _maintTeamDefault: [
     { prenom:'Kévin',     nom:'Burkarth'  },
     { prenom:'Sébastien', nom:'Burtin'    },
     { prenom:'Benjamin',  nom:'Guillaume' },
@@ -7765,6 +7774,28 @@ const App = {
     { prenom:'Anthony',   nom:'Kleische'  },
     { prenom:'Corentin',  nom:'Lion'      },
   ],
+  // Cache synchrone de l'équipe maintenance (chargé au boot + après sync depuis db.settings 'maintTeam').
+  _maintTeamCache: null,
+  // Accès synchrone : équipe personnalisée si définie, sinon liste par défaut.
+  get _maintTeam() { return this._maintTeamCache || this._maintTeamDefault; },
+
+  // Charge l'équipe maintenance depuis les paramètres (settings 'maintTeam') vers le cache synchrone.
+  async loadMaintTeam() {
+    try {
+      const s = await db.settings.get('maintTeam');
+      this._maintTeamCache = (s && Array.isArray(s.value) && s.value.length) ? s.value : null;
+    } catch (e) { this._maintTeamCache = null; }
+    return this._maintTeam;
+  },
+  // Enregistre l'équipe maintenance (et déclenche la synchro SharePoint).
+  async saveMaintTeam(list) {
+    const clean = (list || [])
+      .map(m => ({ prenom: (m.prenom||'').trim(), nom: (m.nom||'').trim() }))
+      .filter(m => m.prenom && m.nom);
+    this._maintTeamCache = clean.length ? clean : null;
+    await db.settings.put({ key: 'maintTeam', value: clean });
+    if (typeof DataSync !== 'undefined') DataSync.markDirty();
+  },
 
   _normTxt(s) {
     return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
@@ -14146,6 +14177,112 @@ const App = {
     if (typeof ActivityLog !== 'undefined') ActivityLog.log('admin.remove', { name });
   },
 
+  // ---- Équipe maintenance (techniciens ICP) — éditable dans les Paramètres (admin) ----
+  _maintTeamEditIdx: null,
+
+  async renderMaintTeamSection() {
+    const el = document.getElementById('settings-maintenance-team');
+    if (!el) return;
+    const isAdmin = await this.isAdmin();
+    const team = this._maintTeam;
+    const usingDefault = !this._maintTeamCache;
+
+    let info = '';
+    if (!isAdmin) {
+      info = `<div class="alert alert-light small mb-2"><i class="bi bi-info-circle me-1"></i>Réservé aux administrateurs. La liste ci-dessous est en lecture seule.</div>`;
+    } else if (usingDefault) {
+      info = `<div class="alert alert-info small mb-2"><i class="bi bi-info-circle me-1"></i>Liste par défaut (intégrée à l'application). Toute modification crée une liste personnalisée synchronisée entre les appareils.</div>`;
+    }
+
+    const rows = team.map((m, i) => {
+      if (isAdmin && this._maintTeamEditIdx === i) {
+        return `<li class="list-group-item py-2 px-2">
+          <div class="row g-1 align-items-center">
+            <div class="col"><input type="text" class="form-control form-control-sm" id="mt-edit-prenom" value="${this.esc(m.prenom)}" placeholder="Prénom"></div>
+            <div class="col"><input type="text" class="form-control form-control-sm" id="mt-edit-nom" value="${this.esc(m.nom)}" placeholder="Nom de famille"></div>
+            <div class="col-auto d-flex gap-1">
+              <button class="btn btn-sm btn-success" onclick="App.doSaveMaintEdit(${i})" title="Enregistrer"><i class="bi bi-check-lg"></i></button>
+              <button class="btn btn-sm btn-outline-secondary" onclick="App.doCancelMaintEdit()" title="Annuler"><i class="bi bi-x-lg"></i></button>
+            </div>
+          </div></li>`;
+      }
+      return `<li class="list-group-item d-flex justify-content-between align-items-center py-1 px-2">
+        <span class="small"><i class="bi bi-person-badge me-1 text-success"></i>${this.esc(m.prenom)} <strong>${this.esc(m.nom)}</strong></span>
+        ${isAdmin ? `<span class="d-flex gap-1">
+          <button class="btn btn-sm btn-outline-primary" onclick="App.doEditMaint(${i})" title="Modifier"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-sm btn-outline-danger" onclick="App.doRemoveMaint(${i})" title="Retirer"><i class="bi bi-x"></i></button>
+        </span>` : ''}
+      </li>`;
+    }).join('') || '<li class="list-group-item small text-muted">Aucun technicien</li>';
+
+    const form = isAdmin ? `
+      <div class="row g-1 mt-2">
+        <div class="col"><input type="text" class="form-control form-control-sm" id="new-maint-prenom" placeholder="Prénom"></div>
+        <div class="col"><input type="text" class="form-control form-control-sm" id="new-maint-nom" placeholder="Nom de famille"></div>
+        <div class="col-auto"><button class="btn btn-sm btn-outline-primary" onclick="App.doAddMaint()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button></div>
+      </div>
+      ${!usingDefault ? `<button class="btn btn-sm btn-link text-muted mt-1 p-0" onclick="App.doResetMaintTeam()"><i class="bi bi-arrow-counterclockwise me-1"></i>Réinitialiser la liste par défaut</button>` : ''}` : '';
+
+    el.innerHTML = info + '<ul class="list-group list-group-flush">' + rows + '</ul>' + form;
+  },
+
+  async doAddMaint() {
+    const p = (document.getElementById('new-maint-prenom')?.value || '').trim();
+    const n = (document.getElementById('new-maint-nom')?.value || '').trim();
+    if (!p || !n) { this.toast('Saisir le prénom et le nom de famille', 'warning'); return; }
+    const list = this._maintTeam.map(m => ({ ...m }));
+    if (list.some(m => this._normTxt(m.prenom) === this._normTxt(p) && this._normTxt(m.nom) === this._normTxt(n))) {
+      this.toast('Technicien déjà présent', 'warning'); return;
+    }
+    list.push({ prenom: p, nom: n });
+    await this.saveMaintTeam(list);
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('maintTeam.add', { name: `${p} ${n}` });
+    this.toast('Technicien ajouté');
+    await this.renderMaintTeamSection();
+    try { this.refreshMaintenanceBanner(); } catch (e) {}
+  },
+
+  doEditMaint(i) { this._maintTeamEditIdx = i; this.renderMaintTeamSection(); },
+  doCancelMaintEdit() { this._maintTeamEditIdx = null; this.renderMaintTeamSection(); },
+
+  async doSaveMaintEdit(i) {
+    const p = (document.getElementById('mt-edit-prenom')?.value || '').trim();
+    const n = (document.getElementById('mt-edit-nom')?.value || '').trim();
+    if (!p || !n) { this.toast('Saisir le prénom et le nom de famille', 'warning'); return; }
+    const list = this._maintTeam.map(m => ({ ...m }));
+    if (!list[i]) return;
+    list[i] = { prenom: p, nom: n };
+    await this.saveMaintTeam(list);
+    this._maintTeamEditIdx = null;
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('maintTeam.edit', { name: `${p} ${n}` });
+    this.toast('Technicien modifié');
+    await this.renderMaintTeamSection();
+    try { this.refreshMaintenanceBanner(); } catch (e) {}
+  },
+
+  async doRemoveMaint(i) {
+    const m = this._maintTeam[i];
+    if (!m) return;
+    if (!await this.confirm(`Retirer ${m.prenom} ${m.nom} de l'équipe maintenance ?`)) return;
+    const list = this._maintTeam.map(x => ({ ...x }));
+    list.splice(i, 1);
+    await this.saveMaintTeam(list);
+    if (this._maintTeamEditIdx === i) this._maintTeamEditIdx = null;
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('maintTeam.remove', { name: `${m.prenom} ${m.nom}` });
+    this.toast('Technicien retiré');
+    await this.renderMaintTeamSection();
+    try { this.refreshMaintenanceBanner(); } catch (e) {}
+  },
+
+  async doResetMaintTeam() {
+    if (!await this.confirm('Réinitialiser la liste par défaut ? La liste personnalisée sera supprimée.')) return;
+    await this.saveMaintTeam([]); // liste vide → cache null → la liste par défaut reprend
+    this._maintTeamEditIdx = null;
+    this.toast('Liste réinitialisée');
+    await this.renderMaintTeamSection();
+    try { this.refreshMaintenanceBanner(); } catch (e) {}
+  },
+
   // ---- Notifications par mail (liste d'emails destinataires) ----
   async loadNotifyEmails() {
     try { const s = await db.settings.get('notifyEmails'); return (s?.value)||[]; } catch(e) { return []; }
@@ -14786,6 +14923,7 @@ const App = {
     try { await this.renderFDSList(); } catch (e) { console.warn('renderFDSList:', e); }
     try { await DataSync.renderSettingsStatus(); } catch (e) { console.warn('renderSettingsStatus:', e); }
     try { await this.renderAdminsSection(); } catch (e) { console.warn('renderAdminsSection:', e); }
+    try { await this.renderMaintTeamSection(); } catch (e) { console.warn('renderMaintTeamSection:', e); }
     try { await this.renderNotifyEmails(); } catch (e) { console.warn('renderNotifyEmails:', e); }
     try { await this.renderPhotoEtapesSettings(); } catch (e) { console.warn('renderPhotoEtapesSettings:', e); }
     try { await this.renderRisksManager(); } catch (e) { console.warn('renderRisksManager:', e); }
