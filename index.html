@@ -8560,6 +8560,8 @@ const App = {
       this._markSaved();
       this.updateProgress();
       DataSync.markDirty();
+      // B5 : externalise les binaires photos de ce PDP en tâche de fond (data conservé)
+      this._externalizeOnSave(p, db.pdps);
       if (typeof ActivityLog !== 'undefined') ActivityLog.log(wasNew ? 'pdp.create' : 'pdp.update', { id: p.id, numero: p.numero, titre: p.titre, statut: p.statut });
       // Auto-export PDF + Word à la transition vers Clôturé
       if (isFinalTransition) {
@@ -11565,6 +11567,31 @@ const App = {
     });
   },
 
+  // Persistance TRANSACTIONNELLE anti-race des refs photos : relit une version
+  // FRAÎCHE du record (le polling a pu clear+bulkPut pendant l'upload réseau),
+  // n'y reporte QUE les refs (par id de photo) sans rien écraser, et ne
+  // ressuscite pas un record supprimé entre-temps. Mutualisé balayage/sauvegarde.
+  async _persistPhotoRefs(record, table) {
+    if (!record || record.id == null) return;
+    await db.transaction('rw', table, async () => {
+      const fresh = await table.get(record.id);
+      if (!fresh) return; // supprimé entre-temps → ne pas recréer
+      this._applyPhotoRefs(fresh, record);
+      await table.put(fresh);
+    });
+  },
+
+  // B5 : externalisation IMMÉDIATE à la sauvegarde d'un PDP/ICP. Non bloquant
+  // (fire-and-forget depuis savePDP/saveICP) : la photo part dans Media dès le
+  // save, sans attendre le balayage de fond. data inline conservé (anti-perte).
+  async _externalizeOnSave(record, table) {
+    if (!record || record.id == null || !DataSync._connected) return;
+    try {
+      const n = await this.externalizeRecordPhotos(record);
+      if (n) await this._persistPhotoRefs(record, table);
+    } catch (e) { console.warn('externalizeOnSave:', e); }
+  },
+
   // Balayage de fond : externalise les photos de tous les PDP/ICP non encore
   // traités. NON BLOQUANT (fire-and-forget), borné par passage. ÉVITE
   // l'enregistrement ouvert (traité à sa propre sauvegarde, lot B5) et tout
@@ -11584,19 +11611,7 @@ const App = {
           if (openId != null && rec.id === openId) continue; // pas l'enregistrement ouvert
           if (DataSync._saving || DataSync._dirty) return;   // une saisie est arrivée → on s'arrête net
           const n = await this.externalizeRecordPhotos(rec);
-          if (n) {
-            // Persistance TRANSACTIONNELLE anti-race : on relit une version
-            // fraîche (le polling a pu clear+bulkPut pendant l'upload réseau),
-            // on n'y reporte QUE les refs (par id de photo) sans rien écraser,
-            // et on ne ressuscite pas un record supprimé entre-temps.
-            await db.transaction('rw', table, async () => {
-              const fresh = await table.get(rec.id);
-              if (!fresh) return; // supprimé pendant le sweep → ne pas recréer
-              this._applyPhotoRefs(fresh, rec);
-              await table.put(fresh);
-            });
-            total += n;
-          }
+          if (n) { await this._persistPhotoRefs(rec, table); total += n; }
         }
       };
       await sweep(db.pdps, this.currentPDP?.id);
@@ -13228,6 +13243,8 @@ const App = {
       this.toast(newContactsAdded ? `ICP enregistrée + ${newContactsAdded} ajout(s) au répertoire` : 'ICP enregistrée');
       this._formDirty = false;
       DataSync.markDirty();
+      // B5 : externalise les binaires photos de cette ICP en tâche de fond (data conservé)
+      this._externalizeOnSave(v, db.icps);
       if (typeof ActivityLog !== 'undefined') ActivityLog.log(wasNew ? 'icp.create' : 'icp.update', { id: v.id, numero: v.numero, site: v.site, pdpId: v.pdpId || null });
       // Auto-archivage SharePoint dès que l'ICP est réalisée (effectuée ou validée),
       // et re-archivage à CHAQUE modification ultérieure (garde le PDF/Word à jour, écrase l'ancien).
