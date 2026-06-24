@@ -11682,6 +11682,12 @@ const App = {
       if (total) console.log(`[media] ${total} photo(s) externalisée(s) sur SharePoint`);
     } catch (e) { console.warn('syncPhotoFilesToSP:', e); }
     finally { this._photoSweepRunning = false; }
+    // Des refs ont été posées → le JSON distant peut être allégé (strip B4).
+    // Un seul push de sync (si pas de saisie en cours) pour répercuter la
+    // réduction sans attendre un enregistrement manuel.
+    if (total > 0 && DataSync._connected && !DataSync._saving) {
+      try { await DataSync.save(); } catch (e) { console.warn('push post-balayage:', e); }
+    }
     return total;
   },
 
