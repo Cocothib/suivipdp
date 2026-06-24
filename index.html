@@ -4058,11 +4058,19 @@ function _fdsFilePath(fds) {
     return `${SP_CONFIG.FDS_FOLDER}/${fds.id}_${slug}`;
 }
 
-// Construit le chemin SharePoint d'un binaire photo (id stable → idempotent).
-function _photoFilePath(photo) {
-    const safeId = String(photo.id || '').replace(/[<>:"/\\|?*\s]/g, '_') || ('p-' + _uid());
+// Construit le chemin SharePoint d'un binaire photo. Rangé dans un sous-dossier
+// par PDP/ICP + OPP (findabilité : retrouver les photos d'un PDP ou d'une OPP),
+// nommé par id stable (idempotent). `record` = le PDP/ICP porteur (facultatif).
+function _photoFilePath(photo, record) {
+    const safe = s => String(s || '').replace(/[<>:"/\\|?*\s]/g, '_');
+    const safeId = safe(photo.id) || ('p-' + _uid());
     const ext = /png/i.test(photo.mime||'') ? 'png' : (/jpe?g/i.test(photo.mime||'') ? 'jpg' : 'img');
-    return `${SP_CONFIG.MEDIA_FOLDER}/${safeId}.${ext}`;
+    let folder = '';
+    if (record) {
+        const lbl = [record.numero, record.refOperation].map(safe).filter(Boolean).join('__');
+        if (lbl) folder = lbl + '/';
+    }
+    return `${SP_CONFIG.MEDIA_FOLDER}/${folder}${safeId}.${ext}`;
 }
 
 async function _writeJsonFile(filePath, data, etag = null, metaEtag = null) {
@@ -11533,7 +11541,7 @@ const App = {
     let count = 0;
     for (const p of todo) {
       try {
-        const path = _photoFilePath(p);
+        const path = _photoFilePath(p, record);
         await _uploadBinaryFromDataURL(path, p.data, p.mime || 'image/jpeg');
         // Upload CONFIRMÉ → on pose la référence ; data conservé (fallback) ; cache local.
         p.ref = path; p._spPath = path;
