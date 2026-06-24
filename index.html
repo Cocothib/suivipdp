@@ -9555,7 +9555,7 @@ const App = {
 
   _renderProposeRiskPhotos() {
     const list = this._proposeRiskPhotos || [];
-    const html = list.map((p, i) => `<div class="position-relative" style="display:inline-block"><img src="${p.data}" class="rounded border" style="width:60px;height:60px;object-fit:cover;cursor:pointer" onclick="App.viewImage('${p.data}')"><button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0" style="padding:0 3px;font-size:0.55rem;line-height:1.1" onclick="App.removeProposeRiskPhoto(${i})"><i class="bi bi-x"></i></button></div>`).join('');
+    const html = list.map((p, i) => `<div class="position-relative" style="display:inline-block"><img src="${p.data || ''}" class="rounded border" style="width:60px;height:60px;object-fit:cover;cursor:pointer" onclick="App.viewPhotoObj(App._proposeRiskPhotos&&App._proposeRiskPhotos[${i}])"><button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0" style="padding:0 3px;font-size:0.55rem;line-height:1.1" onclick="App.removeProposeRiskPhoto(${i})"><i class="bi bi-x"></i></button></div>`).join('');
     // Rendu dans le sélecteur (PDP/ICP) ET le modal autonome — un seul est ouvert à la fois
     ['propose-risk-photos', 'propose-std-photos'].forEach(id => {
       const el = document.getElementById(id);
@@ -9582,7 +9582,7 @@ const App = {
     const avail = existing.filter(e => !usedIds.has(e.photo.id));
     if (!avail.length) { el.innerHTML = ''; return; }
     el.innerHTML = `<div class="small text-muted mb-1"><i class="bi bi-images me-1"></i>Reprendre une photo des risques du ${this._riskPickerCtx === 'icp' ? 'l\'ICP' : 'PDP'} en cours :</div>
-      <div class="d-flex flex-wrap gap-1">${avail.map(e => `<img src="${e.photo.data}" class="rounded border" style="width:54px;height:54px;object-fit:cover;cursor:pointer;opacity:.85" title="Reprendre cette photo${e.danger ? ' (' + this.esc(e.danger) + ')' : ''}" onclick="App.reuseExistingRiskPhoto('${e.photo.id}')">`).join('')}</div>`;
+      <div class="d-flex flex-wrap gap-1">${avail.map(e => `<img src="${e.photo.data || ''}" class="rounded border" style="width:54px;height:54px;object-fit:cover;cursor:pointer;opacity:.85" title="Reprendre cette photo${e.danger ? ' (' + this.esc(e.danger) + ')' : ''}" onclick="App.reuseExistingRiskPhoto('${e.photo.id}')">`).join('')}</div>`;
   },
 
   reuseExistingRiskPhoto(photoId) {
@@ -9626,6 +9626,13 @@ const App = {
       img.src = dataUrl;
       new bootstrap.Modal(modalEl).show();
     } else { window.open(dataUrl); }
+  },
+
+  // Viewer plein écran à partir d'un objet photo (résolution lazy de la dataURL).
+  async viewPhotoObj(photo) {
+    const url = await this.ensurePhotoData(photo);
+    if (!url) { this.toast('Photo indisponible', 'warning'); return; }
+    this.viewImage(url);
   },
 
   // Affiche une photo d'un risque personnalisé (par id, depuis la base customRisks)
@@ -11183,7 +11190,7 @@ const App = {
       for (const i of idxs) {
         const p = photos[i];
         html += `<div class="border rounded p-1" style="width:122px">
-          <img src="${p.data}" class="rounded" style="width:112px;height:84px;object-fit:cover;cursor:pointer" onclick="App.openPhotoViewer('${ctx}',${i})">
+          <img src="${p.data || ''}" class="rounded" style="width:112px;height:84px;object-fit:cover;cursor:pointer" onclick="App.openPhotoViewer('${ctx}',${i})">
           <input type="text" class="form-control form-control-sm mt-1" style="font-size:.7rem" placeholder="Légende" value="${this.esc(p.label || '')}" onchange="App.setPhotoLabel('${ctx}',${i},this.value)">
           <div class="d-flex gap-1 mt-1">
             <select class="form-select form-select-sm" style="font-size:.62rem;padding:.1rem .3rem" onchange="App.setPhotoEtape('${ctx}',${i},this.value)">${optsFor(p.etape)}</select>
@@ -11201,13 +11208,15 @@ const App = {
   setPhotoLabel(ctx, i, val) { const a = this._photoArr(ctx); if (a && a[i]) a[i].label = val; },
   setPhotoEtape(ctx, i, val) { const a = this._photoArr(ctx); if (a && a[i]) { a[i].etape = val; this._rerenderPhotos(ctx); } },
   removeGenPhoto(ctx, i) { const a = this._photoArr(ctx); if (a && a[i] !== undefined) { a.splice(i, 1); this._rerenderPhotos(ctx); } },
-  openPhotoViewer(ctx, i) {
+  async openPhotoViewer(ctx, i) {
     const a = this._photoArr(ctx); if (!a || !a[i]) return;
+    const url = await this.ensurePhotoData(a[i]);
+    if (!url) { this.toast('Photo indisponible', 'warning'); return; }
     const img = document.getElementById('photo-viewer-img');
     if (img && document.getElementById('modal-photo')) {
-      img.src = a[i].data;
+      img.src = url;
       new bootstrap.Modal(document.getElementById('modal-photo')).show();
-    } else { window.open(a[i].data); }
+    } else { window.open(url); }
   },
 
   // Regroupe des photos par etape, dans l'ordre des etapes configurees (+ Non classe).
@@ -11399,6 +11408,66 @@ const App = {
       } catch (e) { console.warn('Download FDS échoué:', e); return null; }
     }
     return f;
+  },
+
+  // ---- Résolution lazy d'une dataURL de photo (socle externalisation, cf FDS) ----
+  // Aujourd'hui TOUTES les photos ont leur base64 inline (photo.data) → chemin
+  // immédiat, synchrone-rapide, aucun réseau. Le reste (ref/_spPath) est le futur
+  // format externalisé : téléchargé à la demande et mémoïsé. Ne throw JAMAIS
+  // (un échec ne doit pas casser un export ni un affichage) → renvoie null.
+  async ensurePhotoData(photo) {
+    if (!photo) return null;
+    // 1) Cas actuel : la dataURL est inline → on la retourne telle quelle.
+    if (typeof photo.data === 'string' && photo.data) return photo.data;
+    // 2) Futur format externalisé : référence vers un binaire SharePoint.
+    const ref = photo.ref || photo._spPath || null;
+    if (ref && DataSync._connected) {
+      try {
+        if (!this._photoDataCache) this._photoDataCache = new Map();
+        if (this._photoDataCache.has(ref)) return this._photoDataCache.get(ref);
+        const url = await _downloadFileAsDataURL(ref);
+        if (url) { this._photoDataCache.set(ref, url); return url; }
+      } catch (e) { console.warn('Résolution photo échouée:', e); }
+    }
+    // 3) Ni data, ni ref résoluble (hors-ligne sans cache, etc.) → absence propre.
+    return null;
+  },
+
+  // Résout en parallèle un tableau de photos → tableau de dataURL (ou null par
+  // élément absent). Pour les exports : pré-résoudre EN AMONT puis passer les
+  // data résolues aux fonctions de cellule synchrones.
+  async ensurePhotosData(photos) {
+    if (!Array.isArray(photos) || !photos.length) return [];
+    return Promise.all(photos.map(p => this.ensurePhotoData(p)));
+  },
+
+  // Pré-résout les photos d'un tableau et renvoie une NOUVELLE liste de photos
+  // dont .data est garanti présent (les non-résolubles sont écartées). Sert à
+  // alimenter les cellules d'export synchrones sans transformer la chaîne en async.
+  async _resolvePhotosForExport(photos) {
+    if (!Array.isArray(photos) || !photos.length) return [];
+    const urls = await this.ensurePhotosData(photos);
+    const out = [];
+    photos.forEach((p, i) => {
+      if (!p) return;
+      const data = urls[i];
+      if (!data) return; // photo externalisée non disponible → on saute (cellule vide, comme aujourd'hui)
+      out.push(p.data === data ? p : { ...p, data });
+    });
+    return out;
+  },
+
+  // Affichage lazy : rend immédiatement la vignette/viewer avec la dataURL inline
+  // si présente (cas actuel), sinon résout la photo en arrière-plan et remplit
+  // l'<img> ciblé. Jamais de src="undefined" ni "[object Promise]".
+  // `imgEl` peut être un élément ou un id ; `photo` l'objet photo.
+  _setImgFromPhoto(imgEl, photo) {
+    const el = (typeof imgEl === 'string') ? document.getElementById(imgEl) : imgEl;
+    if (!el || !photo) return;
+    if (typeof photo.data === 'string' && photo.data) { el.src = photo.data; return; }
+    // Pas de data inline → résolution asynchrone (futur format externalisé).
+    el.removeAttribute('src');
+    this.ensurePhotoData(photo).then(url => { if (url) el.src = url; });
   },
 
   renderDocuments() {
@@ -13270,22 +13339,24 @@ const App = {
   },
 
   // ---- PHOTOS PAR RISQUE (ICP & PDP) ----
-  viewRiskPhoto(ctx, idx, pi) {
+  async viewRiskPhoto(ctx, idx, pi) {
     const arr = ctx === 'icp' ? this.currentICP && this.currentICP.risques : this.currentPDP && this.currentPDP.risques;
     const p = arr && arr[idx] && arr[idx].photos && arr[idx].photos[pi];
     if (!p) return;
+    const url = await this.ensurePhotoData(p);
+    if (!url) { this.toast('Photo indisponible', 'warning'); return; }
     const img = document.getElementById('photo-viewer-img');
     if (img && document.getElementById('modal-photo')) {
-      img.src = p.data;
+      img.src = url;
       new bootstrap.Modal(document.getElementById('modal-photo')).show();
     } else {
       const w = window.open();
-      if (w) w.document.write(`<img src="${p.data}" style="max-width:100vw;max-height:100vh;object-fit:contain">`);
+      if (w) w.document.write(`<img src="${url}" style="max-width:100vw;max-height:100vh;object-fit:contain">`);
     }
   },
   _renderRiskPhotos(ctx, idx, photos) {
     const list = photos || [];
-    const thumbs = list.map((p,pi) => `<div class="position-relative" style="display:inline-block"><img src="${p.data}" class="rounded border" style="width:60px;height:60px;object-fit:cover;cursor:pointer" onclick="App.viewRiskPhoto('${ctx}',${idx},${pi})"><button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0" style="padding:0 3px;font-size:0.55rem;line-height:1.1" onclick="App.removeRiskPhoto('${ctx}',${idx},${pi})"><i class="bi bi-x"></i></button></div>`).join('');
+    const thumbs = list.map((p,pi) => `<div class="position-relative" style="display:inline-block"><img src="${p.data || ''}" class="rounded border" style="width:60px;height:60px;object-fit:cover;cursor:pointer" onclick="App.viewRiskPhoto('${ctx}',${idx},${pi})"><button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0" style="padding:0 3px;font-size:0.55rem;line-height:1.1" onclick="App.removeRiskPhoto('${ctx}',${idx},${pi})"><i class="bi bi-x"></i></button></div>`).join('');
     return `<div class="risk-photos-col d-flex flex-wrap align-content-start gap-1" style="flex:0 0 auto;width:132px">${thumbs}<label class="btn btn-outline-secondary btn-sm mb-0 d-flex align-items-center justify-content-center" style="padding:.15rem .4rem;width:60px;height:60px" title="Ajouter une photo à ce risque"><i class="bi bi-camera"></i><input type="file" accept="image/*" multiple capture="environment" style="display:none" onchange="App.addRiskPhoto('${ctx}',${idx},event)"></label></div>`;
   },
 
@@ -14806,9 +14877,10 @@ const App = {
         doc.splitTextToSize(t, textW).forEach(l=>{ if(y>275){doc.addPage();y=15} doc.text(l,m,y); y+=s*0.5 });
         y+=1;
       };
-      v.risques.forEach((r,i) => {
+      for (let i = 0; i < v.risques.length; i++) {
+        const r = v.risques[i];
         const startY = y;
-        const rPhotos = (r.photos||[]).filter(p => p && p.data);
+        const rPhotos = await this._resolvePhotosForExport(r.photos||[]);
         // Estimer hauteur des photos (2 colonnes max)
         const tw = (photoMaxW - 2) / 2, th = tw * 0.75;
         const photoRows = rPhotos.length ? Math.ceil(rPhotos.length / 2) : 0;
@@ -14831,7 +14903,7 @@ const App = {
         }
         y = Math.max(textEndY, photoEndY) + 2;
         if (y > 275) { doc.addPage(); y = 15; }
-      }); addL();
+      } addL();
     }
 
     // Délimitation, circulation & consignes (R4512-3/4)
@@ -14855,8 +14927,9 @@ const App = {
         for (const photo of grp.photos) {
           if (!photo) continue;
           try {
+            const imgData = await this.ensurePhotoData(photo);
+            if (!imgData) continue;
             if (y > 200) { doc.addPage(); y = 15; }
-            const imgData = photo.data || photo;
             doc.addImage(imgData, /^data:image\/png/i.test(imgData)?'PNG':'JPEG', m, y, 80, 60);
             y += 65;
             if (photo.label) { addT(photo.label, 8, 'italic', [100,100,100]); }
@@ -14993,8 +15066,8 @@ const App = {
       return new TableCell({children:imgParas,width:{size:width,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER});
     };
     const rRows = [new TableRow({cantSplit:true,children:[hCell('Risque',16),hCell('Niveau',8),hCell('Localisation',14),hCell('Situation',20),hCell('Prévention',22),hCell('Photos',20)]})];
-    (v.risques||[]).forEach(r => {
-      const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
+    for (const r of (v.risques||[])) {
+      const rPhotos = await this._resolvePhotosForExport(r.photos||[]);
       rRows.push(new TableRow({cantSplit:true,children:[
         cell(r.danger||'',{width:16}),
         cell(niveauLabels[r.niveau]||'',{width:8,align:AlignmentType.CENTER,bold:true,shading:niveauColors[r.niveau]}),
@@ -15003,7 +15076,7 @@ const App = {
         cell(this._preventionText(r),{width:22}),
         _photoCell(rPhotos, 20)
       ]}));
-    });
+    }
     if (!(v.risques||[]).length) rRows.push(new TableRow({cantSplit:true,children:[cell('Aucun risque identifié',{colSpan:6,width:100,align:AlignmentType.CENTER})]}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
     children.push(spacer());
@@ -15043,7 +15116,8 @@ const App = {
         for (const photo of grp.photos) {
           if (!photo) continue;
           try {
-            const imgData = photo.data || photo;
+            const imgData = await this.ensurePhotoData(photo);
+            if (!imgData) continue;
             const b64 = imgData.split(',')[1];
             const raw = atob(b64);
             const arr = new Uint8Array(raw.length);
@@ -16593,9 +16667,9 @@ const App = {
             return new TableCell({children:imgParas,width:{size:width,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER});
           };
           const icpRiskRows = [new TableRow({cantSplit:true,children:[hCell('Risque',16),hCell('Niveau',8),hCell('Localisation',14),hCell('Situation',20),hCell('Prévention',22),hCell('Photos',20)]})];
-          icpRisques.forEach(r => {
+          for (const r of icpRisques) {
             const nc = {1:'92D050',2:'FFC000',3:'FD7E14',4:'FF0000'}[r.niveau]||'FFC000';
-            const rPhotos = (r.photos||[]).filter(p => p && p.data);
+            const rPhotos = await this._resolvePhotosForExport(r.photos||[]);
             icpRiskRows.push(new TableRow({cantSplit:true,children:[
               cell(r.danger||'',{width:16}),
               cell(icpNiveauLabels[r.niveau]||'',{width:8,align:AlignmentType.CENTER,bold:true,shading:nc}),
@@ -16604,7 +16678,7 @@ const App = {
               cell(this._preventionText(r),{width:22}),
               _icpPhotoCell(rPhotos, 20)
             ]}));
-          });
+          }
           children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:icpRiskRows}));
           children.push(spacer());
         }
@@ -16662,7 +16736,8 @@ const App = {
             for (const photo of grp.photos) {
               if (!photo) continue;
               try {
-                const imgData = photo.data || photo;
+                const imgData = await this.ensurePhotoData(photo);
+                if (!imgData) continue;
                 const b64 = imgData.split(',')[1];
                 const raw = atob(b64);
                 const arr = new Uint8Array(raw.length);
@@ -16730,8 +16805,8 @@ const App = {
       return new TableCell({children:imgParas,width:{size:width,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER,rowSpan:rowSpan||1});
     };
     const rRows = [new TableRow({cantSplit:true,children:[hCell('Risque',20),hCell('Niveau',8),hCell('Mesures de prévention',32),hCell('EU',7),hCell('EE',7),hCell('Photos',17)]})];
-    (p.risques||[]).forEach(r => {
-      const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
+    for (const r of (p.risques||[])) {
+      const rPhotos = await this._resolvePhotosForExport(r.photos||[]);
       // Une ligne par mesure cochée → "qui fait quoi" lisible (croix EU/EE par mesure)
       const measures = (r.preventionItems||[]).filter(it => it && it.checked);
       if (measures.length) {
@@ -16762,7 +16837,7 @@ const App = {
         const _eeOn = r.chargeEE || (r.preventionItems||[]).some(it => it.checked && it.chargeEE);
         rRows.push(new TableRow({cantSplit:true,children:[cell(r.danger||'',{width:20}),cell(niveauLabels[r.niveau]||'',{width:8,align:AlignmentType.CENTER,bold:true}),cell(this._preventionText(r) || r.situation || '',{width:32}),cell(_euOn?'X':'',{width:7,align:AlignmentType.CENTER}),cell(_eeOn?'X':'',{width:7,align:AlignmentType.CENTER}),_pdpPhotoCell(rPhotos,17)]}));
       }
-    });
+    }
     if (!(p.risques||[]).length) rRows.push(new TableRow({cantSplit:true,children:[cell('',{width:20}),cell('',{width:8}),cell('',{width:32}),cell('',{width:7}),cell('',{width:7}),cell('',{width:17})]}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
 
@@ -17627,8 +17702,8 @@ const App = {
         return new TableCell({children:imgParas,width:{size:width,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER});
       };
       const rRows = [new TableRow({cantSplit:true,children:[hCell('N°',5),hCell('Danger / Risque',25),hCell('Niveau',8),hCell('Mesures de prévention',32),hCell('Resp.',12),hCell('Photos',18)]})];
-      p.risques.forEach((r,i) => {
-        const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
+      for (const [i, r] of (p.risques||[]).entries()) {
+        const rPhotos = await this._resolvePhotosForExport(r.photos||[]);
         rRows.push(new TableRow({cantSplit:true,children:[
           cell(String(i+1),{width:5,align:AlignmentType.CENTER}),
           cell(r.danger||'',{width:25}),
@@ -17637,7 +17712,7 @@ const App = {
           cell(r.responsable||'',{width:12}),
           _stPhotoCell(rPhotos, 18)
         ]}));
-      });
+      }
       children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
       children.push(new Paragraph({children:[],spacing:{before:100}}));
     }
@@ -17852,7 +17927,7 @@ const App = {
           doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Risques identifiés lors de la visite :',m,y); y+=4;
           const icpNiveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
           const icpNiveauColors = {1:[146,208,80],2:[255,192,0],3:[253,126,20],4:[255,0,0]};
-          const icpRPhotosArr = icpRisquesPdf.map(r => (r.photos||[]).filter(p => p && p.data));
+          const icpRPhotosArr = await Promise.all(icpRisquesPdf.map(r => this._resolvePhotosForExport(r.photos||[])));
           const icpRiskBody = icpRisquesPdf.map((r, ri) => [
             r.danger||'',
             {content:icpNiveauLabels[r.niveau]||'',styles:{fontStyle:'bold',fillColor:icpNiveauColors[r.niveau]||[255,192,0],halign:'center'}},
@@ -17935,7 +18010,8 @@ const App = {
             for (const photo of grp.photos) {
               if (!photo) continue;
               try {
-                const imgData = photo.data || photo;
+                const imgData = await this.ensurePhotoData(photo);
+                if (!imgData) continue;
                 checkPage(60);
                 doc.addImage(imgData, /^data:image\/png/i.test(imgData)?'PNG':'JPEG', m,y,80,60);
                 y+=62;
@@ -17996,9 +18072,9 @@ const App = {
       const photosByRow = {};
       const rBody = [];
       let _rowIdx = 0;
-      (p.risques||[]).forEach(r => {
+      for (const r of (p.risques||[])) {
         const nc = niveauColors[r.niveau]||[200,200,200];
-        const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
+        const rPhotos = await this._resolvePhotosForExport(r.photos||[]);
         const niveauCellBase = {content:niveauLabels[r.niveau]||'',styles:{halign:'center',fontStyle:'bold',fillColor:nc,textColor:r.niveau>=3?[255,255,255]:[0,0,0]}};
         const measures = (r.preventionItems||[]).filter(it => it && it.checked);
         if (measures.length) {
@@ -18030,7 +18106,7 @@ const App = {
           rBody.push([ {content:r.danger||''}, niveauCellBase, this._preventionText(r) || r.situation || '', {content:_euOnPdf?'X':'',styles:{halign:'center'}}, {content:_eeOnPdf?'X':'',styles:{halign:'center'}}, {content:'', styles:{minCellHeight: rPhotos.length ? (rPhotos.length>2?32:18) : 6}} ]);
           _rowIdx++;
         }
-      });
+      }
       addTable(['Risque','Niveau','Mesures de prévention','EU','EE','Photos'], rBody, {
         columnStyles:{0:{cellWidth:32},1:{cellWidth:16},2:{cellWidth:60},3:{cellWidth:14},4:{cellWidth:14},5:{cellWidth:44}},
         didDrawCell: (data) => {
