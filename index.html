@@ -9811,6 +9811,7 @@ const App = {
     const pendingNames = new Set(pendingList.map(p => p.nom));
     const pendingBadge = nom => pendingNames.has(nom) ? '<span class="badge bg-warning text-dark ms-1" title="En attente de validation"><i class="bi bi-hourglass-split me-1"></i>En attente</span>' : '';
     c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1" style="min-width:0"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong>${pendingBadge(r.danger)}<select class="form-select form-select-sm" style="width:auto" onchange="App.currentPDP.risques[${i}].niveau=+this.value;App.renderRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentPDP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea>${this._renderPreventionCheckboxes(i, r.preventionItems, 'pdp')}</div>${this._renderRiskPhotos('pdp', i, r.photos)}<button class="btn btn-outline-danger btn-sm" onclick="App.currentPDP.risques.splice(${i},1);App.renderRisquesList();App._riskPickerCtx='pdp';App.updateRiskCounters()"><i class="bi bi-trash"></i></button></div></div>`).join('');
+    this._fillThumbs(c, 'data-rp', s => { const a=s.split('|'); const rec=a[0]==='pdp'?this.currentPDP:this.currentICP; return rec&&rec.risques&&rec.risques[+a[1]]&&rec.risques[+a[1]].photos&&rec.risques[+a[1]].photos[+a[2]]; });
   },
 
   _isInStandardCatalog(name) {
@@ -11258,6 +11259,18 @@ const App = {
     sel.value = this[stateProp];
   },
 
+  // Remplit les miniatures dont le src est vide (photo externalisée stripée,
+  // B4) en résolvant le data via ensurePhotoData (ref → media local/offline →
+  // download). Les photos avec data inline gardent leur src (aucun flicker).
+  _fillThumbs(root, attr, getPhoto) {
+    if (!root) return;
+    root.querySelectorAll(`img[${attr}]`).forEach(img => {
+      if (img.getAttribute('src')) return; // data inline déjà présent
+      const p = getPhoto(img.getAttribute(attr));
+      if (p) this.ensurePhotoData(p).then(u => { if (u) img.src = u; }).catch(() => {});
+    });
+  },
+
   // Vignettes groupées PAR ÉTAPE + légende éditable + rappel des étapes vides.
   _renderGroupedPhotos(container, photos, ctx) {
     if (!container) return;
@@ -11281,7 +11294,7 @@ const App = {
       for (const i of idxs) {
         const p = photos[i];
         html += `<div class="border rounded p-1" style="width:122px">
-          <img src="${p.data || ''}" class="rounded" style="width:112px;height:84px;object-fit:cover;cursor:pointer" onclick="App.openPhotoViewer('${ctx}',${i})">
+          <img data-gp="${i}" src="${p.data || ''}" class="rounded" style="width:112px;height:84px;object-fit:cover;cursor:pointer;background:#f1f3f5" onclick="App.openPhotoViewer('${ctx}',${i})">
           <input type="text" class="form-control form-control-sm mt-1" style="font-size:.7rem" placeholder="Légende" value="${this.esc(p.label || '')}" onchange="App.setPhotoLabel('${ctx}',${i},this.value)">
           <div class="d-flex gap-1 mt-1">
             <select class="form-select form-select-sm" style="font-size:.62rem;padding:.1rem .3rem" onchange="App.setPhotoEtape('${ctx}',${i},this.value)">${optsFor(p.etape)}</select>
@@ -11294,6 +11307,7 @@ const App = {
     const missing = etapes.filter(e => !(groups[e] && groups[e].length));
     if (missing.length) html += `<div class="small text-warning mt-1"><i class="bi bi-exclamation-triangle me-1"></i>Étapes sans photo : ${this.esc(missing.join(', '))}</div>`;
     container.innerHTML = html;
+    this._fillThumbs(container, 'data-gp', s => photos[+s]); // miniatures stripées → résolution lazy
   },
 
   setPhotoLabel(ctx, i, val) { const a = this._photoArr(ctx); if (a && a[i]) a[i].label = val; },
@@ -13550,6 +13564,7 @@ const App = {
     if (!r.length) { c.innerHTML = '<p class="text-muted small">Aucun risque identifié.</p>'; return; }
     r.forEach(ri => this._migrateRiskPrevention(ri));
     c.innerHTML = r.map((r,i) => `<div class="risk-row risk-level-${r.niveau||1}"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1" style="min-width:0"><div class="d-flex align-items-center gap-2 mb-1"><strong>${this.esc(r.danger||'')}</strong><select class="form-select form-select-sm" style="width:auto" onchange="App.currentICP.risques[${i}].niveau=+this.value;App.renderICPRisquesList()"><option value="1" ${r.niveau==1?'selected':''}>Faible</option><option value="2" ${r.niveau==2?'selected':''}>Moyen</option><option value="3" ${r.niveau==3?'selected':''}>Élevé</option><option value="4" ${r.niveau==4?'selected':''}>Critique</option></select></div><textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Situation dangereuse..." onchange="App.currentICP.risques[${i}].situation=this.value">${this.esc(r.situation||'')}</textarea>${this._renderPreventionCheckboxes(i, r.preventionItems, 'icp')}<input type="text" class="form-control form-control-sm mt-1" placeholder="Localisation sur site..." onchange="App.currentICP.risques[${i}].localisation=this.value" value="${this.esc(r.localisation||'')}"></div>${this._renderRiskPhotos('icp', i, r.photos)}<button class="btn btn-outline-danger btn-sm" onclick="App.currentICP.risques.splice(${i},1);App.renderICPRisquesList();App._riskPickerCtx='icp';App.updateRiskCounters()"><i class="bi bi-trash"></i></button></div></div>`).join('');
+    this._fillThumbs(c, 'data-rp', s => { const a=s.split('|'); const rec=a[0]==='pdp'?this.currentPDP:this.currentICP; return rec&&rec.risques&&rec.risques[+a[1]]&&rec.risques[+a[1]].photos&&rec.risques[+a[1]].photos[+a[2]]; });
   },
 
   addICPRisque() {
@@ -13598,7 +13613,7 @@ const App = {
   },
   _renderRiskPhotos(ctx, idx, photos) {
     const list = photos || [];
-    const thumbs = list.map((p,pi) => `<div class="position-relative" style="display:inline-block"><img src="${p.data || ''}" class="rounded border" style="width:60px;height:60px;object-fit:cover;cursor:pointer" onclick="App.viewRiskPhoto('${ctx}',${idx},${pi})"><button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0" style="padding:0 3px;font-size:0.55rem;line-height:1.1" onclick="App.removeRiskPhoto('${ctx}',${idx},${pi})"><i class="bi bi-x"></i></button></div>`).join('');
+    const thumbs = list.map((p,pi) => `<div class="position-relative" style="display:inline-block"><img data-rp="${ctx}|${idx}|${pi}" src="${p.data || ''}" class="rounded border" style="width:60px;height:60px;object-fit:cover;cursor:pointer;background:#f1f3f5" onclick="App.viewRiskPhoto('${ctx}',${idx},${pi})"><button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0" style="padding:0 3px;font-size:0.55rem;line-height:1.1" onclick="App.removeRiskPhoto('${ctx}',${idx},${pi})"><i class="bi bi-x"></i></button></div>`).join('');
     return `<div class="risk-photos-col d-flex flex-wrap align-content-start gap-1" style="flex:0 0 auto;width:132px">${thumbs}<label class="btn btn-outline-secondary btn-sm mb-0 d-flex align-items-center justify-content-center" style="padding:.15rem .4rem;width:60px;height:60px" title="Ajouter une photo à ce risque"><i class="bi bi-camera"></i><input type="file" accept="image/*" multiple capture="environment" style="display:none" onchange="App.addRiskPhoto('${ctx}',${idx},event)"></label></div>`;
   },
 
