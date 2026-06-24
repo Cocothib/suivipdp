@@ -1779,6 +1779,20 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         </div>
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-list-check"></i>Liste des mesures</div>
+          <!-- Saisie inline avec autocomplétion (datalist) — évite les prompt() pénibles sur tablette -->
+          <div class="row g-2 mb-2" id="mesure-quick-add">
+            <div class="col-12 col-md-5">
+              <input type="text" class="form-control form-control-sm" id="mesure-new-titre" list="mesure-titre-suggestions" placeholder="Mesure (ex: EPI obligatoires)..." onkeydown="if(event.key==='Enter'){event.preventDefault();App.addMesureInline();}">
+              <datalist id="mesure-titre-suggestions"></datalist>
+            </div>
+            <div class="col-12 col-md-6">
+              <input type="text" class="form-control form-control-sm" id="mesure-new-desc" list="mesure-desc-suggestions" placeholder="Description (optionnel)..." onkeydown="if(event.key==='Enter'){event.preventDefault();App.addMesureInline();}">
+              <datalist id="mesure-desc-suggestions"></datalist>
+            </div>
+            <div class="col-12 col-md-1 d-grid">
+              <button class="btn btn-primary btn-sm" onclick="App.addMesureInline()" title="Ajouter la mesure"><i class="bi bi-plus-lg"></i></button>
+            </div>
+          </div>
           <div id="mesures-list-container"></div>
         </div>
       </div>
@@ -8647,7 +8661,13 @@ const App = {
       document.getElementById('modal-entreprise-body').innerHTML = html;
       document.getElementById('modal-entreprise-footer').style.display = 'none';
       document.querySelector('#modal-entreprise .modal-title').innerHTML = '<i class="bi bi-building me-1"></i>Ajouter une EE';
-      new bootstrap.Modal(document.getElementById('modal-entreprise')).show();
+      const modalEl = document.getElementById('modal-entreprise');
+      // Focus explicite sur la recherche dès l'ouverture (autofocus HTML ne se redéclenche pas après réinjection)
+      modalEl.addEventListener('shown.bs.modal', () => {
+        const s = document.getElementById('addee-search');
+        if (s) { s.focus(); s.select?.(); }
+      }, { once: true });
+      new bootstrap.Modal(modalEl).show();
       this.filterAddEE('');
     } else { this.addEEManual(); }
   },
@@ -8697,7 +8717,15 @@ const App = {
 
   addEEManual() {
     bootstrap.Modal.getInstance(document.getElementById('modal-entreprise'))?.hide();
-    setTimeout(() => { this.resetEntModal(); document.getElementById('ent-edit-id').value = 'new-ee'; this._showSousTraitantSelect(-1); new bootstrap.Modal(document.getElementById('modal-entreprise')).show(); }, 350);
+    setTimeout(() => {
+      this.resetEntModal();
+      document.getElementById('ent-edit-id').value = 'new-ee';
+      this._showSousTraitantSelect(-1);
+      const modalEl = document.getElementById('modal-entreprise');
+      // Création nouveau ST : focus direct sur la raison sociale (seul champ requis)
+      modalEl.addEventListener('shown.bs.modal', () => { document.getElementById('ent-nom')?.focus(); }, { once: true });
+      new bootstrap.Modal(modalEl).show();
+    }, 350);
   },
 
   editEE(i) {
@@ -9339,6 +9367,10 @@ const App = {
   },
 
   toggleRiskInPicker(name) {
+    // Préserver la position de scroll de la modale (sélection multiple fluide en tablette/mobile)
+    const modalBody = document.querySelector('#modal-risk-picker .modal-body');
+    const savedScroll = modalBody ? modalBody.scrollTop : 0;
+
     const risques = this._riskPickerCtx === 'icp'
       ? (this.currentICP.risques = this.currentICP.risques || [])
       : (this.currentPDP.risques = this.currentPDP.risques || []);
@@ -9349,15 +9381,22 @@ const App = {
       const def = this._getRiskDefaults(name);
       risques.push({ danger: name, situation: def.situation, prevention: def.prevention, preventionItems: def.preventionItems, niveau: def.niveau || 2, localisation: '' });
     }
-    // Update chip visual
-    const chips = document.querySelectorAll('#risk-picker-categories .risk-chip');
+    // Toggle visuel en place de la SEULE chip cliquée (pas de re-render → la fenêtre ne disparaît pas)
+    const chips = document.querySelectorAll('#modal-risk-picker .risk-chip');
     chips.forEach(chip => {
       if (chip.dataset.risk === name) chip.classList.toggle('selected');
     });
+    // Mise à jour du compteur footer + résumé contexte uniquement
     this.updateRiskCounters();
-    // Update list behind modal
-    if (this._riskPickerCtx === 'icp') this.renderICPRisquesList();
-    else { this.renderRisquesList(); this.checkPermisFeuOnRiskChange(); }
+    // Mise à jour de la liste derrière la modale, sans casser le scroll du picker.
+    // (renderRisquesList est async/peut reflow la page : on restaure le scrollTop juste après)
+    if (this._riskPickerCtx === 'icp') {
+      Promise.resolve(this.renderICPRisquesList()).finally(() => { if (modalBody) modalBody.scrollTop = savedScroll; });
+    } else {
+      Promise.resolve(this.renderRisquesList()).finally(() => { if (modalBody) modalBody.scrollTop = savedScroll; });
+      this.checkPermisFeuOnRiskChange();
+    }
+    if (modalBody) modalBody.scrollTop = savedScroll;
   },
 
   updateRiskCounters() {
@@ -9593,14 +9632,70 @@ const App = {
   },
 
   // ---- MESURES ----
+  // Mesures pré-enregistrées de base (réutilisées par les boutons d'ajout rapide)
+  _MESURES_PREDEFINIES: [
+    { titre: 'EPI obligatoires', description: 'Casque, chaussures de sécurité, gants, lunettes, gilet HV' },
+    { titre: 'Balisage / Signalisation', description: 'Zone de travaux balisée, panneaux' },
+    { titre: 'Consignation', description: 'Consignation électrique / mécanique' },
+    { titre: 'Permis de feu', description: 'Permis de feu pour travaux par points chauds' },
+    { titre: 'Extincteur', description: 'Extincteur à proximité' },
+    { titre: 'Premiers secours', description: 'Trousse de secours, SST identifié' },
+    { titre: 'Travail en hauteur sécurisé', description: 'Harnais, ligne de vie, garde-corps' },
+    { titre: 'Plan canicule', description: 'Démarrage anticipé, hydratation, pauses à l\'ombre' },
+    { titre: 'Coordination des activités', description: 'Phasage des interventions pour éviter la coactivité' },
+  ],
+
   renderMesuresList() {
+    this._loadMesureSuggestions();
     const c = document.getElementById('mesures-list-container');
     const m = this.currentPDP.mesures||[];
     if (!m.length) { c.innerHTML = '<p class="text-muted small">Aucune mesure.</p>'; return; }
     c.innerHTML = m.map((m,i) => `<div class="risk-row risk-level-1"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><strong>${this.esc(m.titre)}</strong><div class="small">${this.esc(m.description||'')}</div><select class="form-select form-select-sm mt-1" style="width:auto" onchange="App.currentPDP.mesures[${i}].responsable_type=this.value"><option value="eu" ${m.responsable_type==='eu'?'selected':''}>EU</option><option value="ee" ${m.responsable_type==='ee'?'selected':''}>EE</option><option value="commun" ${m.responsable_type==='commun'?'selected':''}>Commune</option></select></div><button class="btn btn-outline-danger btn-sm" onclick="App.currentPDP.mesures.splice(${i},1);App.renderMesuresList()"><i class="bi bi-trash"></i></button></div></div>`).join('');
   },
 
+  // Peuple les <datalist> de suggestions : mesures prédéfinies + valeurs déjà saisies dans les autres PDP/ICP
+  async _loadMesureSuggestions() {
+    const dlT = document.getElementById('mesure-titre-suggestions');
+    const dlD = document.getElementById('mesure-desc-suggestions');
+    if (!dlT && !dlD) return;
+    const titres = new Set();
+    const descs = new Set();
+    for (const m of (this._MESURES_PREDEFINIES || [])) {
+      if (m.titre) titres.add(m.titre);
+      if (m.description) descs.add(m.description);
+    }
+    try {
+      const pull = (arr) => { for (const p of (arr || [])) for (const m of (p.mesures || [])) {
+        if (m && m.titre) titres.add(m.titre.trim());
+        if (m && m.description) descs.add(m.description.trim());
+      } };
+      pull(await db.pdps.toArray());
+      pull(await db.icps.toArray());
+    } catch (e) { console.warn('mesure suggestions:', e); }
+    if (dlT) dlT.innerHTML = [...titres].filter(Boolean).sort((a,b)=>a.localeCompare(b,'fr')).map(t => `<option value="${this.esc(t)}">`).join('');
+    if (dlD) dlD.innerHTML = [...descs].filter(Boolean).sort((a,b)=>a.localeCompare(b,'fr')).map(d => `<option value="${this.esc(d)}">`).join('');
+  },
+
+  // Ajout inline depuis les champs avec autocomplétion (remplace les prompt())
+  addMesureInline() {
+    const tInp = document.getElementById('mesure-new-titre');
+    const dInp = document.getElementById('mesure-new-desc');
+    const t = (tInp?.value || '').trim();
+    if (!t) { this.toast('Saisir un intitulé de mesure', 'warning'); tInp?.focus(); return; }
+    const d = (dInp?.value || '').trim();
+    this.currentPDP.mesures = this.currentPDP.mesures || [];
+    if (this.currentPDP.mesures.some(m => m.titre === t)) { this.toast('Déjà ajouté', 'warning'); }
+    else { this.currentPDP.mesures.push({ titre: t, description: d, responsable_type: 'commun' }); this.addHist(`Mesure ajoutée: ${t}`); }
+    if (tInp) tInp.value = ''; if (dInp) dInp.value = '';
+    this.renderMesuresList();
+    tInp?.focus();
+  },
+
   addMesure() {
+    // Bouton "Ajouter" : place le focus sur le champ inline (plus de prompt sur tablette)
+    const tInp = document.getElementById('mesure-new-titre');
+    if (tInp) { tInp.focus(); tInp.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+    // Fallback (champ inline absent)
     const t = prompt('Titre :'); if (!t) return;
     const d = prompt('Description :')||'';
     this.currentPDP.mesures = this.currentPDP.mesures||[];
@@ -10201,6 +10296,39 @@ const App = {
   },
 
   // ---- EMARGEMENTS ----
+  // Normalise un nom de personne pour comparaison (minuscules, accents/espaces neutralisés)
+  _normPersonName(s) {
+    return (s || '').toString().trim().toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/\s+/g, ' ');
+  },
+
+  // Ensemble des noms des SIGNATAIRES PRINCIPAUX déjà présents dans « Validation & Signatures ».
+  // Sert à exclure ces personnes de la table nominative d'émargement (évite la redondance).
+  _mainSignatoryNameKeys(p) {
+    const keys = new Set();
+    const add = (n) => { const k = this._normPersonName(n); if (k) keys.add(k); };
+    if (!p) return keys;
+    const eu = p.eu || {};
+    // EU : signataire validation + contact responsable EU
+    add((p.signatureEU || {}).nom);
+    add(eu.responsable);
+    // EE principales : responsables + signataires EE
+    (p.entreprisesExt || []).forEach(ee => add(ee.responsable));
+    (p.signaturesEE || []).forEach(s => add(s && s.nom));
+    // Signataires EE issus de l'ICP liée
+    (p.signaturesICPEE || []).forEach(s => add(s && s.nom));
+    return keys;
+  },
+
+  // Émargements nominatifs à exporter : on retire les signataires principaux (anti-redondance).
+  // NE MODIFIE PAS p.emargements (pas de perte de données) — filtre uniquement pour l'export/affichage.
+  _emargementsForExport(p) {
+    const main = this._mainSignatoryNameKeys(p);
+    return (p && Array.isArray(p.emargements) ? p.emargements : [])
+      .filter(e => { const k = this._normPersonName(e && e.nom); return k && !main.has(k); });
+  },
+
   async prefillEmargements() {
     const p = this.currentPDP;
     if (!p) return;
@@ -10219,35 +10347,25 @@ const App = {
       added++;
     };
 
-    // EU : responsable / contact
-    if (eu.responsable) {
-      tryAdd(eu.responsable, eu.fonction || TL.contact_default, eu.nom || '');
-    }
+    // NB : on ne pré-remplit plus l'émargement avec les SIGNATAIRES PRINCIPAUX
+    // (contact/responsable EU, responsables des EE, signataire EU). Ils figurent déjà
+    // dans « Validation & Signatures » — l'émargement est réservé aux intervenants
+    // additionnels / occasionnels. Cf. _emargementsForExport() qui filtre aussi à l'export.
 
-    // EE : responsables
-    (p.entreprisesExt || []).forEach(ee => tryAdd(ee.responsable, ee.fonction, ee.nom));
-
-    // Si le PDP est lié à une ICP, reprendre tous les participants de l'ICP
+    // Si le PDP est lié à une ICP, reprendre uniquement les participants ADDITIONNELS de l'ICP
+    // (les représentants principaux EU/EE sont déjà des signataires → exclus).
     if (p.icpId) {
       try {
         const v = await db.icps.get(p.icpId);
         if (v) {
-          // Représentant EU + participants EU additionnels
-          tryAdd(v.euParticipant?.nom, v.euParticipant?.fonction, eu.nom || v.euInfo?.nom || '');
           (v.euParticipants||[]).forEach(pp => tryAdd(pp.nom, pp.fonction, eu.nom || v.euInfo?.nom || ''));
-          // Représentant EE + participants EE additionnels
-          tryAdd(v.eeRepresentant?.nom, v.eeRepresentant?.fonction, v.eeRepresentant?.entrepriseNom || '');
           (v.eeParticipants||[]).forEach(pp => tryAdd(pp.nom, pp.fonction, v.eeRepresentant?.entrepriseNom || ''));
         }
       } catch (err) { console.warn('prefillEmargements: lecture ICP liée échouée', err); }
     }
 
-    // Opérateurs permis de feu
+    // Opérateurs permis de feu (intervenants additionnels non-signataires)
     ((p.permisFeu || {}).operateurs || []).forEach(op => tryAdd(op.nom, op.fonction, op.societe));
-
-    // Signataires validation EU/EE
-    const sigEU = p.signatureEU || {};
-    if (sigEU.nom) tryAdd(sigEU.nom, sigEU.fonction, eu.nom || '');
 
     this.renderEmargements();
   },
@@ -13203,22 +13321,48 @@ const App = {
     const existing = this.currentPDP.risques||[];
     const normalize = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'').trim();
     const existingNorm = existing.map(r => normalize(r.danger));
-    let added = 0;
+    let added = 0, updated = 0;
+    // Anti-perte : on ne complète que les champs VIDES côté PDP, jamais d'écrasement.
+    const _isEmptyStr = s => !s || !String(s).trim();
     for (const r of (icp.risques||[])) {
       const norm = normalize(r.danger);
       // Vérifier correspondance exacte normalisée ou inclusion partielle (>60% des mots en commun)
-      const isDuplicate = existingNorm.some(en => {
-        if (en === norm) return true;
+      let matchIdx = -1;
+      for (let i = 0; i < existingNorm.length; i++) {
+        const en = existingNorm[i];
+        if (en === norm) { matchIdx = i; break; }
         const wordsNew = norm.match(/[a-z0-9]+/g)||[];
         const wordsEx = en.match(/[a-z0-9]+/g)||[];
-        if (!wordsNew.length || !wordsEx.length) return false;
+        if (!wordsNew.length || !wordsEx.length) continue;
         const common = wordsNew.filter(w => wordsEx.includes(w)).length;
-        return common / Math.max(wordsNew.length, wordsEx.length) > 0.6;
-      });
-      if (!isDuplicate) {
+        if (common / Math.max(wordsNew.length, wordsEx.length) > 0.6) { matchIdx = i; break; }
+      }
+      if (matchIdx === -1) {
         existing.push({ danger:r.danger, situation:r.situation, prevention:r.prevention, preventionItems:r.preventionItems?JSON.parse(JSON.stringify(r.preventionItems)):this._parsePreventionItems(r.prevention), niveau:r.niveau, photos:Array.isArray(r.photos)?JSON.parse(JSON.stringify(r.photos)):[] });
         existingNorm.push(norm);
         added++;
+      } else {
+        // Risque déjà présent : remplir uniquement les champs vides depuis l'ICP, sans écraser le travail utilisateur.
+        const tgt = existing[matchIdx];
+        let touched = false;
+        if (_isEmptyStr(tgt.situation) && !_isEmptyStr(r.situation)) { tgt.situation = r.situation; touched = true; }
+        if (_isEmptyStr(tgt.prevention) && !_isEmptyStr(r.prevention)) { tgt.prevention = r.prevention; touched = true; }
+        // preventionItems : seulement si absent/vide côté PDP
+        if ((!tgt.preventionItems || !tgt.preventionItems.length)) {
+          const srcItems = (r.preventionItems && r.preventionItems.length) ? JSON.parse(JSON.stringify(r.preventionItems)) : this._parsePreventionItems(r.prevention);
+          if (srcItems && srcItems.length) { tgt.preventionItems = srcItems; touched = true; }
+        }
+        // niveau : compléter si non défini côté PDP
+        if ((tgt.niveau === undefined || tgt.niveau === null || tgt.niveau === '') && (r.niveau !== undefined && r.niveau !== null && r.niveau !== '')) { tgt.niveau = r.niveau; touched = true; }
+        // photos : fusion sans doublon (par data)
+        if (Array.isArray(r.photos) && r.photos.length) {
+          if (!Array.isArray(tgt.photos)) tgt.photos = [];
+          const seen = new Set(tgt.photos.map(ph => ph && ph.data).filter(Boolean));
+          for (const ph of r.photos) {
+            if (ph && ph.data && !seen.has(ph.data)) { tgt.photos.push(JSON.parse(JSON.stringify(ph))); seen.add(ph.data); touched = true; }
+          }
+        }
+        if (touched) updated++;
       }
     }
     this.currentPDP.risques = existing;
@@ -13228,8 +13372,7 @@ const App = {
     if (icp.heure) document.getElementById('visite-heure').value = icp.heure;
     if (icp.observations) document.getElementById('visite-observations').value = icp.observations;
     document.getElementById('visite-effectuee').checked = icp.statut==='effectuee'||icp.statut==='validee';
-    const skipped = (icp.risques||[]).length - added;
-    this.toast(`${added} risque(s) ajouté(s)${skipped ? `, ${skipped} doublon(s) ignoré(s)` : ''}`);
+    this.toast(`${added} risque(s) ajouté(s), ${updated} complété(s) depuis l'ICP`);
   },
 
   async linkPDPToICP() {
@@ -16038,7 +16181,7 @@ const App = {
       children: (text||'').split('\n').map(line => new Paragraph({ children:[new TextRun({text:line,size:opts.size||20,bold:opts.bold||false,font:'Calibri'})], alignment:opts.align||AlignmentType.LEFT, spacing:{before:20,after:20} })),
       width: opts.width?{size:opts.width,type:WidthType.PERCENTAGE}:undefined,
       shading: opts.shading?{type:ShadingType.SOLID,color:opts.shading}:undefined,
-      verticalAlign: VerticalAlign.CENTER, columnSpan: opts.colSpan||1,
+      verticalAlign: VerticalAlign.CENTER, columnSpan: opts.colSpan||1, rowSpan: opts.rowSpan||1,
     });
 
     const hCell = (text, width, colSpan) => new TableCell({
@@ -16049,6 +16192,25 @@ const App = {
 
     const secTitle = (n,t) => new Paragraph({ children:[new TextRun({text:`${n}. ${t}`,size:24,bold:true,font:'Calibri',color:GREEN})], spacing:{before:300,after:150}, keepNext:true, keepLines:true });
     const spacer = () => new Paragraph({children:[],spacing:{before:100}});
+
+    // Lit la taille réelle d'un PNG depuis l'en-tête IHDR (bytes 16-23 big-endian)
+    // et calcule une transformation {width,height} qui tient dans maxW x maxH en
+    // préservant le ratio. Fallback : taille fixe (maxW x maxH) si décodage impossible.
+    const _pngFit = (arr, maxW, maxH) => {
+      try {
+        const u = (arr instanceof Uint8Array) ? arr : new Uint8Array(arr);
+        // signature PNG \x89PNG\r\n\x1a\n puis longueur(4)+'IHDR'(4) → width @16, height @20
+        if (u.length >= 24 && u[0]===0x89 && u[1]===0x50 && u[2]===0x4E && u[3]===0x47) {
+          const w = (u[16]<<24 | u[17]<<16 | u[18]<<8 | u[19]) >>> 0;
+          const h = (u[20]<<24 | u[21]<<16 | u[22]<<8 | u[23]) >>> 0;
+          if (w > 0 && h > 0) {
+            const s = Math.min(maxW/w, maxH/h);
+            return { width: Math.max(1, Math.round(w*s)), height: Math.max(1, Math.round(h*s)) };
+          }
+        }
+      } catch(e) {}
+      return { width: maxW, height: maxH };
+    };
 
     const eu = p.eu||{}; const ees = p.entreprisesExt||[];
     const moisNoms = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
@@ -16069,7 +16231,10 @@ const App = {
     children.push(headerRow);
     children.push(new Paragraph({ children:[new TextRun({text:p.titre||'',size:22,font:'Calibri'})], alignment:AlignmentType.CENTER, spacing:{after:40} }));
     if (p.site) children.push(new Paragraph({ children:[new TextRun({text:p.site,size:22,font:'Calibri'})], alignment:AlignmentType.CENTER, spacing:{after:80} }));
-    children.push(new Table({ width:{size:100,type:WidthType.PERCENTAGE}, rows:[new TableRow({cantSplit:true,children:[cell(`Réf. : EN 9.1 – ${p.numero||''}`,{width:50,size:18}), cell(`Version : ${p.version||'01'}`,{width:25,size:18,align:AlignmentType.CENTER}), cell(`Date : ${moisNoms[datePDP.getMonth()]} ${datePDP.getFullYear()}`,{width:25,size:18,align:AlignmentType.RIGHT})]})] }));
+    const _oppRaw = (p.refOperation||'').trim();
+    const _oppLabel = _oppRaw ? (/^opp/i.test(_oppRaw) ? _oppRaw : 'OPP-'+_oppRaw) : '';
+    const _refLabel = `Réf. : EN 9.1 – ${p.numero||''}${_oppLabel? '  |  '+_oppLabel : ''}`;
+    children.push(new Table({ width:{size:100,type:WidthType.PERCENTAGE}, rows:[new TableRow({cantSplit:true,children:[cell(_refLabel,{width:50,size:18}), cell(`Version : ${p.version||'01'}`,{width:25,size:18,align:AlignmentType.CENTER}), cell(`Date : ${moisNoms[datePDP.getMonth()]} ${datePDP.getFullYear()}`,{width:25,size:18,align:AlignmentType.RIGHT})]})] }));
     children.push(new Paragraph({children:[],spacing:{before:100}}));
 
     // 1. Parties
@@ -16314,7 +16479,7 @@ const App = {
 
     // 4. Risques
     children.push(secTitle('4','RISQUES ET MESURES DE PRÉVENTION'));
-    const _pdpPhotoCell = (rPhotos, width) => {
+    const _pdpPhotoCell = (rPhotos, width, rowSpan) => {
       const imgParas = [];
       for (const photo of (rPhotos||[])) {
         if (!photo || !photo.data) continue;
@@ -16327,14 +16492,41 @@ const App = {
         } catch(e) {}
       }
       if (!imgParas.length) imgParas.push(new Paragraph({children:[new TextRun({text:'',size:16,font:'Calibri'})]}));
-      return new TableCell({children:imgParas,width:{size:width,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER});
+      return new TableCell({children:imgParas,width:{size:width,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER,rowSpan:rowSpan||1});
     };
     const rRows = [new TableRow({cantSplit:true,children:[hCell('Risque',20),hCell('Niveau',8),hCell('Mesures de prévention',32),hCell('EU',7),hCell('EE',7),hCell('Photos',17)]})];
     (p.risques||[]).forEach(r => {
       const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
-      const _euOn = r.chargeEU || (r.preventionItems||[]).some(it => it.checked && it.chargeEU);
-      const _eeOn = r.chargeEE || (r.preventionItems||[]).some(it => it.checked && it.chargeEE);
-      rRows.push(new TableRow({cantSplit:true,children:[cell(r.danger||'',{width:20}),cell(niveauLabels[r.niveau]||'',{width:8,align:AlignmentType.CENTER,bold:true}),cell(this._preventionText(r) || r.situation || '',{width:32}),cell(_euOn?'X':'',{width:7,align:AlignmentType.CENTER}),cell(_eeOn?'X':'',{width:7,align:AlignmentType.CENTER}),_pdpPhotoCell(rPhotos,17)]}));
+      // Une ligne par mesure cochée → "qui fait quoi" lisible (croix EU/EE par mesure)
+      const measures = (r.preventionItems||[]).filter(it => it && it.checked);
+      if (measures.length) {
+        const n = measures.length;
+        measures.forEach((it, mi) => {
+          const euX = it.chargeEU ? 'X' : '';
+          const eeX = it.chargeEE ? 'X' : '';
+          if (mi === 0) {
+            rRows.push(new TableRow({cantSplit:true,children:[
+              cell(r.danger||'',{width:20,rowSpan:n}),
+              cell(niveauLabels[r.niveau]||'',{width:8,align:AlignmentType.CENTER,bold:true,rowSpan:n}),
+              cell(it.text||'',{width:32}),
+              cell(euX,{width:7,align:AlignmentType.CENTER}),
+              cell(eeX,{width:7,align:AlignmentType.CENTER}),
+              _pdpPhotoCell(rPhotos,17,n)
+            ]}));
+          } else {
+            rRows.push(new TableRow({cantSplit:true,children:[
+              cell(it.text||'',{width:32}),
+              cell(euX,{width:7,align:AlignmentType.CENTER}),
+              cell(eeX,{width:7,align:AlignmentType.CENTER})
+            ]}));
+          }
+        });
+      } else {
+        // Fallback anciens PDP : 1 ligne, croix au niveau risque
+        const _euOn = r.chargeEU || (r.preventionItems||[]).some(it => it.checked && it.chargeEU);
+        const _eeOn = r.chargeEE || (r.preventionItems||[]).some(it => it.checked && it.chargeEE);
+        rRows.push(new TableRow({cantSplit:true,children:[cell(r.danger||'',{width:20}),cell(niveauLabels[r.niveau]||'',{width:8,align:AlignmentType.CENTER,bold:true}),cell(this._preventionText(r) || r.situation || '',{width:32}),cell(_euOn?'X':'',{width:7,align:AlignmentType.CENTER}),cell(_eeOn?'X':'',{width:7,align:AlignmentType.CENTER}),_pdpPhotoCell(rPhotos,17)]}));
+      }
     });
     if (!(p.risques||[]).length) rRows.push(new TableRow({cantSplit:true,children:[cell('',{width:20}),cell('',{width:8}),cell('',{width:32}),cell('',{width:7}),cell('',{width:7}),cell('',{width:17})]}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
@@ -16378,7 +16570,7 @@ const App = {
           const raw = atob(sig.data.split(',')[1]);
           const arr = new Uint8Array(raw.length);
           for (let j = 0; j < raw.length; j++) arr[j] = raw.charCodeAt(j);
-          paras.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:130,height:50},type:'png'})],spacing:{before:10,after:20}}));
+          paras.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:_pngFit(arr,130,50),type:'png'})],spacing:{before:10,after:20}}));
         } catch(e) {
           paras.push(new Paragraph({children:[],spacing:{before:200,after:200}}));
         }
@@ -16395,8 +16587,9 @@ const App = {
       new TableRow({cantSplit:true,children:sigCols.map(c=>_sigCellPDP(c.sig,c.label,cw))}),
     ]}));
 
-    // Émargement
-    const hasEmargements = (p.emargements||[]).length > 0;
+    // Émargement (nominatif) — uniquement intervenants additionnels, hors signataires principaux
+    const _emExport = this._emargementsForExport(p);
+    const hasEmargements = _emExport.length > 0;
     const hasEmargementsLibres = ((p.emargementsLibres||[]).length > 0) || true; // toujours afficher pour les visiteurs
     if (hasEmargements || hasEmargementsLibres) {
       secNum++;
@@ -16408,14 +16601,14 @@ const App = {
             const raw = atob(sig.split(',')[1]);
             const arr = new Uint8Array(raw.length);
             for (let j = 0; j < raw.length; j++) arr[j] = raw.charCodeAt(j);
-            return new TableCell({children:[new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:90,height:35},type:'png'})]})],width:{size:widthPct||15,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER});
+            return new TableCell({children:[new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:_pngFit(arr,90,35),type:'png'})]})],width:{size:widthPct||15,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER});
           } catch(e) {}
         }
         return new TableCell({children:[new Paragraph({children:[new TextRun({text:'',size:20})],spacing:{before:200,after:200}})],width:{size:widthPct||15,type:WidthType.PERCENTAGE}});
       };
       if (hasEmargements) {
         const emRows = [new TableRow({cantSplit:true,children:[hCell('Nom',20),hCell('Prénom',15),hCell('Fonction',15),hCell('Société',20),hCell('Date',15),hCell('Signature',15)]})];
-        p.emargements.forEach(e => emRows.push(new TableRow({cantSplit:true,children:[cell(e.nom||'',{width:20}),cell(e.prenom||'',{width:15}),cell(e.fonction||'',{width:15}),cell(e.societe||'',{width:20}),cell(e.date||'',{width:15}),_emSigCell(e.signature,15)]})));
+        _emExport.forEach(e => emRows.push(new TableRow({cantSplit:true,children:[cell(e.nom||'',{width:20}),cell(e.prenom||'',{width:15}),cell(e.fonction||'',{width:15}),cell(e.societe||'',{width:20}),cell(e.date||'',{width:15}),_emSigCell(e.signature,15)]})));
         children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:emRows}));
       }
 
@@ -16430,7 +16623,7 @@ const App = {
             const raw = atob(sig.split(',')[1]);
             const arr = new Uint8Array(raw.length);
             for (let j = 0; j < raw.length; j++) arr[j] = raw.charCodeAt(j);
-            return new TableCell({children:[new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:70,height:22},type:'png'})]})],width:{size:widthPct,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER});
+            return new TableCell({children:[new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:_pngFit(arr,70,22),type:'png'})]})],width:{size:widthPct,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER});
           } catch(e) {}
         }
         return new TableCell({children:[new Paragraph({children:[new TextRun({text:'',size:16})]})],width:{size:widthPct,type:WidthType.PERCENTAGE}});
@@ -16720,15 +16913,17 @@ const App = {
     ]}));
     releveChildren.push(new Paragraph({children:[],spacing:{before:80}}));
     const relRows = [new TableRow({cantSplit:true,children:[
-      hCell('N°',4), hCell('Date',9), hCell('Entreprise',18), hCell('Zone / Phase',13), hCell('Risque / observation',36), hCell('Mesure proposée',20)
+      hCell('N°',4), hCell('Date',8), hCell('Entreprise',13), hCell('Zone / Phase',10), hCell('Risque / observation',27), hCell('Mesure proposée',30), hCell('EU',4), hCell('EE',4)
     ]})];
-    for (let r=1;r<=9;r++) relRows.push(new TableRow({cantSplit:true,height:{value:800,rule:HeightRule.ATLEAST},children:[
+    for (let r=1;r<=9;r++) relRows.push(new TableRow({cantSplit:true,height:{value:1000,rule:HeightRule.ATLEAST},children:[
       cell(String(r),{width:4,align:AlignmentType.CENTER,size:18}),
-      cell('',{width:9}),
-      cell('',{width:18}),
+      cell('',{width:8}),
       cell('',{width:13}),
-      cell('',{width:36}),
-      cell('',{width:20}),
+      cell('',{width:10}),
+      cell('',{width:27}),
+      cell('',{width:30}),
+      cell('☐',{width:4,align:AlignmentType.CENTER,size:24}),
+      cell('☐',{width:4,align:AlignmentType.CENTER,size:24}),
     ]}));
     releveChildren.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:relRows}));
 
@@ -17227,8 +17422,8 @@ const App = {
     children.push(new Paragraph({children:[new TextRun({text:'4. ÉMARGEMENT — PRISE DE CONNAISSANCE DU PDP',size:24,bold:true,font:'Calibri',color:GREEN})],spacing:{before:100,after:60}}));
     children.push(new Paragraph({children:[new TextRun({text:'En signant, l\'intervenant atteste avoir pris connaissance du plan de prévention et s\'engage à respecter les mesures de prévention.',size:20,font:'Calibri',italics:true})],spacing:{after:80}}));
     const emRows = [new TableRow({cantSplit:true,children:[hCell('Nom',18),hCell('Prénom',15),hCell('Fonction',15),hCell('Société',18),hCell('Date',14),hCell('Signature',20)]})];
-    // Pré-remplir avec les émargements existants
-    const emargements = p.emargements||[];
+    // Pré-remplir avec les émargements existants (hors signataires principaux — anti-redondance)
+    const emargements = this._emargementsForExport(p);
     if (emargements.length) {
       emargements.forEach(e => emRows.push(new TableRow({cantSplit:true,children:[cell(e.nom||'',{width:18}),cell(e.prenom||'',{width:15}),cell(e.fonction||'',{width:15}),cell(e.societe||'',{width:18}),cell(e.date||'',{width:14}),new TableCell({children:[new Paragraph({children:[],spacing:{before:40,after:200}})],width:{size:20,type:WidthType.PERCENTAGE}})]})));
     }
@@ -17303,6 +17498,26 @@ const App = {
     const secTitle = (txt) => { checkPage(60); doc.setFillColor(...GREEN); doc.rect(m,y,pw,8,'F'); doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(255,255,255); doc.text(txt,m+2,y+5.5); y+=12; doc.setTextColor(0,0,0); };
     const addTable = (head,body,opts={}) => { doc.autoTable({ startY:y, margin:{left:m,right:m}, head:head?[head]:undefined, body, theme:'grid', headStyles:{fillColor:GREEN,textColor:[255,255,255],fontStyle:'bold',fontSize:8,cellPadding:2}, bodyStyles:{fontSize:8,cellPadding:2,font:'helvetica'}, columnStyles:opts.columnStyles||{}, alternateRowStyles:{fillColor:[245,246,248]}, tableWidth:pw, rowPageBreak:'avoid', ...opts }); y=doc.lastAutoTable.finalY+4; };
     const labelTable = (rows) => { addTable(null, rows.map(([l,v])=>[ {content:l,styles:{fontStyle:'bold',cellWidth:55}}, v||'' ]) ); };
+    // Décode dataURL PNG → dimensions réelles (IHDR) → boîte {w,h} mm tenant dans
+    // maxW x maxH en préservant le ratio. Fallback : {w:maxW,h:maxH}.
+    const _pngFitMM = (dataUrl, maxW, maxH) => {
+      try {
+        const b64 = String(dataUrl||'').split(',')[1];
+        if (b64) {
+          const raw = atob(b64);
+          if (raw.length >= 24 && raw.charCodeAt(0)===0x89 && raw.charCodeAt(1)===0x50 && raw.charCodeAt(2)===0x4E && raw.charCodeAt(3)===0x47) {
+            const u = i => raw.charCodeAt(i) & 0xff;
+            const w = (u(16)<<24 | u(17)<<16 | u(18)<<8 | u(19)) >>> 0;
+            const h = (u(20)<<24 | u(21)<<16 | u(22)<<8 | u(23)) >>> 0;
+            if (w > 0 && h > 0) {
+              const s = Math.min(maxW/w, maxH/h);
+              return { w: Math.max(1, w*s), h: Math.max(1, h*s) };
+            }
+          }
+        }
+      } catch(e) {}
+      return { w: maxW, h: maxH };
+    };
 
     // --- En-tête avec logo ---
     const entityPreset = getEntityForPDP(p);
@@ -17317,7 +17532,10 @@ const App = {
     y=32;
 
     // Info ref
-    addTable(null,[[ {content:`Réf. : EN 9.1 – ${p.numero||''}`,styles:{fontStyle:'bold'}}, {content:`Version : ${p.version||'01'}`,styles:{halign:'center'}}, {content:`Date début : ${p.dateDebut||'-'}`,styles:{halign:'right'}} ]], {columnStyles:{0:{cellWidth:80},1:{cellWidth:50},2:{cellWidth:50}}});
+    const _oppRawPdf = (p.refOperation||'').trim();
+    const _oppLabelPdf = _oppRawPdf ? (/^opp/i.test(_oppRawPdf) ? _oppRawPdf : 'OPP-'+_oppRawPdf) : '';
+    const _refLabelPdf = `Réf. : EN 9.1 – ${p.numero||''}${_oppLabelPdf? '  |  '+_oppLabelPdf : ''}`;
+    addTable(null,[[ {content:_refLabelPdf,styles:{fontStyle:'bold'}}, {content:`Version : ${p.version||'01'}`,styles:{halign:'center'}}, {content:`Date début : ${p.dateDebut||'-'}`,styles:{halign:'right'}} ]], {columnStyles:{0:{cellWidth:80},1:{cellWidth:50},2:{cellWidth:50}}});
 
     // 1. Parties
     secTitle('1. IDENTIFICATION DES PARTIES');
@@ -17538,18 +17756,51 @@ const App = {
     // 4. Risques
     secTitle('4. RISQUES ET MESURES DE PRÉVENTION');
     if ((p.risques||[]).length) {
-      const rPhotosArrPdp = (p.risques||[]).map(r => (r.photos||[]).filter(p => p && p.data));
-      const rBody = (p.risques||[]).map((r, ri) => {
+      // Une ligne par mesure cochée (croix EU/EE par mesure). rowSpan sur Risque/Niveau/Photos.
+      // photosByRow : index de ligne body → tableau de photos (clé = 1re ligne du risque, là où la cellule Photos est dessinée).
+      const photosByRow = {};
+      const rBody = [];
+      let _rowIdx = 0;
+      (p.risques||[]).forEach(r => {
         const nc = niveauColors[r.niveau]||[200,200,200];
-        const _euOnPdf = r.chargeEU || (r.preventionItems||[]).some(it => it.checked && it.chargeEU);
-        const _eeOnPdf = r.chargeEE || (r.preventionItems||[]).some(it => it.checked && it.chargeEE);
-        return [ r.danger||'', {content:niveauLabels[r.niveau]||'',styles:{halign:'center',fontStyle:'bold',fillColor:nc,textColor:r.niveau>=3?[255,255,255]:[0,0,0]}}, this._preventionText(r) || r.situation || '', {content:_euOnPdf?'X':'',styles:{halign:'center'}}, {content:_eeOnPdf?'X':'',styles:{halign:'center'}}, {content:'', styles:{minCellHeight: rPhotosArrPdp[ri].length ? (rPhotosArrPdp[ri].length>2?32:18) : 6}} ];
+        const rPhotos = (r.photos||[]).filter(ph => ph && ph.data);
+        const niveauCellBase = {content:niveauLabels[r.niveau]||'',styles:{halign:'center',fontStyle:'bold',fillColor:nc,textColor:r.niveau>=3?[255,255,255]:[0,0,0]}};
+        const measures = (r.preventionItems||[]).filter(it => it && it.checked);
+        if (measures.length) {
+          const n = measures.length;
+          const photoMinH = rPhotos.length ? (rPhotos.length>2?32:18) : 6;
+          measures.forEach((it, mi) => {
+            const euX = it.chargeEU ? 'X' : '';
+            const eeX = it.chargeEE ? 'X' : '';
+            if (mi === 0) {
+              photosByRow[_rowIdx] = rPhotos;
+              rBody.push([
+                {content:r.danger||'', rowSpan:n},
+                {...niveauCellBase, rowSpan:n},
+                it.text||'',
+                {content:euX,styles:{halign:'center'}},
+                {content:eeX,styles:{halign:'center'}},
+                {content:'', rowSpan:n, styles:{minCellHeight:photoMinH}}
+              ]);
+            } else {
+              rBody.push([ it.text||'', {content:euX,styles:{halign:'center'}}, {content:eeX,styles:{halign:'center'}} ]);
+            }
+            _rowIdx++;
+          });
+        } else {
+          // Fallback anciens PDP : 1 ligne, croix au niveau risque
+          const _euOnPdf = r.chargeEU || (r.preventionItems||[]).some(it => it.checked && it.chargeEU);
+          const _eeOnPdf = r.chargeEE || (r.preventionItems||[]).some(it => it.checked && it.chargeEE);
+          photosByRow[_rowIdx] = rPhotos;
+          rBody.push([ {content:r.danger||''}, niveauCellBase, this._preventionText(r) || r.situation || '', {content:_euOnPdf?'X':'',styles:{halign:'center'}}, {content:_eeOnPdf?'X':'',styles:{halign:'center'}}, {content:'', styles:{minCellHeight: rPhotos.length ? (rPhotos.length>2?32:18) : 6}} ]);
+          _rowIdx++;
+        }
       });
       addTable(['Risque','Niveau','Mesures de prévention','EU','EE','Photos'], rBody, {
         columnStyles:{0:{cellWidth:32},1:{cellWidth:16},2:{cellWidth:60},3:{cellWidth:14},4:{cellWidth:14},5:{cellWidth:44}},
         didDrawCell: (data) => {
           if (data.section !== 'body' || data.column.index !== 5) return;
-          const photos = rPhotosArrPdp[data.row.index] || [];
+          const photos = photosByRow[data.row.index] || [];
           if (!photos.length) return;
           const pad = 1;
           const cx = data.cell.x + pad, cy = data.cell.y + pad;
@@ -17608,25 +17859,27 @@ const App = {
       const sig = sigCols[si].sig;
       if (sig?.data) {
         try {
-          doc.addImage(sig.data,'PNG',m+(si*pdpSigColW)+5,y-22,40,15);
+          const _fit = _pngFitMM(sig.data,40,15);
+          doc.addImage(sig.data,'PNG',m+(si*pdpSigColW)+5,y-22,_fit.w,_fit.h);
           hasPdpSigImg = true;
         } catch(e) { /* skip */ }
       }
     }
     secNum++;
 
-    // Émargement
-    const hasEmPDF = (p.emargements||[]).length > 0;
+    // Émargement (nominatif) — hors signataires principaux (anti-redondance)
+    const _emExportPDF = this._emargementsForExport(p);
+    const hasEmPDF = _emExportPDF.length > 0;
     if (hasEmPDF) {
       secTitle(`${secNum}. ÉMARGEMENT`);
-      const emSigs = p.emargements.map(e => e.signature || null);
+      const emSigs = _emExportPDF.map(e => e.signature || null);
       addTable(['Nom','Prénom','Fonction','Société','Date','Signature'],
-        p.emargements.map(e=>[e.nom||'',e.prenom||'',e.fonction||'',e.societe||'',e.date||'','']),
+        _emExportPDF.map(e=>[e.nom||'',e.prenom||'',e.fonction||'',e.societe||'',e.date||'','']),
         {columnStyles:{5:{cellWidth:30}},
          bodyStyles:{minCellHeight:14},
          didDrawCell: (d) => {
            if (d.section === 'body' && d.column.index === 5 && emSigs[d.row.index]) {
-             try { doc.addImage(emSigs[d.row.index], 'PNG', d.cell.x+1, d.cell.y+1, d.cell.width-2, d.cell.height-2); } catch {}
+             try { const _f = _pngFitMM(emSigs[d.row.index], d.cell.width-2, d.cell.height-2); doc.addImage(emSigs[d.row.index], 'PNG', d.cell.x+1, d.cell.y+1, _f.w, _f.h); } catch {}
            }
          }
         }
@@ -17660,7 +17913,7 @@ const App = {
         headStyles:{fontSize:8},
         didDrawCell: (d) => {
           if (d.section === 'body' && d.column.index === 4 && libresSigs[d.row.index]) {
-            try { doc.addImage(libresSigs[d.row.index], 'PNG', d.cell.x+1, d.cell.y+1, d.cell.width-2, d.cell.height-2); } catch {}
+            try { const _f = _pngFitMM(libresSigs[d.row.index], d.cell.width-2, d.cell.height-2); doc.addImage(libresSigs[d.row.index], 'PNG', d.cell.x+1, d.cell.y+1, _f.w, _f.h); } catch {}
           }
         },
         pageBreak: 'avoid'
@@ -17901,11 +18154,12 @@ const App = {
       [ {content:'Site',styles:{fontStyle:'bold'}}, {content:p.site||'',colSpan:3} ],
     ], {margin:{left:lm,right:lm}, tableWidth:lpw});
     const relBody = [];
-    for(let r=1;r<=9;r++) relBody.push([String(r),'','','','','']);
-    addTable(['N°','Date','Entreprise','Zone / Phase','Risque / observation','Mesure proposée'], relBody, {
+    // Colonnes EU/EE vides bordées (cases à cocher manuelles) — cohérent avec l'export Word
+    for(let r=1;r<=9;r++) relBody.push([String(r),'','','','','','','']);
+    addTable(['N°','Date','Entreprise','Zone / Phase','Risque / observation','Mesure proposée','EU','EE'], relBody, {
       margin:{left:lm,right:lm}, tableWidth:lpw, showHead:'firstPage', pageBreak:'avoid',
-      columnStyles:{0:{cellWidth:10,halign:'center'},1:{cellWidth:26},2:{cellWidth:43},3:{cellWidth:35},4:{cellWidth:93},5:{cellWidth:60}},
-      bodyStyles:{minCellHeight:13,fontSize:8,cellPadding:2,font:'helvetica'}
+      columnStyles:{0:{cellWidth:10,halign:'center'},1:{cellWidth:22},2:{cellWidth:34},3:{cellWidth:27},4:{cellWidth:72},5:{cellWidth:82},6:{cellWidth:10,halign:'center'},7:{cellWidth:10,halign:'center'}},
+      bodyStyles:{minCellHeight:16,fontSize:8,cellPadding:2,font:'helvetica'}
     });
 
     // ---- Annexe : Fiche réflexe FR-01 « Pollution accidentelle » (TOUJOURS en dernière position) ----
