@@ -3936,6 +3936,26 @@ async function _readJsonFile(filePath) {
     return resp.json();
 }
 
+// Lecture CONDITIONNELLE pour le polling (#8) : pose If-None-Match sur /content.
+// Si le fichier n'a pas changé depuis l'eTag connu, Graph répond 304 sans corps
+// (aucun transfert des Mo de base64) → on renvoie { notModified:true }.
+// Sinon on renvoie { data, etag } comme une lecture normale.
+// SÛRETÉ : prevEtag null/absent → GET inconditionnel (premier chargement intact).
+// Toute erreur réseau / status inattendu est propagée (throw) : le polling la
+// catch silencieusement et RÉESSAIE au cycle suivant — jamais de skip masquant.
+async function _readJsonFileCond(filePath, prevEtag) {
+    const driveId = await _getDriveId();
+    const headers = {};
+    // eTag « faible » (W/"...") accepté tel quel par If-None-Match côté Graph.
+    if (prevEtag) headers['If-None-Match'] = prevEtag;
+    const resp = await _graphFetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${filePath}:/content`, { headers });
+    if (resp.status === 304) return { notModified: true, etag: prevEtag };
+    if (resp.status === 404) return { data: null, etag: null };
+    if (!resp.ok) throw new Error('Erreur lecture: ' + resp.status);
+    const etag = resp.headers.get('ETag') || resp.headers.get('etag') || null;
+    return { data: await resp.json(), etag };
+}
+
 // Comme _readJsonFile mais renvoie aussi l'ETag du fichier, pour l'écriture
 // conditionnelle (If-Match) qui ferme la fenêtre de course read-merge-write.
 // etag=null si le fichier n'existe pas ou si l'en-tête est absent → écriture
@@ -4151,6 +4171,10 @@ const DataSync = {
     _saveTimer: null,
     _saving: false,
     _loadedMeta: { pdp: null, icp: null, shared: null },
+    // #8 : dernier eTag /content connu par fichier, pour la lecture conditionnelle
+    // du polling (If-None-Match → 304 = pas de re-téléchargement). null = inconnu
+    // (force un GET complet, fallback sûr). Invalidé après une écriture locale.
+    _pollEtags: { pdp: null, icp: null, shared: null },
     _pollTimer: null,
     _presenceTimer: null,
     _loadedSnapshot: null,      // JSON snapshot des donnees au dernier sync (pour merge)
@@ -5109,6 +5133,13 @@ const DataSync = {
             _writeJsonFile(SP_CONFIG.SHARED_DATA_FILE, sharedData, useEtag ? rs.etag : null, useEtag ? ms : null),
         ]);
         this._loadedMeta = { pdp:pdpData._meta, icp:icpData._meta, shared:sharedData._meta };
+        // #8 : on vient d'écrire → l'eTag /content distant a changé. On invalide les
+        // eTags mémorisés (null) plutôt que de réutiliser celui du DriveItem renvoyé
+        // par le PUT (format potentiellement différent de l'ETag /content : un faux
+        // 304 masquerait des données). Le prochain polling fera UN GET complet, qui
+        // re-mémorisera l'eTag courant ; aucune ré-application puisque la version est
+        // déjà à jour (garde _meta.version). Coût : un download ponctuel, sans risque.
+        this._pollEtags = { pdp: null, icp: null, shared: null };
         // Snapshot = EXACTEMENT les données poussées (pas une relecture de db qui
         // pourrait inclure une mutation concurrente non poussée → champ vu 'inchangé
         // local' au prochain merge 3-way, donc écrasé par le distant). Audit #8/#20.
@@ -5272,25 +5303,54 @@ const DataSync = {
             // par le distant — sinon perte silencieuse des saisies en attente.
             if (this._dirty) { try { await this.save(); } catch(_) {} return; }
             try {
-                const [pdpData, icpData, sharedData] = await Promise.all([
-                    _readJsonFile(SP_CONFIG.PDP_DATA_FILE),
-                    _readJsonFile(SP_CONFIG.ICP_DATA_FILE),
-                    _readJsonFile(SP_CONFIG.SHARED_DATA_FILE),
+                // #8 : lecture CONDITIONNELLE (If-None-Match). En régime stable,
+                // Graph répond 304 et NE transfère PAS les Mo de base64. On ne
+                // re-télécharge/ré-applique QUE les fichiers réellement modifiés.
+                // Un .catch par fichier → une erreur isolée n'empêche pas les autres
+                // et retombe sur une relecture complète au cycle suivant (etag conservé).
+                const [pdpRes, icpRes, sharedRes] = await Promise.all([
+                    _readJsonFileCond(SP_CONFIG.PDP_DATA_FILE, this._pollEtags.pdp).catch(() => ({ readError: true })),
+                    _readJsonFileCond(SP_CONFIG.ICP_DATA_FILE, this._pollEtags.icp).catch(() => ({ readError: true })),
+                    _readJsonFileCond(SP_CONFIG.SHARED_DATA_FILE, this._pollEtags.shared).catch(() => ({ readError: true })),
                 ]);
+                // 304 → notModified : data absent, on ne touche à rien (etag conservé).
+                const pdpData    = pdpRes && !pdpRes.notModified ? pdpRes.data : null;
+                const icpData    = icpRes && !icpRes.notModified ? icpRes.data : null;
+                const sharedData = sharedRes && !sharedRes.notModified ? sharedRes.data : null;
                 let updated = false; let by = '';
-                // clear()+bulkPut atomiques par store (cf. _applyXStore) : un échec
-                // n'avance pas la meta et laisse le store local intact (pas de vide).
+                // ANTI-MASQUAGE : l'eTag mémorisé doit RESTER couplé à la garde
+                // _loadedMeta. On n'avance _pollEtags.X qu'APRÈS un _applyXStore réussi
+                // (ou quand il n'y a rien à appliquer, version <= locale). Si l'apply
+                // échoue (transaction Dexie : Quota, blocage, upgrade — cf. historique
+                // clear+bulkPut non transactionnel), on FORCE _pollEtags.X = null pour
+                // re-télécharger ET re-tenter au prochain cycle, jamais de 304 qui
+                // masquerait durablement une version distante non appliquée.
                 if (pdpData?._meta && (pdpData._meta.version||0) > (this._loadedMeta.pdp?.version||0)) {
-                    await this._applyPdpStore(pdpData);
-                    this._loadedMeta.pdp = pdpData._meta; updated = true; by = pdpData._meta.savedBy;
+                    try {
+                        await this._applyPdpStore(pdpData);
+                        this._loadedMeta.pdp = pdpData._meta; this._pollEtags.pdp = pdpRes.etag;
+                        updated = true; by = pdpData._meta.savedBy;
+                    } catch (e) { this._pollEtags.pdp = null; console.warn('apply pdp failed', e); }
+                } else if (pdpRes && !pdpRes.notModified && pdpRes.etag !== undefined) {
+                    this._pollEtags.pdp = pdpRes.etag; // rien à appliquer : sûr d'avancer
                 }
                 if (icpData?._meta && (icpData._meta.version||0) > (this._loadedMeta.icp?.version||0)) {
-                    await this._applyIcpStore(icpData);
-                    this._loadedMeta.icp = icpData._meta; updated = true; by = by || icpData._meta.savedBy;
+                    try {
+                        await this._applyIcpStore(icpData);
+                        this._loadedMeta.icp = icpData._meta; this._pollEtags.icp = icpRes.etag;
+                        updated = true; by = by || icpData._meta.savedBy;
+                    } catch (e) { this._pollEtags.icp = null; console.warn('apply icp failed', e); }
+                } else if (icpRes && !icpRes.notModified && icpRes.etag !== undefined) {
+                    this._pollEtags.icp = icpRes.etag;
                 }
                 if (sharedData?._meta && (sharedData._meta.version||0) > (this._loadedMeta.shared?.version||0)) {
-                    await this._applySharedStore(sharedData);
-                    this._loadedMeta.shared = sharedData._meta; updated = true;
+                    try {
+                        await this._applySharedStore(sharedData);
+                        this._loadedMeta.shared = sharedData._meta; this._pollEtags.shared = sharedRes.etag;
+                        updated = true;
+                    } catch (e) { this._pollEtags.shared = null; console.warn('apply shared failed', e); }
+                } else if (sharedRes && !sharedRes.notModified && sharedRes.etag !== undefined) {
+                    this._pollEtags.shared = sharedRes.etag;
                 }
                 if (updated) {
                     await this._captureSnapshot();
@@ -10387,11 +10447,19 @@ const App = {
     if (!icpId) { this.toast('Aucune ICP liée', 'warning'); return; }
     const icp = await db.icps.get(icpId);
     if (!icp || !(icp.photos||[]).length) { this.toast('Aucune photo dans l\'ICP liée', 'warning'); return; }
+    // A2 : id stable garanti des deux côtés avant dédup (remplace la dédup par
+    // date, fragile : deux photos peuvent partager la même date).
+    this._ensurePhotoFields(icp);
+    this._ensurePhotoFields(this.currentPDP);
     this.currentPDP.visite.photos = this.currentPDP.visite.photos || [];
     let added = 0;
+    const _key = p => (p && p.id) ? ('id:' + p.id) : (p && p.data ? ('d:' + p.data) : null);
+    const seen = new Set(this.currentPDP.visite.photos.map(_key).filter(Boolean));
     for (const photo of icp.photos) {
-      if (!this.currentPDP.visite.photos.some(p => p.date === photo.date)) {
+      const k = _key(photo);
+      if (k && !seen.has(k)) {
         this.currentPDP.visite.photos.push({ ...photo });
+        seen.add(k);
         added++;
       }
     }
@@ -13475,6 +13543,10 @@ const App = {
     const icp = await db.icps.get(this.currentPDP.icpId);
     if (!icp) { this.toast('ICP introuvable','danger'); return; }
     if (!await this.confirm(`Synchroniser ${(icp.risques||[]).length} risque(s) depuis l'ICP ? Les risques existants seront conservés.`)) return;
+    // A2 : garantir un id stable sur TOUTES les photos avant la dédup (source ICP
+    // + cibles PDP), pour pouvoir déduper par id léger sans risque de perte.
+    this._ensurePhotoFields(icp);
+    this._ensurePhotoFields(this.currentPDP);
     // Merge risks (add new ones, don't duplicate) — comparaison souple
     const existing = this.currentPDP.risques||[];
     const normalize = s => (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'').trim();
@@ -13512,12 +13584,15 @@ const App = {
         }
         // niveau : compléter si non défini côté PDP
         if ((tgt.niveau === undefined || tgt.niveau === null || tgt.niveau === '') && (r.niveau !== undefined && r.niveau !== null && r.niveau !== '')) { tgt.niveau = r.niveau; touched = true; }
-        // photos : fusion sans doublon (par data)
+        // photos : fusion sans doublon. A2 : clé de dédup = id stable (léger), avec
+        // fallback sur data (anciennes photos non normalisées) pour ne JAMAIS perdre.
         if (Array.isArray(r.photos) && r.photos.length) {
           if (!Array.isArray(tgt.photos)) tgt.photos = [];
-          const seen = new Set(tgt.photos.map(ph => ph && ph.data).filter(Boolean));
+          const _key = ph => (ph && ph.id) ? ('id:' + ph.id) : (ph && ph.data ? ('d:' + ph.data) : null);
+          const seen = new Set(tgt.photos.map(_key).filter(Boolean));
           for (const ph of r.photos) {
-            if (ph && ph.data && !seen.has(ph.data)) { tgt.photos.push(JSON.parse(JSON.stringify(ph))); seen.add(ph.data); touched = true; }
+            const k = _key(ph);
+            if (ph && k && !seen.has(k)) { tgt.photos.push(JSON.parse(JSON.stringify(ph))); seen.add(k); touched = true; }
           }
         }
         if (touched) updated++;
