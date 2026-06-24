@@ -3853,10 +3853,37 @@ async function _getMailToken() {
     }
 }
 
+// Timeouts réseau (P0.1) : un appel qui « pend » en zone réseau faible est abandonné
+// au lieu de bloquer indéfiniment la sauvegarde (badge « en cours » figé). L'erreur
+// levée est claire et RÉESSAYABLE : la boucle save() relance un cycle complet.
+const _GRAPH_TIMEOUT_READ_MS  = 10000; // GET / lectures
+const _GRAPH_TIMEOUT_WRITE_MS = 25000; // PUT/POST/PATCH/DELETE / écritures, uploads
 async function _graphFetch(url, options = {}) {
     const token = await _getToken();
     if (!token) throw new Error('Non authentifié');
-    return fetch(url, { ...options, headers: { 'Authorization': `Bearer ${token}`, ...(options.headers || {}) } });
+    const method = (options.method || 'GET').toUpperCase();
+    const isWrite = method !== 'GET' && method !== 'HEAD';
+    const timeoutMs = isWrite ? _GRAPH_TIMEOUT_WRITE_MS : _GRAPH_TIMEOUT_READ_MS;
+    // Respecte un signal déjà fourni par l'appelant si présent (best-effort : on
+    // n'écrase pas un AbortController explicite, mais ce cas n'existe pas ici).
+    const ctrl = (typeof AbortController !== 'undefined' && !options.signal) ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch (_) {} }, timeoutMs) : null;
+    try {
+        return await fetch(url, {
+            ...options,
+            signal: ctrl ? ctrl.signal : options.signal,
+            headers: { 'Authorization': `Bearer ${token}`, ...(options.headers || {}) }
+        });
+    } catch (e) {
+        if (e && (e.name === 'AbortError')) {
+            const err = new Error(`Délai réseau dépassé (${Math.round(timeoutMs/1000)}s) — connexion trop lente ou indisponible`);
+            err._timeout = true; err._readError = true; // retryable : la boucle save() relance
+            throw err;
+        }
+        throw e;
+    } finally {
+        if (timer) clearTimeout(timer);
+    }
 }
 
 // Traduit une erreur MSAL / Microsoft Graph en message clair pour l'utilisateur.
@@ -4050,11 +4077,22 @@ async function _writeJsonFile(filePath, data, etag = null, metaEtag = null) {
     while (offset < totalSize) {
         const end = Math.min(offset + CHUNK_SIZE, totalSize);
         const chunk = bytes.slice(offset, end);
-        const r = await fetch(uploadUrl, {
-            method: 'PUT',
-            headers: { 'Content-Range': `bytes ${offset}-${end-1}/${totalSize}`, 'Content-Type': 'application/json' },
-            body: chunk
-        });
+        // Timeout par chunk (P0.1) : un chunk qui « pend » est abandonné → erreur
+        // retryable (la boucle save() relance le cycle), pas de blocage indéfini.
+        const _ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        const _timer = _ctrl ? setTimeout(() => { try { _ctrl.abort(); } catch (_) {} }, _GRAPH_TIMEOUT_WRITE_MS) : null;
+        let r;
+        try {
+            r = await fetch(uploadUrl, {
+                method: 'PUT',
+                headers: { 'Content-Range': `bytes ${offset}-${end-1}/${totalSize}`, 'Content-Type': 'application/json' },
+                body: chunk,
+                signal: _ctrl ? _ctrl.signal : undefined
+            });
+        } catch (e) {
+            if (e && e.name === 'AbortError') { const err = new Error('Délai réseau dépassé pendant l\'upload (chunk)'); err._timeout = true; err._readError = true; throw err; }
+            throw e;
+        } finally { if (_timer) clearTimeout(_timer); }
         if (!r.ok && r.status !== 202) throw new Error('Erreur upload chunk ['+offset+'-'+(end-1)+']: ' + r.status);
         lastResp = r;
         offset = end;
@@ -5723,7 +5761,16 @@ const SellsyAPI = {
   async _call(params) {
     const url = this.getProxyUrl() + '?' + new URLSearchParams(params).toString();
     const _key = localStorage.getItem('sellsyProxyKey');
-    const res = await fetch(url, { method: 'GET', credentials: 'omit', headers: _key ? { 'X-Api-Key': _key } : {} });
+    // Timeout (P0.1) : un proxy Sellsy injoignable ne doit pas figer l'UI.
+    const _ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    const _timer = _ctrl ? setTimeout(() => { try { _ctrl.abort(); } catch (_) {} }, 10000) : null;
+    let res;
+    try {
+      res = await fetch(url, { method: 'GET', credentials: 'omit', headers: _key ? { 'X-Api-Key': _key } : {}, signal: _ctrl ? _ctrl.signal : undefined });
+    } catch (e) {
+      if (e && e.name === 'AbortError') throw new Error('Délai dépassé : le proxy Sellsy ne répond pas (réseau lent ou serveur indisponible).');
+      throw e;
+    } finally { if (_timer) clearTimeout(_timer); }
     const text = await res.text();
     let data;
     try { data = JSON.parse(text); } catch { throw new Error('Réponse non-JSON du proxy : ' + text.slice(0,120)); }
@@ -9229,6 +9276,7 @@ const App = {
   },
 
   async openRiskPicker(ctx) {
+    this._invalidateRiskCatsCache(); // P0.6 : recalcul frais à chaque ouverture
     this._riskPickerCtx = ctx;
     this._riskPickerView = 'categories';
     this._riskPickerSelectedCat = null;
@@ -9242,7 +9290,13 @@ const App = {
     this._riskPickerModal.show();
   },
 
+  // P0.6 : cache mémoire du catalogue calculé. Évite de relire Dexie (hidden + customs)
+  // à chaque frappe dans le risk-picker. Invalidé explicitement à l'ouverture du picker
+  // et après toute mutation (ajout/suppression/masquage de risque) via _invalidateRiskCatsCache().
+  _invalidateRiskCatsCache() { this._riskCatsCache = null; },
+
   async _getAllRiskCategories() {
+    if (this._riskCatsCache) return this._riskCatsCache;
     const hidden = new Set(await this.loadHiddenRisks());
     // Copie defensive : ne pas muter RISK_CATALOG en filtrant les risques masques
     const cats = this.RISK_CATALOG
@@ -9273,6 +9327,7 @@ const App = {
     if (personnalises.length) {
       result.push({ cat: 'Personnalisés', icon: 'bi-star-fill', color: '#0dcaf0', risks: personnalises });
     }
+    this._riskCatsCache = result; // P0.6 : memoize jusqu'à invalidation
     return result;
   },
 
@@ -9313,9 +9368,15 @@ const App = {
         container.innerHTML = `<p class="text-muted small py-3 text-center">Aucun risque ne correspond à "${this.esc(q)}"</p>`;
         return;
       }
+      // P0.6 : plafond d'affichage à 50 résultats (DOM léger, frappe fluide).
+      const CAP = 50;
+      const shown = matches.slice(0, CAP);
       let html = '<div class="risk-cat-chips">';
-      for (const m of matches) html += this._renderRiskChip(m.r);
+      for (const m of shown) html += this._renderRiskChip(m.r);
       html += '</div>';
+      if (matches.length > CAP) {
+        html += `<p class="text-muted small py-2 text-center mb-0">${matches.length} résultats — affiner la recherche pour préciser (${CAP} affichés)</p>`;
+      }
       container.innerHTML = html;
       return;
     }
@@ -9413,11 +9474,20 @@ const App = {
     if (count) count.textContent = n;
   },
 
+  // P0.6 : helper debounce réutilisable (une minuterie par clé).
+  _debounce(key, fn, ms = 120) {
+    this._debTimers = this._debTimers || {};
+    clearTimeout(this._debTimers[key]);
+    this._debTimers[key] = setTimeout(fn, ms);
+  },
+
   filterRiskPicker(query) {
     if (query && query.trim()) this._riskPickerView = 'search';
     else if (this._riskPickerSelectedCat) this._riskPickerView = 'risks';
     else this._riskPickerView = 'categories';
-    this.renderRiskPickerContent();
+    // P0.6 : debounce ~120ms — ne reconstruit plus la liste à CHAQUE caractère
+    // (renderRiskPickerContent fait des lectures Dexie : catalogue + customs + admin).
+    this._debounce('riskPicker', () => this.renderRiskPickerContent(), 120);
   },
 
   // ---- Photos jointes à une proposition de risque ----
@@ -9646,18 +9716,25 @@ const App = {
   ],
 
   renderMesuresList() {
-    this._loadMesureSuggestions();
+    // P0.3 : ne PLUS relire toute la base (pdps+icps+photos base64) à chaque rendu.
+    // Les <datalist> de suggestions ne sont peuplés qu'UNE fois par session (cache
+    // mémoire). On déclenche le chargement en tâche de fond, sans bloquer le rendu.
+    if (!this._mesureSuggestionsCache) this._loadMesureSuggestions();
+    else this._applyMesureSuggestions();
     const c = document.getElementById('mesures-list-container');
     const m = this.currentPDP.mesures||[];
     if (!m.length) { c.innerHTML = '<p class="text-muted small">Aucune mesure.</p>'; return; }
     c.innerHTML = m.map((m,i) => `<div class="risk-row risk-level-1"><div class="d-flex align-items-start gap-2"><div class="flex-grow-1"><strong>${this.esc(m.titre)}</strong><div class="small">${this.esc(m.description||'')}</div><select class="form-select form-select-sm mt-1" style="width:auto" onchange="App.currentPDP.mesures[${i}].responsable_type=this.value"><option value="eu" ${m.responsable_type==='eu'?'selected':''}>EU</option><option value="ee" ${m.responsable_type==='ee'?'selected':''}>EE</option><option value="commun" ${m.responsable_type==='commun'?'selected':''}>Commune</option></select></div><button class="btn btn-outline-danger btn-sm" onclick="App.currentPDP.mesures.splice(${i},1);App.renderMesuresList()"><i class="bi bi-trash"></i></button></div></div>`).join('');
   },
 
-  // Peuple les <datalist> de suggestions : mesures prédéfinies + valeurs déjà saisies dans les autres PDP/ICP
+  // Peuple les <datalist> de suggestions : mesures prédéfinies + valeurs déjà saisies dans les autres PDP/ICP.
+  // P0.3 : la lecture de la base ne se fait qu'UNE fois (résultat mis en cache mémoire
+  // dans this._mesureSuggestionsCache). On ne projette QUE titres/descriptions — jamais
+  // les photos base64 — pour ne pas charger les images en mémoire.
   async _loadMesureSuggestions() {
-    const dlT = document.getElementById('mesure-titre-suggestions');
-    const dlD = document.getElementById('mesure-desc-suggestions');
-    if (!dlT && !dlD) return;
+    if (this._mesureSuggestionsLoading) return;        // chargement déjà en cours
+    if (this._mesureSuggestionsCache) { this._applyMesureSuggestions(); return; }
+    this._mesureSuggestionsLoading = true;
     const titres = new Set();
     const descs = new Set();
     for (const m of (this._MESURES_PREDEFINIES || [])) {
@@ -9665,15 +9742,31 @@ const App = {
       if (m.description) descs.add(m.description);
     }
     try {
+      // Projection : ne ramener que le champ `mesures` (pas les photos) de chaque fiche.
       const pull = (arr) => { for (const p of (arr || [])) for (const m of (p.mesures || [])) {
         if (m && m.titre) titres.add(m.titre.trim());
         if (m && m.description) descs.add(m.description.trim());
       } };
-      pull(await db.pdps.toArray());
-      pull(await db.icps.toArray());
+      const projectMesures = (rows) => (rows || []).map(p => ({ mesures: p.mesures || [] }));
+      pull(projectMesures(await db.pdps.toArray()));
+      pull(projectMesures(await db.icps.toArray()));
     } catch (e) { console.warn('mesure suggestions:', e); }
-    if (dlT) dlT.innerHTML = [...titres].filter(Boolean).sort((a,b)=>a.localeCompare(b,'fr')).map(t => `<option value="${this.esc(t)}">`).join('');
-    if (dlD) dlD.innerHTML = [...descs].filter(Boolean).sort((a,b)=>a.localeCompare(b,'fr')).map(d => `<option value="${this.esc(d)}">`).join('');
+    this._mesureSuggestionsCache = {
+      titres: [...titres].filter(Boolean).sort((a,b)=>a.localeCompare(b,'fr')),
+      descs:  [...descs].filter(Boolean).sort((a,b)=>a.localeCompare(b,'fr')),
+    };
+    this._mesureSuggestionsLoading = false;
+    this._applyMesureSuggestions();
+  },
+
+  // Écrit le cache de suggestions dans les <datalist> (aucune lecture de base).
+  _applyMesureSuggestions() {
+    const cache = this._mesureSuggestionsCache;
+    if (!cache) return;
+    const dlT = document.getElementById('mesure-titre-suggestions');
+    const dlD = document.getElementById('mesure-desc-suggestions');
+    if (dlT) dlT.innerHTML = cache.titres.map(t => `<option value="${this.esc(t)}">`).join('');
+    if (dlD) dlD.innerHTML = cache.descs.map(d => `<option value="${this.esc(d)}">`).join('');
   },
 
   // Ajout inline depuis les champs avec autocomplétion (remplace les prompt())
@@ -9686,6 +9779,7 @@ const App = {
     this.currentPDP.mesures = this.currentPDP.mesures || [];
     if (this.currentPDP.mesures.some(m => m.titre === t)) { this.toast('Déjà ajouté', 'warning'); }
     else { this.currentPDP.mesures.push({ titre: t, description: d, responsable_type: 'commun' }); this.addHist(`Mesure ajoutée: ${t}`); }
+    this._addMesureToSuggestionCache(t, d);
     if (tInp) tInp.value = ''; if (dInp) dInp.value = '';
     this.renderMesuresList();
     tInp?.focus();
@@ -9707,7 +9801,17 @@ const App = {
     this.currentPDP.mesures = this.currentPDP.mesures||[];
     if (this.currentPDP.mesures.some(m => m.titre===t)) { this.toast('Déjà ajouté','warning'); return; }
     this.currentPDP.mesures.push({ titre:t, description:d, responsable_type:'commun' });
+    this._addMesureToSuggestionCache(t, d);
     this.renderMesuresList(); this.toast('Mesure ajoutée');
+  },
+
+  // P0.3 : maintient le cache de suggestions à jour sans relire la base.
+  _addMesureToSuggestionCache(t, d) {
+    const c = this._mesureSuggestionsCache;
+    if (!c) return;
+    const add = (arr, v) => { v = (v||'').trim(); if (v && !arr.includes(v)) { arr.push(v); arr.sort((a,b)=>a.localeCompare(b,'fr')); } };
+    add(c.titres, t); add(c.descs, d);
+    this._applyMesureSuggestions();
   },
 
   // ---- EXIGENCES ----
@@ -11111,12 +11215,53 @@ const App = {
   // ---- DOCUMENTS ----
   _docCatLabels: {plan:'Plan / Schéma',mode_operatoire:'Mode opératoire',habilitations:'Habilitations',autorisation_interne:'Autorisation interne',fds:'FDS',analyse_risques:'Analyse de risques',permis_feu:'Permis de feu',attestation:'Attestation',photo:'Photo',autre:'Autre'},
 
+  // P0.5 : compresse/redimensionne une image (même réglages que compressImage pour
+  // les photos de risques : PHOTO_MAX_SIZE / PHOTO_QUALITY) en repartant d'une dataURL.
+  // Renvoie { data, mime } compressés, ou null si la compression échoue (repli sûr).
+  _compressImageDataURL(dataURL) {
+    return new Promise((resolve) => {
+      try {
+        const img = new Image();
+        img.onerror = () => resolve(null);
+        img.onload = () => {
+          try {
+            let w = img.width, h = img.height;
+            const MAX = this.PHOTO_MAX_SIZE;
+            if (w > MAX || h > MAX) {
+              if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+              else { w = Math.round(w * MAX / h); h = MAX; }
+            }
+            const cv = document.createElement('canvas');
+            cv.width = w; cv.height = h;
+            cv.getContext('2d').drawImage(img, 0, 0, w, h);
+            resolve({ data: cv.toDataURL('image/jpeg', this.PHOTO_QUALITY), mime: 'image/jpeg' });
+          } catch (_) { resolve(null); }
+        };
+        img.src = dataURL;
+      } catch (_) { resolve(null); }
+    });
+  },
+
   addDocument(ev) {
     this.currentPDP.documents = this.currentPDP.documents||[];
     const categorie = document.getElementById('doc-categorie').value || 'autre';
     Array.from(ev.target.files).forEach(f => {
       const r = new FileReader();
-      r.onload = e => { this.currentPDP.documents.push({ nom:f.name, type:f.type, taille:f.size, data:e.target.result, date:new Date().toISOString(), categorie }); this.renderDocuments(); this.toast(`"${f.name}" ajouté (${this._docCatLabels[categorie]||categorie})`); };
+      r.onload = async e => {
+        let data = e.target.result, type = f.type, taille = f.size;
+        // P0.5 : seules les images (jpg/png/…) sont compressées comme les photos de
+        // risques. PDF/docx/autres restent intacts. Repli sûr si la compression échoue.
+        if (f.type && f.type.startsWith('image/')) {
+          const comp = await this._compressImageDataURL(e.target.result);
+          if (comp && comp.data) {
+            data = comp.data; type = comp.mime;
+            try { taille = Math.round((comp.data.length - (comp.data.indexOf(',')+1)) * 3 / 4); } catch (_) {}
+          }
+        }
+        this.currentPDP.documents.push({ nom:f.name, type, taille, data, date:new Date().toISOString(), categorie });
+        this.renderDocuments();
+        this.toast(`"${f.name}" ajouté (${this._docCatLabels[categorie]||categorie})`);
+      };
       r.readAsDataURL(f);
     }); ev.target.value = '';
   },
@@ -11789,7 +11934,7 @@ const App = {
       if (this._sellsyOppCache && this._sellsyOppCache.length) {
         const st = document.getElementById('sellsy-opp-status');
         if (st) st.innerHTML = `<span class="text-muted">${this._sellsyOppCache.length} opportunité(s) en cache</span>`;
-        this.filterSellsyOppCache();
+        this._renderSellsyOppCache();
       } else {
         this.loadSellsyOppList();
       }
@@ -11823,7 +11968,7 @@ const App = {
       this._sellsyOppCache = all;
       this._saveOppCacheToStorage(); // persiste pour éviter de rappeler Sellsy à chaque démarrage
       if (statusEl) statusEl.innerHTML = `<span class="text-muted">${all.length} opportunité(s) chargée(s)</span>`;
-      this.filterSellsyOppCache();
+      this._renderSellsyOppCache();
     } catch (e) {
       console.error('[Sellsy opp_list] échec', e);
       const msg = (e && e.message) ? e.message : (typeof e === 'string' ? e : JSON.stringify(e));
@@ -11831,20 +11976,33 @@ const App = {
     }
   },
 
+  // P0.6 : handler oninput debouncé (~120ms) — ne reconstruit plus la liste à chaque
+  // lettre. Le filtre porte sur un cache local (_sellsyOppCache), pas sur le réseau.
   filterSellsyOppCache() {
+    this._debounce('sellsyOpp', () => this._renderSellsyOppCache(), 120);
+  },
+
+  _renderSellsyOppCache() {
     const q = (document.getElementById('sellsy-opp-q')?.value || '').trim().toLowerCase();
     const resEl = document.getElementById('sellsy-opp-results');
     if (!resEl) return;
-    const items = q
-      ? this._sellsyOppCache.filter(o =>
+    const all = this._sellsyOppCache || [];
+    const filtered = q
+      ? all.filter(o =>
           (o.nom||'').toLowerCase().includes(q) ||
           (o.ref||'').toLowerCase().includes(q) ||
           (o.companyName||'').toLowerCase().includes(q))
-      : this._sellsyOppCache;
-    if (!items.length) {
+      : all;
+    if (!filtered.length) {
       resEl.innerHTML = '<p class="text-muted text-center small mt-3">Aucune opportunité correspondante.</p>';
       return;
     }
+    // P0.6 : plafond d'affichage à 50.
+    const CAP = 50;
+    const items = filtered.slice(0, CAP);
+    const moreNote = filtered.length > CAP
+      ? `<p class="text-muted small py-2 text-center mb-0">${filtered.length} résultats — affiner la recherche (${CAP} affichés)</p>`
+      : '';
     resEl.innerHTML = items.map(o => {
       const montant = (o.montant != null) ? `${(+o.montant).toLocaleString('fr-FR')} ${o.devise||''}` : '';
       const meta = [o.etape, montant, o.dateCloture ? `clôture ${o.dateCloture}` : ''].filter(Boolean).join(' · ');
@@ -11857,7 +12015,7 @@ const App = {
         </div>
         <i class="bi bi-chevron-right text-muted"></i>
       </div>`;
-    }).join('');
+    }).join('') + moreNote;
   },
 
   // ---- Autocomplete Sellsy directement dans le champ N° d'opération (ICP et PDP) ----
@@ -13464,6 +13622,7 @@ const App = {
   },
   async _saveCustomRisksRaw(list) {
     await db.settings.put({ key: 'customRisks', value: list });
+    this._invalidateRiskCatsCache(); // P0.6 : le catalogue affiché doit refléter la mutation
     DataSync.markDirty();
     // Rafraichir le cache synchrone utilise par _getRiskDefaults
     const map = {};
@@ -13488,6 +13647,7 @@ const App = {
   },
   async _saveHiddenRisks(list) {
     await db.settings.put({ key: 'hiddenRisks', value: list });
+    this._invalidateRiskCatsCache(); // P0.6
     DataSync.markDirty();
   },
 
