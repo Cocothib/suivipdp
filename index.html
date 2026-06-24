@@ -3646,6 +3646,23 @@ db.version(34).stores({
   settings: 'key'
 });
 
+// v35 : table `media` = cache local des binaires photos externalisés (Blob par
+// référence SharePoint). APPEND-ONLY : alimentée à l'upload et au téléchargement,
+// elle ne doit JAMAIS être vidée par le cycle de sync (clear+bulkPut des stores
+// pdps/icps/shared). Distincte de ce cycle pour ne pas perdre un binaire local
+// non encore re-téléchargé (cf. historique clear+bulkPut non transactionnel).
+db.version(35).stores({
+  pdps: '++id, numero, titre, statut, dateDebut, dateFin, dateCreation, dateModification',
+  entreprises: '++id, nom, siret',
+  icps: '++id, numero, site, dateVisite, pdpId, dateCreation',
+  sites: '++id, nom, entite',
+  fds: '++id, nom, standard',
+  salaries_habilitations: '++id, &[nom+prenom], nom, prenom, service, poste, dateModification',
+  signataires: '++id, &[nom+fonction], nom, fonction, updated_at, usage_count',
+  media: '&ref, ts',
+  settings: 'key'
+});
+
 // ========================================
 // SHAREPOINT CONFIG
 // ========================================
@@ -11419,18 +11436,67 @@ const App = {
     if (!photo) return null;
     // 1) Cas actuel : la dataURL est inline → on la retourne telle quelle.
     if (typeof photo.data === 'string' && photo.data) return photo.data;
-    // 2) Futur format externalisé : référence vers un binaire SharePoint.
+    // 2) Futur format externalisé : référence vers un binaire.
     const ref = photo.ref || photo._spPath || null;
-    if (ref && DataSync._connected) {
+    if (!ref) return null;
+    if (!this._photoDataCache) this._photoDataCache = new Map();
+    // 2a) Cache mémoire (session).
+    if (this._photoDataCache.has(ref)) return this._photoDataCache.get(ref);
+    // 2b) Cache local persistant (table media) → résout MÊME hors-ligne.
+    try {
+      const local = await this._mediaGet(ref);
+      if (local) { this._photoDataCache.set(ref, local); return local; }
+    } catch (e) { /* table absente / lecture KO → on tente le réseau */ }
+    // 2c) Téléchargement réseau, puis persistance locale (append-only).
+    if (DataSync._connected) {
       try {
-        if (!this._photoDataCache) this._photoDataCache = new Map();
-        if (this._photoDataCache.has(ref)) return this._photoDataCache.get(ref);
         const url = await _downloadFileAsDataURL(ref);
-        if (url) { this._photoDataCache.set(ref, url); return url; }
+        if (url) {
+          this._photoDataCache.set(ref, url);
+          this._mediaPut(ref, url).catch(() => {}); // best-effort, non bloquant
+          return url;
+        }
       } catch (e) { console.warn('Résolution photo échouée:', e); }
     }
-    // 3) Ni data, ni ref résoluble (hors-ligne sans cache, etc.) → absence propre.
+    // 3) Ni data, ni binaire résoluble (hors-ligne sans cache local) → absence propre.
     return null;
+  },
+
+  // ---- Cache local des binaires photos (table `media`, append-only) ----
+  _dataURLToBlob(dataURL) {
+    const m = /^data:([^;,]*)(;base64)?,(.*)$/s.exec(dataURL || '');
+    if (!m) return null;
+    const mime = m[1] || 'application/octet-stream';
+    if (m[2]) { // base64
+      const bin = atob(m[3]);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      return new Blob([arr], { type: mime });
+    }
+    return new Blob([decodeURIComponent(m[3])], { type: mime });
+  },
+  _blobToDataURL(blob) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+      r.readAsDataURL(blob);
+    });
+  },
+  // Stocke un binaire en local (idempotent par ref). N'écrase rien d'autre,
+  // n'est jamais appelé par le cycle de sync → la table reste append-only.
+  async _mediaPut(ref, dataURL) {
+    if (!ref || !dataURL) return;
+    const blob = this._dataURLToBlob(dataURL);
+    if (!blob) return;
+    await db.media.put({ ref, blob, mime: blob.type, ts: new Date().toISOString() });
+  },
+  // Lit un binaire local et le reconvertit en dataURL utilisable (img/export).
+  async _mediaGet(ref) {
+    if (!ref) return null;
+    const rec = await db.media.get(ref);
+    if (!rec || !rec.blob) return null;
+    return this._blobToDataURL(rec.blob);
   },
 
   // Résout en parallèle un tableau de photos → tableau de dataURL (ou null par
