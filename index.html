@@ -3680,6 +3680,7 @@ const SP_CONFIG = {
     ICP_DATA_FILE:    'SuiviPDP/ICP/icp-data.json',
     SHARED_DATA_FILE: 'SuiviPDP/Shared/shared-data.json',
     FDS_FOLDER:       'SuiviPDP/Shared/FDS',
+    MEDIA_FOLDER:     'SuiviPDP/Media',
     ACTIVITY_LOG_FILE:'SuiviPDP/activity-log.json',
     SCOPES: ['Files.ReadWrite.All', 'User.Read', 'Sites.ReadWrite.All'],
     MAIL_SCOPES: ['Mail.Send'],
@@ -4055,6 +4056,13 @@ async function _sendMailViaGraph(to, subject, htmlBody) {
 function _fdsFilePath(fds) {
     const slug = (fds.nom || 'fds').replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, '_');
     return `${SP_CONFIG.FDS_FOLDER}/${fds.id}_${slug}`;
+}
+
+// Construit le chemin SharePoint d'un binaire photo (id stable → idempotent).
+function _photoFilePath(photo) {
+    const safeId = String(photo.id || '').replace(/[<>:"/\\|?*\s]/g, '_') || ('p-' + _uid());
+    const ext = /png/i.test(photo.mime||'') ? 'png' : (/jpe?g/i.test(photo.mime||'') ? 'jpg' : 'img');
+    return `${SP_CONFIG.MEDIA_FOLDER}/${safeId}.${ext}`;
 }
 
 async function _writeJsonFile(filePath, data, etag = null, metaEtag = null) {
@@ -5258,6 +5266,8 @@ const DataSync = {
                 const loaded = await this._loadFromRemote();
                 if (!loaded && _msalInstance._fromRedirect) { await this.save(); }
                 this._registerPresence();
+                // B3 : migration de fond des binaires photos (différée, non bloquante, data conservé)
+                setTimeout(() => { App.syncPhotoFilesToSP().catch(()=>{}); }, 8000);
                 if (_msalInstance._fromRedirect) App.toast('Connecté à SharePoint — '+(_msalAccount.name||''));
                 return 'connected';
             }
@@ -5298,6 +5308,8 @@ const DataSync = {
             const loaded = await this._loadFromRemote();
             if (!loaded) await this.save();
             this._registerPresence();
+            // B3 : migration de fond des binaires photos (différée, non bloquante, data conservé)
+            setTimeout(() => { App.syncPhotoFilesToSP().catch(()=>{}); }, 8000);
             App.toast('Connecté à SharePoint — '+(_msalAccount.name||''));
             if (typeof ActivityLog !== 'undefined') ActivityLog.log('connexion', { compte: _msalAccount.name || '' });
             return true;
@@ -11497,6 +11509,91 @@ const App = {
     const rec = await db.media.get(ref);
     if (!rec || !rec.blob) return null;
     return this._blobToDataURL(rec.blob);
+  },
+
+  // ---- B3 : externalisation des binaires photos (modèle FDS) ----
+  // Pour chaque photo encore inline (data sans ref), uploade le binaire sur
+  // SharePoint PUIS inscrit la référence. ORDRE CRITIQUE : la ref n'est posée
+  // qu'APRÈS un upload confirmé → jamais de référence orpheline. Le base64
+  // inline est CONSERVÉ en fallback (le strip JSON est traité au lot B4) →
+  // aucune perte de données possible. Idempotent : une photo déjà ref'ée est
+  // ignorée. Retourne le nombre de photos nouvellement externalisées.
+  async externalizeRecordPhotos(record) {
+    if (!record || !DataSync._connected) return 0;
+    this._ensurePhotoFields(record);
+    const todo = [];
+    this._eachPhoto(record, (p) => {
+      if (!p || p.ref || p._spPath) return;               // déjà externalisée
+      if (typeof p.data !== 'string' || !p.data) return;  // rien à uploader
+      todo.push(p);
+    });
+    let count = 0;
+    for (const p of todo) {
+      try {
+        const path = _photoFilePath(p);
+        await _uploadBinaryFromDataURL(path, p.data, p.mime || 'image/jpeg');
+        // Upload CONFIRMÉ → on pose la référence ; data conservé (fallback) ; cache local.
+        p.ref = path; p._spPath = path;
+        await this._mediaPut(path, p.data).catch(() => {});
+        count++;
+      } catch (e) { console.warn('Externalisation photo échouée (conservée inline):', e); }
+    }
+    return count;
+  },
+
+  // Reporte les références binaires (ref/_spPath) des photos de `source` vers
+  // les photos correspondantes de `target` (appariement par id), SANS écraser
+  // une ref existante ni aucune autre donnée. Préserve les modifs concurrentes
+  // (version fraîche relue par le sweep). Anti-perte : ne touche que ref/_spPath.
+  _applyPhotoRefs(target, source) {
+    const refById = new Map();
+    this._eachPhoto(source, (p) => { if (p && p.id && (p.ref || p._spPath)) refById.set(p.id, p.ref || p._spPath); });
+    if (!refById.size) return;
+    this._eachPhoto(target, (p) => {
+      if (p && p.id && !p.ref && !p._spPath && refById.has(p.id)) { p.ref = refById.get(p.id); p._spPath = p.ref; }
+    });
+  },
+
+  // Balayage de fond : externalise les photos de tous les PDP/ICP non encore
+  // traités. NON BLOQUANT (fire-and-forget), borné par passage. ÉVITE
+  // l'enregistrement ouvert (traité à sa propre sauvegarde, lot B5) et tout
+  // état dirty/saving pour ne JAMAIS interférer avec une saisie en cours.
+  // db.put local seulement (pas de markDirty) → pas de tempête de sync ; les
+  // refs se propageront au prochain enregistrement naturel du PDP/ICP.
+  async syncPhotoFilesToSP(maxPerRun = 200) {
+    if (!DataSync._connected || DataSync._saving || DataSync._dirty) return 0;
+    if (this._photoSweepRunning) return 0;
+    this._photoSweepRunning = true;
+    let total = 0;
+    try {
+      const sweep = async (table, openId) => {
+        const all = await table.toArray();
+        for (const rec of all) {
+          if (total >= maxPerRun) return;
+          if (openId != null && rec.id === openId) continue; // pas l'enregistrement ouvert
+          if (DataSync._saving || DataSync._dirty) return;   // une saisie est arrivée → on s'arrête net
+          const n = await this.externalizeRecordPhotos(rec);
+          if (n) {
+            // Persistance TRANSACTIONNELLE anti-race : on relit une version
+            // fraîche (le polling a pu clear+bulkPut pendant l'upload réseau),
+            // on n'y reporte QUE les refs (par id de photo) sans rien écraser,
+            // et on ne ressuscite pas un record supprimé entre-temps.
+            await db.transaction('rw', table, async () => {
+              const fresh = await table.get(rec.id);
+              if (!fresh) return; // supprimé pendant le sweep → ne pas recréer
+              this._applyPhotoRefs(fresh, rec);
+              await table.put(fresh);
+            });
+            total += n;
+          }
+        }
+      };
+      await sweep(db.pdps, this.currentPDP?.id);
+      await sweep(db.icps, this.currentICP?.id);
+      if (total) console.log(`[media] ${total} photo(s) externalisée(s) sur SharePoint`);
+    } catch (e) { console.warn('syncPhotoFilesToSP:', e); }
+    finally { this._photoSweepRunning = false; }
+    return total;
   },
 
   // Résout en parallèle un tableau de photos → tableau de dataURL (ou null par
