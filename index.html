@@ -4073,6 +4073,44 @@ function _photoFilePath(photo, record) {
     return `${SP_CONFIG.MEDIA_FOLDER}/${folder}${safeId}.${ext}`;
 }
 
+// ---- B4 : strip / ré-hydratation du base64 des photos externalisées ----
+// (Même patron que les FDS : data retiré du JSON distant, ré-hydraté en local.)
+// Strip : retire `data` des photos AYANT une ref confirmée (binaire déjà sur
+// SharePoint → toujours résolvable). Les photos sans ref gardent leur data inline.
+// Renvoie une COPIE de surface du record (ne mute pas l'objet d'origine).
+function _stripPhotosForRemote(record) {
+    if (!record) return record;
+    const strip = p => (p && (p.ref || p._spPath) && p.data) ? (() => { const { data, ...rest } = p; return rest; })() : p;
+    const mapArr = a => Array.isArray(a) ? a.map(strip) : a;
+    const out = { ...record };
+    if (Array.isArray(record.photos)) out.photos = mapArr(record.photos);
+    if (record.visite && Array.isArray(record.visite.photos)) out.visite = { ...record.visite, photos: mapArr(record.visite.photos) };
+    if (Array.isArray(record.risques)) out.risques = record.risques.map(r => (r && Array.isArray(r.photos)) ? { ...r, photos: mapArr(r.photos) } : r);
+    return out;
+}
+// Map(photoId -> data) des photos d'un record qui ont un data inline (pour ré-hydrater).
+function _collectRecordPhotoData(record) {
+    const m = new Map();
+    if (!record) return m;
+    const walk = a => { if (Array.isArray(a)) for (const p of a) if (p && p.id != null && typeof p.data === 'string' && p.data) m.set(p.id, p.data); };
+    walk(record.photos);
+    if (record.visite) walk(record.visite.photos);
+    if (Array.isArray(record.risques)) for (const r of record.risques) if (r) walk(r.photos);
+    return m;
+}
+// Ré-hydrate EN PLACE le data base64 local sur les photos stripées d'un record
+// (par id photo). localById = Map(photoId -> data) du record local correspondant.
+// N'écrase jamais un data présent ; ne touche qu'aux photos ayant une ref.
+function _rehydrateRecordPhotos(record, localById) {
+    if (!record || !localById || !localById.size) return record;
+    const fix = p => { if (p && !p.data && (p.ref || p._spPath) && p.id != null && localById.has(p.id)) p.data = localById.get(p.id); };
+    const walk = a => { if (Array.isArray(a)) a.forEach(fix); };
+    walk(record.photos);
+    if (record.visite) walk(record.visite.photos);
+    if (Array.isArray(record.risques)) for (const r of record.risques) if (r) walk(r.photos);
+    return record;
+}
+
 async function _writeJsonFile(filePath, data, etag = null, metaEtag = null) {
     const driveId = await _getDriveId();
     const body = JSON.stringify(data);
@@ -4229,12 +4267,13 @@ const DataSync = {
 
     // ---- Collecte données par catégorie ----
     async _collectPDPData() {
-        const pdps = await db.pdps.toArray();
+        // B4 : allège le JSON distant — data des photos externalisées (avec ref) retiré.
+        const pdps = (await db.pdps.toArray()).map(_stripPhotosForRemote);
         const version = ((this._loadedMeta.pdp?.version)||0)+1;
         return { _meta:{ version, lastSaved:new Date().toISOString(), savedBy:this.getUserName()||'inconnu' }, pdps };
     },
     async _collectICPData() {
-        const icps = await db.icps.toArray();
+        const icps = (await db.icps.toArray()).map(_stripPhotosForRemote);
         const version = ((this._loadedMeta.icp?.version)||0)+1;
         return { _meta:{ version, lastSaved:new Date().toISOString(), savedBy:this.getUserName()||'inconnu' }, icps };
     },
@@ -4981,10 +5020,14 @@ const DataSync = {
 
     async _writeLocalData({ pdp, icp, shared }) {
         await db.transaction('rw', db.pdps, db.icps, db.entreprises, db.settings, db.fds, db.sites, db.salaries_habilitations, db.signataires, async () => {
+            // B4 : préserve le data base64 local des photos (le JSON mergé peut être
+            // stripé) — capturé AVANT le clear, ré-hydraté par id de record/photo.
+            const _localPdpPhotos = new Map((await db.pdps.toArray()).map(p => [p.id, _collectRecordPhotoData(p)]));
             await db.pdps.clear();
-            if (pdp?.pdps?.length) await db.pdps.bulkPut(pdp.pdps);
+            if (pdp?.pdps?.length) await db.pdps.bulkPut(pdp.pdps.map(p => _rehydrateRecordPhotos(p, _localPdpPhotos.get(p.id))));
+            const _localIcpPhotos = new Map((await db.icps.toArray()).map(v => [v.id, _collectRecordPhotoData(v)]));
             await db.icps.clear();
-            if (icp?.icps?.length) await db.icps.bulkPut(icp.icps);
+            if (icp?.icps?.length) await db.icps.bulkPut(icp.icps.map(v => _rehydrateRecordPhotos(v, _localIcpPhotos.get(v.id))));
             await db.entreprises.clear();
             if (shared?.entreprises?.length) await db.entreprises.bulkPut(shared.entreprises);
             await db.settings.clear();
@@ -5011,14 +5054,17 @@ const DataSync = {
     // n'est jamais laissé vide. Utilisés par _loadFromRemote ET le polling.
     async _applyPdpStore(pdpData) {
         await db.transaction('rw', db.pdps, async () => {
+            // B4 : préserve le data base64 local des photos (le distant est stripé).
+            const _localPhotos = new Map((await db.pdps.toArray()).map(p => [p.id, _collectRecordPhotoData(p)]));
             await db.pdps.clear();
-            if (pdpData.pdps?.length) await db.pdps.bulkPut(pdpData.pdps);
+            if (pdpData.pdps?.length) await db.pdps.bulkPut(pdpData.pdps.map(p => _rehydrateRecordPhotos(p, _localPhotos.get(p.id))));
         });
     },
     async _applyIcpStore(icpData) {
         await db.transaction('rw', db.icps, async () => {
+            const _localPhotos = new Map((await db.icps.toArray()).map(v => [v.id, _collectRecordPhotoData(v)]));
             await db.icps.clear();
-            if (icpData.icps?.length) await db.icps.bulkPut(icpData.icps);
+            if (icpData.icps?.length) await db.icps.bulkPut(icpData.icps.map(v => _rehydrateRecordPhotos(v, _localPhotos.get(v.id))));
         });
     },
     async _applySharedStore(sharedData) {
@@ -8544,6 +8590,9 @@ const App = {
     const isFinalTransition = p.statut === 'cloture' && prevStatut !== 'cloture';
     try {
       const wasNew = !p.id;
+      // Prérequis externalisation : stabiliser/persister les id photos (sinon
+      // _persistPhotoRefs ne peut pas apparier la ref par id sur une vieille photo).
+      this._ensurePhotoFields(p);
       if (p.id) { await db.pdps.put(p); }
       else { if (!p.uid) p.uid = _uid(); p.id = await db.pdps.add(p); p.numero = `PDP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(p.id).padStart(4,'0')}`; await db.pdps.put(p); }
       let displayTitle = p.numero || ('PDP #' + p.id);
@@ -13235,6 +13284,8 @@ const App = {
     document.getElementById('icp-site')?.classList.remove('is-invalid');
     try {
       const wasNew = !v.id;
+      // Prérequis externalisation : stabiliser/persister les id photos.
+      this._ensurePhotoFields(v);
       if (v.id) { await db.icps.put(v); }
       else { if (!v.uid) v.uid = _uid(); v.id = await db.icps.add(v); v.numero = `ICP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(v.id).padStart(4,'0')}`; await db.icps.put(v); }
       document.getElementById('icp-detail-title').textContent = [v.refOperation, v.numero || ('ICP #' + v.id), v.objet].filter(Boolean).join(' | ');
