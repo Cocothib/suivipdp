@@ -5851,8 +5851,11 @@ const SellsyAPI = {
     const url = this.getProxyUrl() + '?' + new URLSearchParams(params).toString();
     const _key = localStorage.getItem('sellsyProxyKey');
     // Timeout (P0.1) : un proxy Sellsy injoignable ne doit pas figer l'UI.
+    // 30s (et non 10s) : le proxy PHP → API Sellsy est multi-saut et l'auto-
+    // remplissage enchaîne opportunity + adresses/contacts en parallèle ; 10s
+    // avortait des réponses lentes-mais-valides (localisation/GPS non remplis).
     const _ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-    const _timer = _ctrl ? setTimeout(() => { try { _ctrl.abort(); } catch (_) {} }, 10000) : null;
+    const _timer = _ctrl ? setTimeout(() => { try { _ctrl.abort(); } catch (_) {} }, 30000) : null;
     let res;
     try {
       res = await fetch(url, { method: 'GET', credentials: 'omit', headers: _key ? { 'X-Api-Key': _key } : {}, signal: _ctrl ? _ctrl.signal : undefined });
