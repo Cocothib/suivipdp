@@ -11734,6 +11734,24 @@ const App = {
     });
   },
 
+  // Persiste les id manquants des photos/documents d'un record (la BASE devient
+  // la source des id), pour que l'externalisation puis _persistPhotoRefs (par id)
+  // apparient correctement sur la version relue. Indispensable dans le balayage,
+  // qui traite des records jamais ouverts/sauvés (donc sans id sur leurs docs).
+  async _persistMediaIds(record, table) {
+    if (!record || record.id == null) return;
+    await db.transaction('rw', table, async () => {
+      const fresh = await table.get(record.id);
+      if (!fresh) return;
+      let changed = false;
+      this._eachPhoto(fresh, (p) => { if (p && !p.id) { p.id = _uid(); changed = true; } });
+      for (const d of (fresh.documents || [])) {
+        if (d && !d.id && d.fdsRef == null) { d.id = _uid(); if (!d.mime) d.mime = d.type || 'application/octet-stream'; changed = true; }
+      }
+      if (changed) await table.put(fresh);
+    });
+  },
+
   // B5 : externalisation IMMÉDIATE à la sauvegarde d'un PDP/ICP. Non bloquant
   // (fire-and-forget depuis savePDP/saveICP) : la photo part dans Media dès le
   // save, sans attendre le balayage de fond. data inline conservé (anti-perte).
@@ -11763,8 +11781,15 @@ const App = {
           if (total >= maxPerRun) return;
           if (openId != null && rec.id === openId) continue; // pas l'enregistrement ouvert
           if (DataSync._saving || DataSync._dirty) return;   // une saisie est arrivée → on s'arrête net
-          const n = await this.externalizeRecordPhotos(rec);
-          if (n) { await this._persistPhotoRefs(rec, table); total += n; }
+          // PRÉREQUIS : persister les id photos/docs manquants AVANT l'externalisation.
+          // Sinon _persistPhotoRefs (appariement par id) ne retrouve pas l'item sur la
+          // version relue (id jamais persisté) → ref jamais écrite + binaire ré-uploadé
+          // en boucle. On relit ensuite la version fraîche (id en base) pour externaliser.
+          await this._persistMediaIds(rec, table);
+          const fresh = await table.get(rec.id);
+          if (!fresh) continue;
+          const n = await this.externalizeRecordPhotos(fresh);
+          if (n) { await this._persistPhotoRefs(fresh, table); total += n; }
         }
       };
       await sweep(db.pdps, this.currentPDP?.id);
