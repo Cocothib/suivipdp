@@ -11536,10 +11536,7 @@ const App = {
       } catch (e) { console.error('Téléchargement FDS échoué:', e); this.toast('FDS introuvable sur SharePoint', 'danger'); return; }
     }
     if (!f.data) { this.toast('FDS sans contenu', 'warning'); return; }
-    const a = document.createElement('a');
-    a.href = f.data;
-    a.download = nom || f.nom || 'fds.pdf';
-    a.click();
+    this._triggerDownload(f.data, nom || f.nom || 'fds.pdf');
   },
 
   // Helper : récupère le `data` d'une FDS, en téléchargeant depuis SharePoint si besoin
@@ -11855,10 +11852,27 @@ const App = {
     if (!doc) return;
     const url = await this.ensureDocumentData(doc);
     if (!url) { this.toast('Document indisponible (hors-ligne ?)', 'warning'); return; }
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = doc.nom || 'document';
-    a.click();
+    this._triggerDownload(url, doc.nom || 'document');
+  },
+
+  // Déclenche un téléchargement fiable depuis une dataURL : passe par un Blob +
+  // objectURL (le clic programmatique sur une `data:` URL volumineuse est bloqué
+  // silencieusement par certains navigateurs). Anchor inséré dans le DOM (requis
+  // par Firefox). Fallback data: URL si la conversion Blob échoue.
+  _triggerDownload(dataUrl, filename) {
+    try {
+      const blob = this._dataURLToBlob(dataUrl);
+      if (!blob) throw new Error('blob null');
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objUrl; a.download = filename || 'fichier';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => { try { URL.revokeObjectURL(objUrl); } catch (_) {} }, 15000);
+    } catch (e) {
+      const a = document.createElement('a');
+      a.href = dataUrl; a.download = filename || 'fichier';
+      document.body.appendChild(a); a.click(); a.remove();
+    }
   },
 
   // ---- Enrichit le répertoire entreprises avec les nouveaux contacts vus dans un PDP/ICP ----
