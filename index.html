@@ -4297,6 +4297,49 @@ const DataSync = {
     _pollTimer: null,
     _presenceTimer: null,
     _loadedSnapshot: null,      // JSON snapshot des donnees au dernier sync (pour merge)
+    _syncStateRestored: false,  // garde : restauration etags/versions une seule fois
+
+    // --- Persistance des etags + versions entre sessions (ouverture rapide) ---
+    // Sans ça, _pollEtags/_loadedMeta sont remis à null à chaque rechargement de page
+    // et le chargement initial re-télécharge/ré-applique TOUT (les Mo des 3 JSON) même
+    // quand rien n'a changé. En persistant, la lecture initiale devient CONDITIONNELLE
+    // (If-None-Match) : 304 → aucun transfert ni ré-application → ouverture instantanée.
+    _SYNC_STATE_KEY: 'pdp_sync_state_v1',
+    _persistSyncState() {
+        try {
+            localStorage.setItem(this._SYNC_STATE_KEY, JSON.stringify({
+                etags: {
+                    pdp:    this._pollEtags.pdp    || null,
+                    icp:    this._pollEtags.icp    || null,
+                    shared: this._pollEtags.shared || null,
+                },
+                meta: {
+                    pdp:    this._loadedMeta.pdp    || null,
+                    icp:    this._loadedMeta.icp    || null,
+                    shared: this._loadedMeta.shared || null,
+                },
+            }));
+        } catch (_) { /* quota/localStorage indisponible : on retombe sur le full GET */ }
+    },
+    _restoreSyncState() {
+        if (this._syncStateRestored) return;
+        this._syncStateRestored = true;
+        try {
+            const raw = localStorage.getItem(this._SYNC_STATE_KEY);
+            if (!raw) return;
+            const s = JSON.parse(raw);
+            if (s && s.etags) this._pollEtags = {
+                pdp:    s.etags.pdp    || null,
+                icp:    s.etags.icp    || null,
+                shared: s.etags.shared || null,
+            };
+            if (s && s.meta) {
+                if (s.meta.pdp)    this._loadedMeta.pdp    = s.meta.pdp;
+                if (s.meta.icp)    this._loadedMeta.icp    = s.meta.icp;
+                if (s.meta.shared) this._loadedMeta.shared = s.meta.shared;
+            }
+        } catch (_) { /* JSON corrompu : on ignore, full GET de repli */ }
+    },
 
     getUserName() {
         if (_msalAccount?.name) return _msalAccount.name;
@@ -5267,6 +5310,9 @@ const DataSync = {
         // re-mémorisera l'eTag courant ; aucune ré-application puisque la version est
         // déjà à jour (garde _meta.version). Coût : un download ponctuel, sans risque.
         this._pollEtags = { pdp: null, icp: null, shared: null };
+        // Persiste la nouvelle version/etag (etags nuls ici → un GET complet au prochain
+        // boot re-mémorisera l'etag /content correct, puis 304 ensuite : auto-réparateur).
+        this._persistSyncState();
         // Snapshot = EXACTEMENT les données poussées (pas une relecture de db qui
         // pourrait inclure une mutation concurrente non poussée → champ vu 'inchangé
         // local' au prochain merge 3-way, donc écrasé par le distant). Audit #8/#20.
@@ -5308,43 +5354,82 @@ const DataSync = {
 
     // ---- Chargement depuis SharePoint ----
     async _loadFromRemote() {
+        // Restaure etags + versions de la session précédente → permet le 304 au boot.
+        this._restoreSyncState();
         try {
-            const [pdpData, icpData, sharedData] = await Promise.all([
-                _readJsonFile(SP_CONFIG.PDP_DATA_FILE),
-                _readJsonFile(SP_CONFIG.ICP_DATA_FILE),
-                _readJsonFile(SP_CONFIG.SHARED_DATA_FILE),
-            ]);
             // Modifs locales en attente (ex. saisies hors-ligne avant reconnexion) :
             // fusionner avec le distant au lieu d'écraser la base locale, puis
             // re-pousser via markDirty() — évite la perte des saisies non synchronisées.
+            // Lecture COMPLÈTE inconditionnelle (le merge a besoin du contenu distant).
             if (this._dirty) {
+                const [pdpData, icpData, sharedData] = await Promise.all([
+                    _readJsonFile(SP_CONFIG.PDP_DATA_FILE),
+                    _readJsonFile(SP_CONFIG.ICP_DATA_FILE),
+                    _readJsonFile(SP_CONFIG.SHARED_DATA_FILE),
+                ]);
                 const merged = await this._mergeAllWithRemote({ pdp: pdpData, icp: icpData, shared: sharedData });
                 await this._writeLocalData(merged);
                 if (pdpData?._meta) this._loadedMeta.pdp = pdpData._meta;
                 if (icpData?._meta) this._loadedMeta.icp = icpData._meta;
                 if (sharedData?._meta) this._loadedMeta.shared = sharedData._meta;
+                // On vient de réécrire localement : eTags /content distants caducs.
+                this._pollEtags = { pdp: null, icp: null, shared: null };
                 await this._captureSnapshot();
+                this._persistSyncState();
                 this.markDirty();
                 return true;
             }
+
+            // SÛRETÉ : base locale vide alors qu'on a des etags/versions persistés →
+            // IndexedDB a pu être purgé indépendamment de localStorage. On INVALIDE les
+            // gardes pour forcer un téléchargement complet (jamais de 304 qui afficherait
+            // une base vide).
+            const localEmpty = ((await db.pdps.count()) + (await db.icps.count())) === 0;
+            if (localEmpty) {
+                this._pollEtags  = { pdp: null, icp: null, shared: null };
+                this._loadedMeta = { pdp: null, icp: null, shared: null };
+            }
+
+            // Lecture CONDITIONNELLE (#8) : 304 si inchangé depuis la dernière session →
+            // aucun transfert, aucune ré-application → ouverture quasi instantanée.
+            // Sinon GET complet + apply version-gardé (même logique que le polling).
+            const [pdpRes, icpRes, sharedRes] = await Promise.all([
+                _readJsonFileCond(SP_CONFIG.PDP_DATA_FILE,    this._pollEtags.pdp),
+                _readJsonFileCond(SP_CONFIG.ICP_DATA_FILE,    this._pollEtags.icp),
+                _readJsonFileCond(SP_CONFIG.SHARED_DATA_FILE, this._pollEtags.shared),
+            ]);
+            const pdpData    = pdpRes    && !pdpRes.notModified    ? pdpRes.data    : null;
+            const icpData    = icpRes    && !icpRes.notModified    ? icpRes.data    : null;
+            const sharedData = sharedRes && !sharedRes.notModified ? sharedRes.data : null;
             let loaded = false;
-            // Chaque store est appliqué dans sa propre transaction : un échec de
-            // bulkPut annule le clear() (rollback) et n'avance PAS la meta → le
-            // store conserve son contenu et sera rechargé au prochain cycle.
-            if (pdpData?._meta) {
-                await this._applyPdpStore(pdpData);
-                this._loadedMeta.pdp = pdpData._meta; loaded = true;
+            // Chaque store dans sa propre transaction : un échec de bulkPut annule le
+            // clear() (rollback), n'avance PAS la meta et FORCE l'etag à null → re-tenté
+            // au prochain cycle, jamais de 304 masquant une version non appliquée.
+            if (pdpData?._meta && (pdpData._meta.version||0) > (this._loadedMeta.pdp?.version||0)) {
+                try { await this._applyPdpStore(pdpData); this._loadedMeta.pdp = pdpData._meta; this._pollEtags.pdp = pdpRes.etag; loaded = true; }
+                catch (e) { this._pollEtags.pdp = null; console.warn('apply pdp failed', e); }
+            } else if (pdpRes && !pdpRes.notModified && pdpRes.etag !== undefined) {
+                this._pollEtags.pdp = pdpRes.etag; // rien à appliquer : sûr d'avancer l'etag
             }
-            if (icpData?._meta) {
-                await this._applyIcpStore(icpData);
-                this._loadedMeta.icp = icpData._meta; loaded = true;
+            if (icpData?._meta && (icpData._meta.version||0) > (this._loadedMeta.icp?.version||0)) {
+                try { await this._applyIcpStore(icpData); this._loadedMeta.icp = icpData._meta; this._pollEtags.icp = icpRes.etag; loaded = true; }
+                catch (e) { this._pollEtags.icp = null; console.warn('apply icp failed', e); }
+            } else if (icpRes && !icpRes.notModified && icpRes.etag !== undefined) {
+                this._pollEtags.icp = icpRes.etag;
             }
-            if (sharedData?._meta) {
-                await this._applySharedStore(sharedData);
-                this._loadedMeta.shared = sharedData._meta; loaded = true;
+            if (sharedData?._meta && (sharedData._meta.version||0) > (this._loadedMeta.shared?.version||0)) {
+                try { await this._applySharedStore(sharedData); this._loadedMeta.shared = sharedData._meta; this._pollEtags.shared = sharedRes.etag; loaded = true; }
+                catch (e) { this._pollEtags.shared = null; console.warn('apply shared failed', e); }
+            } else if (sharedRes && !sharedRes.notModified && sharedRes.etag !== undefined) {
+                this._pollEtags.shared = sharedRes.etag;
             }
-            if (loaded) { this._dirty = false; this._updateBadge(false); await this._captureSnapshot(); }
-            return loaded;
+            this._dirty = false; this._updateBadge(false);
+            await this._captureSnapshot();
+            this._persistSyncState();
+            // Retour = « le distant existe » (pas « on a appliqué du neuf ») : un 304 pur
+            // ne déclenche PAS de save() initial intempestif. false uniquement au tout
+            // premier run (fichiers distants absents) → l'appelant pousse le local.
+            return loaded || !!(this._loadedMeta.pdp || this._loadedMeta.icp || this._loadedMeta.shared);
         } catch (e) { console.warn('DataSync: lecture SharePoint échouée', e); return false; }
     },
 
@@ -5496,6 +5581,8 @@ const DataSync = {
                     if (App.currentView === 'icps') App.renderICPList();
                     if (App.currentView === 'entreprises') App.renderEntreprises();
                 }
+                // Persiste etags + versions courants → le prochain démarrage profite du 304.
+                this._persistSyncState();
             } catch (e) { /* offline, silencieux */ }
         }, SP_CONFIG.POLL_INTERVAL_MS);
     },
