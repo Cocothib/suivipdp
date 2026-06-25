@@ -2054,12 +2054,33 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         </div>
         <div id="pf-renouvellements-container"></div>
 
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-arrow-repeat"></i> Ronde de sécurité (modèle CNPP)</div>
+          <div class="d-flex flex-wrap align-items-center gap-3">
+            <div class="form-check"><input class="form-check-input" type="radio" name="pf-ronde" id="pf-ronde-non" value="non"><label class="form-check-label" for="pf-ronde-non">Non nécessaire</label></div>
+            <div class="form-check"><input class="form-check-input" type="radio" name="pf-ronde" id="pf-ronde-oui" value="oui"><label class="form-check-label" for="pf-ronde-oui">Oui, elle sera réalisée</label></div>
+            <div class="d-flex align-items-center gap-1"><input type="number" min="0" step="1" class="form-control form-control-sm" id="pf-ronde-heures" style="width:80px" placeholder="2"> <span class="small">heures après la fin des travaux</span></div>
+          </div>
+        </div>
+
+        <h6 class="mt-4 mb-2 text-primary">Personne désignée pour la sécurité et la surveillance <span class="badge bg-info text-dark">requis CNPP</span></h6>
+        <div class="alert alert-info small mb-2"><i class="bi bi-info-circle me-1"></i>Accompagne l'opérateur pour veiller à la sécurité générale des travaux par point chaud. Désignée par l'EU et formée à l'utilisation des moyens de lutte contre le feu à proximité.</div>
+        <div class="row g-2 mb-2">
+          <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-surv-nom" aria-label="Nom du surveillant" placeholder="Nom"></div>
+          <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-surv-fonction" aria-label="Fonction du surveillant" placeholder="Fonction"></div>
+          <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-surv-tel" aria-label="Téléphone du surveillant" placeholder="Téléphone"></div>
+          <div class="col-md-4"><input type="date" class="form-control form-control-sm" id="pf-sig-surv-date" aria-label="Date signature surveillant"></div>
+          <div class="col-md-8"><div class="signature-pad-wrapper"><canvas id="pf-sig-surv-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-surv-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
+        </div>
+
         <h6 class="mt-4 mb-2 text-primary">Signatures du permis de feu</h6>
         <div class="row g-3">
           <div class="col-md-4">
             <h6 class="small fw-bold" data-type-label="pf-sig-eu">Représentant EU</h6>
             <div class="row g-2">
               <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-eu-nom" name="pf-sig-eu-nom" aria-label="Nom du représentant EU" placeholder="Nom"></div>
+              <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-eu-fonction" name="pf-sig-eu-fonction" aria-label="Fonction du représentant EU" placeholder="Fonction"></div>
+              <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-eu-tel" name="pf-sig-eu-tel" aria-label="Téléphone du représentant EU" placeholder="Téléphone"></div>
               <div class="col-12"><input type="date" class="form-control form-control-sm" id="pf-sig-eu-date" name="pf-sig-eu-date" aria-label="Date signature EU"></div>
               <div class="col-12"><div class="signature-pad-wrapper"><canvas id="pf-sig-eu-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-eu-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
             </div>
@@ -2089,6 +2110,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <div class="d-flex flex-wrap gap-2">
           <button class="btn btn-outline-primary btn-sm" onclick="App.exportPermisFeuDOCX()"><i class="bi bi-file-earmark-word me-1"></i>Permis de feu (Word)</button>
           <button class="btn btn-outline-danger btn-sm" onclick="App.exportPermisFeuPDF()"><i class="bi bi-file-pdf me-1"></i>Permis de feu (PDF)</button>
+          <button class="btn btn-danger btn-sm" onclick="App.exportPermisFeuCNPP()" title="Génère le permis au modèle officiel CNPP (rempli depuis les données saisies) et l'attache au PDP"><i class="bi bi-fire me-1"></i>Permis de feu CNPP (PDF)</button>
           <button class="btn btn-outline-secondary btn-sm" onclick="App.exportPermisFeuPrint()"><i class="bi bi-printer me-1"></i>Imprimer le permis de feu</button>
         </div>
       </div>
@@ -3682,6 +3704,11 @@ const SP_CONFIG = {
     FDS_FOLDER:       'SuiviPDP/Shared/FDS',
     MEDIA_FOLDER:     'SuiviPDP/Media',
     ACTIVITY_LOG_FILE:'SuiviPDP/activity-log.json',
+    // Modèle CNPP « permis de feu » (déposé INPI, hébergé sur le SharePoint privé —
+    // jamais dans le dépôt public). L'app lit ces images au runtime pour générer le
+    // permis au modèle officiel (superposition). À déposer dans SuiviPDP/Modeles/.
+    CNPP_RECTO_FILE:  'SuiviPDP/Modeles/cnpp-permis-feu-recto.jpg',
+    CNPP_VERSO_FILE:  'SuiviPDP/Modeles/cnpp-permis-feu-verso.jpg',
     SCOPES: ['Files.ReadWrite.All', 'User.Read', 'Sites.ReadWrite.All'],
     MAIL_SCOPES: ['Mail.Send'],
     // Normalisé SANS index.html : l'URI de redirection doit être identique quelle que
@@ -3694,6 +3721,25 @@ const SP_CONFIG = {
     PRESENCE_STALE_MS: 90000,
 };
 
+
+// Coordonnées des champs sur le RECTO du formulaire CNPP (fractions 0..1 de l'image,
+// origine haut-gauche). Calibrées sur le modèle déposé INPI n°6394. Pour ajuster un
+// champ mal placé : modifier [fx, fy] ici (fx vers la droite, fy vers le bas).
+// Les blocs signature sont [fx, fy, largeur, hauteur].
+const CNPP_FIELDS = {
+  date:[0.115,0.188], hdeb:[0.300,0.188], hfin:[0.402,0.188],
+  lieu:[0.345,0.211], nature:[0.345,0.234], outillage:[0.345,0.257],
+  risques:[0.095,0.338],
+  chkNettoyer:[0.236,0.424], chkEloigner:[0.556,0.424], chkDegazer:[0.236,0.449], chkExtinct:[0.556,0.449],
+  actionsComp:[0.095,0.498],
+  moyensLutte:[0.40,0.537], moyensAlerte:[0.40,0.561],
+  rondeNon:[0.447,0.583], rondeOui:[0.503,0.583], rondeHeures:[0.695,0.583],
+  doNom:[0.155,0.642], doFct:[0.155,0.666], doTel:[0.155,0.690], doSig:[0.635,0.652,0.15,0.035], doSigDate:[0.80,0.690],
+  svNom:[0.155,0.745], svFct:[0.155,0.767], svTel:[0.155,0.789], svSig:[0.635,0.755,0.15,0.035], svSigDate:[0.80,0.789],
+  intExtChk:[0.095,0.836], intInterneChk:[0.095,0.857], intRaison:[0.46,0.836],
+  intRespNom:[0.205,0.879], intRespFct:[0.215,0.900], intOp1:[0.205,0.921],
+  intSig:[0.635,0.858,0.15,0.035], numero:[0.745,0.940],
+};
 
 const ENTITY_PRESETS = {
   agriwatt: { nom: 'AGRIWATT', adresse: '8 Avenue de la gare, 02140 VERVINS', tel: '09 61 65 74 87', siret: '', logo: '1000px Fond Blanc.jpg' },
@@ -8359,7 +8405,7 @@ const App = {
       emargements: [],
       emargementsLibres: [],
       pictogrammes: { interdictions: ['vapoter','acces'], epiObligatoires: ['casque','chaussures','vetement','gants','antichute'], remarques: '' },
-      permisFeu: { actif: false, types: [], description: '', risqueStructure: '', risqueActivite: '', risqueEnvironnement: '', dateDebut: '', heureDebut: '', dateFin: '', heureFin: '', operateurs: [], consignes: { avant: [], pendant: [], apres: [] }, autresPrescriptions: '', rondes: [], renouvellements: [], signatureEU: { nom: '', date: '', data: null }, signatureEE: { nom: '', date: '', data: null }, signatureExec: { nom: '', societe: '', date: '', data: null } },
+      permisFeu: { actif: false, types: [], description: '', risqueStructure: '', risqueActivite: '', risqueEnvironnement: '', dateDebut: '', heureDebut: '', dateFin: '', heureFin: '', operateurs: [], consignes: { avant: [], pendant: [], apres: [] }, autresPrescriptions: '', rondeNecessaire: '', rondeHeuresApres: '', rondes: [], renouvellements: [], signatureEU: { nom: '', fonction: '', telephone: '', date: '', data: null }, signatureEE: { nom: '', date: '', data: null }, signatureSurveillance: { nom: '', fonction: '', telephone: '', date: '', data: null }, signatureExec: { nom: '', societe: '', date: '', data: null } },
       dateCreation: new Date().toISOString(), dateModification: new Date().toISOString()
     };
     // Auto-rattachement des FDS marquées "standard" depuis la bibliothèque
@@ -8607,6 +8653,17 @@ const App = {
     document.getElementById('pf-sig-exec-nom').value = (pf.signatureExec||{}).nom || '';
     document.getElementById('pf-sig-exec-societe').value = (pf.signatureExec||{}).societe || '';
     document.getElementById('pf-sig-exec-date').value = (pf.signatureExec||{}).date || '';
+    // Donneur d'ordre (fonction/tél) + surveillant + ronde (modèle CNPP)
+    document.getElementById('pf-sig-eu-fonction').value = (pf.signatureEU||{}).fonction || '';
+    document.getElementById('pf-sig-eu-tel').value = (pf.signatureEU||{}).telephone || '';
+    const _sv = pf.signatureSurveillance || {};
+    document.getElementById('pf-sig-surv-nom').value = _sv.nom || '';
+    document.getElementById('pf-sig-surv-fonction').value = _sv.fonction || '';
+    document.getElementById('pf-sig-surv-tel').value = _sv.telephone || '';
+    document.getElementById('pf-sig-surv-date').value = _sv.date || '';
+    document.getElementById('pf-ronde-non').checked = (pf.rondeNecessaire === 'non');
+    document.getElementById('pf-ronde-oui').checked = (pf.rondeNecessaire === 'oui');
+    document.getElementById('pf-ronde-heures').value = pf.rondeHeuresApres || '';
     this.renderPFOperateurs();
     this.renderPFRenouvellements();
     this.checkPFDuree();
@@ -8704,9 +8761,12 @@ const App = {
     });
     // #15 : canvas présent → reflète son état (effacé → null) ; canvas absent → préserve l'ancienne donnée.
     const _sigCanvasData = (id, prev) => { const cv = document.getElementById(id); return cv ? (cv._hasDrawing ? cv.toDataURL() : null) : (prev||null); };
-    p.permisFeu.signatureEU = { nom: document.getElementById('pf-sig-eu-nom').value.trim(), date: document.getElementById('pf-sig-eu-date').value, data: _sigCanvasData('pf-sig-eu-canvas', p.permisFeu.signatureEU?.data) };
+    p.permisFeu.signatureEU = { nom: document.getElementById('pf-sig-eu-nom').value.trim(), fonction: document.getElementById('pf-sig-eu-fonction').value.trim(), telephone: document.getElementById('pf-sig-eu-tel').value.trim(), date: document.getElementById('pf-sig-eu-date').value, data: _sigCanvasData('pf-sig-eu-canvas', p.permisFeu.signatureEU?.data) };
     p.permisFeu.signatureEE = { nom: document.getElementById('pf-sig-ee-nom').value.trim(), date: document.getElementById('pf-sig-ee-date').value, data: _sigCanvasData('pf-sig-ee-canvas', p.permisFeu.signatureEE?.data) };
+    p.permisFeu.signatureSurveillance = { nom: document.getElementById('pf-sig-surv-nom').value.trim(), fonction: document.getElementById('pf-sig-surv-fonction').value.trim(), telephone: document.getElementById('pf-sig-surv-tel').value.trim(), date: document.getElementById('pf-sig-surv-date').value, data: _sigCanvasData('pf-sig-surv-canvas', p.permisFeu.signatureSurveillance?.data) };
     p.permisFeu.signatureExec = { nom: document.getElementById('pf-sig-exec-nom').value.trim(), societe: document.getElementById('pf-sig-exec-societe').value.trim(), date: document.getElementById('pf-sig-exec-date').value, data: _sigCanvasData('pf-sig-exec-canvas', p.permisFeu.signatureExec?.data) };
+    p.permisFeu.rondeNecessaire = document.getElementById('pf-ronde-oui').checked ? 'oui' : (document.getElementById('pf-ronde-non').checked ? 'non' : '');
+    p.permisFeu.rondeHeuresApres = document.getElementById('pf-ronde-heures').value.trim();
 
     p.dateModification = new Date().toISOString();
     if (!p.numero) { const y = new Date().getFullYear(); const m = String(new Date().getMonth()+1).padStart(2,'0'); p.numero = `PDP-${y}${m}-${p.id ? String(p.id).padStart(4,'0') : String(Date.now()).slice(-4)}`; }
@@ -8787,7 +8847,7 @@ const App = {
     if (section === 'autorisations') AutorisationInterne.renderPDPSection();
     if (section === 'signatures') { this.renderSignaturesEE(); this.prefillSignatureEU(); }
     if (section === 'permisfeu') { this.prefillPermisFeuSignataires(); }
-    if (section === 'permisfeu') setTimeout(() => { this.initCanvas('pf-sig-eu-canvas'); this.initCanvas('pf-sig-ee-canvas'); this.initCanvas('pf-sig-exec-canvas'); if (this.currentPDP?.permisFeu?.signatureEU?.data) this.loadSigImg('pf-sig-eu-canvas', this.currentPDP.permisFeu.signatureEU.data); if (this.currentPDP?.permisFeu?.signatureEE?.data) this.loadSigImg('pf-sig-ee-canvas', this.currentPDP.permisFeu.signatureEE.data); if (this.currentPDP?.permisFeu?.signatureExec?.data) this.loadSigImg('pf-sig-exec-canvas', this.currentPDP.permisFeu.signatureExec.data); (this.currentPDP?.permisFeu?.renouvellements||[]).forEach((r,i) => { this.initCanvas('pf-renouv-sig-'+i); if (r.signatureEU?.data) this.loadSigImg('pf-renouv-sig-'+i, r.signatureEU.data); }); }, 100);
+    if (section === 'permisfeu') setTimeout(() => { this.initCanvas('pf-sig-eu-canvas'); this.initCanvas('pf-sig-ee-canvas'); this.initCanvas('pf-sig-exec-canvas'); this.initCanvas('pf-sig-surv-canvas'); if (this.currentPDP?.permisFeu?.signatureSurveillance?.data) this.loadSigImg('pf-sig-surv-canvas', this.currentPDP.permisFeu.signatureSurveillance.data); if (this.currentPDP?.permisFeu?.signatureEU?.data) this.loadSigImg('pf-sig-eu-canvas', this.currentPDP.permisFeu.signatureEU.data); if (this.currentPDP?.permisFeu?.signatureEE?.data) this.loadSigImg('pf-sig-ee-canvas', this.currentPDP.permisFeu.signatureEE.data); if (this.currentPDP?.permisFeu?.signatureExec?.data) this.loadSigImg('pf-sig-exec-canvas', this.currentPDP.permisFeu.signatureExec.data); (this.currentPDP?.permisFeu?.renouvellements||[]).forEach((r,i) => { this.initCanvas('pf-renouv-sig-'+i); if (r.signatureEU?.data) this.loadSigImg('pf-renouv-sig-'+i, r.signatureEU.data); }); }, 100);
     this._currentSection = section;
     this.updateProgress();
     // Navigation arrows
@@ -18184,6 +18244,102 @@ const App = {
     doc.save(fn);
     this.toast('Permis de feu PDF généré');
    } catch(err) { console.error('exportPermisFeuPDF error:', err); this.toast('Erreur export PDF: '+err.message,'danger'); }
+  },
+
+  // Permis de feu au MODÈLE OFFICIEL CNPP : superpose les données saisies sur l'image
+  // du formulaire CNPP (hébergée sur le SharePoint privé, jamais dans le dépôt public),
+  // génère le PDF et l'ATTACHE au PDP (pièce jointe catégorie permis_feu).
+  async exportPermisFeuCNPP() {
+   try {
+    if (!this.currentPDP) return;
+    this.collectForm(); this.captureAllSigs();
+    const p = this.currentPDP;
+    const pf = p.permisFeu || {};
+    if (!pf.actif && !(pf.types||[]).length) { this.toast('Aucun permis de feu actif','warning'); return; }
+    if (typeof DataSync === 'undefined' || !DataSync._connected) { this.toast('Connexion SharePoint requise pour charger le modèle CNPP.','warning',7000); return; }
+    if (typeof _downloadFileAsDataURL !== 'function' || !window.jspdf) { this.toast('Module PDF/SharePoint non chargé.','danger'); return; }
+    this.toast('Génération du permis CNPP…','info');
+    // 1) Récupérer le modèle CNPP (caché en mémoire après le 1er chargement)
+    let recto, verso = null;
+    try {
+      recto = App._cnppTplRecto || (App._cnppTplRecto = await _downloadFileAsDataURL(SP_CONFIG.CNPP_RECTO_FILE));
+    } catch(e) {
+      console.warn('CNPP recto KO', e);
+      this.toast('Modèle CNPP introuvable sur SharePoint. Déposer cnpp-permis-feu-recto.jpg dans SuiviPDP/Modeles/.','danger',11000);
+      return;
+    }
+    try { verso = App._cnppTplVerso || (App._cnppTplVerso = await _downloadFileAsDataURL(SP_CONFIG.CNPP_VERSO_FILE)); }
+    catch(e) { verso = null; /* verso optionnel */ }
+
+    // 2) Construire le PDF : image plein cadre + superposition texte/signatures
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'p', unit:'mm', format:'a4', compress:true });
+    const IX = 14, IY = 12, IW = 182, IH = IW * 2436 / 1775; // ratio image recto
+    doc.addImage(recto, 'JPEG', IX, IY, IW, IH);
+    const fr = d => (d && /^\d{4}-\d{2}-\d{2}/.test(d)) ? d.slice(0,10).split('-').reverse().join('/') : (d||'');
+    // Place un texte à la fraction [fx,fy] de l'image (origine haut-gauche)
+    const F = (pos, s, opt={}) => {
+      if (s === undefined || s === null || s === '') return;
+      doc.setFontSize(opt.size||8.5); doc.setFont('helvetica', opt.bold?'bold':'normal');
+      const c = opt.color || [10,10,120]; doc.setTextColor(c[0],c[1],c[2]);
+      const o = { baseline:'top' }; if (opt.w) o.maxWidth = opt.w*IW;
+      doc.text(String(s), IX + pos[0]*IW, IY + pos[1]*IH, o);
+    };
+    const X = (pos) => F(pos, 'X', { size:11, bold:true, color:[190,0,0] });
+    const SIG = (data, pos) => { if (data) { try { doc.addImage(data,'PNG', IX+pos[0]*IW, IY+pos[1]*IH, pos[2]*IW, pos[3]*IH); } catch(e){} } };
+    const C = CNPP_FIELDS;
+    const typeLabels = { soudage:'Soudage', tronconnage:'Tronçonnage', meulage:'Découpage/Meulage', thermosoudure:'Thermosoudure au gaz', miseALaTerre:'Soudure mise à la terre', autre:'Autre' };
+
+    // Description du travail
+    F(C.date, fr(pf.dateDebut)); F(C.hdeb, (pf.heureDebut||'').replace(':','h')); F(C.hfin, (pf.heureFin||'').replace(':','h'));
+    F(C.lieu, (p.site||'') + (p.lieu ? ' — ' + p.lieu : ''), { w:0.6, size:8 });
+    F(C.nature, (pf.types||[]).map(t=>typeLabels[t]||t).join(', '), { w:0.6, size:8 });
+    F(C.outillage, pf.description||'', { w:0.6, size:8 });
+    // Risques identifiés
+    F(C.risques, [pf.risqueStructure, pf.risqueActivite, pf.risqueEnvironnement].filter(Boolean).join(' ; '), { w:0.86, size:7.5 });
+    // Actions essentielles (mappées depuis les consignes "avant")
+    const av = pf.consignes?.avant || [];
+    if (av.includes('av-eloigner') || av.includes('av-inflammable')) X(C.chkEloigner);
+    if (av.includes('av-alarme')) X(C.chkExtinct);
+    // Actions complémentaires + moyens
+    F(C.actionsComp, pf.autresPrescriptions||'', { w:0.85, size:7.5 });
+    // Ronde de sécurité
+    if (pf.rondeNecessaire === 'non') X(C.rondeNon);
+    else if (pf.rondeNecessaire === 'oui') { X(C.rondeOui); F(C.rondeHeures, pf.rondeHeuresApres||'2'); }
+    // Donneur d'ordre (chef EU ou représentant) — complété depuis p.eu si vide
+    const eu = p.eu||{}; const sEU = pf.signatureEU||{};
+    F(C.doNom, sEU.nom || eu.responsable || ''); F(C.doFct, sEU.fonction || eu.fonction || ''); F(C.doTel, sEU.telephone || eu.tel || '');
+    SIG(sEU.data, C.doSig); F(C.doSigDate, fr(sEU.date), { size:7 });
+    // Personne désignée surveillance
+    const sSV = pf.signatureSurveillance||{};
+    F(C.svNom, sSV.nom||''); F(C.svFct, sSV.fonction||''); F(C.svTel, sSV.telephone||'');
+    SIG(sSV.data, C.svSig); F(C.svSigDate, fr(sSV.date), { size:7 });
+    // Intervenants (responsable + opérateurs)
+    const sEE = pf.signatureEE||{}; const sEx = pf.signatureExec||{};
+    if (sEx.societe || sEE.nom) X(C.intExtChk);
+    F(C.intRaison, sEx.societe||'', { w:0.26, size:7.5 });
+    F(C.intRespNom, sEE.nom||'', { w:0.26, size:7.5 });
+    const op1 = (pf.operateurs||[])[0] || {};
+    F(C.intOp1, [op1.nom, op1.fonction].filter(Boolean).join(' — '), { w:0.26, size:7.5 });
+    SIG(sEE.data || sEx.data, C.intSig);
+    F(C.numero, p.numero||'', { size:7 });
+
+    // Verso (page 2) si disponible
+    if (verso) { doc.addPage(); const vh = Math.min(IW * 1918/1460, 297 - IY - 6); doc.addImage(verso, 'JPEG', IX, IY, IW, vh); }
+
+    // 3) Sortie + ATTACHE au PDP (pièce jointe)
+    const blob = doc.output('blob');
+    const dataURL = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
+    if (!Array.isArray(p.documents)) p.documents = [];
+    const docName = await this.buildPDPFilename(p, 'pdf', 'PERMIS-FEU-CNPP');
+    // Remplace l'éventuel CNPP auto-généré précédent
+    p.documents = p.documents.filter(d => !(d.categorie === 'permis_feu' && d.genere_auto && /CNPP/i.test(d.nom||'')));
+    p.documents.push({ nom: docName, type:'application/pdf', taille: blob.size, data: dataURL, date: new Date().toISOString(), categorie:'permis_feu', genere_auto:true });
+    try { await this.savePDP(); } catch(e) { console.warn('savePDP CNPP:', e); }
+    try { this.renderDocuments(); } catch(e) {}
+    doc.save(docName); // téléchargement local également
+    this.toast('Permis CNPP généré et attaché au PDP ✓','success');
+   } catch(err) { console.error('exportPermisFeuCNPP error:', err); this.toast('Erreur CNPP : '+err.message,'danger'); }
   },
 
   exportPermisFeuPrint() {
