@@ -4247,6 +4247,31 @@ async function _listFiles(folderPath) {
     return (await resp.json()).value || [];
 }
 
+// Liste RÉCURSIVE et paginée des FICHIERS (hors dossiers) sous un dossier
+// SharePoint. Renvoie [{path, size}] (path = chemin complet relatif à la racine
+// du drive, reconstruit dossier par dossier → matche exactement les ref stockées).
+async function _listFolderFilesRecursive(folderPath) {
+    const driveId = await _getDriveId();
+    const out = [];
+    async function walk(path) {
+        let url = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${path}:/children?$select=name,size,folder,file&$top=200`;
+        while (url) {
+            const resp = await _graphFetch(url);
+            if (resp.status === 404) return;
+            if (!resp.ok) throw new Error('listing ' + resp.status + ' @ ' + path);
+            const j = await resp.json();
+            for (const it of (j.value || [])) {
+                const childPath = path + '/' + it.name;
+                if (it.folder) await walk(childPath);
+                else out.push({ path: childPath, size: it.size || 0 });
+            }
+            url = j['@odata.nextLink'] || null;
+        }
+    }
+    await walk(folderPath);
+    return out;
+}
+
 async function _uploadBinaryFile(filePath, blob) {
     const driveId = await _getDriveId();
     const resp = await _graphFetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${filePath}:/content`, {
@@ -11750,6 +11775,48 @@ const App = {
       }
       if (changed) await table.put(fresh);
     });
+  },
+
+  // Nettoyage des binaires ORPHELINS du dossier Media (créés par le balayage
+  // avant le fix v135 : binaires ré-uploadés à chaque passage, jamais référencés).
+  // SÛR : ne supprime QUE les fichiers Media NON référencés par une photo/document.
+  // Mode SIMULATION par défaut (confirmDelete=false) → liste sans rien supprimer.
+  // Lancer depuis la console : App.cleanupMediaOrphans()  puis  App.cleanupMediaOrphans(true)
+  async cleanupMediaOrphans(confirmDelete = false) {
+    if (!DataSync._connected) { this.toast('Connexion SharePoint requise', 'warning'); return; }
+    // 1) Toutes les ref utilisées (photos + documents de TOUS les PDP/ICP locaux).
+    const used = new Set();
+    const add = r => { if (typeof r === 'string' && r) used.add(r); };
+    const recs = [...(await db.pdps.toArray()), ...(await db.icps.toArray())];
+    for (const rec of recs) {
+      this._eachPhoto(rec, p => { if (p) { add(p.ref); add(p._spPath); } });
+      for (const d of (rec.documents || [])) if (d) { add(d.ref); add(d._spPath); }
+    }
+    // 2) Fichiers réellement présents sous Media.
+    let files;
+    try { files = await _listFolderFilesRecursive(SP_CONFIG.MEDIA_FOLDER); }
+    catch (e) { console.error(e); this.toast('Listing Media échoué : ' + e.message, 'danger'); return; }
+    // 3) Orphelins = présents mais non référencés.
+    const orphans = files.filter(f => !used.has(f.path));
+    const totMo = (orphans.reduce((a, f) => a + f.size, 0) / 1048576).toFixed(2);
+    console.log(`[cleanup Media] ${files.length} fichier(s) | ${used.size} ref(s) utilisées | ${orphans.length} orphelin(s) (${totMo} Mo)`);
+    try { console.table(orphans.map(o => ({ path: o.path, Mo: +(o.size / 1048576).toFixed(2) }))); } catch (_) {}
+    // GARDE-FOU anti-mismatch : si 100% des fichiers seraient orphelins alors que
+    // des ref existent, c'est probablement un décalage de chemins → on refuse de
+    // supprimer (sinon on effacerait des binaires réellement utilisés).
+    if (used.size > 0 && files.length > 0 && orphans.length === files.length) {
+      this.toast('Sécurité : 100% des fichiers paraissent orphelins alors que des références existent — nettoyage ANNULÉ. Vérifier la synchro.', 'danger', 14000);
+      return { aborted: true, orphans: orphans.length };
+    }
+    if (!confirmDelete) {
+      this.toast(`Simulation : ${orphans.length} orphelin(s) (${totMo} Mo) sur ${files.length}. Détail en console. Pour supprimer : App.cleanupMediaOrphans(true)`, 'info', 14000);
+      return orphans;
+    }
+    // 4) Suppression effective.
+    let del = 0, fail = 0;
+    for (const o of orphans) { try { await _deleteFile(o.path); del++; } catch (e) { fail++; console.warn('suppression KO', o.path, e); } }
+    this.toast(`Nettoyage Media : ${del} supprimé(s) (${totMo} Mo libérés)${fail ? `, ${fail} échec(s)` : ''}`, 'success', 9000);
+    return { deleted: del, failed: fail };
   },
 
   // B5 : externalisation IMMÉDIATE à la sauvegarde d'un PDP/ICP. Non bloquant
