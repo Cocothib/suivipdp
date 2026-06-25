@@ -2105,13 +2105,10 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         </div>
 
         <hr class="my-3">
-        <h6 class="text-primary"><i class="bi bi-printer me-1"></i>Export papier (pour sous-traitants)</h6>
-        <p class="small text-muted mb-2">Générez le permis de feu en version imprimable pour le faire signer sur papier par les sous-traitants qui n'ont pas accès à l'application.</p>
+        <h6 class="text-primary"><i class="bi bi-fire me-1"></i>Permis de feu officiel AXA / CNPP</h6>
+        <div class="alert alert-success small mb-2"><i class="bi bi-paperclip me-1"></i>Un <strong>permis de feu AXA vierge</strong> (modèle CNPP exigé par les conditions particulières) est <strong>automatiquement annexé à chaque PDP</strong> en pièce jointe — à compléter et signer à la main par le conducteur de travaux si besoin. Le bouton ci-dessous génère en plus le permis CNPP <strong>pré-rempli</strong> à partir des données saisies ci-dessus.</div>
         <div class="d-flex flex-wrap gap-2">
-          <button class="btn btn-outline-primary btn-sm" onclick="App.exportPermisFeuDOCX()"><i class="bi bi-file-earmark-word me-1"></i>Permis de feu (Word)</button>
-          <button class="btn btn-outline-danger btn-sm" onclick="App.exportPermisFeuPDF()"><i class="bi bi-file-pdf me-1"></i>Permis de feu (PDF)</button>
-          <button class="btn btn-danger btn-sm" onclick="App.exportPermisFeuCNPP()" title="Génère le permis au modèle officiel CNPP (rempli depuis les données saisies) et l'attache au PDP"><i class="bi bi-fire me-1"></i>Permis de feu CNPP (PDF)</button>
-          <button class="btn btn-outline-secondary btn-sm" onclick="App.exportPermisFeuPrint()"><i class="bi bi-printer me-1"></i>Imprimer le permis de feu</button>
+          <button class="btn btn-danger btn-sm" onclick="App.exportPermisFeuCNPP()" title="Génère le permis au modèle officiel CNPP pré-rempli depuis les données saisies et l'attache au PDP"><i class="bi bi-fire me-1"></i>Générer le permis CNPP pré-rempli</button>
         </div>
       </div>
     </div>
@@ -2212,8 +2209,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <hr class="my-2">
         <p class="small text-muted mb-2"><i class="bi bi-people me-1"></i><strong>Exports papier pour sous-traitants</strong> — Documents séparés à imprimer et faire signer</p>
         <div class="d-flex flex-wrap gap-2">
-          <button class="btn btn-outline-warning btn-sm" onclick="App.exportPermisFeuDOCX()"><i class="bi bi-fire me-1"></i>Permis de feu seul (Word)</button>
-          <button class="btn btn-outline-danger btn-sm" onclick="App.exportPermisFeuPDF()"><i class="bi bi-fire me-1"></i>Permis de feu seul (PDF)</button>
+          <button class="btn btn-danger btn-sm" onclick="App.exportPermisFeuCNPP()"><i class="bi bi-fire me-1"></i>Permis de feu CNPP pré-rempli (PDF)</button>
           <button class="btn btn-outline-info btn-sm" onclick="App.exportPDPSousTraitantDOCX()"><i class="bi bi-file-earmark-text me-1"></i>PDP simplifié sous-traitant (Word)</button>
         </div>
       </div>
@@ -8811,6 +8807,8 @@ const App = {
       DataSync.markDirty();
       // B5 : externalise les binaires photos de ce PDP en tâche de fond (data conservé)
       this._externalizeOnSave(p, db.pdps);
+      // Annexe d'office le permis de feu AXA vierge (modèle CNPP) si pas déjà présent
+      this._ensureBlankPermisFeu(p);
       if (typeof ActivityLog !== 'undefined') ActivityLog.log(wasNew ? 'pdp.create' : 'pdp.update', { id: p.id, numero: p.numero, titre: p.titre, statut: p.statut });
       // Auto-export PDF + Word à la transition vers Clôturé
       if (isFinalTransition) {
@@ -18340,6 +18338,44 @@ const App = {
     doc.save(docName); // téléchargement local également
     this.toast('Permis CNPP généré et attaché au PDP ✓','success');
    } catch(err) { console.error('exportPermisFeuCNPP error:', err); this.toast('Erreur CNPP : '+err.message,'danger'); }
+  },
+
+  // Charge (et cache) les images du modèle CNPP depuis le SharePoint privé.
+  async _loadCNPPTemplate() {
+    if (typeof _downloadFileAsDataURL !== 'function') throw new Error('Module SharePoint non chargé');
+    const recto = App._cnppTplRecto || (App._cnppTplRecto = await _downloadFileAsDataURL(SP_CONFIG.CNPP_RECTO_FILE));
+    let verso = App._cnppTplVerso;
+    if (verso === undefined) { try { verso = App._cnppTplVerso = await _downloadFileAsDataURL(SP_CONFIG.CNPP_VERSO_FILE); } catch(_) { verso = App._cnppTplVerso = null; } }
+    return { recto, verso };
+  },
+
+  // Annexe d'office le permis de feu AXA VIERGE à CHAQUE PDP (exigence : le modèle CNPP
+  // doit toujours être présent au dossier, complété à la main par le conducteur si besoin).
+  // Best-effort, non bloquant : nécessite la connexion SharePoint (lecture du modèle).
+  async _ensureBlankPermisFeu(p) {
+    try {
+      if (!p || !p.id) return;
+      if (!Array.isArray(p.documents)) p.documents = [];
+      if (p.documents.some(d => d.permisVierge)) return;                 // déjà annexé une fois
+      if (typeof DataSync === 'undefined' || !DataSync._connected) return; // modèle indisponible hors-ligne
+      if (!window.jspdf) return;
+      const { recto, verso } = await this._loadCNPPTemplate();
+      if (!recto) return;
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation:'p', unit:'mm', format:'a4', compress:true });
+      const IX = 14, IY = 12, IW = 182;
+      doc.addImage(recto, 'JPEG', IX, IY, IW, IW * 2436/1775);
+      if (verso) { doc.addPage(); const vh = Math.min(IW * 1918/1460, 297 - IY - 6); doc.addImage(verso, 'JPEG', IX, IY, IW, vh); }
+      const blob = doc.output('blob');
+      const dataURL = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
+      // Re-vérifie (course : un autre cycle a pu l'ajouter entre-temps)
+      if (p.documents.some(d => d.permisVierge)) return;
+      p.documents.push({ nom:'Permis-de-feu-AXA-CNPP-vierge.pdf', type:'application/pdf', taille:blob.size, data:dataURL, date:new Date().toISOString(), categorie:'permis_feu', genere_auto:true, permisVierge:true });
+      await db.pdps.put(p);
+      if (typeof DataSync !== 'undefined') DataSync.markDirty();
+      this._externalizeOnSave(p, db.pdps);
+      if (this.currentPDP && this.currentPDP.id === p.id) { try { this.renderDocuments(); } catch(_){} }
+    } catch(e) { console.warn('_ensureBlankPermisFeu:', e); }
   },
 
   exportPermisFeuPrint() {
