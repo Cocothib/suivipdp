@@ -2191,7 +2191,6 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-folder2-open"></i> Documents attachés</div>
           <div id="documents-list-container" class="mb-2"></div>
-          <div id="fiches-reflexe-info"></div>
         </div>
       </div>
     </div>
@@ -11673,8 +11672,9 @@ const App = {
     pdp.documents = pdp.documents || [];
     try {
       // Filtre en JS car Dexie n'indexe pas les booléens correctement
-      // Les fiches réflexe sont annexées en page dédiée (image), pas rattachées comme pièce jointe.
-      const standards = (await db.fds.toArray()).filter(f => f.standard && f.categorie !== 'fiche_reflexe');
+      // Les fiches réflexe « Par défaut » sont rattachées comme pièces jointes (fdsRef),
+      // puis incrustées dans les exports (image directe ou PDF rastérisé), comme le permis de feu.
+      const standards = (await db.fds.toArray()).filter(f => f.standard);
       const existingRefs = new Set(pdp.documents.filter(d => d.fdsRef).map(d => d.fdsRef));
       let added = 0;
       for (const f of standards) {
@@ -11879,22 +11879,6 @@ const App = {
       this._permisImgCache[key] = res;
       return res;
     } catch (e) { console.warn('_getPermisImages échoué:', e); return null; }
-  },
-
-  // Fiches réflexe à annexer aux exports : documents de catégorie « fiche_reflexe » marqués
-  // « Par défaut », triés par nom (FR-01 avant FR-02…). Le `data` est résolu si nécessaire
-  // (téléchargement SharePoint via ensureFDSData pour les entrées sans binaire local).
-  async _getFichesReflexeAnnexes() {
-    const list = (await db.fds.toArray())
-      .filter(f => f.categorie === 'fiche_reflexe' && f.standard)
-      .sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
-    for (const f of list) {
-      if (!f.data && f._spPath) {
-        try { const full = await this.ensureFDSData(f.id); if (full?.data) f.data = full.data; }
-        catch (e) { console.warn('Fiche réflexe data non résolue:', f.nom, e); }
-      }
-    }
-    return list;
   },
 
   // ---- Cache local des binaires photos (table `media`, append-only) ----
@@ -12161,7 +12145,6 @@ const App = {
   renderDocuments() {
     const c = document.getElementById('documents-list-container');
     const docs = this.currentPDP?.documents||[];
-    this.renderFichesReflexeInfo(); // encart : fiches réflexe annexées d'office aux exports
     if (!docs.length) { c.innerHTML = '<p class="text-muted small">Aucun document.</p>'; return; }
     const catColors = {plan:'primary',mode_operatoire:'info',habilitations:'success',fds:'warning',analyse_risques:'danger',permis_feu:'danger',fiche_reflexe:'secondary',attestation:'secondary',photo:'info',autre:'secondary'};
     c.innerHTML = docs.map((d,i) => {
@@ -12183,22 +12166,6 @@ const App = {
         <button class="btn btn-outline-danger btn-sm py-0" onclick="App.currentPDP.documents.splice(${i},1);App.renderDocuments()"><i class="bi bi-trash"></i></button>
       </div>`;
     }).join('');
-  },
-
-  // Encart informatif sous la liste des documents joints : les fiches réflexe cochées
-  // « Par défaut » sont annexées d'office aux exports (Word + PDF) sans être des pièces
-  // jointes du PDP (elles ne s'ajoutent donc pas via « Importer documents par défaut »).
-  async renderFichesReflexeInfo() {
-    const el = document.getElementById('fiches-reflexe-info');
-    if (!el) return;
-    try {
-      const fiches = (await db.fds.toArray())
-        .filter(f => f.categorie === 'fiche_reflexe' && f.standard)
-        .sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
-      if (!fiches.length) { el.innerHTML = ''; return; }
-      const noms = fiches.map(f => this.esc(f.nom)).join(', ');
-      el.innerHTML = `<div class="alert alert-info small mb-0 py-2 mt-2"><i class="bi bi-info-circle me-1"></i><strong>Fiches réflexe annexées automatiquement</strong> aux exports Word et PDF (non listées ci-dessus — gérées dans Paramètres → Bibliothèque) : ${noms}.</div>`;
-    } catch (e) { el.innerHTML = ''; }
   },
 
   // Télécharge un document joint non-FDS (résolution lazy du data, cf downloadFDSRef).
@@ -17964,9 +17931,10 @@ const App = {
           new TextRun({text:`  —  ${catLabel}`,size:20,font:'Calibri',color:'555555'}),
           new TextRun({text:dateStr?`  (${dateStr})`:'',size:18,font:'Calibri',color:'888888'})
         ],spacing:{before:150,after:60}}));
-        // Permis de feu : on incruste le CONTENU réel (pages PDF rastérisées à la volée),
-        // car un .docx ne peut pas embarquer un PDF. Cache mémoire uniquement (cf _getPermisImages).
-        if (d.categorie === 'permis_feu') {
+        // Permis de feu / fiche réflexe PDF : on incruste le CONTENU réel (pages PDF rastérisées
+        // à la volée), car un .docx ne peut pas embarquer un PDF. Cache mémoire (cf _getPermisImages).
+        // Une fiche réflexe IMAGE renvoie null ici (non-PDF) et tombe dans le chemin image ci-dessous.
+        if (d.categorie === 'permis_feu' || d.categorie === 'fiche_reflexe') {
           const imgs = await this._getPermisImages(d);
           if (imgs && imgs.images && imgs.images.length) {
             const usableW = 660; // largeur utile A4 portrait (cohérent avec FR-01)
@@ -17994,7 +17962,13 @@ const App = {
             const imgFmt = (d.type||'').includes('png')?'png':'jpg';
             const raw = atob(_docUrl.split(',')[1]);
             const arr = new Uint8Array(raw.length); for(let k=0;k<raw.length;k++) arr[k]=raw.charCodeAt(k);
-            children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:450,height:320},type:imgFmt})],alignment:AlignmentType.CENTER,spacing:{after:80}}));
+            // Fiche réflexe = document A4 portrait → pleine page (cohérent avec le rendu PDF) ;
+            // autres images (photos d'annexe) → format réduit centré dans le flux.
+            const _fiche = (d.categorie === 'fiche_reflexe');
+            const _imgW = _fiche ? 620 : 450, _imgH = _fiche ? 877 : 320;
+            if (_fiche) children.push(new Paragraph({children:[new PageBreak()]}));
+            children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:_imgW,height:_imgH},type:imgFmt})],alignment:AlignmentType.CENTER,spacing:{after:80}}));
+            if (_fiche) _incrustedDocs.add(d); // image incrustée → exclue du compte « PDF non inclus »
           } catch(e) {
             children.push(new Paragraph({children:[new TextRun({text:'(Image non disponible)',size:18,font:'Calibri',italics:true,color:'999999'})],spacing:{after:80}}));
           }
@@ -18057,55 +18031,13 @@ const App = {
       new TextRun({text:'/',size:14,font:'Calibri',color:'999999'}),
       new TextRun({children:[PageNumber.TOTAL_PAGES],size:14,font:'Calibri',color:'999999'})
     ]});
-    // ---- Annexes : fiches réflexe « Par défaut » (catégorie fiche_reflexe), une section/fiche ----
-    // Triées par nom (FR-01 avant FR-02…). Image → intégrée directement ; PDF → pages rastérisées.
-    const mkAnnexeSection = (childrenAnnexe) => ({
-      properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},
-      footers:{default:new Footer({children:[mkFooterPara()]})},
-      children:childrenAnnexe
-    });
-    const sectionsFichesReflexe = [];
-    try {
-      const fiches = await this._getFichesReflexeAnnexes();
-      for (const f of fiches) {
-        try {
-          const dataUrl = f.data;
-          if (!dataUrl) { console.warn('Fiche réflexe sans données, annexe ignorée:', f.nom); continue; }
-          const annexeChildren = [ secTitle('A', 'ANNEXE — ' + ((f.nom||'Fiche réflexe').toUpperCase())) ];
-          const mime = (f.mime||'').toLowerCase();
-          if (mime.startsWith('image/')) {
-            const _b = atob((dataUrl.split(',')[1]) || '');
-            const _a = new Uint8Array(_b.length); for (let k=0;k<_b.length;k++) _a[k]=_b.charCodeAt(k);
-            const imgType = /png/.test(mime) ? 'png' : 'jpg';
-            annexeChildren.push(new Paragraph({ alignment:AlignmentType.CENTER, children:[new ImageRun({data:_a.buffer, transformation:{width:660, height:933}, type:imgType})] }));
-            sectionsFichesReflexe.push(mkAnnexeSection(annexeChildren));
-          } else if (mime === 'application/pdf') {
-            if (!window.pdfjsLib) { console.warn('pdf.js indisponible — fiche réflexe PDF ignorée:', f.nom); continue; }
-            const res = await this._rasterizePdfToImages(dataUrl);
-            if (!res || !res.images || !res.images.length) { console.warn('Rastérisation fiche réflexe vide:', f.nom); continue; }
-            const usableW = 660;
-            const ratio = (res.heightPt && res.widthPt) ? (res.heightPt / res.widthPt) : 1.4134;
-            const h = Math.round(usableW * ratio);
-            res.images.forEach((im, idx) => {
-              if (idx > 0) annexeChildren.push(new Paragraph({children:[new PageBreak()]}));
-              try {
-                const raw = atob(im.split(',')[1]||'');
-                const arr = new Uint8Array(raw.length); for (let k=0;k<raw.length;k++) arr[k]=raw.charCodeAt(k);
-                annexeChildren.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:usableW,height:h},type:'jpg'})],alignment:AlignmentType.CENTER,spacing:{after:80}}));
-              } catch(e) { console.warn('Incrustation page fiche réflexe échouée:', f.nom, e); }
-            });
-            sectionsFichesReflexe.push(mkAnnexeSection(annexeChildren));
-          } else {
-            console.warn('Fiche réflexe au format non annexable, ignorée:', f.nom, mime);
-          }
-        } catch(e) { console.warn('Annexe fiche réflexe Word échouée:', f.nom, e); }
-      }
-    } catch(e) { console.warn('Préparation annexes fiches réflexe (Word):', e); }
+    // Les fiches réflexe « Par défaut » sont désormais des pièces jointes (fdsRef) incrustées
+    // dans la section « Documents joints » ci-dessus (image directe ou PDF rastérisé), comme le
+    // permis de feu — plus de section annexe dédiée.
 
     const doc = new Document({ sections:[
       {properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},footers:{default:new Footer({children:[mkFooterPara()]})},children},
-      {properties:{page:{margin:{top:720,bottom:720,left:720,right:720},size:{orientation:PageOrientation.LANDSCAPE}}},footers:{default:new Footer({children:[mkFooterPara()]})},children:releveChildren},
-      ...sectionsFichesReflexe
+      {properties:{page:{margin:{top:720,bottom:720,left:720,right:720},size:{orientation:PageOrientation.LANDSCAPE}}},footers:{default:new Footer({children:[mkFooterPara()]})},children:releveChildren}
     ] });
     const blob = await Packer.toBlob(doc);
     const fn = await this.buildPDPFilename(p, 'docx');
@@ -19464,45 +19396,8 @@ const App = {
       bodyStyles:{minCellHeight:16,fontSize:8,cellPadding:2,font:'helvetica'}
     });
 
-    // ---- Annexes : fiches réflexe « Par défaut » (catégorie fiche_reflexe), une page/fiche ----
-    // Triées par nom (FR-01 avant FR-02…). Image → page directe ; PDF → pages rastérisées.
-    try {
-      const fiches = await this._getFichesReflexeAnnexes();
-      for (const f of fiches) {
-        try {
-          const dataUrl = f.data;
-          if (!dataUrl) { console.warn('Fiche réflexe sans données, annexe PDF ignorée:', f.nom); continue; }
-          const titre = 'ANNEXE — ' + ((f.nom||'Fiche réflexe').toUpperCase());
-          const mime = (f.mime||'').toLowerCase();
-          const _bandeau = () => {
-            doc.setFillColor(...GREEN); doc.rect(m, 10, pw, 8, 'F');
-            doc.setTextColor(255,255,255); doc.setFontSize(11); doc.setFont('helvetica','bold');
-            doc.text(titre, m+2, 15.5);
-            doc.setTextColor(0,0,0);
-          };
-          if (mime.startsWith('image/')) {
-            doc.addPage('a4','portrait');
-            _bandeau();
-            const _fmt = /png/.test(mime) ? 'PNG' : 'JPEG';
-            const _iw = 185, _ih = _iw*1.4134, _ix = (210-_iw)/2, _iy = 22;
-            doc.addImage(dataUrl, _fmt, _ix, _iy, _iw, _ih);
-          } else if (mime === 'application/pdf') {
-            if (!window.pdfjsLib) { console.warn('pdf.js indisponible — fiche réflexe PDF ignorée:', f.nom); continue; }
-            const res = await this._rasterizePdfToImages(dataUrl);
-            if (!res || !res.images || !res.images.length) { console.warn('Rastérisation fiche réflexe vide:', f.nom); continue; }
-            const ratio = (res.heightPt && res.widthPt) ? (res.heightPt / res.widthPt) : 1.4134;
-            res.images.forEach((im) => {
-              doc.addPage('a4','portrait');
-              _bandeau();
-              const _iw = 185, _ih = _iw*ratio, _ix = (210-_iw)/2, _iy = 22;
-              doc.addImage(im, 'JPEG', _ix, _iy, _iw, _ih);
-            });
-          } else {
-            console.warn('Fiche réflexe au format non annexable, ignorée (PDF):', f.nom, mime);
-          }
-        } catch(e) { console.warn('Annexe fiche réflexe PDF échouée:', f.nom, e); }
-      }
-    } catch(e) { console.warn('Préparation annexes fiches réflexe (PDF):', e); }
+    // Les fiches réflexe « Par défaut » sont des pièces jointes (fdsRef) annexées au PDF dans la
+    // boucle de fusion ci-dessous (PDF fusionné, image incrustée en page), comme les FDS.
 
     // Pied de page sur toutes les pages (position adaptée à l'orientation)
     const totalPages = doc.internal.getNumberOfPages();
@@ -19542,6 +19437,23 @@ const App = {
           } else if (!dataUrl && (d.ref || d._spPath)) {
             // Document PDF non-FDS externalisé : résolution à la demande.
             try { dataUrl = await this.ensureDocumentData(d); } catch (e) { console.warn('Doc PDF ref non résolu:', e); }
+          }
+          // Pièce jointe IMAGE des catégories à incruster (fiche réflexe / permis de feu) :
+          // pas de PDF à fusionner → on ajoute une page A4 portrait avec l'image centrée.
+          if (dataUrl && /^data:image\//i.test(dataUrl) && (d.categorie === 'fiche_reflexe' || d.categorie === 'permis_feu')) {
+            try {
+              const _isPng = /^data:image\/png/i.test(dataUrl);
+              const _imgBytes = Uint8Array.from(atob(dataUrl.split(',')[1]||''), c=>c.charCodeAt(0));
+              const _img = _isPng ? await out.embedPng(_imgBytes) : await out.embedJpg(_imgBytes);
+              const _pg = out.addPage([595.28, 841.89]); // A4 portrait en points
+              const _mw = 595.28 - 56, _scale = Math.min(_mw/_img.width, (841.89-56)/_img.height);
+              const _w = _img.width*_scale, _h = _img.height*_scale;
+              _pg.drawImage(_img, { x:(595.28-_w)/2, y:(841.89-_h)/2, width:_w, height:_h });
+            } catch (e) {
+              console.warn('Incrustation image (fiche réflexe / permis) échouée:', nm, e);
+              skippedPDF.push(nm || d.nom || ('FDS#'+(d.fdsRef||'?')));
+            }
+            continue;
           }
           if (!dataUrl || !/^data:application\/pdf/i.test(dataUrl)) { skippedPDF.push(nm || d.nom || ('FDS#'+(d.fdsRef||'?'))); continue; }
           try {
