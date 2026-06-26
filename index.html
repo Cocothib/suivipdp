@@ -2191,6 +2191,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-folder2-open"></i> Documents attachés</div>
           <div id="documents-list-container" class="mb-2"></div>
+          <div id="fiches-reflexe-info"></div>
         </div>
       </div>
     </div>
@@ -12160,6 +12161,7 @@ const App = {
   renderDocuments() {
     const c = document.getElementById('documents-list-container');
     const docs = this.currentPDP?.documents||[];
+    this.renderFichesReflexeInfo(); // encart : fiches réflexe annexées d'office aux exports
     if (!docs.length) { c.innerHTML = '<p class="text-muted small">Aucun document.</p>'; return; }
     const catColors = {plan:'primary',mode_operatoire:'info',habilitations:'success',fds:'warning',analyse_risques:'danger',permis_feu:'danger',fiche_reflexe:'secondary',attestation:'secondary',photo:'info',autre:'secondary'};
     c.innerHTML = docs.map((d,i) => {
@@ -12181,6 +12183,22 @@ const App = {
         <button class="btn btn-outline-danger btn-sm py-0" onclick="App.currentPDP.documents.splice(${i},1);App.renderDocuments()"><i class="bi bi-trash"></i></button>
       </div>`;
     }).join('');
+  },
+
+  // Encart informatif sous la liste des documents joints : les fiches réflexe cochées
+  // « Par défaut » sont annexées d'office aux exports (Word + PDF) sans être des pièces
+  // jointes du PDP (elles ne s'ajoutent donc pas via « Importer documents par défaut »).
+  async renderFichesReflexeInfo() {
+    const el = document.getElementById('fiches-reflexe-info');
+    if (!el) return;
+    try {
+      const fiches = (await db.fds.toArray())
+        .filter(f => f.categorie === 'fiche_reflexe' && f.standard)
+        .sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
+      if (!fiches.length) { el.innerHTML = ''; return; }
+      const noms = fiches.map(f => this.esc(f.nom)).join(', ');
+      el.innerHTML = `<div class="alert alert-info small mb-0 py-2 mt-2"><i class="bi bi-info-circle me-1"></i><strong>Fiches réflexe annexées automatiquement</strong> aux exports Word et PDF (non listées ci-dessus — gérées dans Paramètres → Bibliothèque) : ${noms}.</div>`;
+    } catch (e) { el.innerHTML = ''; }
   },
 
   // Télécharge un document joint non-FDS (résolution lazy du data, cf downloadFDSRef).
