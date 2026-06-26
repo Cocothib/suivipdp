@@ -1305,6 +1305,9 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <button class="btn btn-outline-secondary btn-sm fw-bold" onclick="App.openProposeRisk()">
         <i class="bi bi-shield-plus me-1"></i>Proposer un risque
       </button>
+      <button class="btn btn-outline-danger btn-sm fw-bold" onclick="App.printBlankPermisFeu()" title="Télécharger le permis de feu vierge de la bibliothèque">
+        <i class="bi bi-fire me-1"></i>Permis de feu vierge
+      </button>
     </div>
     <!-- KPIs -->
     <div class="row g-2 mb-3">
@@ -2180,7 +2183,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
               </select>
             </div>
             <label class="btn btn-outline-primary btn-sm"><i class="bi bi-upload me-1"></i>Ajouter<input type="file" class="d-none" onchange="App.addDocument(event)" multiple></label>
-            <button class="btn btn-outline-success btn-sm" onclick="App.attachStandardFDSManually()" title="Rattacher les FDS marquées Standard depuis la bibliothèque"><i class="bi bi-file-earmark-pdf me-1"></i>Importer FDS standard</button>
+            <button class="btn btn-outline-success btn-sm" onclick="App.attachStandardFDSManually()" title="Rattacher les documents marqués « Par défaut » depuis la bibliothèque"><i class="bi bi-file-earmark-pdf me-1"></i>Importer documents par défaut</button>
           </div>
           <div class="small text-muted mt-1"><i class="bi bi-info-circle me-1"></i>Pour générer les autorisations internes des intervenants AGRIWATT, utiliser l'onglet <b>Autorisations</b>.</div>
         </div>
@@ -2597,10 +2600,10 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     </div>
     <div class="form-section">
       <div class="form-section-title d-flex justify-content-between align-items-center">
-        <span><i class="bi bi-file-earmark-pdf"></i>Bibliothèque FDS</span>
-        <label class="btn btn-sm btn-outline-primary mb-0"><i class="bi bi-upload me-1"></i>Importer FDS<input type="file" accept="application/pdf" multiple style="display:none" onchange="App.importFDSFiles(event)"></label>
+        <span><i class="bi bi-file-earmark-pdf"></i>Bibliothèque de documents</span>
+        <label class="btn btn-sm btn-outline-primary mb-0"><i class="bi bi-upload me-1"></i>Importer<input type="file" accept="application/pdf,image/*,.doc,.docx" multiple style="display:none" onchange="App.importFDSFiles(event)"></label>
       </div>
-      <div class="section-helper"><i class="bi bi-lightbulb"></i> Les FDS marquées « Standard » sont automatiquement rattachées à chaque nouveau PDP. Ajout/retrait depuis l'onglet Annexes.</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Choisir une catégorie pour chaque document. Un document coché « Par défaut » est automatiquement joint à chaque nouveau PDP ; pour les PDP existants, le rattacher manuellement via le bouton « Importer documents par défaut » de l'onglet Documents.</div>
       <div id="fds-list-container"></div>
     </div>
     <div class="form-section">
@@ -8807,8 +8810,6 @@ const App = {
       DataSync.markDirty();
       // B5 : externalise les binaires photos de ce PDP en tâche de fond (data conservé)
       this._externalizeOnSave(p, db.pdps);
-      // Annexe d'office le permis de feu AXA vierge (modèle CNPP) si pas déjà présent
-      this._ensureBlankPermisFeu(p);
       if (typeof ActivityLog !== 'undefined') ActivityLog.log(wasNew ? 'pdp.create' : 'pdp.update', { id: p.id, numero: p.numero, titre: p.titre, statut: p.statut });
       // Auto-export PDF + Word à la transition vers Clôturé
       if (isFinalTransition) {
@@ -11673,7 +11674,7 @@ const App = {
         pdp.documents.push({
           nom: f.nom, type: f.mime||'application/pdf', taille: f.taille||0,
           fdsRef: f.id, // référence (pas de duplication des données)
-          date: new Date().toISOString(), categorie: 'fds'
+          date: new Date().toISOString(), categorie: f.categorie || 'fds'
         });
         added++;
       }
@@ -11685,12 +11686,23 @@ const App = {
     if (!this.currentPDP) return;
     const added = await this.attachStandardFDS(this.currentPDP);
     if (added) {
-      this.toast(`${added} FDS standard rattachée(s)`);
+      this.toast(`${added} document(s) par défaut rattaché(s)`);
       this.renderDocuments();
       this._markEditing && this._markEditing();
     } else {
-      this.toast('Aucune nouvelle FDS standard à rattacher (déjà présentes ou bibliothèque vide)', 'info');
+      this.toast('Aucun nouveau document par défaut à rattacher (déjà présents ou bibliothèque vide)', 'info');
     }
+  },
+
+  // Télécharge le permis de feu vierge depuis la bibliothèque, sans PDP ouvert.
+  async printBlankPermisFeu() {
+    const all = await db.fds.toArray();
+    const f = all.find(x => x.categorie === 'permis_feu' && x.standard)
+           || all.find(x => x.categorie === 'permis_feu');
+    if (!f) { this.toast('Aucun permis de feu dans la bibliothèque. Ajoutez-le dans Paramètres → Bibliothèque de documents (catégorie « Permis de feu »).', 'warning', 8000); return; }
+    const full = await this.ensureFDSData(f.id);   // télécharge depuis SharePoint si besoin
+    if (!full || !full.data) { this.toast('Permis de feu introuvable (contenu manquant).', 'danger'); return; }
+    this._triggerDownload(full.data, full.nom || 'Permis-de-feu-vierge.pdf');
   },
 
   async downloadFDSRef(fdsId, nom) {
@@ -16021,7 +16033,7 @@ const App = {
     const c = document.getElementById('fds-list-container');
     if (!c) return;
     const all = await db.fds.toArray();
-    if (!all.length) { c.innerHTML = '<p class="text-muted small">Aucune FDS importée. Cliquer sur « Importer FDS » pour ajouter des PDF.</p>'; return; }
+    if (!all.length) { c.innerHTML = '<p class="text-muted small">Aucun document importé. Cliquer sur « Importer » pour ajouter des fichiers.</p>'; return; }
     c.innerHTML = all.map(f => `
       <div class="border rounded p-2 mb-2 d-flex align-items-center gap-2 flex-wrap">
         <i class="bi bi-file-earmark-pdf text-danger fs-5"></i>
@@ -16029,9 +16041,12 @@ const App = {
           <div class="fw-semibold small text-break" style="word-break:break-word">${this.esc(f.nom)}</div>
           <div class="small text-muted">${(f.taille/1024).toFixed(0)} Ko${f.dateAjout ? ' · '+new Date(f.dateAjout).toLocaleDateString('fr-FR') : ''}</div>
         </div>
+        <select class="form-select form-select-sm" style="width:auto" title="Catégorie du document" onchange="App.setFDSCategorie(${f.id}, this.value)">
+          ${[['plan','Plan / Schéma'],['mode_operatoire','Mode opératoire'],['habilitations','Habilitations / Certifications'],['fds','FDS'],['analyse_risques','Analyse de risques'],['permis_feu','Permis de feu'],['attestation','Attestation / Assurance'],['photo','Photo'],['autre','Autre']].map(([v,l]) => `<option value="${v}"${(f.categorie||'fds')===v?' selected':''}>${l}</option>`).join('')}
+        </select>
         <div class="form-check form-switch mb-0" title="Rattacher automatiquement à chaque nouveau PDP">
           <input class="form-check-input" type="checkbox" id="fds-std-${f.id}" ${f.standard?'checked':''} onchange="App.toggleFDSStandard(${f.id}, this.checked)">
-          <label class="form-check-label small" for="fds-std-${f.id}">Standard</label>
+          <label class="form-check-label small" for="fds-std-${f.id}">Par défaut</label>
         </div>
         <button class="btn btn-outline-primary btn-sm" onclick="App.downloadFDS(${f.id})" title="Télécharger"><i class="bi bi-download"></i></button>
         <button class="btn btn-outline-danger btn-sm" onclick="App.deleteFDS(${f.id})" title="Supprimer"><i class="bi bi-trash"></i></button>
@@ -16048,7 +16063,7 @@ const App = {
         const data = await new Promise((res, rej) => {
           const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file);
         });
-        const id = await db.fds.add({ nom: file.name, taille: file.size, mime: file.type||'application/pdf', data, standard: true, dateAjout: new Date().toISOString() });
+        const id = await db.fds.add({ nom: file.name, taille: file.size, mime: file.type||'application/pdf', data, standard: true, categorie: 'fds', dateAjout: new Date().toISOString(), dateModification: new Date().toISOString() });
         added++;
         // Upload immédiat sur SharePoint comme fichier séparé
         if (DataSync._connected) {
@@ -16090,6 +16105,15 @@ const App = {
     const f = await db.fds.get(id);
     if (!f) return;
     f.standard = !!checked;
+    await db.fds.put(f);
+    DataSync.markDirty();
+  },
+
+  async setFDSCategorie(id, cat) {
+    const f = await db.fds.get(id);
+    if (!f) return;
+    f.categorie = cat;
+    f.dateModification = new Date().toISOString();
     await db.fds.put(f);
     DataSync.markDirty();
   },
