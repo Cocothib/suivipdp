@@ -4419,7 +4419,7 @@ const DataSync = {
     async _collectSharedData() {
         const entreprises = await db.entreprises.toArray();
         const settings = await db.settings.toArray();
-        const fdsRaw = db.fds ? (await db.fds.toArray()).filter(f => !f._system) : [];
+        const fdsRaw = db.fds ? await db.fds.toArray() : [];
         const fds = fdsRaw.map(f => { const { data, ...meta } = f; return meta; });
         const sites = await db.sites.toArray();
         const salaries_habilitations = await db.salaries_habilitations.toArray();
@@ -4432,7 +4432,7 @@ const DataSync = {
     async _collectRawData() {
         // Pour les FDS : on ne pousse PAS le `data` base64 dans le JSON shared (trop lourd).
         // Les PDF sont stockés comme fichiers séparés sur SharePoint via _uploadBinaryFromDataURL.
-        const fdsRaw = db.fds ? (await db.fds.toArray()).filter(f => !f._system) : [];
+        const fdsRaw = db.fds ? await db.fds.toArray() : [];
         const fdsMeta = fdsRaw.map(f => { const { data, ...meta } = f; return meta; });
         return {
             pdps:        await db.pdps.toArray(),
@@ -5174,20 +5174,14 @@ const DataSync = {
             if (shared?.fds) {
               // Préserve les `data` base64 locaux (le JSON shared n'en contient plus)
               const localFDS = await db.fds.toArray();
-              const systemFDS = localFDS.filter(f => f._system); // FR-01 : locale, non synchronisée → à réinjecter après clear
-              // Récupération des binaires : entrées NON système uniquement, sinon une FDS distante
-              // au même id que FR-01 hériterait du PNG de la fiche réflexe (corruption silencieuse).
-              const localDataById = new Map(localFDS.filter(f => !f._system).map(f => [f.id, f.data]));
+              const localDataById = new Map(localFDS.map(f => [f.id, f.data]));
               await db.fds.clear();
-              const incoming = shared.fds.length ? shared.fds.map(remote => ({
+              if (shared.fds.length) {
+                const merged = shared.fds.map(remote => ({
                     ...remote,
                     data: remote.data || localDataById.get(remote.id) || null,
-              })) : [];
-              if (incoming.length) await db.fds.bulkPut(incoming);
-              // Réinjecte les entrées système (absentes du distant) sans collision d'id (l'id ne porte aucune sémantique pour FR-01).
-              if (systemFDS.length) {
-                const usedIds = new Set(incoming.map(r => r.id));
-                for (const sys of systemFDS) { const rec = { ...sys }; if (usedIds.has(rec.id)) delete rec.id; await db.fds.put(rec); }
+                }));
+                await db.fds.bulkPut(merged);
               }
             }
             await this._applySharedAuxStores(shared);
@@ -5221,20 +5215,13 @@ const DataSync = {
             if (sharedData.fds) {
               // Préserve les `data` base64 locaux (le JSON shared n'en contient plus)
               const localFDS = await db.fds.toArray();
-              const systemFDS = localFDS.filter(f => f._system); // FR-01 : locale, non synchronisée → à réinjecter après clear
-              // Récupération des binaires : entrées NON système uniquement, sinon une FDS distante
-              // au même id que FR-01 hériterait du PNG de la fiche réflexe (corruption silencieuse).
-              const localDataById = new Map(localFDS.filter(f => !f._system).map(f => [f.id, f.data]));
+              const localDataById = new Map(localFDS.map(f => [f.id, f.data]));
               await db.fds.clear();
-              const incoming = sharedData.fds.length ? sharedData.fds.map(remote => ({
+              if (sharedData.fds.length) {
+                await db.fds.bulkPut(sharedData.fds.map(remote => ({
                     ...remote,
                     data: remote.data || localDataById.get(remote.id) || null,
-              })) : [];
-              if (incoming.length) await db.fds.bulkPut(incoming);
-              // Réinjecte les entrées système (absentes du distant) sans collision d'id (l'id ne porte aucune sémantique pour FR-01).
-              if (systemFDS.length) {
-                const usedIds = new Set(incoming.map(r => r.id));
-                for (const sys of systemFDS) { const rec = { ...sys }; if (usedIds.has(rec.id)) delete rec.id; await db.fds.put(rec); }
+                })));
               }
             }
             await this._applySharedAuxStores(sharedData);
@@ -7712,9 +7699,9 @@ const App = {
       await this.populateSiteSelects();
       _step('Synchronisation...', 60);
       await this._initSharePoint();
-      // Après le pull SharePoint (qui remplace la table fds) : (re)seed l'entrée système FR-01,
-      // locale et non synchronisée, pour qu'elle soit toujours présente dans la bibliothèque.
-      try { await this.seedSystemFDS(); } catch (e) { console.warn('seedSystemFDS (boot):', e); }
+      // Après le pull SharePoint : migration éventuelle de l'ancienne entrée système FR-01
+      // en document normal + seed initial (idempotent via le flag réglages fr01Seeded).
+      try { await this.seedFR01(); } catch (e) { console.warn('seedFR01 (boot):', e); }
       _step('Préparation du tableau de bord...', 80);
       this.updateDashboard();
       _step('Prêt !', 100);
@@ -11685,7 +11672,8 @@ const App = {
     pdp.documents = pdp.documents || [];
     try {
       // Filtre en JS car Dexie n'indexe pas les booléens correctement
-      const standards = (await db.fds.toArray()).filter(f => f.standard && !f._system);
+      // Les fiches réflexe sont annexées en page dédiée (image), pas rattachées comme pièce jointe.
+      const standards = (await db.fds.toArray()).filter(f => f.standard && f.categorie !== 'fiche_reflexe');
       const existingRefs = new Set(pdp.documents.filter(d => d.fdsRef).map(d => d.fdsRef));
       let added = 0;
       for (const f of standards) {
@@ -11892,14 +11880,20 @@ const App = {
     } catch (e) { console.warn('_getPermisImages échoué:', e); return null; }
   },
 
-  // Source de la fiche réflexe FR-01 pour les exports : l'entrée bibliothèque verrouillée
-  // si présente, sinon repli sur l'image embarquée (garantit que FR-01 ne disparaît jamais).
-  async _getFR01DataURL() {
-    try {
-      const e = (await db.fds.toArray()).find(f => f._system === 'fr01');
-      if (e && e.data) return e.data;
-    } catch (err) { console.warn('_getFR01DataURL:', err); }
-    return getFR01DataURL();
+  // Fiches réflexe à annexer aux exports : documents de catégorie « fiche_reflexe » marqués
+  // « Par défaut », triés par nom (FR-01 avant FR-02…). Le `data` est résolu si nécessaire
+  // (téléchargement SharePoint via ensureFDSData pour les entrées sans binaire local).
+  async _getFichesReflexeAnnexes() {
+    const list = (await db.fds.toArray())
+      .filter(f => f.categorie === 'fiche_reflexe' && f.standard)
+      .sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
+    for (const f of list) {
+      if (!f.data && f._spPath) {
+        try { const full = await this.ensureFDSData(f.id); if (full?.data) f.data = full.data; }
+        catch (e) { console.warn('Fiche réflexe data non résolue:', f.nom, e); }
+      }
+    }
+    return list;
   },
 
   // ---- Cache local des binaires photos (table `media`, append-only) ----
@@ -16007,28 +16001,55 @@ const App = {
     }
   },
 
-  // Seed idempotent de la fiche réflexe FR-01 dans la bibliothèque, en entrée SYSTÈME
-  // verrouillée (non supprimable, non synchronisée, re-seedée localement sur chaque poste).
-  // Source d'image embarquée (getFR01DataURL) → aucun téléchargement requis.
-  async seedSystemFDS() {
+  // Seed idempotent de la fiche réflexe FR-01 dans la bibliothèque, en DOCUMENT NORMAL
+  // (catégorie « fiche_reflexe ») : modifiable, supprimable, synchronisé comme une FDS.
+  // Idempotence assurée par un flag global dans les réglages synchronisés (fr01Seeded) :
+  // si l'admin supprime FR-01 volontairement, elle n'est pas recréée au boot suivant.
+  async seedFR01() {
     try {
       if (!db.fds) return;
+      // C1 — Migration : convertit toute entrée système héritée (_system) en document normal.
       const all = await db.fds.toArray();
-      const fr01 = all.filter(f => f._system === 'fr01');
-      if (fr01.length > 1) {
-        // Doublon historique : garder la première, supprimer les autres.
-        for (let i = 1; i < fr01.length; i++) { try { await db.fds.delete(fr01[i].id); } catch (e) {} }
+      const legacy = all.filter(f => f._system);
+      let migrated = false;
+      for (const f of legacy) {
+        delete f._system;
+        if (!f.categorie) f.categorie = 'fiche_reflexe';
+        await db.fds.put(f);
+        migrated = true;
       }
-      if (fr01.length === 0) {
-        const now = new Date().toISOString();
-        await db.fds.add({
-          nom: 'Fiche réflexe FR-01 — Pollution accidentelle',
-          taille: 0, mime: 'image/png', data: getFR01DataURL(),
-          standard: true, categorie: 'fiche_reflexe', _system: 'fr01',
-          dateAjout: now, dateModification: now
-        });
+      // C2 — Seed initial : flag global synchronisé (pas localStorage) pour l'idempotence.
+      try { await this.loadSettings(); } catch (e) {}
+      this._settings = this._settings || {};
+      const hasFiche = (await db.fds.toArray()).some(f => f.categorie === 'fiche_reflexe');
+      if (!this._settings.fr01Seeded) {
+        if (!hasFiche) {
+          const now = new Date().toISOString();
+          const _dataUrl = getFR01DataURL();
+          const _id = await db.fds.add({
+            nom: 'Fiche réflexe FR-01 — Pollution accidentelle',
+            taille: 0, mime: 'image/png', data: _dataUrl,
+            standard: true, categorie: 'fiche_reflexe',
+            dateAjout: now, dateModification: now
+          });
+          // Upload SharePoint (comme un import) → les autres postes récupèrent le binaire via _spPath.
+          if (DataSync._connected) {
+            try {
+              const rec = await db.fds.get(_id);
+              const path = _fdsFilePath(rec);
+              await _uploadBinaryFromDataURL(path, _dataUrl, 'image/png');
+              rec._spPath = path; await db.fds.put(rec);
+            } catch (e) { console.warn('Upload FR-01 SharePoint (seed):', e); }
+          }
+        }
+        this._settings.fr01Seeded = true;
+        await db.settings.put({ key: 'general', value: this._settings });
+        DataSync.markDirty();
+      } else if (migrated) {
+        // Flag déjà posé, mais conversion _system → normal effectuée : à synchroniser.
+        DataSync.markDirty();
       }
-    } catch (e) { console.warn('seedSystemFDS:', e); }
+    } catch (e) { console.warn('seedFR01:', e); }
   },
 
   // Migration unique : copie responsable/fonction/tel/email des anciens "sites" vers les agences correspondantes.
@@ -16155,24 +16176,22 @@ const App = {
     const all = await db.fds.toArray();
     if (!all.length) { c.innerHTML = '<p class="text-muted small">Aucun document importé. Cliquer sur « Importer » pour ajouter des fichiers.</p>'; return; }
     c.innerHTML = all.map(f => {
-      const sys = !!f._system; // entrée système (FR-01) : verrouillée
-      const lock = sys ? ' disabled' : '';
       return `
       <div class="border rounded p-2 mb-2 d-flex align-items-center gap-2 flex-wrap">
         <i class="bi bi-file-earmark-pdf text-danger fs-5"></i>
         <div class="flex-grow-1" style="min-width:0">
-          <div class="fw-semibold small text-break" style="word-break:break-word">${this.esc(f.nom)}${sys ? ' <span class="badge bg-secondary ms-1" title="Document système — non supprimable">Système</span>' : ''}</div>
+          <div class="fw-semibold small text-break" style="word-break:break-word">${this.esc(f.nom)}</div>
           <div class="small text-muted">${(f.taille/1024).toFixed(0)} Ko${f.dateAjout ? ' · '+new Date(f.dateAjout).toLocaleDateString('fr-FR') : ''}</div>
         </div>
-        <select class="form-select form-select-sm" style="width:auto" title="${sys ? 'Document système — catégorie verrouillée' : 'Catégorie du document'}"${lock} onchange="App.setFDSCategorie(${f.id}, this.value)">
+        <select class="form-select form-select-sm" style="width:auto" title="Catégorie du document" onchange="App.setFDSCategorie(${f.id}, this.value)">
           ${[['plan','Plan / Schéma'],['mode_operatoire','Mode opératoire'],['habilitations','Habilitations / Certifications'],['fds','FDS'],['analyse_risques','Analyse de risques'],['permis_feu','Permis de feu'],['fiche_reflexe','Fiche réflexe'],['attestation','Attestation / Assurance'],['photo','Photo'],['autre','Autre']].map(([v,l]) => `<option value="${v}"${(f.categorie||'fds')===v?' selected':''}>${l}</option>`).join('')}
         </select>
-        <div class="form-check form-switch mb-0" title="${sys ? 'Document système — toujours rattaché' : 'Rattacher automatiquement à chaque nouveau PDP'}">
-          <input class="form-check-input" type="checkbox" id="fds-std-${f.id}" ${f.standard?'checked':''}${lock} onchange="App.toggleFDSStandard(${f.id}, this.checked)">
+        <div class="form-check form-switch mb-0" title="Rattacher automatiquement à chaque nouveau PDP">
+          <input class="form-check-input" type="checkbox" id="fds-std-${f.id}" ${f.standard?'checked':''} onchange="App.toggleFDSStandard(${f.id}, this.checked)">
           <label class="form-check-label small" for="fds-std-${f.id}">Par défaut</label>
         </div>
         <button class="btn btn-outline-primary btn-sm" onclick="App.downloadFDS(${f.id})" title="Télécharger"><i class="bi bi-download"></i></button>
-        <button class="btn btn-outline-danger btn-sm"${lock} onclick="App.deleteFDS(${f.id})" title="${sys ? 'Document système — non supprimable' : 'Supprimer'}"><i class="bi bi-trash"></i></button>
+        <button class="btn btn-outline-danger btn-sm" onclick="App.deleteFDS(${f.id})" title="Supprimer"><i class="bi bi-trash"></i></button>
       </div>`;
     }).join('');
   },
@@ -16213,7 +16232,7 @@ const App = {
     const all = await db.fds.toArray();
     let uploaded = 0;
     for (const f of all) {
-      if (!f.data || f._spPath || f._system) continue; // _system (FR-01) : locale, jamais poussée sur SharePoint
+      if (!f.data || f._spPath) continue;
       try {
         const path = _fdsFilePath(f);
         await _uploadBinaryFromDataURL(path, f.data, f.mime||'application/pdf');
@@ -16228,7 +16247,6 @@ const App = {
   async toggleFDSStandard(id, checked) {
     const f = await db.fds.get(id);
     if (!f) return;
-    if (f._system) { await this.renderFDSList(); return; } // entrée système : toujours « par défaut », non modifiable
     f.standard = !!checked;
     await db.fds.put(f);
     DataSync.markDirty();
@@ -16237,7 +16255,6 @@ const App = {
   async setFDSCategorie(id, cat) {
     const f = await db.fds.get(id);
     if (!f) return;
-    if (f._system) { await this.renderFDSList(); return; } // entrée système : catégorie verrouillée
     f.categorie = cat;
     f.dateModification = new Date().toISOString();
     await db.fds.put(f);
@@ -16328,8 +16345,6 @@ const App = {
   },
 
   async deleteFDS(id) {
-    const _f = await db.fds.get(id);
-    if (_f && _f._system) { this.toast('Document système — non supprimable', 'warning'); return; }
     if (!await this.confirm('Supprimer cette FDS de la bibliothèque ? Les PDP qui la référencent garderont la référence (rouge cassée).')) return;
     const f = await db.fds.get(id);
     if (f?._spPath && DataSync._connected) {
@@ -18024,22 +18039,55 @@ const App = {
       new TextRun({text:'/',size:14,font:'Calibri',color:'999999'}),
       new TextRun({children:[PageNumber.TOTAL_PAGES],size:14,font:'Calibri',color:'999999'})
     ]});
-    // ---- Annexe : Fiche réflexe FR-01 « Pollution accidentelle » (jointe systématiquement) ----
-    // Source FR-01 : entrée bibliothèque verrouillée si présente, sinon repli embarqué.
-    const _fr01Url = await this._getFR01DataURL();
-    let fr01Buf = null;
+    // ---- Annexes : fiches réflexe « Par défaut » (catégorie fiche_reflexe), une section/fiche ----
+    // Triées par nom (FR-01 avant FR-02…). Image → intégrée directement ; PDF → pages rastérisées.
+    const mkAnnexeSection = (childrenAnnexe) => ({
+      properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},
+      footers:{default:new Footer({children:[mkFooterPara()]})},
+      children:childrenAnnexe
+    });
+    const sectionsFichesReflexe = [];
     try {
-      const _b = atob((_fr01Url.split(',')[1]) || '');
-      const _a = new Uint8Array(_b.length); for (let k=0;k<_b.length;k++) _a[k]=_b.charCodeAt(k);
-      fr01Buf = _a.buffer;
-    } catch(e) { console.warn('FR-01 buffer (repli embarqué):', e); fr01Buf = getFR01Buffer(); }
-    const annexeChildren = [ secTitle('A', 'ANNEXE — FICHE RÉFLEXE FR-01 : POLLUTION ACCIDENTELLE') ];
-    if (fr01Buf) annexeChildren.push(new Paragraph({ alignment:AlignmentType.CENTER, children:[new ImageRun({data:fr01Buf, transformation:{width:660, height:933}, type:'png'})] }));
+      const fiches = await this._getFichesReflexeAnnexes();
+      for (const f of fiches) {
+        try {
+          const dataUrl = f.data;
+          if (!dataUrl) { console.warn('Fiche réflexe sans données, annexe ignorée:', f.nom); continue; }
+          const annexeChildren = [ secTitle('A', 'ANNEXE — ' + ((f.nom||'Fiche réflexe').toUpperCase())) ];
+          const mime = (f.mime||'').toLowerCase();
+          if (mime.startsWith('image/')) {
+            const _b = atob((dataUrl.split(',')[1]) || '');
+            const _a = new Uint8Array(_b.length); for (let k=0;k<_b.length;k++) _a[k]=_b.charCodeAt(k);
+            const imgType = /png/.test(mime) ? 'png' : 'jpg';
+            annexeChildren.push(new Paragraph({ alignment:AlignmentType.CENTER, children:[new ImageRun({data:_a.buffer, transformation:{width:660, height:933}, type:imgType})] }));
+            sectionsFichesReflexe.push(mkAnnexeSection(annexeChildren));
+          } else if (mime === 'application/pdf') {
+            if (!window.pdfjsLib) { console.warn('pdf.js indisponible — fiche réflexe PDF ignorée:', f.nom); continue; }
+            const res = await this._rasterizePdfToImages(dataUrl);
+            if (!res || !res.images || !res.images.length) { console.warn('Rastérisation fiche réflexe vide:', f.nom); continue; }
+            const usableW = 660;
+            const ratio = (res.heightPt && res.widthPt) ? (res.heightPt / res.widthPt) : 1.4134;
+            const h = Math.round(usableW * ratio);
+            res.images.forEach((im, idx) => {
+              if (idx > 0) annexeChildren.push(new Paragraph({children:[new PageBreak()]}));
+              try {
+                const raw = atob(im.split(',')[1]||'');
+                const arr = new Uint8Array(raw.length); for (let k=0;k<raw.length;k++) arr[k]=raw.charCodeAt(k);
+                annexeChildren.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:usableW,height:h},type:'jpg'})],alignment:AlignmentType.CENTER,spacing:{after:80}}));
+              } catch(e) { console.warn('Incrustation page fiche réflexe échouée:', f.nom, e); }
+            });
+            sectionsFichesReflexe.push(mkAnnexeSection(annexeChildren));
+          } else {
+            console.warn('Fiche réflexe au format non annexable, ignorée:', f.nom, mime);
+          }
+        } catch(e) { console.warn('Annexe fiche réflexe Word échouée:', f.nom, e); }
+      }
+    } catch(e) { console.warn('Préparation annexes fiches réflexe (Word):', e); }
 
     const doc = new Document({ sections:[
       {properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},footers:{default:new Footer({children:[mkFooterPara()]})},children},
       {properties:{page:{margin:{top:720,bottom:720,left:720,right:720},size:{orientation:PageOrientation.LANDSCAPE}}},footers:{default:new Footer({children:[mkFooterPara()]})},children:releveChildren},
-      {properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},footers:{default:new Footer({children:[mkFooterPara()]})},children:annexeChildren}
+      ...sectionsFichesReflexe
     ] });
     const blob = await Packer.toBlob(doc);
     const fn = await this.buildPDPFilename(p, 'docx');
@@ -19398,16 +19446,45 @@ const App = {
       bodyStyles:{minCellHeight:16,fontSize:8,cellPadding:2,font:'helvetica'}
     });
 
-    // ---- Annexe : Fiche réflexe FR-01 « Pollution accidentelle » (TOUJOURS en dernière position) ----
+    // ---- Annexes : fiches réflexe « Par défaut » (catégorie fiche_reflexe), une page/fiche ----
+    // Triées par nom (FR-01 avant FR-02…). Image → page directe ; PDF → pages rastérisées.
     try {
-      doc.addPage('a4','portrait');
-      doc.setFillColor(...GREEN); doc.rect(m, 10, pw, 8, 'F');
-      doc.setTextColor(255,255,255); doc.setFontSize(11); doc.setFont('helvetica','bold');
-      doc.text('ANNEXE — FICHE RÉFLEXE FR-01 : POLLUTION ACCIDENTELLE', m+2, 15.5);
-      doc.setTextColor(0,0,0);
-      const _iw = 185, _ih = _iw*1.4134, _ix = (210-_iw)/2, _iy = 22;
-      doc.addImage(await this._getFR01DataURL(), 'PNG', _ix, _iy, _iw, _ih);
-    } catch(e) { console.warn('Annexe FR-01 PDF échouée:', e); }
+      const fiches = await this._getFichesReflexeAnnexes();
+      for (const f of fiches) {
+        try {
+          const dataUrl = f.data;
+          if (!dataUrl) { console.warn('Fiche réflexe sans données, annexe PDF ignorée:', f.nom); continue; }
+          const titre = 'ANNEXE — ' + ((f.nom||'Fiche réflexe').toUpperCase());
+          const mime = (f.mime||'').toLowerCase();
+          const _bandeau = () => {
+            doc.setFillColor(...GREEN); doc.rect(m, 10, pw, 8, 'F');
+            doc.setTextColor(255,255,255); doc.setFontSize(11); doc.setFont('helvetica','bold');
+            doc.text(titre, m+2, 15.5);
+            doc.setTextColor(0,0,0);
+          };
+          if (mime.startsWith('image/')) {
+            doc.addPage('a4','portrait');
+            _bandeau();
+            const _fmt = /png/.test(mime) ? 'PNG' : 'JPEG';
+            const _iw = 185, _ih = _iw*1.4134, _ix = (210-_iw)/2, _iy = 22;
+            doc.addImage(dataUrl, _fmt, _ix, _iy, _iw, _ih);
+          } else if (mime === 'application/pdf') {
+            if (!window.pdfjsLib) { console.warn('pdf.js indisponible — fiche réflexe PDF ignorée:', f.nom); continue; }
+            const res = await this._rasterizePdfToImages(dataUrl);
+            if (!res || !res.images || !res.images.length) { console.warn('Rastérisation fiche réflexe vide:', f.nom); continue; }
+            const ratio = (res.heightPt && res.widthPt) ? (res.heightPt / res.widthPt) : 1.4134;
+            res.images.forEach((im) => {
+              doc.addPage('a4','portrait');
+              _bandeau();
+              const _iw = 185, _ih = _iw*ratio, _ix = (210-_iw)/2, _iy = 22;
+              doc.addImage(im, 'JPEG', _ix, _iy, _iw, _ih);
+            });
+          } else {
+            console.warn('Fiche réflexe au format non annexable, ignorée (PDF):', f.nom, mime);
+          }
+        } catch(e) { console.warn('Annexe fiche réflexe PDF échouée:', f.nom, e); }
+      }
+    } catch(e) { console.warn('Préparation annexes fiches réflexe (PDF):', e); }
 
     // Pied de page sur toutes les pages (position adaptée à l'orientation)
     const totalPages = doc.internal.getNumberOfPages();
