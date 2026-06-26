@@ -2644,6 +2644,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="d-flex flex-wrap gap-2 mt-2">
         <button class="btn btn-outline-primary btn-sm" onclick="App.archiveMissingICP()" title="Archive uniquement les ICP réalisées (effectuée/validée) qui n'ont pas encore de fichier dans SuiviPDP/ICP/Exports"><i class="bi bi-cloud-arrow-up me-1"></i>Archiver les ICP réalisées manquantes</button>
         <button class="btn btn-outline-warning btn-sm" onclick="App.archiveAllOldExports()" title="Génère les Word + PDF de tous les PDP/ICP existants et les uploade sur SharePoint avec les nouveaux noms"><i class="bi bi-arrow-repeat me-1"></i>Re-archiver tous les PDP/ICP</button>
+        <button class="btn btn-outline-success btn-sm" onclick="App.backfillFichesReflexe()" title="Ajoute les fiches réflexe marquées « Par défaut » (FR-01, FR-02…) à tous les PDP existants, sans toucher aux FDS"><i class="bi bi-clipboard-plus me-1"></i>Ajouter les fiches réflexe aux PDP existants</button>
       </div>
     </div>
 
@@ -16262,6 +16263,33 @@ const App = {
     a.href = f.data;
     a.download = f.nom || 'fds.pdf';
     a.click();
+  },
+
+  // ---- Backfill des fiches réflexe sur les PDP existants ----
+  // Le passage des fiches réflexe au modèle « pièce jointe » ne couvre que les PDP créés
+  // après le changement. Ce backfill ajoute les fiches « Par défaut » manquantes à TOUS les
+  // PDP existants, SANS toucher aux FDS (couverture réglementaire de la fiche pollution).
+  async backfillFichesReflexe() {
+    const fiches = (await db.fds.toArray()).filter(f => f.standard && f.categorie === 'fiche_reflexe');
+    if (!fiches.length) { this.toast('Aucune fiche réflexe « Par défaut » dans la bibliothèque.', 'warning', 6000); return; }
+    if (!await this.confirm(`Ajouter ${fiches.length} fiche(s) réflexe « Par défaut » à tous les PDP existants qui ne les ont pas ? Les FDS ne sont pas modifiées. Enregistrez d'abord un éventuel PDP ouvert en cours d'édition.`)) return;
+    const pdps = await db.pdps.toArray();
+    let modifiedPdps = 0, addedTotal = 0;
+    for (const p of pdps) {
+      p.documents = p.documents || [];
+      const existingRefs = new Set(p.documents.filter(d => d.fdsRef).map(d => d.fdsRef));
+      let added = 0;
+      for (const f of fiches) {
+        if (existingRefs.has(f.id)) continue;
+        p.documents.push({ nom: f.nom, type: f.mime || 'application/pdf', taille: f.taille || 0, fdsRef: f.id, date: new Date().toISOString(), categorie: f.categorie });
+        added++;
+      }
+      if (added) { p.dateModification = new Date().toISOString(); await db.pdps.put(p); modifiedPdps++; addedTotal += added; }
+    }
+    if (modifiedPdps) DataSync.markDirty();
+    // Recharge le PDP ouvert (sa copie mémoire ne porte pas les fiches ajoutées en base).
+    if (this.currentPDP?.id != null) { try { const fresh = await db.pdps.get(this.currentPDP.id); if (fresh) { this.currentPDP = fresh; this.renderDocuments(); } } catch(_){} }
+    this.toast(`${addedTotal} fiche(s) ajoutée(s) sur ${modifiedPdps} PDP.`, 'success', 8000);
   },
 
   // ---- Archivage batch des PDP/ICP existants vers SharePoint ----
