@@ -19371,8 +19371,10 @@ const App = {
         y+=5; doc.setTextColor(0,0,0);
         // Résolution lazy du data (inline aujourd'hui, externalisé demain).
         const _docUrlPDF = await this.ensureDocumentData(d);
-        // Si c'est une image, l'intégrer
-        if (_docUrlPDF && (d.type||'').startsWith('image/')) {
+        // Si c'est une image, l'intégrer — SAUF fiche réflexe / permis de feu : ils sont
+        // annexés en pleine page A4 en fin de document (sinon doublon en format réduit ici).
+        const _annexePleinePage = (d.categorie === 'fiche_reflexe' || d.categorie === 'permis_feu');
+        if (_docUrlPDF && (d.type||'').startsWith('image/') && !_annexePleinePage) {
           try {
             const imgFmt = (d.type||'').includes('png')?'PNG':'JPEG';
             checkPage(100);
@@ -19383,6 +19385,10 @@ const App = {
             doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(150,150,150);
             doc.text('(Image non disponible)',m,y); y+=5; doc.setTextColor(0,0,0);
           }
+        } else if (_annexePleinePage) {
+          doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(100,100,100);
+          doc.text('→ annexé en pleine page en fin de document', m, y); y+=5;
+          doc.setTextColor(0,0,0);
         } else {
           doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(100,100,100);
           doc.text(`Fichier joint : ${d.nom||''} (${(d.type||'').split('/').pop()||'fichier'})`,m,y); y+=5;
