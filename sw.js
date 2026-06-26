@@ -1,4 +1,4 @@
-const CACHE_NAME = 'suivi-pdp-v140';
+const CACHE_NAME = 'suivi-pdp-v141';
 
 // App shell local
 const ASSETS = [

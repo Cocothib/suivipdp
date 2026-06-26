@@ -17821,28 +17821,10 @@ const App = {
       }
     }
 
-    // ---- Annexes — Fiches de Données de Sécurité (référencées, fournies séparément) ----
-    // Un DOCX ne peut pas incruster de façon fiable le contenu d'un PDF FDS : on les LISTE,
-    // en signalant qu'elles sont fournies séparément (ZIP / SharePoint). Cohérent avec le ZIP.
+    // Documents joints PDF (contenu non incrustable dans un .docx). Ils sont déjà listés
+    // dans la section « Documents joints / Annexes » ci-dessus : pas de section dédiée
+    // redondante. On conserve juste leur compte pour l'avertissement au téléchargement.
     const _fdsRefsDocx = (p.documents||[]).filter(d => d && d.fdsRef);
-    if (_fdsRefsDocx.length) {
-      // Résoudre les références pour afficher le bon nom (map local, ne pas polluer le modèle).
-      const _fdsNoms = new Map();
-      for (const d of _fdsRefsDocx) {
-        try { const f = await this.ensureFDSData(d.fdsRef); if (f?.nom) _fdsNoms.set(d, f.nom); } catch (e) { /* nom de secours plus bas */ }
-      }
-      secNum++;
-      children.push(secTitle(String(secNum),'ANNEXES — FICHES DE DONNÉES DE SÉCURITÉ'));
-      children.push(new Paragraph({children:[new TextRun({text:'Le présent document Word ne contient pas le contenu des FDS. Les fiches suivantes sont fournies séparément (voir export ZIP / SharePoint) :',size:18,font:'Calibri',italics:true,color:'666666'})],spacing:{after:100}}));
-      _fdsRefsDocx.forEach((d,i) => {
-        const nm = _fdsNoms.get(d) || d.nom || ('FDS#'+(d.fdsRef||'?'));
-        children.push(new Paragraph({children:[
-          new TextRun({text:`${i+1}. `,size:20,bold:true,font:'Calibri'}),
-          new TextRun({text:nm,size:20,font:'Calibri'}),
-          new TextRun({text:'  —  Fournie séparément (voir export ZIP / SharePoint)',size:18,font:'Calibri',italics:true,color:'888888'})
-        ],spacing:{after:60}}));
-      });
-    }
 
     // Modifications
     if ((p.modifications||[]).length) {
@@ -17908,11 +17890,11 @@ const App = {
       this._docxBlobResult = blob;
       return;
     }
-    // Le Word ne contient pas le contenu des FDS : prévenir avant téléchargement (cohérent avec le ZIP).
+    // Le Word ne porte pas le contenu des fichiers PDF joints : prévenir avant téléchargement (cohérent avec le ZIP).
     if (_fdsRefsDocx.length) {
-      const ok = await this.confirm(`Le Word ne contient pas le contenu des ${_fdsRefsDocx.length} FDS référencée(s) (listées en annexe seulement). Pour un dossier réglementaire complet, utiliser l'export ZIP ou PDF. Continuer le téléchargement du Word ?`);
-      if (!ok) { this.toast('Export Word annulé — utiliser l\'export ZIP ou PDF pour inclure les FDS', 'info', 6000); return; }
-      this.toast(`Word généré — ${_fdsRefsDocx.length} FDS NON incluse(s), à fournir via ZIP/SharePoint`, 'warning', 8000);
+      const ok = await this.confirm(`Le Word ne contient pas le contenu des ${_fdsRefsDocx.length} document(s) PDF joint(s) (listés seulement). Pour un dossier réglementaire complet, utiliser l'export ZIP ou PDF. Continuer le téléchargement du Word ?`);
+      if (!ok) { this.toast('Export Word annulé — utiliser l\'export ZIP ou PDF pour inclure les pièces jointes', 'info', 6000); return; }
+      this.toast(`Word généré — ${_fdsRefsDocx.length} pièce(s) PDF non incluse(s), à fournir via ZIP/SharePoint`, 'warning', 8000);
     } else {
       this.toast('Word généré');
     }
