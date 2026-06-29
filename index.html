@@ -2061,6 +2061,10 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
             <div class="col-12 col-md-6"><label class="check-card mb-1"><input type="checkbox" id="pf-cnpp-degazer"><span>Dégazer les réservoirs et canalisations</span></label></div>
             <div class="col-12 col-md-6"><label class="check-card mb-1"><input type="checkbox" id="pf-cnpp-extincteurs"><span>Disposer d'extincteurs à proximité</span></label></div>
           </div>
+          <div class="row g-2 mt-1">
+            <div class="col-md-6"><label class="form-label small mb-0">Moyens de lutte contre l'incendie</label><input type="text" class="form-control form-control-sm" id="pf-moyens-lutte" placeholder="Extincteurs, RIA, couverture anti-feu..."></div>
+            <div class="col-md-6"><label class="form-label small mb-0">Moyens d'alerte</label><input type="text" class="form-control form-control-sm" id="pf-moyens-alerte" placeholder="Téléphone, n° secours, sirène..."></div>
+          </div>
         </div>
 
         <h6 class="mt-4 mb-2 text-primary" data-type-label="pf-validations-title"><i class="bi bi-arrow-repeat me-1"></i>Périodes de validation EU &amp; Rondes de surveillance</h6>
@@ -3615,6 +3619,10 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
               <div class="col-6"><label class="check-card"><input type="checkbox" id="pfr-cnpp-eloigner"><span>Éloigner / couvrir matériau combustible</span></label></div>
               <div class="col-6"><label class="check-card"><input type="checkbox" id="pfr-cnpp-degazer"><span>Dégazer réservoirs / canalisations</span></label></div>
               <div class="col-6"><label class="check-card"><input type="checkbox" id="pfr-cnpp-extincteurs"><span>Extincteurs à proximité</span></label></div>
+            </div>
+            <div class="row g-2 mb-2">
+              <div class="col-md-6"><label class="form-label small mb-0">Moyens de lutte contre l'incendie</label><input type="text" class="form-control form-control-sm" id="pfr-moyens-lutte"></div>
+              <div class="col-md-6"><label class="form-label small mb-0">Moyens d'alerte</label><input type="text" class="form-control form-control-sm" id="pfr-moyens-alerte"></div>
             </div>
             <div class="mb-2"><label class="form-label small mb-0">Actions complémentaires</label><textarea class="form-control form-control-sm" id="pfr-actions" rows="2"></textarea></div>
             <div class="row g-2 mb-2 align-items-center">
@@ -8743,6 +8751,8 @@ const App = {
     ['nettoyer','eloigner','degazer','extincteurs'].forEach(id => {
       const el = document.getElementById('pf-cnpp-'+id); if (el) el.checked = (pf.cnppActions||[]).includes(id);
     });
+    { const _ml = document.getElementById('pf-moyens-lutte'); if (_ml) _ml.value = pf.moyensLutte || ''; }
+    { const _ma = document.getElementById('pf-moyens-alerte'); if (_ma) _ma.value = pf.moyensAlerte || ''; }
     document.getElementById('pf-autres-prescriptions').value = pf.autresPrescriptions || '';
     document.getElementById('pf-sig-eu-nom').value = (pf.signatureEU||{}).nom || '';
     document.getElementById('pf-sig-eu-date').value = (pf.signatureEU||{}).date || '';
@@ -8847,6 +8857,8 @@ const App = {
     p.permisFeu.autresPrescriptions = document.getElementById('pf-autres-prescriptions').value.trim();
     // Actions de prévention CNPP (cases dédiées reportées sur le permis officiel)
     p.permisFeu.cnppActions = ['nettoyer','eloigner','degazer','extincteurs'].filter(id => document.getElementById('pf-cnpp-'+id)?.checked);
+    p.permisFeu.moyensLutte = document.getElementById('pf-moyens-lutte')?.value.trim() || '';
+    p.permisFeu.moyensAlerte = document.getElementById('pf-moyens-alerte')?.value.trim() || '';
     // Capturer les signatures canvas des renouvellements
     p.permisFeu.renouvellements = p.permisFeu.renouvellements || [];
     p.permisFeu.renouvellements.forEach((r, i) => {
@@ -18569,6 +18581,8 @@ const App = {
     setT('Permisfeu_materiel', pf.description||'');
     setT('Permisfeu_risques', [pf.risqueStructure, pf.risqueActivite, pf.risqueEnvironnement].filter(Boolean).join(' ; '));
     setT('Permisfeu_actions', pf.autresPrescriptions||'');
+    setT('Permisfeu_EE_intervenant', pf.moyensLutte||'');  // libellé CNPP : « Moyens de lutte contre l'incendie »
+    setT('TextFormField 32', pf.moyensAlerte||'');          // libellé CNPP : « Moyens d'alerte »
 
     const cnpp = pf.cnppActions || [];
     if (cnpp.includes('nettoyer')) drawX(CHK.nettoyage);
@@ -18665,6 +18679,7 @@ const App = {
         dateDebut: v('pfr-date-debut'), heureDebut: v('pfr-heure-debut'), heureFin: v('pfr-heure-fin'),
         types, description: v('pfr-materiel'), risqueStructure: v('pfr-risques'),
         autresPrescriptions: v('pfr-actions'), cnppActions,
+        moyensLutte: v('pfr-moyens-lutte'), moyensAlerte: v('pfr-moyens-alerte'),
         rondeNecessaire: ronde, rondeHeuresApres: v('pfr-ronde-heures'),
         signatureEU: { nom:v('pfr-do-nom'), fonction:v('pfr-do-fonction'), telephone:v('pfr-do-tel'), date:v('pfr-do-date'), data: sig('pfr-sig-do-canvas') },
         signatureSurveillance: { nom:v('pfr-sv-nom'), fonction:v('pfr-sv-fonction'), telephone:v('pfr-sv-tel'), date:v('pfr-sv-date'), data: sig('pfr-sig-sv-canvas') },
