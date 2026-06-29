@@ -18467,9 +18467,23 @@ const App = {
       // multiligne, alignement définis dans Acrobat) : on n'écrit que le texte.
       try { fld.setText(_san(val)); } catch(_){}
     };
-    const setC = (name, on) => {
-      let fld; try { fld = form.getCheckBox(name); } catch(_) { return; }
-      try { on ? fld.check() : fld.uncheck(); } catch(_){}
+    // Cases à cocher : dessinées en « X » (les champs checkbox ont été retirés du
+    // modèle car pdf-lib les aplatit à de mauvaises positions). Coords PyMuPDF (haut-gauche).
+    const { StandardFonts, rgb } = PDFLib;
+    const page0 = pdfDoc.getPages()[0];
+    const H = page0.getHeight();
+    const markFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const drawX = (r) => {
+      const [x0, y0, x1, y1] = r, bw = x1 - x0, bh = y1 - y0;
+      const size = bh * 0.92;
+      const tw = markFont.widthOfTextAtSize('X', size);
+      try { page0.drawText('X', { x: x0 + (bw - tw) / 2, y: H - y1 + bh * 0.18, size, font: markFont, color: rgb(0, 0, 0) }); } catch(_){}
+    };
+    const CHK = {
+      nettoyage:[296.9,779.5,320.1,802.7], eloignement:[693.5,781.6,715.8,803.9],
+      degazage:[296.5,808.9,321.3,834.9], extincteurs:[693.5,815.1,715.8,837.4],
+      rondeNon:[437.9,1012.3,461.5,1035.9], rondeOui:[532.2,1012.3,554.5,1035.9],
+      intExt:[80.6,1472.6,103.0,1494.9], intInt:[81.9,1501.1,103.0,1524.7],
     };
 
     const typeLabels = { soudage:'Soudage', tronconnage:'Tronçonnage', meulage:'Découpage/Meulage', thermosoudure:'Thermosoudure au gaz', miseALaTerre:'Soudure mise à la terre', autre:'Autre' };
@@ -18489,12 +18503,12 @@ const App = {
 
     // Actions essentielles (cases) — logique reprise de l'ancien export
     const av = pf.consignes?.avant || [];
-    setC('Permisfeu_actions_eloignement', av.includes('av-eloigner') || av.includes('av-inflammable'));
-    setC('Permisfeu_actions_extincteurs', av.includes('av-alarme'));
+    if (av.includes('av-eloigner') || av.includes('av-inflammable') || av.includes('av-couvrir')) drawX(CHK.eloignement);
+    if (av.includes('av-alarme')) drawX(CHK.extincteurs);
 
     // Ronde de sécurité
-    if (pf.rondeNecessaire === 'non') setC('Permisfeu_ronde_non', true);
-    else if (pf.rondeNecessaire === 'oui') { setC('Permisfeu_ronde_oui', true); setT('Permisfeu_ronde_delai', pf.rondeHeuresApres||'2'); }
+    if (pf.rondeNecessaire === 'non') drawX(CHK.rondeNon);
+    else if (pf.rondeNecessaire === 'oui') { drawX(CHK.rondeOui); setT('Permisfeu_ronde_delai', pf.rondeHeuresApres||'2'); }
 
     // Donneur d'ordre
     setT('Permisfeu_nom_donneurordre', sEU.nom || eu.responsable || '');
@@ -18508,8 +18522,8 @@ const App = {
     setT('Permisfeu_tel_surveillant', sSV.telephone||'');
     setT('Permisfeu_Datesign_surveillant', fr(sSV.date));
 
-    // Intervenants
-    if (sEx.societe || sEE.nom) setC('CheckBoxIntervenantEntreprise', true);
+    // Intervenants — entreprise extérieure si société renseignée, sinon interne
+    if (sEx.societe) drawX(CHK.intExt); else if (sEE.nom || sEx.nom) drawX(CHK.intInt);
     setT('Permisfeu_nom_entrepriseintervenante', sEx.societe||'');
     setT('Form_Intervention_Nom_Responsable', sEE.nom||'');
     const op1 = (pf.operateurs||[])[0]||{}, op2 = (pf.operateurs||[])[1]||{};
@@ -18520,8 +18534,6 @@ const App = {
 
     // 2) Incruster les signatures manuscrites (PNG) à l'emplacement des anciens champs Signature.
     //    Coords PyMuPDF (origine haut-gauche) -> pdf-lib (origine bas-gauche) : y = H - y1.
-    const page0 = pdfDoc.getPages()[0];
-    const H = page0.getHeight();
     const SIGS = [
       [sEU.data,        900.1, 1111.2, 1069.9, 1183.1],
       [sSV.data,        908.1, 1287.7, 1068.2, 1357.2],
