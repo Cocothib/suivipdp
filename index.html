@@ -18683,10 +18683,19 @@ const App = {
       let res;
       try { res = await this._fillPermisFeuPDF(pf, { site: v('pfr-lieu'), lieu:'', eu:{}, numero: v('pfr-numero') }); }
       catch(e) { this.toast(e.message || 'Erreur génération permis','danger',10000); return; }
-      const day = (pf.dateDebut || new Date().toISOString().slice(0,10)).replace(/-/g,'');
-      const name = `Permis-de-feu-CNPP-${day}.pdf`;
+      const stamp = new Date().toISOString().slice(0,19).replace(/[-:T]/g,'');
+      const lieuPart = (v('pfr-lieu')||'').replace(/[<>:"/\\|?*\s]+/g,'_').replace(/^_+|_+$/g,'').slice(0,40);
+      const name = `Permis-de-feu-CNPP-${stamp}${lieuPart?'-'+lieuPart:''}.pdf`;
       try { const a = document.createElement('a'); a.href = res.dataURL; a.download = name; document.body.appendChild(a); a.click(); a.remove(); } catch(_){}
-      this.toast('Permis CNPP généré ✓','success');
+      // Archivage SharePoint (trace centralisée des permis rapides) — best-effort
+      try {
+        if (typeof DataSync !== 'undefined' && DataSync._connected && typeof _uploadBinaryFromDataURL === 'function') {
+          await _uploadBinaryFromDataURL(`SuiviPDP/PermisFeuRapides/${name}`, res.dataURL, 'application/pdf');
+          this.toast('Permis CNPP généré, téléchargé et archivé sur SharePoint ✓','success');
+        } else {
+          this.toast('Permis CNPP généré et téléchargé. SharePoint hors-ligne : non archivé.','warning',8000);
+        }
+      } catch(e) { console.warn('Archivage permis rapide SharePoint:', e); this.toast('Permis généré et téléchargé. Archivage SharePoint échoué.','warning',8000); }
     } catch(err) { console.error('exportPermisRapide:', err); this.toast('Erreur : '+err.message,'danger'); }
   },
 
