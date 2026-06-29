@@ -18433,9 +18433,8 @@ const App = {
    } catch(err) { console.error('exportPermisFeuPDF error:', err); this.toast('Erreur export PDF: '+err.message,'danger'); }
   },
 
-  // Permis de feu au MODÈLE OFFICIEL CNPP : superpose les données saisies sur l'image
-  // du formulaire CNPP (hébergée sur le SharePoint privé, jamais dans le dépôt public),
-  // génère le PDF et l'ATTACHE au PDP (pièce jointe catégorie permis_feu).
+  // Génère le permis de feu CNPP en remplissant le PDF AcroForm (modèle de la bibliothèque),
+  // incruste les signatures manuscrites, aplatit, et l'attache au PDP. Le modèle reste vierge.
   async exportPermisFeuCNPP() {
    try {
     if (!this.currentPDP) return;
@@ -18443,90 +18442,136 @@ const App = {
     const p = this.currentPDP;
     const pf = p.permisFeu || {};
     if (!pf.actif && !(pf.types||[]).length) { this.toast('Aucun permis de feu actif','warning'); return; }
-    if (typeof DataSync === 'undefined' || !DataSync._connected) { this.toast('Connexion SharePoint requise pour charger le modèle CNPP.','warning',7000); return; }
-    if (typeof _downloadFileAsDataURL !== 'function' || !window.jspdf) { this.toast('Module PDF/SharePoint non chargé.','danger'); return; }
+    if (typeof PDFLib === 'undefined') { this.toast('Module PDF (pdf-lib) non chargé.','danger'); return; }
     this.toast('Génération du permis CNPP…','info');
-    // 1) Récupérer le modèle CNPP (caché en mémoire après le 1er chargement)
-    let recto, verso = null;
-    try {
-      recto = App._cnppTplRecto || (App._cnppTplRecto = await _downloadFileAsDataURL(SP_CONFIG.CNPP_RECTO_FILE));
-    } catch(e) {
-      console.warn('CNPP recto KO', e);
-      this.toast('Modèle CNPP introuvable sur SharePoint. Déposer cnpp-permis-feu-recto.jpg dans SuiviPDP/Modeles/.','danger',11000);
+
+    // 1) Charger le modèle AcroForm (bytes frais à chaque appel : évite le détachement ArrayBuffer)
+    let modelBytes;
+    try { modelBytes = await this._loadCNPPAcroFormBytes(); }
+    catch(e) { this.toast(e.message || 'Modèle permis introuvable','danger',9000); return; }
+
+    const { PDFDocument } = PDFLib;
+    const pdfDoc = await PDFDocument.load(modelBytes);
+    const form = pdfDoc.getForm();
+    if (!form.getFields().length) {
+      this.toast("Le modèle de permis n'est pas un formulaire AcroForm. Importez cnpp-permis-feu-acroform.pdf dans la bibliothèque (catégorie Permis de feu, Par défaut).",'danger',11000);
       return;
     }
-    try { verso = App._cnppTplVerso || (App._cnppTplVerso = await _downloadFileAsDataURL(SP_CONFIG.CNPP_VERSO_FILE)); }
-    catch(e) { verso = null; /* verso optionnel */ }
 
-    // 2) Construire le PDF : image plein cadre + superposition texte/signatures
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation:'p', unit:'mm', format:'a4', compress:true });
-    const IX = 14, IY = 12, IW = 182, IH = IW * 2436 / 1775; // ratio image recto
-    doc.addImage(recto, 'JPEG', IX, IY, IW, IH);
     const fr = d => (d && /^\d{4}-\d{2}-\d{2}/.test(d)) ? d.slice(0,10).split('-').reverse().join('/') : (d||'');
-    // Place un texte à la fraction [fx,fy] de l'image (origine haut-gauche)
-    const F = (pos, s, opt={}) => {
-      if (s === undefined || s === null || s === '') return;
-      doc.setFontSize(opt.size||8.5); doc.setFont('helvetica', opt.bold?'bold':'normal');
-      const c = opt.color || [10,10,120]; doc.setTextColor(c[0],c[1],c[2]);
-      const o = { baseline:'top' }; if (opt.w) o.maxWidth = opt.w*IW;
-      doc.text(String(s), IX + pos[0]*IW, IY + pos[1]*IH, o);
+    // Helvetica standard = WinAnsi : neutraliser les caractères typographiques (sinon crash setText/flatten)
+    const _san = s => String(s==null?'':s).replace(/[—–]/g,'-').replace(/…/g,'...').replace(/[’‘]/g,"'").replace(/[“”]/g,'"').replace(/ /g,' ');
+    const setT = (name, val, opt={}) => {
+      let fld; try { fld = form.getTextField(name); } catch(_) { return; }
+      if (opt.multiline) { try { fld.enableMultiline(); } catch(_){} }
+      try { fld.setFontSize(opt.size || 9); } catch(_){}
+      try { fld.setText(_san(val)); } catch(_){}
     };
-    const X = (pos) => F(pos, 'X', { size:11, bold:true, color:[190,0,0] });
-    const SIG = (data, pos) => { if (data) { try { doc.addImage(data,'PNG', IX+pos[0]*IW, IY+pos[1]*IH, pos[2]*IW, pos[3]*IH); } catch(e){} } };
-    const C = CNPP_FIELDS;
+    const setC = (name, on) => {
+      let fld; try { fld = form.getCheckBox(name); } catch(_) { return; }
+      try { on ? fld.check() : fld.uncheck(); } catch(_){}
+    };
+
     const typeLabels = { soudage:'Soudage', tronconnage:'Tronçonnage', meulage:'Découpage/Meulage', thermosoudure:'Thermosoudure au gaz', miseALaTerre:'Soudure mise à la terre', autre:'Autre' };
+    const eu = p.eu||{};
+    const sEU = pf.signatureEU||{}, sSV = pf.signatureSurveillance||{}, sEE = pf.signatureEE||{}, sEx = pf.signatureExec||{};
+    const hd = (pf.heureDebut||'').split(':'), hf = (pf.heureFin||'').split(':');
 
     // Description du travail
-    F(C.date, fr(pf.dateDebut)); F(C.hdeb, (pf.heureDebut||'').replace(':','h')); F(C.hfin, (pf.heureFin||'').replace(':','h'));
-    F(C.lieu, (p.site||'') + (p.lieu ? ' — ' + p.lieu : ''), { w:0.6, size:8 });
-    F(C.nature, (pf.types||[]).map(t=>typeLabels[t]||t).join(', '), { w:0.6, size:8 });
-    F(C.outillage, pf.description||'', { w:0.6, size:8 });
-    // Risques identifiés
-    F(C.risques, [pf.risqueStructure, pf.risqueActivite, pf.risqueEnvironnement].filter(Boolean).join(' ; '), { w:0.86, size:7.5 });
-    // Actions essentielles (mappées depuis les consignes "avant")
+    setT('Permisfeu_date', fr(pf.dateDebut));
+    setT('Permisfeu_heuredebut', hd[0]||''); setT('Permisfeu_minutedebut', hd[1]||'');
+    setT('Permisfeu_heurefin', hf[0]||''); setT('Permisfeu_minutefin', hf[1]||'');
+    setT('Permisfeu_lieu', (p.site||'') + (p.lieu ? ' - ' + p.lieu : ''));
+    setT('Permisfeu_nature', (pf.types||[]).map(t=>typeLabels[t]||t).join(', '));
+    setT('Permisfeu_materiel', pf.description||'');
+    setT('Permisfeu_risques', [pf.risqueStructure, pf.risqueActivite, pf.risqueEnvironnement].filter(Boolean).join(' ; '), { multiline:true, size:8.5 });
+    setT('Permisfeu_actions', pf.autresPrescriptions||'', { multiline:true, size:8.5 });
+
+    // Actions essentielles (cases) — logique reprise de l'ancien export
     const av = pf.consignes?.avant || [];
-    if (av.includes('av-eloigner') || av.includes('av-inflammable')) X(C.chkEloigner);
-    if (av.includes('av-alarme')) X(C.chkExtinct);
-    // Actions complémentaires + moyens
-    F(C.actionsComp, pf.autresPrescriptions||'', { w:0.85, size:7.5 });
+    setC('Permisfeu_actions_eloignement', av.includes('av-eloigner') || av.includes('av-inflammable'));
+    setC('Permisfeu_actions_extincteurs', av.includes('av-alarme'));
+
     // Ronde de sécurité
-    if (pf.rondeNecessaire === 'non') X(C.rondeNon);
-    else if (pf.rondeNecessaire === 'oui') { X(C.rondeOui); F(C.rondeHeures, pf.rondeHeuresApres||'2'); }
-    // Donneur d'ordre (chef EU ou représentant) — complété depuis p.eu si vide
-    const eu = p.eu||{}; const sEU = pf.signatureEU||{};
-    F(C.doNom, sEU.nom || eu.responsable || ''); F(C.doFct, sEU.fonction || eu.fonction || ''); F(C.doTel, sEU.telephone || eu.tel || '');
-    SIG(sEU.data, C.doSig); F(C.doSigDate, fr(sEU.date), { size:7 });
+    if (pf.rondeNecessaire === 'non') setC('Permisfeu_ronde_non', true);
+    else if (pf.rondeNecessaire === 'oui') { setC('Permisfeu_ronde_oui', true); setT('Permisfeu_ronde_delai', pf.rondeHeuresApres||'2'); }
+
+    // Donneur d'ordre
+    setT('Permisfeu_nom_donneurordre', sEU.nom || eu.responsable || '');
+    setT('Permisfeu_fonction_donneurordre', sEU.fonction || eu.fonction || '');
+    setT('Permisfeu_tel_donneurordre', sEU.telephone || eu.tel || '');
+    setT('Permisfeu_Datesign_donneurordre', fr(sEU.date));
+
     // Personne désignée surveillance
-    const sSV = pf.signatureSurveillance||{};
-    F(C.svNom, sSV.nom||''); F(C.svFct, sSV.fonction||''); F(C.svTel, sSV.telephone||'');
-    SIG(sSV.data, C.svSig); F(C.svSigDate, fr(sSV.date), { size:7 });
-    // Intervenants (responsable + opérateurs)
-    const sEE = pf.signatureEE||{}; const sEx = pf.signatureExec||{};
-    if (sEx.societe || sEE.nom) X(C.intExtChk);
-    F(C.intRaison, sEx.societe||'', { w:0.26, size:7.5 });
-    F(C.intRespNom, sEE.nom||'', { w:0.26, size:7.5 });
-    const op1 = (pf.operateurs||[])[0] || {};
-    F(C.intOp1, [op1.nom, op1.fonction].filter(Boolean).join(' — '), { w:0.26, size:7.5 });
-    SIG(sEE.data || sEx.data, C.intSig);
-    F(C.numero, p.numero||'', { size:7 });
+    setT('Permisfeu_nom_surveillant', sSV.nom||'');
+    setT('Permisfeu_fonction_surveillant', sSV.fonction||'');
+    setT('Permisfeu_tel_surveillant', sSV.telephone||'');
+    setT('Permisfeu_Datesign_surveillant', fr(sSV.date));
 
-    // Verso (page 2) si disponible
-    if (verso) { doc.addPage(); const vh = Math.min(IW * 1918/1460, 297 - IY - 6); doc.addImage(verso, 'JPEG', IX, IY, IW, vh); }
+    // Intervenants
+    if (sEx.societe || sEE.nom) setC('CheckBoxIntervenantEntreprise', true);
+    setT('Permisfeu_nom_entrepriseintervenante', sEx.societe||'');
+    setT('Form_Intervention_Nom_Responsable', sEE.nom||'');
+    const op1 = (pf.operateurs||[])[0]||{}, op2 = (pf.operateurs||[])[1]||{};
+    setT('Form_Intervention_Nom_Telephone_Operateur1', [op1.nom, op1.fonction].filter(Boolean).join(' - '));
+    setT('Form_Intervention_Nom_Telephone_Operateur2', [op2.nom, op2.fonction].filter(Boolean).join(' - '));
+    setT('Permisfeu_Datesign_intervenant', fr(sEE.date||sEx.date));
+    setT('Numero_PDp_Permisdefeu', p.numero||'');
 
-    // 3) Sortie + ATTACHE au PDP (pièce jointe)
-    const blob = doc.output('blob');
+    // 2) Incruster les signatures manuscrites (PNG) à l'emplacement des anciens champs Signature.
+    //    Coords PyMuPDF (origine haut-gauche) -> pdf-lib (origine bas-gauche) : y = H - y1.
+    const page0 = pdfDoc.getPages()[0];
+    const H = page0.getHeight();
+    const SIGS = [
+      [sEU.data,        900.1, 1111.2, 1069.9, 1183.1],
+      [sSV.data,        908.1, 1287.7, 1068.2, 1357.2],
+      [sEE.data||sEx.data, 898.4, 1463.8, 1071.0, 1540.9],
+    ];
+    for (const [data, x0, y0, x1, y1] of SIGS) {
+      if (!data || typeof data !== 'string' || !data.startsWith('data:image')) continue;
+      try {
+        const b64 = data.split(',')[1] || '';
+        const png = await pdfDoc.embedPng(Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
+        page0.drawImage(png, { x: x0, y: H - y1, width: x1 - x0, height: y1 - y0 });
+      } catch(e) { console.warn('Signature permis non incrustée', e); }
+    }
+
+    // 3) Aplatir (le permis enregistré n'est plus modifiable) puis attacher au PDP
+    try { form.flatten(); } catch(e) { console.warn('flatten permis', e); }
+    const outBytes = await pdfDoc.save();
+    const blob = new Blob([outBytes], { type:'application/pdf' });
     const dataURL = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
+
     if (!Array.isArray(p.documents)) p.documents = [];
     const docName = await this.buildPDPFilename(p, 'pdf', 'PERMIS-FEU-CNPP');
     // Remplace l'éventuel CNPP auto-généré précédent
     p.documents = p.documents.filter(d => !(d.categorie === 'permis_feu' && d.genere_auto && /CNPP/i.test(d.nom||'')));
     p.documents.push({ nom: docName, type:'application/pdf', taille: blob.size, data: dataURL, date: new Date().toISOString(), categorie:'permis_feu', genere_auto:true });
     try { await this.savePDP(); } catch(e) { console.warn('savePDP CNPP:', e); }
+    try { this._externalizeOnSave(p, db.pdps); } catch(e) { console.warn('externalize CNPP:', e); }
     try { this.renderDocuments(); } catch(e) {}
-    doc.save(docName); // téléchargement local également
+    // Téléchargement local également
+    try { const a = document.createElement('a'); a.href = dataURL; a.download = docName; document.body.appendChild(a); a.click(); a.remove(); } catch(_){}
     this.toast('Permis CNPP généré et attaché au PDP ✓','success');
    } catch(err) { console.error('exportPermisFeuCNPP error:', err); this.toast('Erreur CNPP : '+err.message,'danger'); }
+  },
+
+  // Charge (et cache) le modèle AcroForm du permis de feu depuis la bibliothèque de documents
+  // (catégorie 'permis_feu', marqué « Par défaut »). Le dataURL est caché ; on reconstruit
+  // un Uint8Array FRAIS à chaque appel (pdf-lib peut détacher l'ArrayBuffer source).
+  async _loadCNPPAcroFormBytes() {
+    let dataURL = App._cnppAcroFormDataURL;
+    if (!dataURL) {
+      const all = await db.fds.toArray();
+      const f = all.find(x => x.categorie === 'permis_feu' && x.standard)
+             || all.find(x => x.categorie === 'permis_feu');
+      if (!f) throw new Error("Aucun permis de feu dans la bibliothèque. Importez cnpp-permis-feu-acroform.pdf (catégorie Permis de feu, Par défaut).");
+      const full = await this.ensureFDSData(f.id);
+      if (!full || !full.data) throw new Error('Modèle permis de feu introuvable (données manquantes).');
+      dataURL = App._cnppAcroFormDataURL = full.data;
+    }
+    const b64 = (dataURL.split(',')[1]) || '';
+    return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
   },
 
   // Charge (et cache) les images du modèle CNPP depuis le SharePoint privé.
