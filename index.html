@@ -19534,6 +19534,7 @@ const App = {
       return;
     }
     // Export PDF seul : on ANNEXE les pages réelles des FDS au PDF via pdf-lib.
+    await this._pruneDeadFdsRefs(p); // retire les références mortes (modèle supprimé) avant l'annexe
     const skippedPDF = []; // FDS non incluses (corrompues / introuvables / hors-ligne)
     // Documents PDF à annexer : FDS (fdsRef), PDF inline (data) OU PDF externalisé
     // (ref/_spPath sans data mais type/mime application/pdf) résolu via ensureDocumentData.
@@ -19610,11 +19611,38 @@ const App = {
     else this.toast('PDF généré');
   },
 
+  // Retire silencieusement les pièces jointes dont le modèle bibliothèque (fdsRef) n'existe
+  // plus localement (ex. modèle de permis supprimé) — référence morte, jamais récupérable.
+  // Garde-fou : ne fait rien si la bibliothèque locale est vide (poste non encore synchronisé),
+  // pour ne pas supprimer à tort des fdsRef temporairement absentes.
+  async _pruneDeadFdsRefs(p) {
+    try {
+      if (!p || !Array.isArray(p.documents) || !p.documents.some(d => d && d.fdsRef != null)) return 0;
+      let ids;
+      try { ids = await db.fds.toCollection().primaryKeys(); } catch(_) { return 0; }
+      if (!ids || !ids.length) return 0; // biblio non chargée localement → ne rien supprimer
+      const idSet = new Set(ids);
+      const keep = []; let removed = 0;
+      for (const d of p.documents) {
+        if (d && d.fdsRef != null && !idSet.has(d.fdsRef)) { removed++; continue; }
+        keep.push(d);
+      }
+      if (removed) {
+        p.documents = keep;
+        try { await db.pdps.put(p); } catch(_){}
+        try { DataSync.markDirty(); } catch(_){}
+        try { this.renderDocuments(); } catch(_){}
+      }
+      return removed;
+    } catch(e) { console.warn('_pruneDeadFdsRefs:', e); return 0; }
+  },
+
   // ---- EXPORT ZIP COMPLET ----
   async exportZIP(format) {
     if (!this.currentPDP) return;
     if (typeof JSZip === 'undefined') { this.toast('Bibliothèque JSZip non chargée','danger'); return; }
     const p = this.currentPDP;
+    await this._pruneDeadFdsRefs(p); // retire les références mortes avant de signaler des manques
     const zip = new JSZip();
     const baseName = (await this.buildPDPFilename(p, 'tmp')).replace(/\.tmp$/,'');
 
