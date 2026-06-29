@@ -8927,6 +8927,8 @@ const App = {
       // B5 : externalise les binaires photos de ce PDP en tâche de fond (data conservé)
       this._externalizeOnSave(p, db.pdps);
       if (typeof ActivityLog !== 'undefined') ActivityLog.log(wasNew ? 'pdp.create' : 'pdp.update', { id: p.id, numero: p.numero, titre: p.titre, statut: p.statut });
+      // B0 : garantit le permis CNPP rempli au dossier (best-effort, silencieux ; régénère si le permis a changé)
+      await this._autoAttachPermisCNPP(p);
       // Auto-export PDF + Word à la transition vers Clôturé
       if (isFinalTransition) {
         this.toast('Auto-archivage Word + PDF en cours...', 'info');
@@ -8934,6 +8936,38 @@ const App = {
         try { await this.exportPDF(); } catch (e) { console.warn('Auto-export PDF échoué:', e); }
       }
     } catch(e) { console.error(e); this.toast('Erreur','danger'); }
+  },
+
+  // B0 : auto-génère et attache (best-effort, silencieux) le permis CNPP rempli quand le permis
+  // est actif, pour garantir qu'il figure toujours au dossier (même sans clic « Générer le permis »).
+  // Régénère uniquement si les données du permis ont changé (signature légère _pfSig).
+  async _autoAttachPermisCNPP(p) {
+    try {
+      if (!p) return;
+      const pf = p.permisFeu || {};
+      if (!pf.actif && !(pf.types||[]).length) return;
+      if (typeof PDFLib === 'undefined') return;
+      const lite = s => s ? [s.nom,s.fonction,s.telephone,s.date,s.societe,(s.data||'').length].join('|') : '';
+      const sigKey = JSON.stringify({
+        t:pf.types, d:pf.description, r:[pf.risqueStructure,pf.risqueActivite,pf.risqueEnvironnement],
+        dt:[pf.dateDebut,pf.heureDebut,pf.dateFin,pf.heureFin], a:pf.cnppActions, ml:pf.moyensLutte, ma:pf.moyensAlerte,
+        ap:pf.autresPrescriptions, rn:pf.rondeNecessaire, rh:pf.rondeHeuresApres,
+        eu:lite(pf.signatureEU), sv:lite(pf.signatureSurveillance), ee:lite(pf.signatureEE), ex:lite(pf.signatureExec),
+        op:(pf.operateurs||[]).map(o=>(o.nom||'')+'|'+(o.fonction||'')), num:p.numero, site:p.site, lieu:p.lieu
+      });
+      p.documents = p.documents || [];
+      const existing = p.documents.find(d => d.categorie==='permis_feu' && d.genere_auto && /CNPP/i.test(d.nom||''));
+      if (existing && existing._pfSig === sigKey) return; // déjà à jour : pas de régénération
+      let res;
+      try { res = await this._fillPermisFeuPDF(pf, { site:p.site, lieu:p.lieu, eu:p.eu, numero:p.numero }); }
+      catch(_) { return; } // modèle absent / hors-ligne : best-effort silencieux
+      const docName = await this.buildPDPFilename(p, 'pdf', 'PERMIS-FEU-CNPP');
+      p.documents = p.documents.filter(d => !(d.categorie==='permis_feu' && d.genere_auto && /CNPP/i.test(d.nom||'')));
+      p.documents.push({ nom: docName, type:'application/pdf', taille: res.blob.size, data: res.dataURL, date: new Date().toISOString(), categorie:'permis_feu', genere_auto:true, _pfSig: sigKey });
+      try { await db.pdps.put(p); } catch(_){}
+      try { this._externalizeOnSave(p, db.pdps); } catch(_){}
+      if (this.currentPDP && this.currentPDP.id === p.id) { try { this.renderDocuments(); } catch(_){} }
+    } catch(e) { console.warn('_autoAttachPermisCNPP:', e); }
   },
 
   async deletePDP() {
