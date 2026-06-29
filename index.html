@@ -1308,6 +1308,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <button class="btn btn-outline-danger btn-sm fw-bold" onclick="App.printBlankPermisFeu()" title="Télécharger le permis de feu vierge de la bibliothèque">
         <i class="bi bi-fire me-1"></i>Permis de feu vierge
       </button>
+          <button class="btn btn-outline-danger btn-sm fw-bold" onclick="App.openPermisRapide()" title="Remplir et signer un permis de feu sans PDP"><i class="bi bi-fire me-1"></i>Permis de feu rapide</button>
     </div>
     <!-- KPIs -->
     <div class="row g-2 mb-3">
@@ -3579,6 +3580,84 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     </div>
   </div>
 </div>
+
+    <!-- Modale : Permis de feu rapide (sans PDP) -->
+    <div class="modal fade" id="permisRapideModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="bi bi-fire me-1 text-danger"></i>Permis de feu rapide</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+          </div>
+          <div class="modal-body">
+            <div class="alert alert-info small mb-2"><i class="bi bi-info-circle me-1"></i>Génère un permis de feu CNPP rempli et signé, téléchargé directement (sans rattachement à un PDP).</div>
+            <div class="row g-2 mb-2">
+              <div class="col-6 col-md-3"><label class="form-label small mb-0">Date</label><input type="date" class="form-control form-control-sm" id="pfr-date-debut"></div>
+              <div class="col-6 col-md-3"><label class="form-label small mb-0">Heure début</label><input type="time" class="form-control form-control-sm" id="pfr-heure-debut"></div>
+              <div class="col-6 col-md-3"><label class="form-label small mb-0">Heure fin</label><input type="time" class="form-control form-control-sm" id="pfr-heure-fin"></div>
+              <div class="col-6 col-md-3"><label class="form-label small mb-0">N° (optionnel)</label><input type="text" class="form-control form-control-sm" id="pfr-numero" placeholder="N°"></div>
+              <div class="col-12"><label class="form-label small mb-0">Lieu / emplacement</label><input type="text" class="form-control form-control-sm" id="pfr-lieu" placeholder="Site, localisation des travaux"></div>
+            </div>
+            <label class="form-label small fw-bold mb-1">Types de travaux</label>
+            <div class="row g-1 mb-2">
+              <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pfr-soudage"><span>Soudage</span></label></div>
+              <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pfr-tronconnage"><span>Tronçonnage</span></label></div>
+              <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pfr-meulage"><span>Découpage / Meulage</span></label></div>
+              <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pfr-thermosoudure"><span>Thermosoudure au gaz</span></label></div>
+              <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pfr-miseALaTerre"><span>Soudure mise à la terre</span></label></div>
+              <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pfr-autre"><span>Autre</span></label></div>
+            </div>
+            <div class="mb-2"><label class="form-label small mb-0">Outillage et matériel</label><input type="text" class="form-control form-control-sm" id="pfr-materiel"></div>
+            <div class="mb-2"><label class="form-label small mb-0">Risques identifiés</label><textarea class="form-control form-control-sm" id="pfr-risques" rows="2"></textarea></div>
+            <label class="form-label small fw-bold mb-1">Actions de prévention (CNPP)</label>
+            <div class="row g-1 mb-2">
+              <div class="col-6"><label class="check-card"><input type="checkbox" id="pfr-cnpp-nettoyer"><span>Nettoyer la zone</span></label></div>
+              <div class="col-6"><label class="check-card"><input type="checkbox" id="pfr-cnpp-eloigner"><span>Éloigner / couvrir matériau combustible</span></label></div>
+              <div class="col-6"><label class="check-card"><input type="checkbox" id="pfr-cnpp-degazer"><span>Dégazer réservoirs / canalisations</span></label></div>
+              <div class="col-6"><label class="check-card"><input type="checkbox" id="pfr-cnpp-extincteurs"><span>Extincteurs à proximité</span></label></div>
+            </div>
+            <div class="mb-2"><label class="form-label small mb-0">Actions complémentaires</label><textarea class="form-control form-control-sm" id="pfr-actions" rows="2"></textarea></div>
+            <div class="row g-2 mb-2 align-items-center">
+              <div class="col-auto"><span class="small fw-bold">Ronde de sécurité</span></div>
+              <div class="col-auto form-check"><input class="form-check-input" type="radio" name="pfr-ronde" id="pfr-ronde-non" value="non"><label class="form-check-label small" for="pfr-ronde-non">Non</label></div>
+              <div class="col-auto form-check"><input class="form-check-input" type="radio" name="pfr-ronde" id="pfr-ronde-oui" value="oui"><label class="form-check-label small" for="pfr-ronde-oui">Oui</label></div>
+              <div class="col-auto"><input type="number" min="0" step="1" class="form-control form-control-sm" id="pfr-ronde-heures" style="width:72px" placeholder="2"></div>
+              <div class="col-auto small">heures après la fin</div>
+            </div>
+            <hr class="my-2">
+            <h6 class="small fw-bold text-primary mb-1">Donneur d'ordre</h6>
+            <div class="row g-2 mb-2">
+              <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pfr-do-nom" placeholder="Nom"></div>
+              <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pfr-do-fonction" placeholder="Fonction"></div>
+              <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pfr-do-tel" placeholder="Téléphone"></div>
+              <div class="col-md-4"><input type="date" class="form-control form-control-sm" id="pfr-do-date"></div>
+              <div class="col-md-8"><div class="signature-pad-wrapper"><canvas id="pfr-sig-do-canvas" class="signature-canvas"></canvas></div><button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pfr-sig-do-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
+            </div>
+            <h6 class="small fw-bold text-primary mb-1">Personne désignée surveillance</h6>
+            <div class="row g-2 mb-2">
+              <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pfr-sv-nom" placeholder="Nom"></div>
+              <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pfr-sv-fonction" placeholder="Fonction"></div>
+              <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pfr-sv-tel" placeholder="Téléphone"></div>
+              <div class="col-md-4"><input type="date" class="form-control form-control-sm" id="pfr-sv-date"></div>
+              <div class="col-md-8"><div class="signature-pad-wrapper"><canvas id="pfr-sig-sv-canvas" class="signature-canvas"></canvas></div><button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pfr-sig-sv-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
+            </div>
+            <h6 class="small fw-bold text-primary mb-1">Intervenant</h6>
+            <div class="row g-2 mb-2">
+              <div class="col-md-6"><input type="text" class="form-control form-control-sm" id="pfr-int-societe" placeholder="Entreprise extérieure (raison sociale, si sous-traitant)"></div>
+              <div class="col-md-3"><input type="text" class="form-control form-control-sm" id="pfr-int-resp-nom" placeholder="Responsable — Nom"></div>
+              <div class="col-md-3"><input type="text" class="form-control form-control-sm" id="pfr-int-resp-fonction" placeholder="Responsable — Fonction"></div>
+              <div class="col-md-6"><input type="text" class="form-control form-control-sm" id="pfr-int-exec-nom" placeholder="Opérateur / exécutant — Nom"></div>
+              <div class="col-md-3"><input type="date" class="form-control form-control-sm" id="pfr-int-date"></div>
+              <div class="col-12"><div class="signature-pad-wrapper"><canvas id="pfr-sig-int-canvas" class="signature-canvas"></canvas></div><button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pfr-sig-int-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fermer</button>
+            <button type="button" class="btn btn-danger btn-sm" onclick="App.exportPermisRapide()"><i class="bi bi-fire me-1"></i>Générer le permis</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
 <!-- Modal de resolution de conflits de fusion multi-utilisateurs -->
 <div class="modal fade" id="modal-merge-conflict" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
@@ -18451,8 +18530,94 @@ const App = {
    } catch(err) { console.error('exportPermisFeuPDF error:', err); this.toast('Erreur export PDF: '+err.message,'danger'); }
   },
 
-  // Génère le permis de feu CNPP en remplissant le PDF AcroForm (modèle de la bibliothèque),
-  // incruste les signatures manuscrites, aplatit, et l'attache au PDP. Le modèle reste vierge.
+  // Coeur réutilisable : remplit le PDF AcroForm CNPP depuis un objet permisFeu (pf) + contexte
+  // (ctx: {site, lieu, eu, numero}), incruste signatures + croix, aplatit. Retourne {blob, dataURL}.
+  // Le modèle bibliothèque reste vierge. Throw si modèle absent / non-AcroForm.
+  async _fillPermisFeuPDF(pf, ctx = {}) {
+    if (typeof PDFLib === 'undefined') throw new Error('Module PDF (pdf-lib) non chargé.');
+    pf = pf || {};
+    const modelBytes = await this._loadCNPPAcroFormBytes(); // bytes frais (anti-détachement)
+    const { PDFDocument } = PDFLib;
+    const pdfDoc = await PDFDocument.load(modelBytes);
+    const form = pdfDoc.getForm();
+    if (!form.getFields().length) throw new Error("Le modèle de permis n'est pas un formulaire AcroForm. Importez cnpp-permis-feu-acroform.pdf dans la bibliothèque (catégorie Permis de feu, Par défaut).");
+
+    const fr = d => (d && /^\d{4}-\d{2}-\d{2}/.test(d)) ? d.slice(0,10).split('-').reverse().join('/') : (d||'');
+    const _san = s => String(s==null?'':s).replace(/[—–]/g,'-').replace(/…/g,'...').replace(/[’‘]/g,"'").replace(/[“”]/g,'"').replace(/ /g,' ');
+    const setT = (name, val) => { let fld; try { fld = form.getTextField(name); } catch(_) { return; } try { fld.setText(_san(val)); } catch(_){} };
+    const { StandardFonts, rgb } = PDFLib;
+    const page0 = pdfDoc.getPages()[0];
+    const H = page0.getHeight();
+    const markFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const drawX = (r) => { const [x0,y0,x1,y1]=r, bw=x1-x0, bh=y1-y0; const size=bh*0.92; const tw=markFont.widthOfTextAtSize('X',size); try { page0.drawText('X',{x:x0+(bw-tw)/2, y:H-y1+bh*0.18, size, font:markFont, color:rgb(0,0,0)}); } catch(_){} };
+    const CHK = {
+      nettoyage:[296.9,779.5,320.1,802.7], eloignement:[693.5,781.6,715.8,803.9],
+      degazage:[296.5,808.9,321.3,834.9], extincteurs:[693.5,815.1,715.8,837.4],
+      rondeNon:[437.9,1012.3,461.5,1035.9], rondeOui:[532.2,1012.3,554.5,1035.9],
+      intExt:[80.6,1472.6,103.0,1494.9], intInt:[81.9,1501.1,103.0,1524.7],
+    };
+    const typeLabels = { soudage:'Soudage', tronconnage:'Tronçonnage', meulage:'Découpage/Meulage', thermosoudure:'Thermosoudure au gaz', miseALaTerre:'Soudure mise à la terre', autre:'Autre' };
+    const eu = ctx.eu || {};
+    const sEU = pf.signatureEU||{}, sSV = pf.signatureSurveillance||{}, sEE = pf.signatureEE||{}, sEx = pf.signatureExec||{};
+    const hd = (pf.heureDebut||'').split(':'), hf = (pf.heureFin||'').split(':');
+
+    setT('Permisfeu_date', fr(pf.dateDebut));
+    setT('Permisfeu_heuredebut', hd[0]||''); setT('Permisfeu_minutedebut', hd[1]||'');
+    setT('Permisfeu_heurefin', hf[0]||''); setT('Permisfeu_minutefin', hf[1]||'');
+    setT('Permisfeu_lieu', (ctx.site||'') + (ctx.lieu ? ' - ' + ctx.lieu : ''));
+    setT('Permisfeu_nature', (pf.types||[]).map(t=>typeLabels[t]||t).join(', '));
+    setT('Permisfeu_materiel', pf.description||'');
+    setT('Permisfeu_risques', [pf.risqueStructure, pf.risqueActivite, pf.risqueEnvironnement].filter(Boolean).join(' ; '));
+    setT('Permisfeu_actions', pf.autresPrescriptions||'');
+
+    const cnpp = pf.cnppActions || [];
+    if (cnpp.includes('nettoyer')) drawX(CHK.nettoyage);
+    if (cnpp.includes('eloigner')) drawX(CHK.eloignement);
+    if (cnpp.includes('degazer')) drawX(CHK.degazage);
+    if (cnpp.includes('extincteurs')) drawX(CHK.extincteurs);
+
+    if (pf.rondeNecessaire === 'non') drawX(CHK.rondeNon);
+    else if (pf.rondeNecessaire === 'oui') { drawX(CHK.rondeOui); setT('Permisfeu_ronde_delai', pf.rondeHeuresApres||'2'); }
+
+    setT('Permisfeu_nom_donneurordre', sEU.nom || eu.responsable || '');
+    setT('Permisfeu_fonction_donneurordre', sEU.fonction || eu.fonction || '');
+    setT('Permisfeu_tel_donneurordre', sEU.telephone || eu.tel || '');
+    setT('Permisfeu_Datesign_donneurordre', fr(sEU.date));
+
+    setT('Permisfeu_nom_surveillant', sSV.nom||'');
+    setT('Permisfeu_fonction_surveillant', sSV.fonction||'');
+    setT('Permisfeu_tel_surveillant', sSV.telephone||'');
+    setT('Permisfeu_Datesign_surveillant', fr(sSV.date));
+
+    if (sEx.societe) drawX(CHK.intExt); else if (sEE.nom || sEx.nom) drawX(CHK.intInt);
+    setT('Permisfeu_nom_entrepriseintervenante', sEx.societe||'');
+    setT('Form_Intervention_Nom_Responsable', sEE.nom||'');
+    setT('Form_Intervention_Fonction_Responsable', sEE.fonction||'');
+    const opAdd = (pf.operateurs||[])[0]||{};
+    setT('Form_Intervention_Nom_Telephone_Operateur1', sEx.nom||'');
+    setT('Form_Intervention_Nom_Telephone_Operateur2', [opAdd.nom, opAdd.fonction].filter(Boolean).join(' - '));
+    setT('Permisfeu_Datesign_intervenant', fr(sEE.date||sEx.date));
+    setT('Numero_PDp_Permisdefeu', ctx.numero||'');
+
+    const SIGS = [
+      [sEU.data,        900.1, 1111.2, 1069.9, 1183.1],
+      [sSV.data,        908.1, 1287.7, 1068.2, 1357.2],
+      [sEE.data||sEx.data, 898.4, 1463.8, 1071.0, 1540.9],
+    ];
+    for (const [data, x0, y0, x1, y1] of SIGS) {
+      if (!data || typeof data !== 'string' || !data.startsWith('data:image')) continue;
+      try { const b64 = data.split(',')[1] || ''; const png = await pdfDoc.embedPng(Uint8Array.from(atob(b64), c => c.charCodeAt(0))); page0.drawImage(png, { x: x0, y: H - y1, width: x1 - x0, height: y1 - y0 }); } catch(e) { console.warn('Signature permis non incrustée', e); }
+    }
+
+    try { const { PDFTextField } = PDFLib; for (const f of form.getFields()) { if (!(f instanceof PDFTextField)) { try { form.removeField(f); } catch(_){} } } } catch(e) { console.warn('removeField permis', e); }
+    try { form.flatten(); } catch(e) { console.warn('flatten permis', e); }
+    const outBytes = await pdfDoc.save();
+    const blob = new Blob([outBytes], { type:'application/pdf' });
+    const dataURL = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
+    return { blob, dataURL };
+  },
+
+  // Génère le permis CNPP depuis le PDP courant (saisie de la section permis) et l'attache au PDP.
   async exportPermisFeuCNPP() {
    try {
     if (!this.currentPDP) return;
@@ -18462,138 +18627,61 @@ const App = {
     if (!pf.actif && !(pf.types||[]).length) { this.toast('Aucun permis de feu actif','warning'); return; }
     if (typeof PDFLib === 'undefined') { this.toast('Module PDF (pdf-lib) non chargé.','danger'); return; }
     this.toast('Génération du permis CNPP…','info');
-
-    // 1) Charger le modèle AcroForm (bytes frais à chaque appel : évite le détachement ArrayBuffer)
-    let modelBytes;
-    try { modelBytes = await this._loadCNPPAcroFormBytes(); }
-    catch(e) { this.toast(e.message || 'Modèle permis introuvable','danger',9000); return; }
-
-    const { PDFDocument } = PDFLib;
-    const pdfDoc = await PDFDocument.load(modelBytes);
-    const form = pdfDoc.getForm();
-    if (!form.getFields().length) {
-      this.toast("Le modèle de permis n'est pas un formulaire AcroForm. Importez cnpp-permis-feu-acroform.pdf dans la bibliothèque (catégorie Permis de feu, Par défaut).",'danger',11000);
-      return;
-    }
-
-    const fr = d => (d && /^\d{4}-\d{2}-\d{2}/.test(d)) ? d.slice(0,10).split('-').reverse().join('/') : (d||'');
-    // Helvetica standard = WinAnsi : neutraliser les caractères typographiques (sinon crash setText/flatten)
-    const _san = s => String(s==null?'':s).replace(/[—–]/g,'-').replace(/…/g,'...').replace(/[’‘]/g,"'").replace(/[“”]/g,'"').replace(/ /g,' ');
-    const setT = (name, val) => {
-      let fld; try { fld = form.getTextField(name); } catch(_) { return; }
-      // Respecte la mise en page native du champ AcroForm (taille de police,
-      // multiligne, alignement définis dans Acrobat) : on n'écrit que le texte.
-      try { fld.setText(_san(val)); } catch(_){}
-    };
-    // Cases à cocher : dessinées en « X » (les champs checkbox ont été retirés du
-    // modèle car pdf-lib les aplatit à de mauvaises positions). Coords PyMuPDF (haut-gauche).
-    const { StandardFonts, rgb } = PDFLib;
-    const page0 = pdfDoc.getPages()[0];
-    const H = page0.getHeight();
-    const markFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    const drawX = (r) => {
-      const [x0, y0, x1, y1] = r, bw = x1 - x0, bh = y1 - y0;
-      const size = bh * 0.92;
-      const tw = markFont.widthOfTextAtSize('X', size);
-      try { page0.drawText('X', { x: x0 + (bw - tw) / 2, y: H - y1 + bh * 0.18, size, font: markFont, color: rgb(0, 0, 0) }); } catch(_){}
-    };
-    const CHK = {
-      nettoyage:[296.9,779.5,320.1,802.7], eloignement:[693.5,781.6,715.8,803.9],
-      degazage:[296.5,808.9,321.3,834.9], extincteurs:[693.5,815.1,715.8,837.4],
-      rondeNon:[437.9,1012.3,461.5,1035.9], rondeOui:[532.2,1012.3,554.5,1035.9],
-      intExt:[80.6,1472.6,103.0,1494.9], intInt:[81.9,1501.1,103.0,1524.7],
-    };
-
-    const typeLabels = { soudage:'Soudage', tronconnage:'Tronçonnage', meulage:'Découpage/Meulage', thermosoudure:'Thermosoudure au gaz', miseALaTerre:'Soudure mise à la terre', autre:'Autre' };
-    const eu = p.eu||{};
-    const sEU = pf.signatureEU||{}, sSV = pf.signatureSurveillance||{}, sEE = pf.signatureEE||{}, sEx = pf.signatureExec||{};
-    const hd = (pf.heureDebut||'').split(':'), hf = (pf.heureFin||'').split(':');
-
-    // Description du travail
-    setT('Permisfeu_date', fr(pf.dateDebut));
-    setT('Permisfeu_heuredebut', hd[0]||''); setT('Permisfeu_minutedebut', hd[1]||'');
-    setT('Permisfeu_heurefin', hf[0]||''); setT('Permisfeu_minutefin', hf[1]||'');
-    setT('Permisfeu_lieu', (p.site||'') + (p.lieu ? ' - ' + p.lieu : ''));
-    setT('Permisfeu_nature', (pf.types||[]).map(t=>typeLabels[t]||t).join(', '));
-    setT('Permisfeu_materiel', pf.description||'');
-    setT('Permisfeu_risques', [pf.risqueStructure, pf.risqueActivite, pf.risqueEnvironnement].filter(Boolean).join(' ; '));
-    setT('Permisfeu_actions', pf.autresPrescriptions||'');
-
-    // Actions essentielles (cases) — logique reprise de l'ancien export
-    const cnpp = pf.cnppActions || [];
-    if (cnpp.includes('nettoyer')) drawX(CHK.nettoyage);
-    if (cnpp.includes('eloigner')) drawX(CHK.eloignement);
-    if (cnpp.includes('degazer')) drawX(CHK.degazage);
-    if (cnpp.includes('extincteurs')) drawX(CHK.extincteurs);
-
-    // Ronde de sécurité
-    if (pf.rondeNecessaire === 'non') drawX(CHK.rondeNon);
-    else if (pf.rondeNecessaire === 'oui') { drawX(CHK.rondeOui); setT('Permisfeu_ronde_delai', pf.rondeHeuresApres||'2'); }
-
-    // Donneur d'ordre
-    setT('Permisfeu_nom_donneurordre', sEU.nom || eu.responsable || '');
-    setT('Permisfeu_fonction_donneurordre', sEU.fonction || eu.fonction || '');
-    setT('Permisfeu_tel_donneurordre', sEU.telephone || eu.tel || '');
-    setT('Permisfeu_Datesign_donneurordre', fr(sEU.date));
-
-    // Personne désignée surveillance
-    setT('Permisfeu_nom_surveillant', sSV.nom||'');
-    setT('Permisfeu_fonction_surveillant', sSV.fonction||'');
-    setT('Permisfeu_tel_surveillant', sSV.telephone||'');
-    setT('Permisfeu_Datesign_surveillant', fr(sSV.date));
-
-    // Intervenants — entreprise extérieure si société renseignée, sinon interne
-    if (sEx.societe) drawX(CHK.intExt); else if (sEE.nom || sEx.nom) drawX(CHK.intInt);
-    setT('Permisfeu_nom_entrepriseintervenante', sEx.societe||'');
-    setT('Form_Intervention_Nom_Responsable', sEE.nom||'');
-    setT('Form_Intervention_Fonction_Responsable', sEE.fonction||'');
-    // Opérateur CNPP = Exécutant de l'app ; opérateur 2 = 1er de la liste « Opérateurs » s'il existe
-    const opAdd = (pf.operateurs||[])[0]||{};
-    setT('Form_Intervention_Nom_Telephone_Operateur1', sEx.nom||'');
-    setT('Form_Intervention_Nom_Telephone_Operateur2', [opAdd.nom, opAdd.fonction].filter(Boolean).join(' - '));
-    setT('Permisfeu_Datesign_intervenant', fr(sEE.date||sEx.date));
-    setT('Numero_PDp_Permisdefeu', p.numero||'');
-
-    // 2) Incruster les signatures manuscrites (PNG) à l'emplacement des anciens champs Signature.
-    //    Coords PyMuPDF (origine haut-gauche) -> pdf-lib (origine bas-gauche) : y = H - y1.
-    const SIGS = [
-      [sEU.data,        900.1, 1111.2, 1069.9, 1183.1],
-      [sSV.data,        908.1, 1287.7, 1068.2, 1357.2],
-      [sEE.data||sEx.data, 898.4, 1463.8, 1071.0, 1540.9],
-    ];
-    for (const [data, x0, y0, x1, y1] of SIGS) {
-      if (!data || typeof data !== 'string' || !data.startsWith('data:image')) continue;
-      try {
-        const b64 = data.split(',')[1] || '';
-        const png = await pdfDoc.embedPng(Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
-        page0.drawImage(png, { x: x0, y: H - y1, width: x1 - x0, height: y1 - y0 });
-      } catch(e) { console.warn('Signature permis non incrustée', e); }
-    }
-
-    // 3) Retirer les champs non-texte (checkbox/signature) AVANT d'aplatir : pdf-lib les
-    //    aplatit à de mauvaises positions (cases parasites). Robuste quel que soit le modèle.
-    try {
-      const { PDFTextField } = PDFLib;
-      for (const f of form.getFields()) { if (!(f instanceof PDFTextField)) { try { form.removeField(f); } catch(_){} } }
-    } catch(e) { console.warn('removeField permis', e); }
-    // Aplatir (le permis enregistré n'est plus modifiable) puis attacher au PDP
-    try { form.flatten(); } catch(e) { console.warn('flatten permis', e); }
-    const outBytes = await pdfDoc.save();
-    const blob = new Blob([outBytes], { type:'application/pdf' });
-    const dataURL = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
+    let res;
+    try { res = await this._fillPermisFeuPDF(pf, { site:p.site, lieu:p.lieu, eu:p.eu, numero:p.numero }); }
+    catch(e) { this.toast(e.message || 'Erreur génération permis','danger',10000); return; }
 
     if (!Array.isArray(p.documents)) p.documents = [];
     const docName = await this.buildPDPFilename(p, 'pdf', 'PERMIS-FEU-CNPP');
-    // Remplace l'éventuel CNPP auto-généré précédent
     p.documents = p.documents.filter(d => !(d.categorie === 'permis_feu' && d.genere_auto && /CNPP/i.test(d.nom||'')));
-    p.documents.push({ nom: docName, type:'application/pdf', taille: blob.size, data: dataURL, date: new Date().toISOString(), categorie:'permis_feu', genere_auto:true });
+    p.documents.push({ nom: docName, type:'application/pdf', taille: res.blob.size, data: res.dataURL, date: new Date().toISOString(), categorie:'permis_feu', genere_auto:true });
     try { await this.savePDP(); } catch(e) { console.warn('savePDP CNPP:', e); }
     try { this._externalizeOnSave(p, db.pdps); } catch(e) { console.warn('externalize CNPP:', e); }
     try { this.renderDocuments(); } catch(e) {}
-    // Téléchargement local également
-    try { const a = document.createElement('a'); a.href = dataURL; a.download = docName; document.body.appendChild(a); a.click(); a.remove(); } catch(_){}
+    try { const a = document.createElement('a'); a.href = res.dataURL; a.download = docName; document.body.appendChild(a); a.click(); a.remove(); } catch(_){}
     this.toast('Permis CNPP généré et attaché au PDP ✓','success');
    } catch(err) { console.error('exportPermisFeuCNPP error:', err); this.toast('Erreur CNPP : '+err.message,'danger'); }
+  },
+
+  // Mode permis de feu rapide (sans PDP) : ouvre la modale et initialise/efface les 3 canvas.
+  openPermisRapide() {
+    const el = document.getElementById('permisRapideModal');
+    if (!el || typeof bootstrap === 'undefined') return;
+    bootstrap.Modal.getOrCreateInstance(el).show();
+    setTimeout(() => { ['pfr-sig-do-canvas','pfr-sig-sv-canvas','pfr-sig-int-canvas'].forEach(id => { this.initCanvas(id); try { this.clearSignature(id); } catch(_){} }); }, 300);
+  },
+
+  // Collecte la modale rapide -> objet permisFeu + contexte, génère le PDF CNPP et le télécharge.
+  async exportPermisRapide() {
+    try {
+      if (typeof PDFLib === 'undefined') { this.toast('Module PDF (pdf-lib) non chargé.','danger'); return; }
+      const v = id => (document.getElementById(id)?.value || '').trim();
+      const chk = id => !!document.getElementById(id)?.checked;
+      const sig = id => { const c = document.getElementById(id); return c && c._hasDrawing ? c.toDataURL() : null; };
+      const types = ['soudage','tronconnage','meulage','thermosoudure','miseALaTerre','autre'].filter(t => chk('pfr-'+t));
+      const cnppActions = ['nettoyer','eloigner','degazer','extincteurs'].filter(a => chk('pfr-cnpp-'+a));
+      const ronde = document.getElementById('pfr-ronde-oui')?.checked ? 'oui' : (document.getElementById('pfr-ronde-non')?.checked ? 'non' : '');
+      const pf = {
+        dateDebut: v('pfr-date-debut'), heureDebut: v('pfr-heure-debut'), heureFin: v('pfr-heure-fin'),
+        types, description: v('pfr-materiel'), risqueStructure: v('pfr-risques'),
+        autresPrescriptions: v('pfr-actions'), cnppActions,
+        rondeNecessaire: ronde, rondeHeuresApres: v('pfr-ronde-heures'),
+        signatureEU: { nom:v('pfr-do-nom'), fonction:v('pfr-do-fonction'), telephone:v('pfr-do-tel'), date:v('pfr-do-date'), data: sig('pfr-sig-do-canvas') },
+        signatureSurveillance: { nom:v('pfr-sv-nom'), fonction:v('pfr-sv-fonction'), telephone:v('pfr-sv-tel'), date:v('pfr-sv-date'), data: sig('pfr-sig-sv-canvas') },
+        signatureEE: { nom:v('pfr-int-resp-nom'), fonction:v('pfr-int-resp-fonction'), date:v('pfr-int-date'), data: sig('pfr-sig-int-canvas') },
+        signatureExec: { nom:v('pfr-int-exec-nom'), societe:v('pfr-int-societe'), date:v('pfr-int-date') },
+        operateurs: [],
+      };
+      if (!pf.dateDebut && !types.length) { this.toast('Renseignez au moins la date et un type de travaux','warning'); return; }
+      this.toast('Génération du permis CNPP…','info');
+      let res;
+      try { res = await this._fillPermisFeuPDF(pf, { site: v('pfr-lieu'), lieu:'', eu:{}, numero: v('pfr-numero') }); }
+      catch(e) { this.toast(e.message || 'Erreur génération permis','danger',10000); return; }
+      const day = (pf.dateDebut || new Date().toISOString().slice(0,10)).replace(/-/g,'');
+      const name = `Permis-de-feu-CNPP-${day}.pdf`;
+      try { const a = document.createElement('a'); a.href = res.dataURL; a.download = name; document.body.appendChild(a); a.click(); a.remove(); } catch(_){}
+      this.toast('Permis CNPP généré ✓','success');
+    } catch(err) { console.error('exportPermisRapide:', err); this.toast('Erreur : '+err.message,'danger'); }
   },
 
   // Charge (et cache) le modèle AcroForm du permis de feu depuis la bibliothèque de documents
