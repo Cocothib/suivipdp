@@ -17929,70 +17929,7 @@ const App = {
     if (pf.actif || (pf.types||[]).length) {
       secNum++;
       children.push(secTitle(String(secNum),'PERMIS DE FEU — TRAVAUX PAR POINTS CHAUDS'));
-      children.push(new Paragraph({children:[new TextRun({text:'Ce permis de feu doit être établi avant le démarrage de tout travail utilisant un outil susceptible de générer un point chaud.',size:20,font:'Calibri',italics:true})],spacing:{after:60}}));
-      children.push(new Paragraph({children:[new TextRun({text:'INTERDICTION : Les travaux par points chauds sont strictement interdits après 12h00 (midi). Tout travail par point chaud doit être terminé avant midi afin de permettre les rondes de surveillance post-intervention.',size:20,font:'Calibri',bold:true,color:'CC0000'})],spacing:{after:60}}));
-      children.push(new Paragraph({children:[new TextRun({text:'OBLIGATION : Ce permis de feu doit être obligatoirement signé et validé par le client (Entreprise Utilisatrice) avant le début de toute réalisation de travaux par points chauds. Aucun travail ne peut débuter sans cette validation.',size:20,font:'Calibri',bold:true,color:'CC0000'})],spacing:{after:60}}));
-      children.push(new Paragraph({children:[new TextRun({text:'DURÉE MAXIMALE : Le permis de feu ne peut pas excéder 24 heures. Au-delà, un renouvellement avec nouvelle validation de l\'EU est obligatoire pour chaque période de 24h.',size:20,font:'Calibri',bold:true,color:'CC0000'})],spacing:{after:100}}));
-      const typeLabels = {soudage:'Soudage',tronconnage:'Tronçonnage',meulage:'Découpage/Meulage',thermosoudure:'Thermosoudure au gaz',miseALaTerre:'Soudure mise à la terre',autre:'Autre'};
-      const typesStr = (pf.types||[]).map(t=>typeLabels[t]||t).join(', ');
-      const pfRows = [
-        new TableRow({cantSplit:true,children:[cell('Types de travaux',{width:35,bold:true}),cell(typesStr||'')]}),
-        new TableRow({cantSplit:true,children:[cell('Description',{width:35,bold:true}),cell(pf.description||'')]}),
-        new TableRow({cantSplit:true,children:[cell('Risques liés à la structure',{width:35,bold:true}),cell(pf.risqueStructure||'')]}),
-        new TableRow({cantSplit:true,children:[cell('Risques liés à l\'activité du site',{width:35,bold:true}),cell(pf.risqueActivite||'')]}),
-        new TableRow({cantSplit:true,children:[cell('Risques liés à l\'environnement',{width:35,bold:true}),cell(pf.risqueEnvironnement||'')]}),
-        new TableRow({cantSplit:true,children:[cell('Date/heure début',{width:35,bold:true}),cell(`${pf.dateDebut||''} ${pf.heureDebut||''}`)]}),
-        new TableRow({cantSplit:true,children:[cell('Date/heure fin',{width:35,bold:true}),cell(`${pf.dateFin||''} ${pf.heureFin||''}`)]}),
-      ];
-      children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:pfRows}));
-      children.push(new Paragraph({children:[],spacing:{before:100}}));
-      // Opérateurs
-      if ((pf.operateurs||[]).length) {
-        const opRows = [new TableRow({cantSplit:true,children:[hCell('Nom',25),hCell('Société',25),hCell('Fonction',25),hCell('Habilitation',25)]})];
-        pf.operateurs.forEach(o => opRows.push(new TableRow({cantSplit:true,children:[cell(o.nom||'',{width:25}),cell(o.societe||'',{width:25}),cell(o.fonction||'',{width:25}),cell(o.habilitation||'',{width:25})]})));
-        children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:opRows}));
-        children.push(new Paragraph({children:[],spacing:{before:100}}));
-      }
-      // Consignes
-      const consLabelsAv = {'av-materiel':'Vérifier matériel en parfait état','av-eloigner':'Éloigner/protéger installations','av-couvrir':'Couvrir ouvertures et fissures','av-inflammable':'Éloigner produits inflammables','av-alarme':'Prévoir moyens alarme/lutte incendie','av-detection':'Dispositions détection/extinction'};
-      const consLabelsPe = {'pe-projections':'Surveiller projections incandescentes','pe-support':'Poser objets chauffés sur supports résistants'};
-      const consLabelsAp = {'ap-detection':'Remettre en service détection/extinction','ap-inspecter':'Inspecter lieu de travail et environs','ap-surveillance':'Inspections 2h après cessation'};
-      const consRows = [new TableRow({cantSplit:true,children:[hCell('AVANT LES TRAVAUX',34),hCell('FAIT',8),hCell('PENDANT LES TRAVAUX',34),hCell('FAIT',8),hCell('APRÈS LES TRAVAUX',16)]})];
-      const avItems = Object.entries(consLabelsAv);
-      const peItems = Object.entries(consLabelsPe);
-      const apItems = Object.entries(consLabelsAp);
-      const maxLen = Math.max(avItems.length, peItems.length+apItems.length);
-      for (let ri=0;ri<maxLen;ri++) {
-        const av = avItems[ri]; const pe = peItems[ri]; const ap = apItems[ri-peItems.length];
-        consRows.push(new TableRow({cantSplit:true,children:[
-          cell(av?av[1]:'',{width:34}), cell(av&&(pf.consignes?.avant||[]).includes(av[0])?'X':'',{width:8,align:AlignmentType.CENTER}),
-          cell(pe?pe[1]:(ap?ap[1]:''),{width:34}), cell((pe&&(pf.consignes?.pendant||[]).includes(pe[0]))||(ap&&(pf.consignes?.apres||[]).includes(ap[0]))?'X':'',{width:8,align:AlignmentType.CENTER}),
-          cell(ri===0?'Autres: '+(pf.autresPrescriptions||''):'',{width:16})
-        ]}));
-      }
-      children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:consRows}));
-      children.push(new Paragraph({children:[],spacing:{before:100}}));
-      // Signatures permis de feu (avec images)
-      children.push(new Paragraph({children:[new TextRun({text:'Signatures',size:22,font:'Calibri',bold:true,color:GREEN})],spacing:{before:100,after:60}}));
-      const pfExec = pf.signatureExec||{};
-      const _sigCellPF = (sig, w) => {
-        const paras = [new Paragraph({children:[new TextRun({text:'Signature :',size:18,font:'Calibri',italics:true})],spacing:{before:20,after:10}})];
-        if (sig?.data) {
-          try {
-            const raw = atob(sig.data.split(',')[1]);
-            const arr = new Uint8Array(raw.length); for(let i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i);
-            paras.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:150,height:60},type:'png'})],spacing:{after:20}}));
-          } catch(e) { paras.push(new Paragraph({children:[],spacing:{after:200}})); }
-        } else { paras.push(new Paragraph({children:[],spacing:{after:200}})); }
-        return new TableCell({children:paras,width:{size:w,type:WidthType.PERCENTAGE}});
-      };
-      children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
-        new TableRow({cantSplit:true,children:[hCell('Représentant EU',33),hCell('Représentant Entreprise Intervenante',33),hCell('Exécutant travaux par point chaud',34)]}),
-        new TableRow({cantSplit:true,children:[cell(`Nom: ${(pf.signatureEU||{}).nom||''}\nDate: ${(pf.signatureEU||{}).date||''}`,{width:33}),cell(`Nom: ${(pf.signatureEE||{}).nom||''}\nDate: ${(pf.signatureEE||{}).date||''}`,{width:33}),cell(`Nom: ${pfExec.nom||''}${pfExec.societe?'\nSociété: '+pfExec.societe:''}\nDate: ${pfExec.date||''}`,{width:34})]}),
-        new TableRow({cantSplit:true,children:[_sigCellPF(pf.signatureEU,33),_sigCellPF(pf.signatureEE,33),_sigCellPF(pf.signatureExec,34)]})
-      ]}));
-      // Saut de page + Validations quotidiennes EU + Rondes par période
-      children.push(new Paragraph({children:[new PageBreak()]}));
+      children.push(new Paragraph({children:[new TextRun({text:'Le permis de feu est établi au modèle officiel CNPP (AXA), joint en pièce jointe du dossier (permis rempli et signé). Le suivi des validations quotidiennes EU et des rondes de surveillance figure ci-dessous.',size:20,font:'Calibri',italics:true})],spacing:{after:120}}));
       children.push(new Paragraph({children:[new TextRun({text:'Validations quotidiennes EU & Rondes de surveillance',size:22,font:'Calibri',bold:true,color:GREEN})],spacing:{before:200,after:60}}));
       children.push(new Paragraph({children:[new TextRun({text:'Des rondes d\'inspection doivent être réalisées pendant au minimum 2 heures après la fin de chaque opération par point chaud.',size:20,font:'Calibri',italics:true})],spacing:{after:60}}));
       if ((pf.renouvellements||[]).length) {
@@ -19433,72 +19370,12 @@ const App = {
     const pf = p.permisFeu||{};
     if (pf.actif || (pf.types||[]).length) {
       secTitle(`${secNum}. PERMIS DE FEU — TRAVAUX PAR POINTS CHAUDS`);
-      doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(80,80,80);
-      doc.text('Ce permis de feu doit être établi avant le démarrage de tout travail par point chaud.',m,y); y+=4;
-      doc.setFont('helvetica','bold'); doc.setTextColor(200,0,0);
-      doc.text('INTERDICTION : Travaux par points chauds interdits après 12h00.',m,y); y+=4;
-      doc.text('OBLIGATION : Permis signé par l\'EU avant début des travaux.',m,y); y+=4;
-      doc.text('DURÉE MAX : 24h. Renouvellement obligatoire au-delà.',m,y); y+=6;
+      doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.setTextColor(90,90,90);
+      doc.text('Le permis de feu est établi au modèle officiel CNPP (AXA), joint en pièce jointe du dossier. Suivi des validations quotidiennes et des rondes de surveillance ci-dessous.', m, y, {maxWidth: 180}); y += 10;
       doc.setTextColor(0,0,0);
-      const typeLabels = {soudage:'Soudage',tronconnage:'Tronçonnage',meulage:'Découpage/Meulage',thermosoudure:'Thermosoudure au gaz',miseALaTerre:'Soudure mise à la terre',autre:'Autre'};
-      labelTable([
-        ['Types de travaux',(pf.types||[]).map(t=>typeLabels[t]||t).join(', ')],
-        ['Description',pf.description||''],
-        ['Risques structure',pf.risqueStructure||''],
-        ['Risques activité site',pf.risqueActivite||''],
-        ['Risques environnement',pf.risqueEnvironnement||''],
-        ['Début',`${pf.dateDebut||''} ${pf.heureDebut||''}`],
-        ['Fin',`${pf.dateFin||''} ${pf.heureFin||''}`]
-      ]);
-      // Opérateurs
-      if ((pf.operateurs||[]).length) {
-        checkPage(20);
-        addTable(['Nom','Société','Fonction','Habilitation'], pf.operateurs.map(o=>[o.nom||'',o.societe||'',o.fonction||'',o.habilitation||'']));
-      }
-      // Consignes de sécurité
-      checkPage(30);
-      secTitle(`${secNum}a. CONSIGNES DE SÉCURITÉ`);
-      const consLabelsAv = {'av-materiel':'Vérifier matériel en parfait état','av-eloigner':'Éloigner/protéger installations','av-couvrir':'Couvrir ouvertures et fissures','av-inflammable':'Éloigner produits inflammables','av-alarme':'Prévoir moyens alarme/lutte incendie','av-detection':'Dispositions détection/extinction'};
-      const consLabelsPe = {'pe-projections':'Surveiller projections incandescentes','pe-support':'Poser objets chauffés sur supports résistants'};
-      const consLabelsAp = {'ap-detection':'Remettre en service détection/extinction','ap-inspecter':'Inspecter lieu de travail et environs','ap-surveillance':'Inspections 2h après cessation'};
-      const consBody = [];
-      const avItemsPDF = Object.entries(consLabelsAv); const peItemsPDF = Object.entries(consLabelsPe); const apItemsPDF = Object.entries(consLabelsAp);
-      const allPendantPDF = [...peItemsPDF,...apItemsPDF];
-      const maxLenPDF = Math.max(avItemsPDF.length, allPendantPDF.length);
-      for (let ri=0;ri<maxLenPDF;ri++) {
-        const av = avItemsPDF[ri]; const pe = allPendantPDF[ri];
-        consBody.push([
-          av?av[1]:'',
-          av&&(pf.consignes?.avant||[]).includes(av[0])?{content:'X',styles:{halign:'center',fontStyle:'bold'}}:'',
-          pe?pe[1]:'',
-          pe&&((pf.consignes?.pendant||[]).includes(pe[0])||(pf.consignes?.apres||[]).includes(pe[0]))?{content:'X',styles:{halign:'center',fontStyle:'bold'}}:''
-        ]);
-      }
-      addTable(['AVANT LES TRAVAUX','Fait','PENDANT / APRÈS','Fait'], consBody, {columnStyles:{0:{cellWidth:65},1:{cellWidth:15},2:{cellWidth:85},3:{cellWidth:15}}});
-      if (pf.autresPrescriptions) {
-        doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.text('Autres prescriptions : ',m,y);
-        doc.setFont('helvetica','normal'); doc.text(pf.autresPrescriptions,m+35,y); y+=6;
-      }
-      // Signatures permis de feu (avec images)
-      checkPage(50);
-      secTitle(`${secNum}b. SIGNATURES PERMIS DE FEU`);
-      const pfExec = pf.signatureExec||{};
-      addTable([p.typePdp==='interne'?'Représentant EU (notre entité)':'Représentant EU',p.typePdp==='interne'?'Représentant EE (intervenant)':'Représentant EE','Exécutant travaux'], [
-        [`Nom: ${(pf.signatureEU||{}).nom||''}`,`Nom: ${(pf.signatureEE||{}).nom||''}`,`Nom: ${pfExec.nom||''}`],
-        [`Date: ${(pf.signatureEU||{}).date||''}`,`Date: ${(pf.signatureEE||{}).date||''}`,`Date: ${pfExec.date||''}${pfExec.societe?'\nSociété: '+pfExec.societe:''}`],
-        [{content:'Signature :',styles:{minCellHeight:12}},{content:'Signature :',styles:{minCellHeight:12}},{content:'Signature :',styles:{minCellHeight:12}}]
-      ]);
-      // Insérer les images de signature
-      const pfSigY = doc.lastAutoTable.finalY;
-      const pfColW = pw/3;
-      [pf.signatureEU, pf.signatureEE, pf.signatureExec].forEach((sig, idx) => {
-        if (sig?.data) {
-          try { doc.addImage(sig.data, 'PNG', m + idx*pfColW + 2, pfSigY - 11, pfColW - 4, 9); } catch(e) {}
-        }
-      });
       // Validations quotidiennes & Rondes par période
       checkPage(30);
-      secTitle(`${secNum}c. VALIDATIONS QUOTIDIENNES & RONDES DE SURVEILLANCE`);
+      secTitle(`${secNum}a. VALIDATIONS QUOTIDIENNES & RONDES DE SURVEILLANCE`);
       doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(80,80,80);
       doc.text('Chaque période de 24h doit être validée par l\'EU. Rondes d\'inspection min. 2h après travaux.',m,y); y+=5;
       doc.setTextColor(0,0,0);
