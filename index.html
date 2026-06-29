@@ -8895,15 +8895,38 @@ const App = {
     } catch(e) { console.error(e); this.toast('Erreur','danger'); }
   },
 
-  // B0 : auto-génère et attache (best-effort, silencieux) le permis CNPP rempli quand le permis
-  // est actif, pour garantir qu'il figure toujours au dossier (même sans clic « Générer le permis »).
-  // Régénère uniquement si les données du permis ont changé (signature légère _pfSig).
+  // B0 : garantit que le permis de feu CNPP figure toujours au dossier, sans clic manuel.
+  // ARCHIVAGE PAR PÉRIODE (preuve en cas de litige) : chaque période (date de début) = un permis
+  // conservé. Permis actif → génère/met à jour le permis de LA PÉRIODE courante (les autres
+  // périodes = avenants conservés, jamais écrasés) ; régénère seulement si le contenu a changé
+  // (_pfSig). Dès qu'un permis rempli existe, le VIERGE est retiré. Permis inactif → garantit un
+  // VIERGE par défaut si aucun rempli archivé. Best-effort/silencieux (modèle absent/hors-ligne ignoré).
   async _autoAttachPermisCNPP(p) {
     try {
       if (!p) return;
+      if (!Array.isArray(p.documents)) p.documents = [];
       const pf = p.permisFeu || {};
-      if (!pf.actif && !(pf.types||[]).length) return;
+      const actif = !!(pf.actif || (pf.types||[]).length);
+      const isRempli = d => d && d.categorie==='permis_feu' && d.genere_auto && /CNPP/i.test(d.nom||'');
+      const isVierge = d => d && d.categorie==='permis_feu' && d.fdsRef && !d.genere_auto;
+
+      if (!actif) {
+        // Aucun permis rédigé : garantir le vierge par défaut UNIQUEMENT si aucun rempli archivé.
+        if (!p.documents.some(isRempli) && !p.documents.some(isVierge)) {
+          try {
+            const f = (await db.fds.toArray()).find(x => x.categorie==='permis_feu' && x.standard);
+            if (f) {
+              p.documents.push({ nom:f.nom, type:f.mime||'application/pdf', taille:f.taille||0, fdsRef:f.id, date:new Date().toISOString(), categorie:'permis_feu' });
+              try { await db.pdps.put(p); } catch(_){}
+              if (this.currentPDP && this.currentPDP.id===p.id) { try { this.renderDocuments(); } catch(_){} }
+            }
+          } catch(_){}
+        }
+        return;
+      }
+
       if (typeof PDFLib === 'undefined') return;
+      const periode = pf.dateDebut || '';
       const lite = s => s ? [s.nom,s.fonction,s.telephone,s.date,s.societe,(s.data||'').length].join('|') : '';
       const sigKey = JSON.stringify({
         t:pf.types, d:pf.description, r:[pf.risqueStructure,pf.risqueActivite,pf.risqueEnvironnement],
@@ -8912,15 +8935,24 @@ const App = {
         eu:lite(pf.signatureEU), sv:lite(pf.signatureSurveillance), ee:lite(pf.signatureEE), ex:lite(pf.signatureExec),
         op:(pf.operateurs||[]).map(o=>(o.nom||'')+'|'+(o.fonction||'')), num:p.numero, site:p.site, lieu:p.lieu
       });
-      p.documents = p.documents || [];
-      const existing = p.documents.find(d => d.categorie==='permis_feu' && d.genere_auto && /CNPP/i.test(d.nom||''));
-      if (existing && existing._pfSig === sigKey) return; // déjà à jour : pas de régénération
+      // Permis déjà présent pour CETTE période et inchangé → ne rien régénérer (retirer juste le vierge).
+      const samePeriod = p.documents.find(d => isRempli(d) && (d._periode||'') === periode);
+      if (samePeriod && samePeriod._pfSig === sigKey) {
+        if (p.documents.some(isVierge)) {
+          p.documents = p.documents.filter(d => !isVierge(d));
+          try { await db.pdps.put(p); } catch(_){}
+          if (this.currentPDP && this.currentPDP.id===p.id) { try { this.renderDocuments(); } catch(_){} }
+        }
+        return;
+      }
       let res;
       try { res = await this._fillPermisFeuPDF(pf, { site:p.site, lieu:p.lieu, eu:p.eu, numero:p.numero }); }
       catch(_) { return; } // modèle absent / hors-ligne : best-effort silencieux
-      const docName = await this.buildPDPFilename(p, 'pdf', 'PERMIS-FEU-CNPP');
-      p.documents = p.documents.filter(d => !(d.categorie==='permis_feu' && d.genere_auto && /CNPP/i.test(d.nom||'')));
-      p.documents.push({ nom: docName, type:'application/pdf', taille: res.blob.size, data: res.dataURL, date: new Date().toISOString(), categorie:'permis_feu', genere_auto:true, _pfSig: sigKey });
+      const tag = periode ? periode.replace(/-/g,'') : new Date().toISOString().slice(0,10).replace(/-/g,'');
+      const docName = `PERMIS-FEU-CNPP-${tag}.pdf`;
+      // Retire le vierge + l'ancienne version de LA MÊME période (mise à jour) ; conserve les autres périodes (avenants).
+      p.documents = p.documents.filter(d => !isVierge(d) && !(isRempli(d) && (d._periode||'') === periode));
+      p.documents.push({ nom: docName, type:'application/pdf', taille: res.blob.size, data: res.dataURL, date: new Date().toISOString(), categorie:'permis_feu', genere_auto:true, _pfSig: sigKey, _periode: periode });
       try { await db.pdps.put(p); } catch(_){}
       try { this._externalizeOnSave(p, db.pdps); } catch(_){}
       if (this.currentPDP && this.currentPDP.id === p.id) { try { this.renderDocuments(); } catch(_){} }
@@ -18422,18 +18454,15 @@ const App = {
     if (!pf.actif && !(pf.types||[]).length) { this.toast('Aucun permis de feu actif','warning'); return; }
     if (typeof PDFLib === 'undefined') { this.toast('Module PDF (pdf-lib) non chargé.','danger'); return; }
     this.toast('Génération du permis CNPP…','info');
-    let res;
-    try { res = await this._fillPermisFeuPDF(pf, { site:p.site, lieu:p.lieu, eu:p.eu, numero:p.numero }); }
-    catch(e) { this.toast(e.message || 'Erreur génération permis','danger',10000); return; }
-
-    if (!Array.isArray(p.documents)) p.documents = [];
-    const docName = await this.buildPDPFilename(p, 'pdf', 'PERMIS-FEU-CNPP');
-    p.documents = p.documents.filter(d => !(d.categorie === 'permis_feu' && d.genere_auto && /CNPP/i.test(d.nom||'')));
-    p.documents.push({ nom: docName, type:'application/pdf', taille: res.blob.size, data: res.dataURL, date: new Date().toISOString(), categorie:'permis_feu', genere_auto:true });
+    // L'enregistrement déclenche l'attache/MAJ du permis CNPP par période (archivage des avenants).
     try { await this.savePDP(); } catch(e) { console.warn('savePDP CNPP:', e); }
-    try { this._externalizeOnSave(p, db.pdps); } catch(e) { console.warn('externalize CNPP:', e); }
-    try { this.renderDocuments(); } catch(e) {}
-    try { const a = document.createElement('a'); a.href = res.dataURL; a.download = docName; document.body.appendChild(a); a.click(); a.remove(); } catch(_){}
+    // Télécharge la version de la période courante (data inline ou ré-hydratée depuis SharePoint).
+    const periode = pf.dateDebut || '';
+    const doc = (p.documents||[]).find(d => d.categorie==='permis_feu' && d.genere_auto && (d._periode||'')===periode);
+    let dataURL = doc?.data;
+    if (!dataURL && doc) { try { dataURL = await this.ensureDocumentData(doc); } catch(_){} }
+    if (!dataURL) { this.toast("Permis non généré — vérifiez le modèle dans la bibliothèque (catégorie Permis de feu, Par défaut).",'warning',9000); return; }
+    try { const a = document.createElement('a'); a.href = dataURL; a.download = doc.nom||'Permis-de-feu-CNPP.pdf'; document.body.appendChild(a); a.click(); a.remove(); } catch(_){}
     this.toast('Permis CNPP généré et attaché au PDP ✓','success');
    } catch(err) { console.error('exportPermisFeuCNPP error:', err); this.toast('Erreur CNPP : '+err.message,'danger'); }
   },
