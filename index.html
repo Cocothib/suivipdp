@@ -2022,34 +2022,6 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <div id="pf-operateurs-container"></div>
         <button class="btn btn-sm btn-outline-primary mb-3" onclick="App.addPFOperateur()"><i class="bi bi-plus-lg me-1"></i>Ajouter un opérateur</button>
 
-        <div class="row g-3">
-          <div class="col-md-4">
-            <div class="field-group">
-              <div class="field-group-title"><i class="bi bi-1-circle"></i> Avant les travaux</div>
-              <label class="check-card mb-1"><input type="checkbox" id="pf-av-materiel"><span>Vérifier que le matériel est en parfait état</span></label>
-              <label class="check-card mb-1"><input type="checkbox" id="pf-av-eloigner"><span>Éloigner, couvrir et protéger les installations</span></label>
-              <label class="check-card mb-1"><input type="checkbox" id="pf-av-couvrir"><span>Couvrir toutes les ouvertures, fissures et interstices</span></label>
-              <label class="check-card mb-1"><input type="checkbox" id="pf-av-inflammable"><span>Éloigner tout produit inflammable ou combustible</span></label>
-              <label class="check-card mb-1"><input type="checkbox" id="pf-av-alarme"><span>Prévoir moyens d'alarme et lutte incendie à proximité</span></label>
-              <label class="check-card mb-1"><input type="checkbox" id="pf-av-detection"><span>Dispositions pour éviter déclenchement détection/extinction</span></label>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="field-group">
-              <div class="field-group-title"><i class="bi bi-2-circle"></i> Pendant les travaux</div>
-              <label class="check-card mb-1"><input type="checkbox" id="pf-pe-projections"><span>Surveiller les projections incandescentes</span></label>
-              <label class="check-card mb-1"><input type="checkbox" id="pf-pe-support"><span>Poser objets chauffés sur supports résistants à la chaleur</span></label>
-            </div>
-          </div>
-          <div class="col-md-4">
-            <div class="field-group">
-              <div class="field-group-title"><i class="bi bi-3-circle"></i> Après les travaux</div>
-              <label class="check-card mb-1"><input type="checkbox" id="pf-ap-detection"><span>Remettre en service la détection/extinction automatique</span></label>
-              <label class="check-card mb-1"><input type="checkbox" id="pf-ap-inspecter"><span>Inspecter le lieu de travail et les environs</span></label>
-              <label class="check-card mb-1"><input type="checkbox" id="pf-ap-surveillance"><span>Inspections rigoureuses pendant 2h après cessation</span></label>
-            </div>
-          </div>
-        </div>
         <div class="mt-2"><label class="form-label" for="pf-autres-prescriptions">Autres prescriptions</label><textarea class="form-control" id="pf-autres-prescriptions" rows="2" placeholder="Prescriptions supplémentaires..."></textarea></div>
 
         <div class="field-group">
@@ -2119,7 +2091,6 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
               <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-exec-nom" name="pf-sig-exec-nom" aria-label="Nom de l'exécutant" placeholder="Nom"></div>
               <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-exec-societe" name="pf-sig-exec-societe" aria-label="Société de l'exécutant" placeholder="Société (si sous-traitant)"></div>
               <div class="col-12"><input type="date" class="form-control form-control-sm" id="pf-sig-exec-date" name="pf-sig-exec-date" aria-label="Date signature exécutant"></div>
-              <div class="col-12"><div class="signature-pad-wrapper"><canvas id="pf-sig-exec-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-exec-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
             </div>
           </div>
         </div>
@@ -8739,15 +8710,6 @@ const App = {
     document.getElementById('pf-heure-debut').value = pf.heureDebut || '';
     document.getElementById('pf-date-fin').value = pf.dateFin || '';
     document.getElementById('pf-heure-fin').value = pf.heureFin || '';
-    ['av-materiel','av-eloigner','av-couvrir','av-inflammable','av-alarme','av-detection'].forEach(id => {
-      const el = document.getElementById('pf-'+id); if (el) el.checked = (pf.consignes?.avant||[]).includes(id);
-    });
-    ['pe-projections','pe-support'].forEach(id => {
-      const el = document.getElementById('pf-'+id); if (el) el.checked = (pf.consignes?.pendant||[]).includes(id);
-    });
-    ['ap-detection','ap-inspecter','ap-surveillance'].forEach(id => {
-      const el = document.getElementById('pf-'+id); if (el) el.checked = (pf.consignes?.apres||[]).includes(id);
-    });
     ['nettoyer','eloigner','degazer','extincteurs'].forEach(id => {
       const el = document.getElementById('pf-cnpp-'+id); if (el) el.checked = (pf.cnppActions||[]).includes(id);
     });
@@ -8849,11 +8811,6 @@ const App = {
     p.permisFeu.heureDebut = document.getElementById('pf-heure-debut').value;
     p.permisFeu.dateFin = document.getElementById('pf-date-fin').value;
     p.permisFeu.heureFin = document.getElementById('pf-heure-fin').value;
-    p.permisFeu.consignes = {
-      avant: ['av-materiel','av-eloigner','av-couvrir','av-inflammable','av-alarme','av-detection'].filter(id => document.getElementById('pf-'+id)?.checked),
-      pendant: ['pe-projections','pe-support'].filter(id => document.getElementById('pf-'+id)?.checked),
-      apres: ['ap-detection','ap-inspecter','ap-surveillance'].filter(id => document.getElementById('pf-'+id)?.checked)
-    };
     p.permisFeu.autresPrescriptions = document.getElementById('pf-autres-prescriptions').value.trim();
     // Actions de prévention CNPP (cases dédiées reportées sur le permis officiel)
     p.permisFeu.cnppActions = ['nettoyer','eloigner','degazer','extincteurs'].filter(id => document.getElementById('pf-cnpp-'+id)?.checked);
