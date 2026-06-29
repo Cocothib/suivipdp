@@ -18569,7 +18569,13 @@ const App = {
       } catch(e) { console.warn('Signature permis non incrustée', e); }
     }
 
-    // 3) Aplatir (le permis enregistré n'est plus modifiable) puis attacher au PDP
+    // 3) Retirer les champs non-texte (checkbox/signature) AVANT d'aplatir : pdf-lib les
+    //    aplatit à de mauvaises positions (cases parasites). Robuste quel que soit le modèle.
+    try {
+      const { PDFTextField } = PDFLib;
+      for (const f of form.getFields()) { if (!(f instanceof PDFTextField)) { try { form.removeField(f); } catch(_){} } }
+    } catch(e) { console.warn('removeField permis', e); }
+    // Aplatir (le permis enregistré n'est plus modifiable) puis attacher au PDP
     try { form.flatten(); } catch(e) { console.warn('flatten permis', e); }
     const outBytes = await pdfDoc.save();
     const blob = new Blob([outBytes], { type:'application/pdf' });
