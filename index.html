@@ -18547,9 +18547,10 @@ const App = {
     setT('Permisfeu_nom_entrepriseintervenante', sEx.societe||'');
     setT('Form_Intervention_Nom_Responsable', sEE.nom||'');
     setT('Form_Intervention_Fonction_Responsable', sEE.fonction||'');
-    const op1 = (pf.operateurs||[])[0]||{}, op2 = (pf.operateurs||[])[1]||{};
-    setT('Form_Intervention_Nom_Telephone_Operateur1', [op1.nom, op1.fonction].filter(Boolean).join(' - '));
-    setT('Form_Intervention_Nom_Telephone_Operateur2', [op2.nom, op2.fonction].filter(Boolean).join(' - '));
+    // Opérateur CNPP = Exécutant de l'app ; opérateur 2 = 1er de la liste « Opérateurs » s'il existe
+    const opAdd = (pf.operateurs||[])[0]||{};
+    setT('Form_Intervention_Nom_Telephone_Operateur1', sEx.nom||'');
+    setT('Form_Intervention_Nom_Telephone_Operateur2', [opAdd.nom, opAdd.fonction].filter(Boolean).join(' - '));
     setT('Permisfeu_Datesign_intervenant', fr(sEE.date||sEx.date));
     setT('Numero_PDp_Permisdefeu', p.numero||'');
 
