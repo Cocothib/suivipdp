@@ -18461,10 +18461,10 @@ const App = {
     const fr = d => (d && /^\d{4}-\d{2}-\d{2}/.test(d)) ? d.slice(0,10).split('-').reverse().join('/') : (d||'');
     // Helvetica standard = WinAnsi : neutraliser les caractères typographiques (sinon crash setText/flatten)
     const _san = s => String(s==null?'':s).replace(/[—–]/g,'-').replace(/…/g,'...').replace(/[’‘]/g,"'").replace(/[“”]/g,'"').replace(/ /g,' ');
-    const setT = (name, val, opt={}) => {
+    const setT = (name, val) => {
       let fld; try { fld = form.getTextField(name); } catch(_) { return; }
-      if (opt.multiline) { try { fld.enableMultiline(); } catch(_){} }
-      try { fld.setFontSize(opt.size || 9); } catch(_){}
+      // Respecte la mise en page native du champ AcroForm (taille de police,
+      // multiligne, alignement définis dans Acrobat) : on n'écrit que le texte.
       try { fld.setText(_san(val)); } catch(_){}
     };
     const setC = (name, on) => {
@@ -18484,8 +18484,8 @@ const App = {
     setT('Permisfeu_lieu', (p.site||'') + (p.lieu ? ' - ' + p.lieu : ''));
     setT('Permisfeu_nature', (pf.types||[]).map(t=>typeLabels[t]||t).join(', '));
     setT('Permisfeu_materiel', pf.description||'');
-    setT('Permisfeu_risques', [pf.risqueStructure, pf.risqueActivite, pf.risqueEnvironnement].filter(Boolean).join(' ; '), { multiline:true, size:8.5 });
-    setT('Permisfeu_actions', pf.autresPrescriptions||'', { multiline:true, size:8.5 });
+    setT('Permisfeu_risques', [pf.risqueStructure, pf.risqueActivite, pf.risqueEnvironnement].filter(Boolean).join(' ; '));
+    setT('Permisfeu_actions', pf.autresPrescriptions||'');
 
     // Actions essentielles (cases) — logique reprise de l'ancien export
     const av = pf.consignes?.avant || [];
