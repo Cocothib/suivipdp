@@ -3779,11 +3779,6 @@ const SP_CONFIG = {
     FDS_FOLDER:       'SuiviPDP/Shared/FDS',
     MEDIA_FOLDER:     'SuiviPDP/Media',
     ACTIVITY_LOG_FILE:'SuiviPDP/activity-log.json',
-    // Modèle CNPP « permis de feu » (déposé INPI, hébergé sur le SharePoint privé —
-    // jamais dans le dépôt public). L'app lit ces images au runtime pour générer le
-    // permis au modèle officiel (superposition). À déposer dans SuiviPDP/Modeles/.
-    CNPP_RECTO_FILE:  'SuiviPDP/Modeles/cnpp-permis-feu-recto.jpg',
-    CNPP_VERSO_FILE:  'SuiviPDP/Modeles/cnpp-permis-feu-verso.jpg',
     SCOPES: ['Files.ReadWrite.All', 'User.Read', 'Sites.ReadWrite.All'],
     MAIL_SCOPES: ['Mail.Send'],
     // Normalisé SANS index.html : l'URI de redirection doit être identique quelle que
@@ -3796,25 +3791,6 @@ const SP_CONFIG = {
     PRESENCE_STALE_MS: 90000,
 };
 
-
-// Coordonnées des champs sur le RECTO du formulaire CNPP (fractions 0..1 de l'image,
-// origine haut-gauche). Calibrées sur le modèle déposé INPI n°6394. Pour ajuster un
-// champ mal placé : modifier [fx, fy] ici (fx vers la droite, fy vers le bas).
-// Les blocs signature sont [fx, fy, largeur, hauteur].
-const CNPP_FIELDS = {
-  date:[0.115,0.188], hdeb:[0.300,0.188], hfin:[0.402,0.188],
-  lieu:[0.345,0.211], nature:[0.345,0.234], outillage:[0.345,0.257],
-  risques:[0.095,0.338],
-  chkNettoyer:[0.236,0.424], chkEloigner:[0.556,0.424], chkDegazer:[0.236,0.449], chkExtinct:[0.556,0.449],
-  actionsComp:[0.095,0.498],
-  moyensLutte:[0.40,0.537], moyensAlerte:[0.40,0.561],
-  rondeNon:[0.447,0.583], rondeOui:[0.503,0.583], rondeHeures:[0.695,0.583],
-  doNom:[0.155,0.642], doFct:[0.155,0.666], doTel:[0.155,0.690], doSig:[0.635,0.652,0.15,0.035], doSigDate:[0.80,0.690],
-  svNom:[0.155,0.745], svFct:[0.155,0.767], svTel:[0.155,0.789], svSig:[0.635,0.755,0.15,0.035], svSigDate:[0.80,0.789],
-  intExtChk:[0.095,0.836], intInterneChk:[0.095,0.857], intRaison:[0.46,0.836],
-  intRespNom:[0.205,0.879], intRespFct:[0.215,0.900], intOp1:[0.205,0.921],
-  intSig:[0.635,0.858,0.15,0.035], numero:[0.745,0.940],
-};
 
 const ENTITY_PRESETS = {
   agriwatt: { nom: 'AGRIWATT', adresse: '8 Avenue de la gare, 02140 VERVINS', tel: '09 61 65 74 87', siret: '', logo: '1000px Fond Blanc.jpg' },
@@ -18536,61 +18512,6 @@ const App = {
     }
     const b64 = (dataURL.split(',')[1]) || '';
     return Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-  },
-
-  // Charge (et cache) les images du modèle CNPP depuis le SharePoint privé.
-  async _loadCNPPTemplate() {
-    if (typeof _downloadFileAsDataURL !== 'function') throw new Error('Module SharePoint non chargé');
-    const recto = App._cnppTplRecto || (App._cnppTplRecto = await _downloadFileAsDataURL(SP_CONFIG.CNPP_RECTO_FILE));
-    let verso = App._cnppTplVerso;
-    if (verso === undefined) { try { verso = App._cnppTplVerso = await _downloadFileAsDataURL(SP_CONFIG.CNPP_VERSO_FILE); } catch(_) { verso = App._cnppTplVerso = null; } }
-    return { recto, verso };
-  },
-
-  // Annexe d'office le permis de feu AXA VIERGE à CHAQUE PDP (exigence : le modèle CNPP
-  // doit toujours être présent au dossier, complété à la main par le conducteur si besoin).
-  // Best-effort, non bloquant : nécessite la connexion SharePoint (lecture du modèle).
-  async _ensureBlankPermisFeu(p) {
-    try {
-      if (!p || !p.id) return;
-      if (!Array.isArray(p.documents)) p.documents = [];
-      if (p.documents.some(d => d.permisVierge)) return;                 // déjà annexé une fois
-      if (typeof DataSync === 'undefined' || !DataSync._connected) return; // modèle indisponible hors-ligne
-      if (!window.jspdf) return;
-      const { recto, verso } = await this._loadCNPPTemplate();
-      if (!recto) return;
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation:'p', unit:'mm', format:'a4', compress:true });
-      const IX = 14, IY = 12, IW = 182;
-      doc.addImage(recto, 'JPEG', IX, IY, IW, IW * 2436/1775);
-      if (verso) { doc.addPage(); const vh = Math.min(IW * 1918/1460, 297 - IY - 6); doc.addImage(verso, 'JPEG', IX, IY, IW, vh); }
-      const blob = doc.output('blob');
-      const dataURL = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
-      // Re-vérifie (course : un autre cycle a pu l'ajouter entre-temps)
-      if (p.documents.some(d => d.permisVierge)) return;
-      p.documents.push({ nom:'Permis-de-feu-AXA-CNPP-vierge.pdf', type:'application/pdf', taille:blob.size, data:dataURL, date:new Date().toISOString(), categorie:'permis_feu', genere_auto:true, permisVierge:true });
-      await db.pdps.put(p);
-      if (typeof DataSync !== 'undefined') DataSync.markDirty();
-      this._externalizeOnSave(p, db.pdps);
-      if (this.currentPDP && this.currentPDP.id === p.id) { try { this.renderDocuments(); } catch(_){} }
-    } catch(e) { console.warn('_ensureBlankPermisFeu:', e); }
-  },
-
-  exportPermisFeuPrint() {
-    if (!this.currentPDP) return;
-    // Show only the permis de feu section and trigger print
-    const sections = document.querySelectorAll('.pdp-section');
-    const pfSection = document.getElementById('section-permisfeu');
-    const header = document.querySelector('.pdp-detail-header');
-    sections.forEach(s => { if (s !== pfSection) s.dataset.wasdisplay = s.style.display; s.style.display = 'none'; });
-    if (header) { header.dataset.wasdisplay = header.style.display; header.style.display = 'none'; }
-    pfSection.style.display = 'block';
-    window.print();
-    // Restore
-    setTimeout(() => {
-      sections.forEach(s => { s.style.display = s.dataset.wasdisplay || 'none'; delete s.dataset.wasdisplay; });
-      if (header) { header.style.display = header.dataset.wasdisplay || ''; delete header.dataset.wasdisplay; }
-    }, 500);
   },
 
   // ---- EXPORT PDP SIMPLIFIÉ SOUS-TRAITANT (WORD) ----
