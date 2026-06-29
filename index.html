@@ -2051,6 +2051,17 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         </div>
         <div class="mt-2"><label class="form-label" for="pf-autres-prescriptions">Autres prescriptions</label><textarea class="form-control" id="pf-autres-prescriptions" rows="2" placeholder="Prescriptions supplémentaires..."></textarea></div>
 
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-shield-fill-check"></i> Actions de prévention et de protection (modèle CNPP)</div>
+          <div class="section-helper"><i class="bi bi-lightbulb"></i> Mesures essentielles reportées sur le permis de feu officiel CNPP.</div>
+          <div class="row g-2">
+            <div class="col-12 col-md-6"><label class="check-card mb-1"><input type="checkbox" id="pf-cnpp-nettoyer"><span>Nettoyer la zone de travail</span></label></div>
+            <div class="col-12 col-md-6"><label class="check-card mb-1"><input type="checkbox" id="pf-cnpp-eloigner"><span>Éloigner ou couvrir de bâches tout matériau combustible</span></label></div>
+            <div class="col-12 col-md-6"><label class="check-card mb-1"><input type="checkbox" id="pf-cnpp-degazer"><span>Dégazer les réservoirs et canalisations</span></label></div>
+            <div class="col-12 col-md-6"><label class="check-card mb-1"><input type="checkbox" id="pf-cnpp-extincteurs"><span>Disposer d'extincteurs à proximité</span></label></div>
+          </div>
+        </div>
+
         <h6 class="mt-4 mb-2 text-primary" data-type-label="pf-validations-title"><i class="bi bi-arrow-repeat me-1"></i>Périodes de validation EU &amp; Rondes de surveillance</h6>
         <div class="alert alert-info small mb-2" data-type-label="pf-validations-info">
           <i class="bi bi-info-circle me-1"></i>Les périodes de validation sont <strong>générées automatiquement</strong> en fonction de la durée du permis. Chaque période de 24h nécessite une <strong>signature de l'EU</strong>.
@@ -2092,6 +2103,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
             <h6 class="small fw-bold" data-type-label="pf-sig-ee">Représentant Entreprise Intervenante</h6>
             <div class="row g-2">
               <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-ee-nom" name="pf-sig-ee-nom" aria-label="Nom du représentant EE" placeholder="Nom"></div>
+              <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-ee-fonction" name="pf-sig-ee-fonction" aria-label="Fonction du représentant EE" placeholder="Fonction"></div>
               <div class="col-12"><input type="date" class="form-control form-control-sm" id="pf-sig-ee-date" name="pf-sig-ee-date" aria-label="Date signature EE"></div>
               <div class="col-12"><div class="signature-pad-wrapper"><canvas id="pf-sig-ee-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-ee-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
             </div>
@@ -8649,10 +8661,14 @@ const App = {
     ['ap-detection','ap-inspecter','ap-surveillance'].forEach(id => {
       const el = document.getElementById('pf-'+id); if (el) el.checked = (pf.consignes?.apres||[]).includes(id);
     });
+    ['nettoyer','eloigner','degazer','extincteurs'].forEach(id => {
+      const el = document.getElementById('pf-cnpp-'+id); if (el) el.checked = (pf.cnppActions||[]).includes(id);
+    });
     document.getElementById('pf-autres-prescriptions').value = pf.autresPrescriptions || '';
     document.getElementById('pf-sig-eu-nom').value = (pf.signatureEU||{}).nom || '';
     document.getElementById('pf-sig-eu-date').value = (pf.signatureEU||{}).date || '';
     document.getElementById('pf-sig-ee-nom').value = (pf.signatureEE||{}).nom || '';
+    document.getElementById('pf-sig-ee-fonction').value = (pf.signatureEE||{}).fonction || '';
     document.getElementById('pf-sig-ee-date').value = (pf.signatureEE||{}).date || '';
     // Pré-remplissage si vide depuis les données du PDP (Rep EU = contact EU PDP, Rep EE = Rep EE de l'ICP liée)
     this.prefillPermisFeuSignataires();
@@ -8750,6 +8766,8 @@ const App = {
       apres: ['ap-detection','ap-inspecter','ap-surveillance'].filter(id => document.getElementById('pf-'+id)?.checked)
     };
     p.permisFeu.autresPrescriptions = document.getElementById('pf-autres-prescriptions').value.trim();
+    // Actions de prévention CNPP (cases dédiées reportées sur le permis officiel)
+    p.permisFeu.cnppActions = ['nettoyer','eloigner','degazer','extincteurs'].filter(id => document.getElementById('pf-cnpp-'+id)?.checked);
     // Capturer les signatures canvas des renouvellements
     p.permisFeu.renouvellements = p.permisFeu.renouvellements || [];
     p.permisFeu.renouvellements.forEach((r, i) => {
@@ -8768,7 +8786,7 @@ const App = {
     // #15 : canvas présent → reflète son état (effacé → null) ; canvas absent → préserve l'ancienne donnée.
     const _sigCanvasData = (id, prev) => { const cv = document.getElementById(id); return cv ? (cv._hasDrawing ? cv.toDataURL() : null) : (prev||null); };
     p.permisFeu.signatureEU = { nom: document.getElementById('pf-sig-eu-nom').value.trim(), fonction: document.getElementById('pf-sig-eu-fonction').value.trim(), telephone: document.getElementById('pf-sig-eu-tel').value.trim(), date: document.getElementById('pf-sig-eu-date').value, data: _sigCanvasData('pf-sig-eu-canvas', p.permisFeu.signatureEU?.data) };
-    p.permisFeu.signatureEE = { nom: document.getElementById('pf-sig-ee-nom').value.trim(), date: document.getElementById('pf-sig-ee-date').value, data: _sigCanvasData('pf-sig-ee-canvas', p.permisFeu.signatureEE?.data) };
+    p.permisFeu.signatureEE = { nom: document.getElementById('pf-sig-ee-nom').value.trim(), fonction: document.getElementById('pf-sig-ee-fonction').value.trim(), date: document.getElementById('pf-sig-ee-date').value, data: _sigCanvasData('pf-sig-ee-canvas', p.permisFeu.signatureEE?.data) };
     p.permisFeu.signatureSurveillance = { nom: document.getElementById('pf-sig-surv-nom').value.trim(), fonction: document.getElementById('pf-sig-surv-fonction').value.trim(), telephone: document.getElementById('pf-sig-surv-tel').value.trim(), date: document.getElementById('pf-sig-surv-date').value, data: _sigCanvasData('pf-sig-surv-canvas', p.permisFeu.signatureSurveillance?.data) };
     p.permisFeu.signatureExec = { nom: document.getElementById('pf-sig-exec-nom').value.trim(), societe: document.getElementById('pf-sig-exec-societe').value.trim(), date: document.getElementById('pf-sig-exec-date').value, data: _sigCanvasData('pf-sig-exec-canvas', p.permisFeu.signatureExec?.data) };
     p.permisFeu.rondeNecessaire = document.getElementById('pf-ronde-oui').checked ? 'oui' : (document.getElementById('pf-ronde-non').checked ? 'non' : '');
@@ -18502,9 +18520,11 @@ const App = {
     setT('Permisfeu_actions', pf.autresPrescriptions||'');
 
     // Actions essentielles (cases) — logique reprise de l'ancien export
-    const av = pf.consignes?.avant || [];
-    if (av.includes('av-eloigner') || av.includes('av-inflammable') || av.includes('av-couvrir')) drawX(CHK.eloignement);
-    if (av.includes('av-alarme')) drawX(CHK.extincteurs);
+    const cnpp = pf.cnppActions || [];
+    if (cnpp.includes('nettoyer')) drawX(CHK.nettoyage);
+    if (cnpp.includes('eloigner')) drawX(CHK.eloignement);
+    if (cnpp.includes('degazer')) drawX(CHK.degazage);
+    if (cnpp.includes('extincteurs')) drawX(CHK.extincteurs);
 
     // Ronde de sécurité
     if (pf.rondeNecessaire === 'non') drawX(CHK.rondeNon);
@@ -18526,6 +18546,7 @@ const App = {
     if (sEx.societe) drawX(CHK.intExt); else if (sEE.nom || sEx.nom) drawX(CHK.intInt);
     setT('Permisfeu_nom_entrepriseintervenante', sEx.societe||'');
     setT('Form_Intervention_Nom_Responsable', sEE.nom||'');
+    setT('Form_Intervention_Fonction_Responsable', sEE.fonction||'');
     const op1 = (pf.operateurs||[])[0]||{}, op2 = (pf.operateurs||[])[1]||{};
     setT('Form_Intervention_Nom_Telephone_Operateur1', [op1.nom, op1.fonction].filter(Boolean).join(' - '));
     setT('Form_Intervention_Nom_Telephone_Operateur2', [op2.nom, op2.fonction].filter(Boolean).join(' - '));
