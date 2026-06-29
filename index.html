@@ -5961,9 +5961,12 @@ const ActivityLog = {
             // le batch et on réessaie → plus de perte d'événements en multi-poste (#11).
             const MAX = 3;
             for (let attempt = 0; attempt < MAX; attempt++) {
-                let current, etag = null;
-                try { const r = await _readJsonFileMeta(SP_CONFIG.ACTIVITY_LOG_FILE); current = r.data; etag = r.etag; }
-                catch { current = null; etag = null; }
+                // Lecture du journal existant. NE PAS intercepter ici : une lecture échouée
+                // (réseau/serveur) doit remonter au catch externe (rollback du lot en file) et
+                // surtout PAS repartir d'un journal vide — sinon on écrase TOUT l'historique.
+                // Un fichier absent (404) ne lève pas : _readJsonFileMeta renvoie {data:null}.
+                const r = await _readJsonFileMeta(SP_CONFIG.ACTIVITY_LOG_FILE);
+                let current = r.data, etag = r.etag;
                 if (!current || !Array.isArray(current.events)) current = { events: [] };
                 current.events = current.events.concat(batch);
                 if (current.events.length > this.MAX_EVENTS) {
