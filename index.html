@@ -4962,6 +4962,57 @@ const DataSync = {
         return arr;
     },
 
+    // Unicité des `numero` après fusion. Le numero est dérivé de l'id Dexie LOCAL
+    // (saveICP/savePDP/_materializeNewForm) → deux fiches distinctes (uid ≠) créées
+    // en parallèle sur 2 postes peuvent porter le même numero. Passe DÉTERMINISTE
+    // (ordre dateCreation puis uid, identique sur tous les postes → convergence) :
+    // à numero égal, la plus ANCIENNE conserve son numero, chaque suivante est
+    // renumérotée à max(mois)+1. Les numéros déjà attribués/communiqués ne sont
+    // PAS canonisés : on ne touche QUE la fiche en doublon la plus récente. Inerte
+    // s'il n'y a aucun doublon. Le numero n'est jamais une clé de référence (liens
+    // par id/uid/pdpId), donc renuméroter n'oriente aucun lien.
+    _dedupeNumeros(arr, prefix) {
+        if (!Array.isArray(arr) || arr.length < 2) return arr;
+        const re = new RegExp('^' + prefix + '-(\\d{6})-(\\d+)$');
+        const monthOf = e => {
+            const m = re.exec(e.numero || '');
+            if (m) return m[1];
+            const mm = /^(\d{4})-(\d{2})/.exec(e.dateCreation || e.dateVisite || '');
+            return mm ? (mm[1] + mm[2]) : null;
+        };
+        // Plus haut séquentiel réellement utilisé par mois (toutes fiches confondues).
+        const maxByMonth = {};
+        for (const e of arr) {
+            const m = re.exec(e.numero || '');
+            if (m) { const mo = m[1], n = parseInt(m[2], 10); if (!(mo in maxByMonth) || n > maxByMonth[mo]) maxByMonth[mo] = n; }
+        }
+        // Ordre stable et identique sur tous les postes (tie-break uid).
+        const sorted = [...arr].sort((a, b) => {
+            const da = a.dateCreation || '', dbb = b.dateCreation || '';
+            if (da !== dbb) return da < dbb ? -1 : 1;
+            const ua = a.uid || '', ub = b.uid || '';
+            return ua < ub ? -1 : ua > ub ? 1 : 0;
+        });
+        const seen = new Set();
+        for (const e of sorted) {
+            const num = e.numero || '';
+            if (!num) continue;
+            if (!seen.has(num)) { seen.add(num); continue; }
+            // Collision : e est la fiche la plus récente → numero libre du même mois.
+            const mo = monthOf(e);
+            if (!mo) continue; // mois indéterminable → on ne touche pas
+            const next = (maxByMonth[mo] || 0) + 1;
+            maxByMonth[mo] = next;
+            const ancien = e.numero;
+            e.numero = `${prefix}-${mo}-${String(next).padStart(4, '0')}`;
+            seen.add(e.numero);
+            if (typeof ActivityLog !== 'undefined') {
+                try { ActivityLog.log('numero_dedup', { type: prefix, ancien, nouveau: e.numero, uid: e.uid || null }); } catch (_) {}
+            }
+        }
+        return arr;
+    },
+
     // Backfill déterministe d'id pour les CONTACTS d'entreprise (e.contacts[]).
     // Les contacts n'ont pas d'identifiant : sans clé stable, _mergeArray les
     // dédoublonne par JSON exact → une modif de numéro recréerait un doublon
@@ -5188,6 +5239,17 @@ const DataSync = {
                 }
             }
         }
+
+        // Numéros uniques inter-postes. Le `numero` est dérivé de l'id Dexie LOCAL
+        // (saveICP/savePDP/_materializeNewForm) → non unique entre postes : deux
+        // fiches DISTINCTES (uid différents) créées en parallèle peuvent porter le
+        // même numero (ex. deux "ICP-202606-0056", cf. inversion d'id observée).
+        // Passe déterministe (même résultat sur tous les postes) : à numero égal, la
+        // plus ancienne garde son numero, les suivantes sont renumérotées. Inerte
+        // quand il n'y a aucun doublon ; le numero n'étant jamais une clé de
+        // référence (liens par id/uid), renuméroter ne casse aucun lien.
+        this._dedupeNumeros(pdpRes.merged, 'PDP');
+        this._dedupeNumeros(icpRes.merged, 'ICP');
 
         return {
             pdp:    { _meta: remotes.pdp?._meta    || null, pdps:        pdpRes.merged },
@@ -12900,33 +12962,58 @@ const App = {
     const resEl = document.getElementById('sellsy-opp-results');
     if (statusEl) statusEl.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Chargement des opportunités…';
     if (resEl) resEl.innerHTML = '';
+    // Anti-perte (iPhone/Safari surtout) : on garde une copie du cache courant pour
+    // ne JAMAIS le remplacer par une liste plus pauvre en cas de hoquet réseau.
+    const prevCache = (this._sellsyOppCache && this._sellsyOppCache.length) ? this._sellsyOppCache.slice() : null;
     try {
       // Pagination : on récupère TOUTES les opportunités (cap de sécurité 10 000)
       let all = [];
       let offset = 0;
       const PAGE = 100;
       const HARD_CAP = 10000;
+      let total = null;
       while (offset < HARD_CAP) {
-        if (statusEl) statusEl.innerHTML = `<i class="bi bi-hourglass-split me-1"></i>Chargement… ${all.length} opps récupérées`;
+        if (statusEl) statusEl.innerHTML = `<i class="bi bi-hourglass-split me-1"></i>Chargement… ${all.length}${total != null ? '/' + total : ''} opps récupérées`;
         // Compteur de progression dans le dropdown de l'autocomplete (ICP/PDP)
         if (this._oppAcLoading) {
           const acBox = document.getElementById((this._oppAcCtx || 'icp') + '-opp-ac');
           if (acBox) acBox.innerHTML = `<div class="list-group-item small text-muted"><i class="bi bi-hourglass-split me-1"></i>Chargement… ${all.length} opportunités récupérées</div>`;
         }
-        const { items } = await SellsyAPI.listOpportunities(PAGE, offset);
+        const { items, total: t } = await SellsyAPI.listOpportunities(PAGE, offset);
+        if (total == null && typeof t === 'number' && t > 0) total = t;
         if (!items.length) break;
         all = all.concat(items);
         if (items.length < PAGE) break;
         offset += PAGE;
+        if (total != null && all.length >= total) break; // tout récupéré
+      }
+      // Sellsy annonce un total : si on en a récupéré nettement moins, le chargement
+      // est INCOMPLET (rate-limit, timeout, réseau mobile coupé). Dans ce cas on ne
+      // FIGE PAS une liste tronquée dans le cache 7 jours et on ne régresse pas par
+      // rapport à une liste précédente plus complète.
+      const incomplete = (total != null && all.length < total);
+      if (incomplete && prevCache && prevCache.length >= all.length) {
+        this._sellsyOppCache = prevCache; // on conserve l'ancienne liste (plus complète)
+        if (statusEl) statusEl.innerHTML = `<span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Chargement incomplet (${all.length}/${total}) — liste précédente conservée. Réessayez « Rafraîchir ».</span>`;
+        this._renderSellsyOppCache();
+        return;
       }
       this._sellsyOppCache = all;
-      this._saveOppCacheToStorage(); // persiste pour éviter de rappeler Sellsy à chaque démarrage
-      if (statusEl) statusEl.innerHTML = `<span class="text-muted">${all.length} opportunité(s) chargée(s)</span>`;
+      // On ne persiste QUE si la liste est complète : un cache partiel resterait
+      // figé 7 jours et masquerait des opportunités (cf. OPP « introuvables »).
+      if (!incomplete) this._saveOppCacheToStorage();
+      if (statusEl) {
+        statusEl.innerHTML = incomplete
+          ? `<span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>${all.length}/${total} opportunité(s) — liste possiblement incomplète, « Rafraîchir » pour compléter.</span>`
+          : `<span class="text-muted">${all.length} opportunité(s) chargée(s)</span>`;
+      }
       this._renderSellsyOppCache();
     } catch (e) {
       console.error('[Sellsy opp_list] échec', e);
       const msg = (e && e.message) ? e.message : (typeof e === 'string' ? e : JSON.stringify(e));
-      if (statusEl) statusEl.innerHTML = `<span class="text-danger">${this.esc(msg)}</span>`;
+      // Échec réseau : on restaure la liste précédente plutôt que de laisser l'écran vide.
+      if (prevCache) { this._sellsyOppCache = prevCache; this._renderSellsyOppCache(); }
+      if (statusEl) statusEl.innerHTML = `<span class="text-danger">${this.esc(msg)}${prevCache ? ' — liste précédente conservée.' : ''}</span>`;
     }
   },
 
