@@ -8444,16 +8444,26 @@ const App = {
       && !norm(o.nom).includes('resili')
       && !norm(o.nom).startsWith('z_'));
     if (!parc.length) return null;
+    const parcRefs = new Set(parc.map(o => norm(o.ref)));
     const refsRealisees = new Set();
+    // Diagnostic de réconciliation avec le tableau par technicien : une ICP
+    // réalisée peut ne pas couvrir d'installation (pas de n° d'OPP, OPP hors
+    // parc actif, ou installation déjà couverte par une autre ICP).
+    const diag = { realisees: 0, sansRef: 0, horsParc: 0 };
     const dateOf = v => new Date(v.dateVisite || (v.dateCreation || '').slice(0, 10) || v.dateCreation);
     for (const v of icps) {
-      if (!v.refOperation || !this._icpRealisee(v)) continue;
       const d = dateOf(v);
       if (!d || isNaN(d) || d.getFullYear() !== annee) continue;
-      refsRealisees.add(norm(v.refOperation));
+      if (!this._icpRealisee(v)) continue;
+      diag.realisees++;
+      const ref = norm(v.refOperation || '');
+      if (!ref) { diag.sansRef++; continue; }
+      if (!parcRefs.has(ref)) { diag.horsParc++; continue; }
+      refsRealisees.add(ref);
     }
-    const num = parc.filter(o => refsRealisees.has(norm(o.ref))).length;
-    return { num, den: parc.length, pct: Math.round(num * 100 / parc.length) };
+    const num = refsRealisees.size;
+    diag.doublons = diag.realisees - diag.sansRef - diag.horsParc - num;
+    return { num, den: parc.length, pct: Math.round(num * 100 / parc.length), diag };
   },
 
   async renderICPMaintenance(annee) {
@@ -8535,6 +8545,7 @@ const App = {
           </div>
           <div class="progress mt-1" style="height:6px"><div class="progress-bar bg-${color}" style="width:${c.pct}%"></div></div>
           <p class="text-muted small mb-0 mt-1">Parc actif = opportunités « Affaire conclue », hors résiliées et archivées (Z_). Rattachement par n° d'OPP.</p>
+          <p class="text-muted small mb-0 mt-1">${c.diag.realisees} ICP réalisée(s) en ${annee} (tous intervenants) → ${c.num} installation(s) du parc couverte(s)${c.diag.doublons ? ` · ${c.diag.doublons} sur une installation déjà couverte` : ''}${c.diag.sansRef ? ` · ${c.diag.sansRef} sans n° d'OPP` : ''}${c.diag.horsParc ? ` · ${c.diag.horsParc} sur OPP hors parc actif (résiliée, archivée ou hors « Affaire conclue »)` : ''}.</p>
         </div>`;
       })()}
     `;
