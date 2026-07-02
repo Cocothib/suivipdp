@@ -12016,14 +12016,14 @@ const App = {
     // 2b) Cache local persistant (table media) → résout MÊME hors-ligne.
     try {
       const local = await this._mediaGet(ref);
-      if (local) { this._photoDataCache.set(ref, local); return local; }
+      if (local) { this._photoCacheSet(ref, local); return local; }
     } catch (e) { /* table absente / lecture KO → on tente le réseau */ }
     // 2c) Téléchargement réseau, puis persistance locale (append-only).
     if (DataSync._connected) {
       try {
         const url = await _downloadFileAsDataURL(ref);
         if (url) {
-          this._photoDataCache.set(ref, url);
+          this._photoCacheSet(ref, url);
           this._mediaPut(ref, url).catch(() => {}); // best-effort, non bloquant
           return url;
         }
@@ -12031,6 +12031,19 @@ const App = {
     }
     // 3) Ni data, ni binaire résoluble (hors-ligne sans cache local) → absence propre.
     return null;
+  },
+
+  // Cache session borné (~200 dataURL ≈ 25 Mo max) : éviction des plus anciennes
+  // entrées (ordre d'insertion des Map) pour ne pas accumuler indéfiniment en RAM
+  // maintenant que les photos ne sont plus inline dans les records.
+  _photoCacheSet(ref, url) {
+    if (!this._photoDataCache) this._photoDataCache = new Map();
+    while (this._photoDataCache.size >= 200) {
+      const oldest = this._photoDataCache.keys().next().value;
+      if (oldest === undefined) break;
+      this._photoDataCache.delete(oldest);
+    }
+    this._photoDataCache.set(ref, url);
   },
 
   // ---- Résolution lazy d'une dataURL de DOCUMENT joint (socle externalisation, cf photos/FDS) ----
@@ -12054,13 +12067,13 @@ const App = {
     if (this._photoDataCache.has(ref)) return this._photoDataCache.get(ref);
     try {
       const local = await this._mediaGet(ref);
-      if (local) { this._photoDataCache.set(ref, local); return local; }
+      if (local) { this._photoCacheSet(ref, local); return local; }
     } catch (e) { /* table absente / lecture KO → on tente le réseau */ }
     if (DataSync._connected) {
       try {
         const url = await _downloadFileAsDataURL(ref);
         if (url) {
-          this._photoDataCache.set(ref, url);
+          this._photoCacheSet(ref, url);
           this._mediaPut(ref, url).catch(() => {}); // best-effort, non bloquant
           return url;
         }
@@ -12264,6 +12277,58 @@ const App = {
     });
   },
 
+  // ---- Lot 5 : bascule « ref-primary » du stockage local des PHOTOS ----
+  // Retire le base64 inline (photo.data) des photos DOUBLEMENT sécurisées :
+  // ref posée (binaire SharePoint uploadé, jamais posée avant confirmation
+  // d'upload, cf. externalizeRecordPhotos) ET blob VÉRIFIÉ dans db.media.
+  // Si le blob local manque, il est d'abord (re)créé depuis le data inline
+  // puis RELU — on ne supprime jamais un data sans copie locale vérifiée.
+  // Périmètre : photos uniquement (visite/ICP/risques). Les documents,
+  // signatures et émargements restent inline (hors périmètre, plus risqué).
+  // Gains : toArray()/rendu des listes sans Mo de base64, records légers.
+  // L'affichage/exports repassent par ensurePhotoData (media → SharePoint).
+  // Aucun markDirty : le JSON distant est identique (data déjà strippé
+  // quand ref présente) — écriture locale seulement, comme le balayage.
+  async _dropInlinePhotoData(record, table) {
+    if (!record || record.id == null) return 0;
+    // 1) Candidats : photos portant ENCORE un data inline ET une ref.
+    const candidates = [];
+    this._eachPhoto(record, (p) => {
+      if (p && p.id != null && typeof p.data === 'string' && p.data && (p.ref || p._spPath)) candidates.push(p);
+    });
+    if (!candidates.length) return 0;
+    // 2) Vérifie (ou complète puis re-vérifie) le cache local AVANT suppression.
+    const safeIds = new Set();
+    for (const p of candidates) {
+      const ref = p.ref || p._spPath;
+      try {
+        let m = await db.media.get(ref);
+        if (!m || !m.blob || !m.blob.size) {
+          await this._mediaPut(ref, p.data);
+          m = await db.media.get(ref); // relecture de vérification
+        }
+        if (m && m.blob && m.blob.size) safeIds.add(p.id);
+      } catch (_) { /* vérification impossible → photo conservée inline */ }
+    }
+    if (!safeIds.size) return 0;
+    // 3) Suppression TRANSACTIONNELLE sur la version FRAÎCHE (le polling a pu
+    // réécrire le record pendant les awaits) : ne touche QUE le champ data
+    // des photos vérifiées, par id — même modèle anti-race que _persistPhotoRefs.
+    let dropped = 0;
+    await db.transaction('rw', table, async () => {
+      const fresh = await table.get(record.id);
+      if (!fresh) return; // supprimé entre-temps
+      this._eachPhoto(fresh, (p) => {
+        if (p && safeIds.has(p.id) && (p.ref || p._spPath) && p.data) { delete p.data; dropped++; }
+      });
+      if (dropped) await table.put(fresh);
+    });
+    // Aligne l'objet en mémoire (cas _externalizeOnSave sur le record ouvert) :
+    // l'affichage re-résout via ensurePhotoData (cache session/media), transparent.
+    if (dropped) this._eachPhoto(record, (p) => { if (p && safeIds.has(p.id) && (p.ref || p._spPath)) delete p.data; });
+    return dropped;
+  },
+
   // Nettoyage des binaires ORPHELINS du dossier Media (créés par le balayage
   // avant le fix v135 : binaires ré-uploadés à chaque passage, jamais référencés).
   // SÛR : ne supprime QUE les fichiers Media NON référencés par une photo/document.
@@ -12314,6 +12379,9 @@ const App = {
     try {
       const n = await this.externalizeRecordPhotos(record);
       if (n) await this._persistPhotoRefs(record, table);
+      // Lot 5 : les photos maintenant ref'ées + cachées (media) perdent leur
+      // base64 inline local — le record redevient léger dès la sauvegarde.
+      await this._dropInlinePhotoData(record, table);
     } catch (e) { console.warn('externalizeOnSave:', e); }
   },
 
@@ -12327,7 +12395,7 @@ const App = {
     if (!DataSync._connected || DataSync._saving || DataSync._dirty) return 0;
     if (this._photoSweepRunning) return 0;
     this._photoSweepRunning = true;
-    let total = 0;
+    let total = 0, totalDropped = 0;
     try {
       const sweep = async (table, openId) => {
         const all = await table.toArray();
@@ -12344,11 +12412,16 @@ const App = {
           if (!fresh) continue;
           const n = await this.externalizeRecordPhotos(fresh);
           if (n) { await this._persistPhotoRefs(fresh, table); total += n; }
+          // Lot 5 : migration du stock — retire le base64 inline des photos déjà
+          // sécurisées (ref + blob media vérifié). Idempotent : no-op dès que le
+          // parc est migré. Passe AUSSI sur les records sans upload à faire (n=0).
+          totalDropped += await this._dropInlinePhotoData(fresh, table);
         }
       };
       await sweep(db.pdps, this.currentPDP?.id);
       await sweep(db.icps, this.currentICP?.id);
       if (total) console.log(`[media] ${total} photo(s) externalisée(s) sur SharePoint`);
+      if (totalDropped) console.log(`[media] ${totalDropped} base64 inline retiré(s) (photos sécurisées ref+media)`);
     } catch (e) { console.warn('syncPhotoFilesToSP:', e); }
     finally { this._photoSweepRunning = false; }
     // Des refs ont été posées → le JSON distant peut être allégé (strip B4).
