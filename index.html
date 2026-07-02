@@ -15960,31 +15960,62 @@ const App = {
         doc.splitTextToSize(t, textW).forEach(l=>{ if(y>275){doc.addPage();y=15} doc.text(l,m,y); y+=s*0.5 });
         y+=1;
       };
+      // Mesure d'un fragment de texte avec la MÊME découpe que addRT (hauteur en mm).
+      const _measureRT = (t, s=9, st='normal') => {
+        doc.setFontSize(s); doc.setFont('helvetica', st);
+        return doc.splitTextToSize(t, textW).length * s * 0.5 + 1;
+      };
       for (let i = 0; i < v.risques.length; i++) {
         const r = v.risques[i];
-        const startY = y;
         const rPhotos = await this._resolvePhotosForExport(r.photos||[]);
-        // Estimer hauteur des photos (2 colonnes max)
         const tw = (photoMaxW - 2) / 2, th = tw * 0.75;
-        const photoRows = rPhotos.length ? Math.ceil(rPhotos.length / 2) : 0;
-        const photoEndY = startY + photoRows * (th + 2);
+        const photosH = rPhotos.length ? Math.ceil(rPhotos.length / 2) * (th + 2) : 0;
+        // Hauteur du bloc texte (mêmes fragments que le rendu ci-dessous).
+        const _pt = this._preventionText(r);
+        let textH = _measureRT(`${i+1}. ${r.danger||'-'} [${niveauL[r.niveau]||'-'}]`, 10, 'bold');
+        if (r.localisation) textH += _measureRT(`   Localisation: ${r.localisation}`);
+        if (r.situation) textH += _measureRT(`   Situation: ${r.situation}`);
+        if (_pt) _pt.split('\n').forEach((line, li) => { textH += _measureRT(`   ${li===0?'Prévention: ':'             '}${line}`); });
+        const blockH = Math.max(textH, photosH);
+        // Saut de page AVANT le bloc si le risque complet (texte + photos) tient
+        // sur une page fraîche : texte et photos restent ensemble, jamais de
+        // photos orphelines dessinées après un saut de page du texte.
+        if (y + blockH > 275 && blockH <= 260 && y > 15) { doc.addPage(); y = 15; }
+        const startY = y;
+        // Côte à côte SEULEMENT si le bloc entier (texte inclus) tient sur la page :
+        // sinon addRT sauterait de page pendant le texte et les photos, dessinées
+        // ensuite aux coordonnées startY, atterriraient orphelines sur la page suivante.
+        const sideBySide = rPhotos.length && (startY + blockH) <= 275;
         // Texte à gauche
         addRT(`${i+1}. ${r.danger||'-'} [${niveauL[r.niveau]||'-'}]`,10,'bold');
         if (r.localisation) addRT(`   Localisation: ${r.localisation}`,9);
         if (r.situation) addRT(`   Situation: ${r.situation}`,9);
-        const _pt = this._preventionText(r);
         if (_pt) _pt.split('\n').forEach((line, li) => addRT(`   ${li===0?'Prévention: ':'             '}${line}`,9));
         const textEndY = y;
-        // Photos à droite à partir de startY
-        if (rPhotos.length) {
+        if (sideBySide) {
+          // Photos à droite du texte (le bloc entier tient sur la page courante).
           let px = photoX, py = startY;
           for (let pi=0; pi<rPhotos.length; pi++) {
             try { doc.addImage(rPhotos[pi].data, 'JPEG', px, py, tw, th); } catch(e) {}
             if (pi % 2 === 0) { px += tw + 2; }
             else { px = photoX; py += th + 2; }
           }
+          y = Math.max(textEndY, startY + photosH) + 2;
+        } else if (rPhotos.length) {
+          // Bloc plus haut qu'une page (ou photos trop nombreuses) : photos SOUS
+          // le texte du risque, en grille 2 colonnes paginée proprement.
+          addRT(`   Photos du risque ${i+1} :`, 8, 'italic', [100,100,100]);
+          let py = y + 1, col = 0;
+          for (const ph of rPhotos) {
+            if (py + th > 275) { doc.addPage(); py = 15; col = 0; }
+            try { doc.addImage(ph.data, 'JPEG', m + col*(tw+2), py, tw, th); } catch(e) {}
+            col++;
+            if (col === 2) { col = 0; py += th + 2; }
+          }
+          y = (col ? py + th + 2 : py) + 1;
+        } else {
+          y = textEndY + 2;
         }
-        y = Math.max(textEndY, photoEndY) + 2;
         if (y > 275) { doc.addPage(); y = 15; }
       } addL();
     }
