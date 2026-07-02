@@ -120,8 +120,10 @@ try {
             if ($q === '') { http_response_code(400); echo json_encode(['error' => 'q manquant']); exit; }
             // Recherche par nom (subject). La recherche par numéro d'OPP se fait
             // côté client par accès direct à l'opportunité (action 'opportunity').
+            // NB : embed[] est refusé par Sellsy sur /opportunities/search (400) ;
+            // step/pipeline/status/related sont de toute façon inclus d'office.
             $body = ['filters' => ['subject' => $q]];
-            $res = sellsy_call('POST', '/opportunities/search?limit=20&embed[]=related&embed[]=step', $token, $body);
+            $res = sellsy_call('POST', '/opportunities/search?limit=20', $token, $body);
             break;
         case 'opp_list':
             $limit = max(1, min(100, (int)($_GET['limit'] ?? 50)));
@@ -152,8 +154,9 @@ try {
             $all = [];
             $offset = 0; $limit = 100; $total = null;
             while (count($all) < 10000) {
+                // Sans embed[] (refusé par Sellsy ici) : step/pipeline/status inclus d'office.
                 $body = ['filters' => new stdClass()];
-                $resp = sellsy_call('POST', "/opportunities/search?limit=$limit&offset=$offset&embed[]=related&embed[]=step", $token, $body);
+                $resp = sellsy_call('POST', "/opportunities/search?limit=$limit&offset=$offset", $token, $body);
                 $page = json_decode($resp, true);
                 if (!is_array($page) || empty($page['data']) || !is_array($page['data'])) break;
                 if ($total === null && isset($page['pagination']['total'])) $total = (int)$page['pagination']['total'];
@@ -209,6 +212,8 @@ function sellsy_map_opp_compact($o) {
         'montant' => $o['amount'] ?? ($estAmount['value'] ?? null),
         'devise' => $estAmount['currency'] ?? ($o['currency'] ?? 'EUR'),
         'etape' => $step['label'] ?? ($step['name'] ?? ($o['step_label'] ?? '')),
+        'statut' => $o['status'] ?? '',        // open / closed / won / lost (cycle Sellsy)
+        'pipeline' => (isset($o['pipeline']) && is_array($o['pipeline'])) ? ($o['pipeline']['name'] ?? '') : '',
         'probabilite' => $o['probability'] ?? ($step['probability'] ?? null),
         'dateCloture' => $o['estimated_closing_date'] ?? ($o['due_date'] ?? ''),
         'companyId' => $companyId,
