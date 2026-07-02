@@ -1436,6 +1436,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       </div>
       <div class="d-flex align-items-center gap-2">
         <span class="save-status" id="save-status"><span class="dot dot-saved"></span>Enregistré</span>
+        <button class="btn btn-outline-secondary btn-sm" onclick="App.duplicatePDP()" id="btn-duplicate-pdp" style="display:none" title="Créer une copie de ce PDP (signatures, émargements et permis de feu réinitialisés)"><i class="bi bi-files me-1"></i>Dupliquer</button>
         <button class="btn btn-outline-danger btn-sm" onclick="App.deletePDP()" id="btn-delete-pdp" style="display:none"><i class="bi bi-trash me-1"></i>Supprimer</button>
         <button class="btn btn-warning btn-sm" onclick="App.reopenPDP()" id="btn-reopen-pdp" style="display:none"><i class="bi bi-unlock me-1"></i>Réouvrir</button>
         <button class="btn btn-primary btn-sm" onclick="App.savePDP()" id="btn-save-pdp"><i class="bi bi-check-lg me-1"></i>Enregistrer</button>
@@ -8667,6 +8668,7 @@ const App = {
     this.showView('pdp-detail');
     document.getElementById('pdp-detail-title').textContent = 'Nouveau PDP';
     document.getElementById('btn-delete-pdp').style.display = 'none';
+    document.getElementById('btn-duplicate-pdp').style.display = 'none';
     this._unlockPDP();
     this.showPDPSection('general');
     this.addHist('Création du PDP');
@@ -8687,6 +8689,7 @@ const App = {
     if (p.titre) displayTitle += ` | ${p.titre}`;
     document.getElementById('pdp-detail-title').textContent = displayTitle;
     document.getElementById('btn-delete-pdp').style.display = '';
+    document.getElementById('btn-duplicate-pdp').style.display = '';
     if (p.statut === 'cloture') this._lockPDP(); else this._unlockPDP();
     this._markSaved();
     this.showPDPSection('general');
@@ -9049,6 +9052,7 @@ const App = {
       if (p.titre) displayTitle += ` | ${p.titre}`;
       document.getElementById('pdp-detail-title').textContent = displayTitle;
       document.getElementById('btn-delete-pdp').style.display = '';
+      document.getElementById('btn-duplicate-pdp').style.display = '';
       document.getElementById('btn-save-pdp').classList.add('btn-save-flash');
       setTimeout(() => document.getElementById('btn-save-pdp').classList.remove('btn-save-flash'), 600);
       const newContactsAdded = await this.addNewContactsToRepo(p, 'pdps');
@@ -9144,6 +9148,58 @@ const App = {
     this.toast('PDP supprimé');
     DataSync.markDirty();
     this.showView('list');
+  },
+
+  // Duplique le PDP courant pour reprendre les grandes parties (EE, risques, mesures,
+  // exigences, consignes, urgence, pictogrammes, documents joints). Réinitialise ce qui
+  // est propre à l'ancienne opération : numéro/uid, dates, statut, visite, signatures,
+  // émargements, avenants, historique, permis de feu, et documents générés auto
+  // (permis CNPP, autorisations internes) qui seront régénérés pour la nouvelle opération.
+  async duplicatePDP() {
+    if (!this.currentPDP?.id) return;
+    if (!await this.confirm('Dupliquer ce PDP ?\n\nLa copie reprend entreprises, risques, mesures, exigences, consignes et documents joints. Numéro, dates, signatures, émargements et permis de feu sont réinitialisés.')) return;
+    try { this.collectForm(); } catch {}
+    const src = this.currentPDP;
+    const copy = JSON.parse(JSON.stringify(src));
+    delete copy.id;
+    copy.uid = _uid();
+    copy.titre = (src.titre || 'Sans titre') + ' (copie)';
+    copy.numero = '';
+    copy.statut = 'brouillon';
+    copy.version = '01';
+    copy.refOperation = '';
+    copy.icpId = null;
+    copy.dateDebut = ''; copy.dateFin = '';
+    copy.visite = { ...(copy.visite || {}), date:'', heure:'', effectuee:false, observations:'', photos:[] };
+    copy.signatureEU = { nom:'', fonction:'', date:'', data:null };
+    copy.signaturesEE = [];
+    copy.emargements = [];
+    copy.emargementsLibres = [];
+    copy.modifications = [];
+    copy.historique = [{ action: 'Dupliqué depuis ' + (src.numero || ('PDP #' + src.id)), timestamp: new Date().toISOString() }];
+    copy.permisFeu = { actif: false, types: [], description: '', risqueStructure: '', risqueActivite: '', risqueEnvironnement: '', dateDebut: '', heureDebut: '', dateFin: '', heureFin: '', operateurs: [], consignes: { avant: [], pendant: [], apres: [] }, autresPrescriptions: '', rondeNecessaire: '', rondeHeuresApres: '', rondes: [], renouvellements: [], signatureEU: { nom: '', fonction: '', telephone: '', date: '', data: null }, signatureEE: { nom: '', date: '', data: null }, signatureSurveillance: { nom: '', fonction: '', telephone: '', date: '', data: null }, signatureExec: { nom: '', societe: '', date: '', data: null } };
+    copy.documents = (copy.documents || []).filter(d => d && !d.genere_auto).map(d => { const n = { ...d }; delete n._pfSig; delete n._periode; return n; });
+    copy.dateCreation = new Date().toISOString();
+    copy.dateModification = copy.dateCreation;
+    try {
+      const newId = await db.pdps.add(copy);
+      copy.id = newId;
+      copy.numero = `PDP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(newId).padStart(4,'0')}`;
+      await db.pdps.put(copy);
+    } catch (e) { console.error(e); this.toast('Erreur lors de la duplication', 'danger'); return; }
+    if (typeof DataSync !== 'undefined') DataSync.markDirty();
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('pdp.duplicate', { id: copy.id, numero: copy.numero, titre: copy.titre, source: src.numero || src.id });
+    this.currentPDP = copy;
+    this.populateForm();
+    this.showView('pdp-detail');
+    document.getElementById('pdp-detail-title').textContent = `${copy.numero} | ${copy.titre}`;
+    document.getElementById('btn-delete-pdp').style.display = '';
+    document.getElementById('btn-duplicate-pdp').style.display = '';
+    this._unlockPDP();
+    this._markSaved();
+    this.showPDPSection('general');
+    DataSync.setEditing && DataSync.setEditing('pdp', copy.id);
+    this.toast('PDP dupliqué — adapter le titre, les dates et la référence OPP');
   },
 
   // Liste ordonnée des sections pour navigation
@@ -9297,6 +9353,7 @@ const App = {
       // Le bouton Supprimer devient pertinent dès que la fiche existe en base.
       const delBtn = document.getElementById(v === 'pdp-detail' ? 'btn-delete-pdp' : 'btn-delete-icp');
       if (delBtn) delBtn.style.display = '';
+      if (v === 'pdp-detail') { const dupBtn = document.getElementById('btn-duplicate-pdp'); if (dupBtn) dupBtn.style.display = ''; }
     } catch (e) {
       console.warn('_materializeNewForm:', e);
     } finally {
@@ -14672,6 +14729,7 @@ const App = {
     this.showView('pdp-detail');
     document.getElementById('pdp-detail-title').textContent = pdp.titre;
     document.getElementById('btn-delete-pdp').style.display = '';
+    document.getElementById('btn-duplicate-pdp').style.display = '';
     this.showPDPSection('general');
   },
 
