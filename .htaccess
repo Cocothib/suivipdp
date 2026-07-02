@@ -38,7 +38,7 @@
     Header set Cache-Control "no-cache, must-revalidate"
   </FilesMatch>
   # Proteger les fichiers de config sensibles
-  <FilesMatch "^(sellsy-config\.php|\.sellsy-token\.cache)$">
+  <FilesMatch "^(sellsy-config\.php|\.sellsy-token\.cache|\.sellsy-opps\.cache)$">
     Require all denied
   </FilesMatch>
 </IfModule>
@@ -49,6 +49,9 @@
   Require all denied
 </Files>
 <Files ".sellsy-token.cache">
+  Require all denied
+</Files>
+<Files ".sellsy-opps.cache">
   Require all denied
 </Files>
 <Files ".htaccess">

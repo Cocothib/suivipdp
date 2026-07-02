@@ -13,6 +13,9 @@
  *   GET ?action=list&limit=100&offset=0 -> Sellsy /companies (paginated)
  *   GET ?action=opp_search&q=...     -> Sellsy /opportunities/search
  *   GET ?action=opportunity&id=...   -> Sellsy /opportunities/{id}
+ *   GET ?action=opp_all[&refresh=1]  -> liste complete agregee (champs reduits),
+ *                                       cache disque 6h : 1 requete cote mobile
+ *                                       au lieu de ~50 paginees
  *
  * Credentials are read from sellsy-config.php (NOT committed).
  */
@@ -133,6 +136,42 @@ try {
             // Sans embed[] (refusés sur cet endpoint en v2)
             $res = sellsy_call('GET', "/opportunities/$id", $token);
             break;
+        case 'opp_all':
+            // Liste complète des opportunités, agrégée côté serveur (bande passante
+            // datacenter) et réduite aux champs utilisés par l'autocomplete client.
+            // Cache disque 6h partagé entre tous les utilisateurs : le terrain fait
+            // UNE requête (~300 Ko gzip) au lieu de ~50 paginées sur réseau mobile.
+            $oppsCacheFile = __DIR__ . '/.sellsy-opps.cache';
+            $maxAge = 6 * 3600;
+            $force = !empty($_GET['refresh']);
+            if (!$force && file_exists($oppsCacheFile) && (time() - filemtime($oppsCacheFile)) < $maxAge) {
+                echo file_get_contents($oppsCacheFile);
+                exit;
+            }
+            @set_time_limit(120); // ~50 appels Sellsy séquentiels côté serveur
+            $all = [];
+            $offset = 0; $limit = 100; $total = null;
+            while (count($all) < 10000) {
+                $body = ['filters' => new stdClass()];
+                $resp = sellsy_call('POST', "/opportunities/search?limit=$limit&offset=$offset&embed[]=related&embed[]=step", $token, $body);
+                $page = json_decode($resp, true);
+                if (!is_array($page) || empty($page['data']) || !is_array($page['data'])) break;
+                if ($total === null && isset($page['pagination']['total'])) $total = (int)$page['pagination']['total'];
+                foreach ($page['data'] as $o) { $all[] = sellsy_map_opp_compact($o); }
+                if (count($page['data']) < $limit) break;
+                $offset += $limit;
+                if ($total !== null && count($all) >= $total) break;
+            }
+            $complete = ($total === null || count($all) >= $total);
+            $res = json_encode([
+                'items' => $all,
+                'total' => $total !== null ? $total : count($all),
+                'complete' => $complete,
+                'cached_at' => time(),
+            ]);
+            // Ne jamais figer 6h une liste incomplète (rate-limit/timeout en cours de pagination)
+            if ($complete && count($all) > 0) @file_put_contents($oppsCacheFile, $res);
+            break;
         default:
             http_response_code(404);
             echo json_encode(['error' => 'action inconnue']);
@@ -147,6 +186,37 @@ try {
 }
 
 // ===========================================
+// Projection compacte d'une opportunité Sellsy v2 — MÊME forme que le
+// _mapOpportunity() du client (index.html) : le cache client les utilise tel quel.
+function sellsy_map_opp_compact($o) {
+    $related = (isset($o['related']) && is_array($o['related'])) ? $o['related'] : [];
+    $companyId = $o['company_id'] ?? null;
+    $companyName = '';
+    foreach ($related as $r) {
+        $t = $r['type'] ?? ($r['related_type'] ?? '');
+        if ($t === 'company') {
+            if (!$companyId) $companyId = $r['id'] ?? ($r['related_id'] ?? null);
+            $companyName = $r['name'] ?? '';
+            break;
+        }
+    }
+    $step = (isset($o['step']) && is_array($o['step'])) ? $o['step'] : [];
+    $estAmount = (isset($o['estimated_amount']) && is_array($o['estimated_amount'])) ? $o['estimated_amount'] : [];
+    return [
+        'id' => $o['id'] ?? null,
+        'ref' => $o['reference'] ?? ($o['number'] ?? ('OPP-' . ($o['id'] ?? ''))),
+        'nom' => $o['subject'] ?? ($o['name'] ?? ''),
+        'montant' => $o['amount'] ?? ($estAmount['value'] ?? null),
+        'devise' => $estAmount['currency'] ?? ($o['currency'] ?? 'EUR'),
+        'etape' => $step['label'] ?? ($step['name'] ?? ($o['step_label'] ?? '')),
+        'probabilite' => $o['probability'] ?? ($step['probability'] ?? null),
+        'dateCloture' => $o['estimated_closing_date'] ?? ($o['due_date'] ?? ''),
+        'companyId' => $companyId,
+        'companyName' => $companyName,
+        'contactIds' => (isset($o['contact_ids']) && is_array($o['contact_ids'])) ? $o['contact_ids'] : [],
+    ];
+}
+
 function sellsy_get_token($cfg) {
     $cacheFile = __DIR__ . '/.sellsy-token.cache';
     if (file_exists($cacheFile)) {

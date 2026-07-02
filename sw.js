@@ -1,4 +1,8 @@
-const CACHE_NAME = 'suivi-pdp-v166';
+const CACHE_NAME = 'suivi-pdp-v167';
+// Cache séparé pour les libs CDN : leurs URLs sont versionnées (immuables),
+// inutile de les re-télécharger à chaque bump du cache applicatif.
+// N'incrémenter LIBS_CACHE que si la liste CDN_ASSETS change.
+const LIBS_CACHE = 'suivi-pdp-libs-1';
 
 // App shell local
 const ASSETS = [
@@ -25,24 +29,31 @@ const CDN_ASSETS = [
   'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
 ];
 
+// Une URL CDN va dans le cache libs (stable), le reste dans le cache applicatif (versionné).
+function _cacheFor(url) {
+  return /^https:\/\/(cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com|alcdn\.msauth\.net)\//.test(url)
+    ? LIBS_CACHE : CACHE_NAME;
+}
+
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(async cache => {
-      // App shell : obligatoire (échec = install échoue, comportement voulu).
-      await cache.addAll(ASSETS);
-      // Libs CDN : best-effort, une indispo CDN ne doit pas bloquer l'install.
-      await Promise.all(CDN_ASSETS.map(u =>
-        cache.add(new Request(u, { mode: 'cors' })).catch(() => { /* précache best-effort */ })
-      ));
-    })
-  );
+  event.waitUntil((async () => {
+    // App shell : obligatoire (échec = install échoue, comportement voulu).
+    const shell = await caches.open(CACHE_NAME);
+    await shell.addAll(ASSETS);
+    // Libs CDN : best-effort, une indispo CDN ne doit pas bloquer l'install.
+    const libs = await caches.open(LIBS_CACHE);
+    await Promise.all(CDN_ASSETS.map(async u => {
+      if (await libs.match(u)) return; // déjà en cache : pas de re-téléchargement
+      await libs.add(new Request(u, { mode: 'cors' })).catch(() => { /* précache best-effort */ });
+    }));
+  })());
   self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+      Promise.all(keys.filter(k => k !== CACHE_NAME && k !== LIBS_CACHE).map(k => caches.delete(k)))
     )
   );
   self.clients.claim();
@@ -82,7 +93,7 @@ self.addEventListener('fetch', event => {
           // Ne met en cache que les réponses exploitables (ok ou opaque CDN).
           if (response && (response.ok || response.type === 'opaque')) {
             const clone = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(req, clone)).catch(() => {});
+            caches.open(_cacheFor(url)).then(cache => cache.put(req, clone)).catch(() => {});
           }
           return response;
         }).catch(() => cached); // hors-ligne : retombe sur le cache

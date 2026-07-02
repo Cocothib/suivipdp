@@ -7,6 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Suivi PDP - Plan de Prévention</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2300693E'/><text x='50' y='65' font-size='40' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'>PDP</text></svg>">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" media="print" onload="this.media='all'">
   <style>
@@ -1237,7 +1238,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
   <div class="container-fluid">
     <a class="navbar-brand d-flex align-items-center gap-2" href="#" onclick="App.showView('dashboard')">
-      <img src="1000px Fond Blanc.jpg" alt="Générations Renouvelables" class="navbar-logo">
+      <img src="logo-navbar.jpg" alt="Générations Renouvelables" class="navbar-logo">
       <span>Suivi PDP</span>
       <small id="app-version" class="fw-normal" style="font-size:.62rem;opacity:.65"></small>
     </a>
@@ -1392,7 +1393,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     <div class="d-flex justify-content-between flex-wrap align-items-center gap-2 mb-2">
       <h5 class="mb-0"><i class="bi bi-list-ul me-1"></i>Plans de Prévention</h5>
       <div class="d-flex gap-2 flex-wrap">
-        <input type="search" class="form-control form-control-sm" style="width:240px" placeholder="OPP, client, site, titre…" id="search-pdp" oninput="App.filterPDPList()" list="search-pdp-list">
+        <input type="search" class="form-control form-control-sm" style="width:240px" placeholder="OPP, client, site, titre…" id="search-pdp" oninput="_debounce('search-pdp', () => App.filterPDPList())" list="search-pdp-list">
         <datalist id="search-pdp-list"></datalist>
         <select class="form-select form-select-sm" style="width:auto" id="filter-status" onchange="App.filterPDPList()">
           <option value="">Tous statuts</option>
@@ -2219,7 +2220,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <button class="btn btn-primary btn-sm" onclick="App.showEntrepriseForm()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
       </div>
     </div>
-    <input type="search" class="form-control form-control-sm search-bar mb-3" placeholder="Rechercher..." id="search-entreprise" oninput="App.filterEntreprises()">
+    <input type="search" class="form-control form-control-sm search-bar mb-3" placeholder="Rechercher..." id="search-entreprise" oninput="_debounce('search-ent', () => App.filterEntreprises())">
     <div id="entreprises-list-container"></div>
   </div>
 
@@ -2241,7 +2242,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <!-- Onglet Salariés -->
       <div class="tab-pane fade show active" id="tab-hab-salaries">
         <div class="d-flex justify-content-between mb-2 flex-wrap gap-2">
-          <input type="search" class="form-control form-control-sm" style="max-width:300px" placeholder="Rechercher salarié..." oninput="AutorisationInterne.filterSalaries(this.value)">
+          <input type="search" class="form-control form-control-sm" style="max-width:300px" placeholder="Rechercher salarié..." oninput="const v=this.value; _debounce('search-sal', () => AutorisationInterne.filterSalaries(v), 300)">
           <div class="d-flex gap-2">
             <button class="btn btn-primary btn-sm" onclick="AutorisationInterne.openSalarieForm()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button>
             <button class="btn btn-outline-danger btn-sm" onclick="AutorisationInterne.clearAllSalaries()" title="Vider toute la base salariés"><i class="bi bi-trash me-1"></i>Vider</button>
@@ -2283,7 +2284,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <button class="btn btn-primary btn-sm" onclick="App.newICP()"><i class="bi bi-plus-lg me-1"></i>Nouvelle ICP</button>
     </div>
     <div class="d-flex gap-2 flex-wrap mb-2">
-      <input type="search" class="form-control form-control-sm" style="width:240px" placeholder="OPP, site, objet…" id="search-icp" oninput="App.filterICPs()" list="search-icp-list">
+      <input type="search" class="form-control form-control-sm" style="width:240px" placeholder="OPP, site, objet…" id="search-icp" oninput="_debounce('search-icp', () => App.filterICPs())" list="search-icp-list">
       <datalist id="search-icp-list"></datalist>
       <select class="form-select form-select-sm" style="width:auto" id="filter-icp-statut" onchange="App.filterICPs()">
         <option value="">Tous statuts</option>
@@ -3758,6 +3759,48 @@ db.version(35).stores({
   signataires: '++id, &[nom+fonction], nom, fonction, updated_at, usage_count',
   media: '&ref, ts',
   settings: 'key'
+});
+
+// ========================================
+// CACHE COURT DES LECTURES DE TABLES
+// ========================================
+// Les rendus (dashboard, listes) rechargent des tables entières plusieurs fois de suite.
+// Ce cache mémorise le résultat de toArray() quelques secondes puis se vide seul (les
+// enregistrements avec photos base64 ne doivent pas rester en RAM). Toute écriture
+// Dexie sur une table cachée invalide immédiatement son entrée (hooks ci-dessous).
+const _tableCache = {};
+const _tableCacheTimers = {};
+function invalidateTableCache(name) {
+  if (name) { delete _tableCache[name]; clearTimeout(_tableCacheTimers[name]); }
+  else { for (const k of Object.keys(_tableCache)) { delete _tableCache[k]; clearTimeout(_tableCacheTimers[k]); } }
+}
+function cachedToArray(table, ttlMs = 2000) {
+  const k = table.name;
+  const c = _tableCache[k];
+  if (c && (Date.now() - c.at) < ttlMs) return Promise.resolve(c.rows);
+  return table.toArray().then(rows => {
+    _tableCache[k] = { rows, at: Date.now() };
+    clearTimeout(_tableCacheTimers[k]);
+    _tableCacheTimers[k] = setTimeout(() => { delete _tableCache[k]; }, ttlMs + 500);
+    return rows;
+  });
+}
+// Debounce générique par clé (champs de recherche : filtre après pause de frappe,
+// au lieu de re-filtrer/reconstruire le DOM à chaque caractère).
+const _debounceTimers = {};
+function _debounce(key, fn, ms = 250) {
+  clearTimeout(_debounceTimers[key]);
+  _debounceTimers[key] = setTimeout(fn, ms);
+}
+// Invalidation automatique à chaque écriture (creating/updating/deleting).
+// Note : Table.clear() ne déclenche pas les hooks -> les chemins de sync qui font
+// clear()+bulkPut appellent aussi invalidateTableCache() explicitement.
+['pdps', 'icps', 'entreprises', 'salaries_habilitations', 'signataires', 'fds'].forEach(t => {
+  try {
+    db[t].hook('creating', function() { invalidateTableCache(t); });
+    db[t].hook('updating', function() { invalidateTableCache(t); });
+    db[t].hook('deleting', function() { invalidateTableCache(t); });
+  } catch (_) { /* table absente : ignorer */ }
 });
 
 // ========================================
@@ -5297,6 +5340,7 @@ const DataSync = {
             }
             await this._applySharedAuxStores(shared);
         });
+        invalidateTableCache();
     },
 
     // Applique le distant store par store de façon ATOMIQUE (transaction Dexie).
@@ -5309,6 +5353,7 @@ const DataSync = {
             await db.pdps.clear();
             if (pdpData.pdps?.length) await db.pdps.bulkPut(pdpData.pdps.map(p => _rehydrateRecordPhotos(p, _localPhotos.get(p.id))));
         });
+        invalidateTableCache('pdps');
     },
     async _applyIcpStore(icpData) {
         await db.transaction('rw', db.icps, async () => {
@@ -5316,6 +5361,7 @@ const DataSync = {
             await db.icps.clear();
             if (icpData.icps?.length) await db.icps.bulkPut(icpData.icps.map(v => _rehydrateRecordPhotos(v, _localPhotos.get(v.id))));
         });
+        invalidateTableCache('icps');
     },
     async _applySharedStore(sharedData) {
         await db.transaction('rw', db.entreprises, db.settings, db.fds, db.sites, db.salaries_habilitations, db.signataires, async () => {
@@ -5337,6 +5383,7 @@ const DataSync = {
             }
             await this._applySharedAuxStores(sharedData);
         });
+        invalidateTableCache();
     },
 
     // ---- Sauvegardes séparées (avec merge anti-conflit) ----
@@ -6198,7 +6245,7 @@ const SellsyAPI = {
   isConfigured() {
     return !!this.getProxyUrl();
   },
-  async _call(params) {
+  async _call(params, timeoutMs = 30000) {
     const url = this.getProxyUrl() + '?' + new URLSearchParams(params).toString();
     const _key = localStorage.getItem('sellsyProxyKey');
     // Timeout (P0.1) : un proxy Sellsy injoignable ne doit pas figer l'UI.
@@ -6206,7 +6253,7 @@ const SellsyAPI = {
     // remplissage enchaîne opportunity + adresses/contacts en parallèle ; 10s
     // avortait des réponses lentes-mais-valides (localisation/GPS non remplis).
     const _ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-    const _timer = _ctrl ? setTimeout(() => { try { _ctrl.abort(); } catch (_) {} }, 30000) : null;
+    const _timer = _ctrl ? setTimeout(() => { try { _ctrl.abort(); } catch (_) {} }, timeoutMs) : null;
     let res;
     try {
       res = await fetch(url, { method: 'GET', credentials: 'omit', headers: _key ? { 'X-Api-Key': _key } : {}, signal: _ctrl ? _ctrl.signal : undefined });
@@ -6318,6 +6365,19 @@ const SellsyAPI = {
     return {
       items: (data.data || []).map(o => this._mapOpportunity(o)),
       total: (data.pagination && data.pagination.total) || (data.data || []).length,
+    };
+  },
+  // Liste complète agrégée côté proxy (cache serveur 6h, champs déjà compacts) :
+  // 1 seule requête au lieu de ~50 paginées — crucial sur réseau mobile terrain.
+  // Timeout long : au premier appel (cache serveur froid) le proxy pagine Sellsy.
+  async listAllOpportunities(force = false) {
+    const params = { action: 'opp_all' };
+    if (force) params.refresh = 1;
+    const data = await this._call(params, 90000);
+    return {
+      items: Array.isArray(data.items) ? data.items : [],
+      total: data.total || 0,
+      complete: data.complete !== false,
     };
   },
   async getOpportunity(id) {
@@ -6707,7 +6767,7 @@ table.ai-hab td.ai-rowtitle{background:#f2f2f2;font-weight:bold;text-align:left}
   async _refreshSalariesList(filter='') {
     const list = document.getElementById('salaries-list-container');
     if (!list) return;
-    const all = await db.salaries_habilitations.orderBy('nom').toArray();
+    const all = (await cachedToArray(db.salaries_habilitations)).slice().sort((a,b) => (a.nom||'').localeCompare(b.nom||''));
     const f = this._norm(filter);
     const filtered = f ? all.filter(s => this._norm(s.nom+' '+s.prenom+' '+(s.service||'')+' '+(s.poste||'')).includes(f)) : all;
     if (!filtered.length) {
@@ -7812,10 +7872,27 @@ const App = {
       await this._migrateSitesToAgences();
       await this.populateSiteSelects();
       _step('Synchronisation...', 60);
-      await this._initSharePoint();
-      // Après le pull SharePoint : migration éventuelle de l'ancienne entrée système FR-01
-      // en document normal + seed initial (idempotent via le flag réglages fr01Seeded).
-      try { await this.seedFR01(); } catch (e) { console.warn('seedFR01 (boot):', e); }
+      // Démarrage non bloquant : si des données locales existent, on affiche tout de suite
+      // le tableau de bord et la sync SharePoint se fait en arrière-plan (le pull initial
+      // et le polling rafraîchissent la vue courante quand les données distantes arrivent).
+      // Premier lancement (base vide) : on attend le pull initial, sinon écran vide.
+      const _hasLocalData = ((await db.pdps.count()) + (await db.icps.count())) > 0;
+      const _bootSync = async () => {
+        await this._initSharePoint();
+        // Après le pull SharePoint : migration éventuelle de l'ancienne entrée système FR-01
+        // en document normal + seed initial (idempotent via le flag réglages fr01Seeded).
+        try { await this.seedFR01(); } catch (e) { console.warn('seedFR01 (boot):', e); }
+      };
+      if (_hasLocalData) {
+        _bootSync().then(() => {
+          if (this.currentView === 'dashboard') this.updateDashboard();
+          if (this.currentView === 'list') this.renderPDPList();
+          if (this.currentView === 'icps') this.renderICPList();
+          if (this.currentView === 'entreprises') this.renderEntreprises();
+        }).catch(e => console.warn('Sync SharePoint (arrière-plan):', e));
+      } else {
+        await _bootSync();
+      }
       _step('Préparation du tableau de bord...', 80);
       this.updateDashboard();
       _step('Prêt !', 100);
@@ -8152,7 +8229,7 @@ const App = {
 
   async updateDashboard() {
     this.showAppVersion();
-    const pdps = await db.pdps.toArray();
+    const pdps = (await cachedToArray(db.pdps)).slice();
     const now = new Date();
     document.getElementById('kpi-total').textContent = pdps.length;
     document.getElementById('kpi-actifs').textContent = pdps.filter(p => p.statut === 'actif').length;
@@ -8165,7 +8242,7 @@ const App = {
       : recent.map(p => this.renderPDPCard(p)).join('');
 
     // ICP dashboard — exclure les ICP déjà liées à un PDP (elles font partie du PDP)
-    const icpAll = await db.icps.orderBy('dateCreation').reverse().toArray();
+    const icpAll = (await cachedToArray(db.icps)).slice().sort((a,b) => new Date(b.dateCreation||0) - new Date(a.dateCreation||0));
     document.getElementById('kpi-icp-total').textContent = icpAll.length;
     const recentICPs = icpAll.filter(v => !v.pdpId).slice(0,3);
     const statutLabelsICP = { effectuee:'Effectuée', validee:'Validée' };
@@ -8194,8 +8271,8 @@ const App = {
   // PDP LIST
   // ========================================
   async renderPDPList() {
-    const pdps = await db.pdps.toArray();
-    const icps = await db.icps.toArray();
+    const pdps = (await cachedToArray(db.pdps)).slice();
+    const icps = await cachedToArray(db.icps);
     this._icpRefByIdCache = new Map(icps.map(v => [v.id, v.refOperation || '']));
     this._pdpEditorsMap = (DataSync.getEditorsMap ? await DataSync.getEditorsMap('pdp') : {}) || {};
     const c = document.getElementById('pdp-list-container');
@@ -8957,7 +9034,7 @@ const App = {
         // Aucun permis rédigé : garantir le vierge par défaut UNIQUEMENT si aucun rempli archivé.
         if (!p.documents.some(isRempli) && !p.documents.some(isVierge)) {
           try {
-            const f = (await db.fds.toArray()).find(x => x.categorie==='permis_feu' && x.standard);
+            const f = await db.fds.filter(x => x.categorie==='permis_feu' && !!x.standard).first();
             if (f) {
               p.documents.push({ nom:f.nom, type:f.mime||'application/pdf', taille:f.taille||0, fdsRef:f.id, date:new Date().toISOString(), categorie:'permis_feu' });
               try { await db.pdps.put(p); } catch(_){}
@@ -12728,7 +12805,7 @@ const App = {
 
   async renderEntreprises() {
     const c = document.getElementById('entreprises-list-container');
-    const ents = await db.entreprises.toArray();
+    const ents = await cachedToArray(db.entreprises);
     if (!ents.length) { c.innerHTML = '<p class="text-muted text-center mt-4">Aucune entreprise.</p>'; return; }
     c.innerHTML = ents.map(e => `<div class="card pdp-card" data-nom="${this.esc((e.nom||'').toLowerCase())}" data-activite="${this.esc((e.activite||'').toLowerCase())}"><div class="card-body p-2"><div class="d-flex align-items-center gap-2"><div class="flex-grow-1"><strong>${this.esc(e.nom)}</strong>${e.activite?` <span class="text-muted small">— ${this.esc(e.activite)}</span>`:''}<div class="small text-muted">${e.responsable?`${this.esc(e.responsable)} `:''} ${e.tel?`· ${this.esc(e.tel)}`:''}</div></div><button class="btn btn-outline-primary btn-sm" onclick="event.stopPropagation();App.showEntrepriseForm(${e.id})"><i class="bi bi-pencil"></i></button><button class="btn btn-outline-danger btn-sm" onclick="event.stopPropagation();App.deleteEntreprise(${e.id})"><i class="bi bi-trash"></i></button></div></div></div>`).join('');
   },
@@ -12932,7 +13009,7 @@ const App = {
         <div class="input-group input-group-sm">
           <span class="input-group-text"><i class="bi bi-funnel"></i></span>
           <input type="search" id="sellsy-opp-q" name="sellsy-opp-q" class="form-control" placeholder="Filtrer par intitulé, référence ou société..." autocomplete="off" oninput="App.filterSellsyOppCache()">
-          <button class="btn btn-outline-secondary" type="button" onclick="App.loadSellsyOppList()" title="Rafraîchir la liste"><i class="bi bi-arrow-clockwise"></i></button>
+          <button class="btn btn-outline-secondary" type="button" onclick="App.loadSellsyOppList(true)" title="Rafraîchir la liste"><i class="bi bi-arrow-clockwise"></i></button>
         </div>
         <div class="form-text">La liste se filtre automatiquement à mesure de la saisie.</div>
       </div>
@@ -12957,7 +13034,7 @@ const App = {
     }, 250);
   },
 
-  async loadSellsyOppList() {
+  async loadSellsyOppList(force = false) {
     const statusEl = document.getElementById('sellsy-opp-status');
     const resEl = document.getElementById('sellsy-opp-results');
     if (statusEl) statusEl.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Chargement des opportunités…';
@@ -12965,6 +13042,28 @@ const App = {
     // Anti-perte (iPhone/Safari surtout) : on garde une copie du cache courant pour
     // ne JAMAIS le remplacer par une liste plus pauvre en cas de hoquet réseau.
     const prevCache = (this._sellsyOppCache && this._sellsyOppCache.length) ? this._sellsyOppCache.slice() : null;
+    // Voie rapide : liste agrégée par le proxy (1 requête, cache serveur 6h).
+    // En cas d'échec (ancien proxy, timeout), repli sur la pagination classique.
+    try {
+      const agg = await SellsyAPI.listAllOpportunities(force);
+      if (agg && agg.items.length) {
+        const aggIncomplete = !agg.complete;
+        if (aggIncomplete && prevCache && prevCache.length >= agg.items.length) {
+          this._sellsyOppCache = prevCache; // on conserve l'ancienne liste (plus complète)
+          if (statusEl) statusEl.innerHTML = `<span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Chargement incomplet (${agg.items.length}/${agg.total}) — liste précédente conservée. Réessayez « Rafraîchir ».</span>`;
+        } else {
+          this._sellsyOppCache = agg.items;
+          if (!aggIncomplete) this._saveOppCacheToStorage();
+          if (statusEl) {
+            statusEl.innerHTML = aggIncomplete
+              ? `<span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>${agg.items.length}/${agg.total} opportunité(s) — liste possiblement incomplète, « Rafraîchir » pour compléter.</span>`
+              : `<span class="text-muted">${agg.items.length} opportunité(s) chargée(s)</span>`;
+          }
+        }
+        this._renderSellsyOppCache();
+        return;
+      }
+    } catch (e) { console.warn('[Sellsy opp_all] indisponible, repli sur la pagination', e); }
     try {
       // Pagination : on récupère TOUTES les opportunités (cap de sécurité 10 000)
       let all = [];
@@ -13988,7 +14087,7 @@ const App = {
 
   async renderICPList() {
     const c = document.getElementById('icps-list-container');
-    const icpList = await db.icps.orderBy('dateCreation').reverse().toArray();
+    const icpList = (await cachedToArray(db.icps)).slice().sort((a,b) => new Date(b.dateCreation||0) - new Date(a.dateCreation||0));
     if (!icpList.length) { c.innerHTML = '<p class="text-muted text-center mt-4">Aucune ICP.</p>'; return; }
     const statutLabels = { effectuee:'Effectuée', validee:'Validée' };
     const statutColors = { effectuee:'primary', validee:'success' };
@@ -16138,7 +16237,7 @@ const App = {
   // Balayage : archive les ICP réalisées (effectuée/validée) absentes de SuiviPDP/ICP/Exports.
   async archiveMissingICP() {
     if (!DataSync._connected) { this.toast('SharePoint non connecté', 'warning'); return; }
-    const realisees = (await db.icps.toArray()).filter(i => this._icpRealisee(i));
+    const realisees = (await cachedToArray(db.icps)).filter(i => this._icpRealisee(i));
     if (!realisees.length) { this.toast('Aucune ICP réalisée à archiver'); return; }
     let existing = new Set();
     try {
