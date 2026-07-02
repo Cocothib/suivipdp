@@ -3828,9 +3828,9 @@ const SP_CONFIG = {
     // soit la façon d'ouvrir l'app (PC : .../suivipdp/ , PWA mobile : .../suivipdp/index.html)
     // et correspondre EXACTEMENT à celle enregistrée dans Azure AD (sinon AADSTS50011).
     REDIRECT_URI: window.location.origin + window.location.pathname.replace(/index\.html$/i, ''),
-    POLL_INTERVAL_MS:  15000,
+    POLL_INTERVAL_MS:  8000,   // détection des modifs des collègues ~2× plus rapide ; coût quasi nul (304 sans corps)
     PRESENCE_INTERVAL_MS: 30000,
-    SAVE_DEBOUNCE_MS:  2000,
+    SAVE_DEBOUNCE_MS:  1000,
     PRESENCE_STALE_MS: 90000,
 };
 
@@ -5503,21 +5503,23 @@ const DataSync = {
         }
 
         // 4. Écriture conditionnelle (If-Match sur l'ETag lu) : 412 si modifié entre-temps
-        await Promise.all([
+        const [putPdp, putIcp, putShared] = await Promise.all([
             _writeJsonFile(SP_CONFIG.PDP_DATA_FILE, pdpData, useEtag ? rp.etag : null, useEtag ? mp : null),
             _writeJsonFile(SP_CONFIG.ICP_DATA_FILE, icpData, useEtag ? ri.etag : null, useEtag ? mi : null),
             _writeJsonFile(SP_CONFIG.SHARED_DATA_FILE, sharedData, useEtag ? rs.etag : null, useEtag ? ms : null),
         ]);
         this._loadedMeta = { pdp:pdpData._meta, icp:icpData._meta, shared:sharedData._meta };
-        // #8 : on vient d'écrire → l'eTag /content distant a changé. On invalide les
-        // eTags mémorisés (null) plutôt que de réutiliser celui du DriveItem renvoyé
-        // par le PUT (format potentiellement différent de l'ETag /content : un faux
-        // 304 masquerait des données). Le prochain polling fera UN GET complet, qui
-        // re-mémorisera l'eTag courant ; aucune ré-application puisque la version est
-        // déjà à jour (garde _meta.version). Coût : un download ponctuel, sans risque.
-        this._pollEtags = { pdp: null, icp: null, shared: null };
-        // Persiste la nouvelle version/etag (etags nuls ici → un GET complet au prochain
-        // boot re-mémorisera l'etag /content correct, puis 304 ensuite : auto-réparateur).
+        // #8 : on vient d'écrire → on mémorise l'eTag du DriveItem renvoyé par le PUT.
+        // Les eTags sont uniques par version, donc PAS de faux 304 possible : si Graph
+        // reconnaît cet eTag en If-None-Match, le contenu distant EST ce qu'on vient de
+        // pousser (304 correct, aucun re-téléchargement) ; s'il ne le reconnaît pas
+        // (format différent de l'ETag /content), le poll fait un GET complet — coût
+        // identique à l'ancien `null` — dont l'apply est neutralisé par la garde
+        // _meta.version. Strictement mieux ou équivalent, jamais pire.
+        const _putEtag = r => (r && (r.eTag || r.etag)) || null;
+        this._pollEtags = { pdp: _putEtag(putPdp), icp: _putEtag(putIcp), shared: _putEtag(putShared) };
+        // Persiste la nouvelle version/etag (si un eTag n'est pas reconnu au prochain
+        // boot, le GET complet re-mémorisera l'etag /content correct : auto-réparateur).
         this._persistSyncState();
         // Snapshot = EXACTEMENT les données poussées (pas une relecture de db qui
         // pourrait inclure une mutation concurrente non poussée → champ vu 'inchangé
