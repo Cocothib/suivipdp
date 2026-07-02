@@ -8429,6 +8429,33 @@ const App = {
     return Math.max(n, 1);
   },
 
+  // ---- Indicateur : couverture ICP du parc actif Sellsy ----
+  // Parc actif = opportunités « Affaire conclue », hors résiliées (nom contenant
+  // « résilié ») et hors archivées (préfixe Z_) — conventions de nommage Sellsy
+  // du groupe. Installation couverte = ≥ 1 ICP réalisée (effectuée/validée) dans
+  // l'année, rattachée par n° d'OPP (refOperation). Renvoie null si la liste des
+  // opportunités n'a jamais été chargée sur ce poste (indicateur non calculable).
+  _icpCouvertureParc(icps, annee) {
+    if (!(this._sellsyOppCache && this._sellsyOppCache.length)) this._loadOppCacheFromStorage();
+    const opps = this._sellsyOppCache || [];
+    if (!opps.length) return null;
+    const norm = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+    const parc = opps.filter(o => norm(o.etape) === 'affaire conclue'
+      && !norm(o.nom).includes('resili')
+      && !norm(o.nom).startsWith('z_'));
+    if (!parc.length) return null;
+    const refsRealisees = new Set();
+    const dateOf = v => new Date(v.dateVisite || (v.dateCreation || '').slice(0, 10) || v.dateCreation);
+    for (const v of icps) {
+      if (!v.refOperation || !this._icpRealisee(v)) continue;
+      const d = dateOf(v);
+      if (!d || isNaN(d) || d.getFullYear() !== annee) continue;
+      refsRealisees.add(norm(v.refOperation));
+    }
+    const num = parc.filter(o => refsRealisees.has(norm(o.ref))).length;
+    return { num, den: parc.length, pct: Math.round(num * 100 / parc.length) };
+  },
+
   async renderICPMaintenance(annee) {
     const el = document.getElementById('dashboard-icp-maint');
     if (!el) return;
@@ -8438,7 +8465,7 @@ const App = {
     if (!(await this.isAdmin())) { if (card) card.style.display = 'none'; return; }
     if (card) card.style.display = '';
 
-    const all = await db.icps.toArray();
+    const all = await cachedToArray(db.icps);
     const dateOf = (v) => new Date(v.dateVisite || (v.dateCreation||'').slice(0,10) || v.dateCreation);
 
     // Années disponibles (depuis les données) + année courante, pour le sélecteur
@@ -8495,6 +8522,21 @@ const App = {
         </table>
       </div>
       ${nonAttribuees ? `<p class="text-muted small mb-0 px-1"><i class="bi bi-info-circle me-1"></i>${nonAttribuees} ICP en ${annee} non rattachée(s) à un technicien maintenance (réalisateur non renseigné ou hors équipe).</p>` : ''}
+      ${(() => {
+        const c = this._icpCouvertureParc(all, annee);
+        if (!c) return `<p class="text-muted small mb-0 px-1 border-top pt-2 mt-2"><i class="bi bi-info-circle me-1"></i>Couverture du parc non calculable : liste des opportunités Sellsy non chargée sur ce poste (ouvrir le champ N° d'opération d'une ICP ou « Rafraîchir » la liste).</p>`;
+        const color = c.pct >= 80 ? 'success' : c.pct >= 50 ? 'warning' : 'danger';
+        return `
+        <div class="border-top pt-2 mt-2 px-1">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="small fw-bold">Couverture ICP du parc actif Sellsy — ${annee}</span>
+            <span class="badge bg-${color}${color==='warning' ? ' text-dark' : ''}">${c.pct} %</span>
+            <span class="text-muted small">${c.num} / ${c.den} installations avec ICP réalisée</span>
+          </div>
+          <div class="progress mt-1" style="height:6px"><div class="progress-bar bg-${color}" style="width:${c.pct}%"></div></div>
+          <p class="text-muted small mb-0 mt-1">Parc actif = opportunités « Affaire conclue », hors résiliées et archivées (Z_). Rattachement par n° d'OPP.</p>
+        </div>`;
+      })()}
     `;
   },
 
