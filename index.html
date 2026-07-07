@@ -4388,6 +4388,134 @@ async function _listFiles(folderPath) {
     return (await resp.json()).value || [];
 }
 
+/* =====================================================================
+ * SharedRef — Referentiel partage inter-apps QSE (fichier neutre)
+ * Fichier : /sites/QHSE -> Shared/referentiels.json (racine bibliotheque).
+ * Contrat commun aux 5 apps (PDP/VMC/NC/DUERP/Dechets). Module IDENTIQUE
+ * partout ; seul SharedRef.configure(...) en fin de bloc est specifique.
+ * DORMANT : configure() ne fait aucune I/O. Rien n'est lu/ecrit tant que
+ * read()/publish() ne sont pas appeles. Spec : Documents/INTEGRATION-referentiel-partage.md
+ * ===================================================================== */
+const SharedRef = (() => {
+  const PATH = 'Shared/referentiels.json';
+  const SCHEMA_VERSION = 1;
+  const CACHE_KEY = 'cache';                 // localStorage : 'sharedref:cache'
+  const REFRESH_MS = 60 * 60 * 1000;         // relecture au plus 1x/heure
+  const SECTIONS = ['entreprises', 'chantiers', 'personnel', 'agences', 'exutoires'];
+
+  let io = {
+    readFile:  null,   // async () => ({ data, etag })   (data:null si 404)
+    writeFile: null,   // async (data, etag) => driveItem (throw err._precondition sur 412)
+    cacheGet:  (k) => { try { return JSON.parse(localStorage.getItem('sharedref:' + k) || 'null'); } catch (_) { return null; } },
+    cacheSet:  (k, v) => { try { localStorage.setItem('sharedref:' + k, JSON.stringify(v)); } catch (_) {} },
+    userName:  () => 'Inconnu',
+  };
+
+  let _mem = null;   // { data, etag, fetchedAt } — miroir memoire du cache
+
+  const slug = (s) => String(s || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const normSiret = (s) => String(s || '').replace(/\D/g, '');
+  const keyPersonnel = (nom, prenom) => slug(nom) + '-' + slug(prenom);
+  const idEntreprise = (siret, nom) => 'ent-' + (normSiret(siret) || slug(nom));
+  const idExutoire   = (siret, nom) => 'exu-' + (normSiret(siret) || slug(nom));
+  const idChantier   = (nom, entite, oppId) => oppId ? ('cht-opp-' + slug(oppId)) : ('cht-' + slug(nom) + '-' + slug(entite));
+  const idPersonnel  = (nom, prenom) => 'per-' + keyPersonnel(nom, prenom);
+  const idAgence     = (marque, ville) => 'agc-' + slug(marque) + '-' + slug(ville);
+
+  const _nowISO = () => { try { return new Date().toISOString(); } catch (_) { return ''; } };
+
+  function emptyDoc() {
+    const now = _nowISO();
+    const doc = { _meta: { schemaVersion: SCHEMA_VERSION, lastSaved: now, savedBy: io.userName() } };
+    for (const s of SECTIONS) doc[s] = { _owner: null, _version: 0, _updatedAt: now, items: [] };
+    return doc;
+  }
+
+  function configure(adapter) { io = Object.assign(io, adapter || {}); return SharedRef; }
+
+  async function _loadCache() {
+    if (_mem) return _mem;
+    try { const c = await io.cacheGet(CACHE_KEY); if (c && c.data) _mem = c; } catch (_) {}
+    return _mem;
+  }
+
+  async function read({ force = false } = {}) {
+    await _loadCache();
+    const fresh = _mem && (Date.now() - (_mem.fetchedAt || 0) < REFRESH_MS);
+    if (fresh && !force) return _mem.data;
+    if (!io.readFile) return (_mem && _mem.data) || emptyDoc();
+    try {
+      const res = await io.readFile();
+      const data = (res && res.data) ? res.data : emptyDoc();
+      _mem = { data, etag: (res && res.etag) || null, fetchedAt: Date.now() };
+      try { await io.cacheSet(CACHE_KEY, _mem); } catch (_) {}
+      return data;
+    } catch (e) {
+      console.warn('[SharedRef] lecture echouee, cache conserve :', e && e.message);
+      return (_mem && _mem.data) || emptyDoc();
+    }
+  }
+
+  function get(section) {
+    const sec = _mem && _mem.data && _mem.data[section];
+    return (sec && Array.isArray(sec.items)) ? sec.items : [];
+  }
+
+  function meta(section) {
+    const sec = _mem && _mem.data && _mem.data[section];
+    return sec ? { owner: sec._owner, version: sec._version, updatedAt: sec._updatedAt } : null;
+  }
+
+  async function publish(section, items, { owner, maxRetries = 3 } = {}) {
+    if (!SECTIONS.includes(section)) throw new Error('[SharedRef] section inconnue: ' + section);
+    if (!io.readFile || !io.writeFile) throw new Error('[SharedRef] I/O non configuree');
+    const ownerId = owner || io.userName();
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const res = await io.readFile();
+      const doc = (res && res.data) ? res.data : emptyDoc();
+      if (!doc._meta) doc._meta = { schemaVersion: SCHEMA_VERSION };
+      const prev = doc[section] || { _version: 0 };
+      doc[section] = {
+        _owner: ownerId,
+        _version: (prev._version || 0) + 1,
+        _updatedAt: _nowISO(),
+        items: Array.isArray(items) ? items : [],
+      };
+      doc._meta.lastSaved = _nowISO();
+      doc._meta.savedBy = io.userName();
+      doc._meta.schemaVersion = SCHEMA_VERSION;
+      try {
+        await io.writeFile(doc, (res && res.etag) || null);
+        _mem = { data: doc, etag: null, fetchedAt: Date.now() };
+        try { await io.cacheSet(CACHE_KEY, _mem); } catch (_) {}
+        return doc[section];
+      } catch (e) {
+        if (e && e._precondition && attempt < maxRetries) continue;
+        throw e;
+      }
+    }
+    throw new Error('[SharedRef] publication abandonnee apres conflits repetes (' + section + ')');
+  }
+
+  return {
+    PATH, SECTIONS, configure, read, get, meta, publish,
+    slug, normSiret, keyPersonnel,
+    idEntreprise, idExutoire, idChantier, idPersonnel, idAgence,
+  };
+})();
+
+/* Branchement SuiviPDP — owner : entreprises, chantiers, personnel, agences.
+   Reutilise la couche Graph existante ; aucune I/O au chargement (Lot 0). */
+SharedRef.configure({
+  readFile:  () => _readJsonFileMeta(SharedRef.PATH),
+  writeFile: (data, etag) => _writeJsonFile(SharedRef.PATH, data, etag),
+  userName:  () => localStorage.getItem('pdp_user_name') || 'Inconnu',
+});
+try { window.SharedRef = SharedRef; } catch (_) {}
+
 // Liste RÉCURSIVE et paginée des FICHIERS (hors dossiers) sous un dossier
 // SharePoint. Renvoie [{path, size}] (path = chemin complet relatif à la racine
 // du drive, reconstruit dossier par dossier → matche exactement les ref stockées).
