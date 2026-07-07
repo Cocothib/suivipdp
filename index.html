@@ -7885,6 +7885,10 @@ const App = {
         // Après le pull SharePoint : migration éventuelle de l'ancienne entrée système FR-01
         // en document normal + seed initial (idempotent via le flag réglages fr01Seeded).
         try { await this.seedFR01(); } catch (e) { console.warn('seedFR01 (boot):', e); }
+        // Rattrapage : pousse sur SharePoint les FDS qui ont un binaire local mais pas
+        // de fichier SP (import/seed effectué hors-ligne) — sinon les autres postes ne
+        // peuvent jamais les résoudre (export "FDS introuvable"). Non bloquant.
+        try { this.syncFDSFilesToSP().then(n => { if (n) DataSync.markDirty(); }).catch(e => console.warn('syncFDSFilesToSP (boot):', e)); } catch (e) {}
       };
       if (_hasLocalData) {
         _bootSync().then(() => {
@@ -12103,9 +12107,38 @@ const App = {
         const path = f._spPath || _fdsFilePath(f);
         f.data = await _downloadFileAsDataURL(path);
         await db.fds.put(f);
-      } catch (e) { console.warn('Download FDS échoué:', e); return null; }
+      } catch (e) {
+        console.warn('Download FDS échoué:', e);
+        if (!await this._repairFR01(f)) return null;
+      }
     }
+    if (!f.data) await this._repairFR01(f); // hors-ligne : la FR-01 embarquée reste restaurable
     return f;
+  },
+
+  // Auto-réparation FR-01 : le PNG de la fiche réflexe est embarqué dans l'app
+  // (FICHE_FR01_BASE64). Si le binaire manque localement ET n'est pas résoluble
+  // (seed effectué hors-ligne → jamais uploadé sur SharePoint, ou fichier supprimé),
+  // on le restaure depuis l'app puis on pousse le fichier sur SharePoint pour que
+  // les autres postes puissent le résoudre. Pas d'upload si _spPath existe déjà :
+  // le fichier SharePoint fait foi (fiche potentiellement remplacée par l'admin).
+  async _repairFR01(f) {
+    try {
+      if (!f || f.data) return !!(f && f.data);
+      if (!/FR-01/i.test(f.nom || '') || !/^image\/png$/i.test(f.mime || '')) return false;
+      f.data = getFR01DataURL();
+      await db.fds.put(f);
+      if (!f._spPath && DataSync._connected) {
+        try {
+          const path = _fdsFilePath(f);
+          await _uploadBinaryFromDataURL(path, f.data, 'image/png');
+          f._spPath = path;
+          await db.fds.put(f);
+          DataSync.markDirty();
+        } catch (e) { console.warn('Upload FR-01 (auto-réparation):', e); }
+      }
+      return true;
+    } catch (e) { console.warn('_repairFR01:', e); return false; }
   },
 
   // ---- Résolution lazy d'une dataURL de photo (socle externalisation, cf FDS) ----
