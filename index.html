@@ -413,6 +413,29 @@ textarea.form-control { min-height: 70px; }
     display: block;
     touch-action: none;
 }
+/* Bouton « Signer en grand » injecté dans chaque zone de signature (cf. remontée
+   J. Huriez : case trop petite en portrait sur tablette). */
+.sig-enlarge-btn {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    z-index: 4;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: rgba(0, 105, 62, 0.9);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.sig-enlarge-btn:active { background: #00563a; }
 
 /* ---- Timeline ---- */
 .timeline-item {
@@ -649,6 +672,12 @@ textarea.form-control { min-height: 70px; }
     .form-section { padding: 0.75rem; }
     .kpi-card .card-body { padding: 0.5rem; }
     .risk-row { padding: 0.5rem; }
+}
+
+/* Zone de signature plus haute en portrait (tablette/mobile) : plus de place
+   pour signer naturellement. */
+@media (orientation: portrait) and (max-width: 1024px) {
+    .signature-canvas { height: 160px; }
 }
 
 /* ---- Enhanced mobile/tablet responsive ---- */
@@ -10708,14 +10737,116 @@ const App = {
   initCanvas(id) {
     const c = document.getElementById(id); if (!c || c._init) return;
     c._init = true; c._hasDrawing = false;
-    const ctx = c.getContext('2d'); c.width = c.offsetWidth; c.height = c.offsetHeight;
+    c.width = c.offsetWidth; c.height = c.offsetHeight;
+    this._attachSigDraw(c);
+    this._addEnlargeBtn(c);
+  },
+
+  // Binding de dessin réutilisable (zone inline ET zone plein écran). pos()
+  // rééchelonne les coordonnées écran -> résolution interne du canvas : le tracé
+  // reste aligné même si la taille CSS diffère de la résolution (rotation, agrandi).
+  _attachSigDraw(c) {
+    const ctx = c.getContext('2d');
     let drawing = false, lx, ly;
-    const pos = e => { const r = c.getBoundingClientRect(); const t = e.touches?e.touches[0]:e; return {x:t.clientX-r.left, y:t.clientY-r.top}; };
+    const pos = e => {
+      const r = c.getBoundingClientRect();
+      const t = e.touches ? e.touches[0] : e;
+      const sx = r.width ? c.width / r.width : 1;
+      const sy = r.height ? c.height / r.height : 1;
+      return { x: (t.clientX - r.left) * sx, y: (t.clientY - r.top) * sy };
+    };
     const start = e => { e.preventDefault(); drawing=true; const p=pos(e); lx=p.x; ly=p.y; };
-    const move = e => { if(!drawing)return; e.preventDefault(); const p=pos(e); ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(p.x,p.y); ctx.strokeStyle='#000'; ctx.lineWidth=2; ctx.lineCap='round'; ctx.stroke(); lx=p.x; ly=p.y; c._hasDrawing=true; };
+    const move = e => { if(!drawing)return; e.preventDefault(); const p=pos(e); ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(p.x,p.y); ctx.strokeStyle='#000'; ctx.lineWidth=2; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke(); lx=p.x; ly=p.y; c._hasDrawing=true; };
     const end = () => { drawing=false; };
     c.addEventListener('mousedown',start); c.addEventListener('mousemove',move); c.addEventListener('mouseup',end); c.addEventListener('mouseleave',end);
     c.addEventListener('touchstart',start,{passive:false}); c.addEventListener('touchmove',move,{passive:false}); c.addEventListener('touchend',end);
+  },
+
+  // Injecte le bouton « Signer en grand » dans la zone de signature.
+  _addEnlargeBtn(c) {
+    const wrap = c.parentElement;
+    if (!wrap || !wrap.classList.contains('signature-pad-wrapper')) return;
+    if (wrap.querySelector('.sig-enlarge-btn')) return;
+    wrap.style.position = 'relative';
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'sig-enlarge-btn';
+    b.title = 'Signer en grand';
+    b.setAttribute('aria-label', 'Agrandir la zone de signature');
+    b.innerHTML = '<i class="bi bi-arrows-fullscreen"></i>';
+    b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); App.openSignatureFullscreen(c.id); });
+    wrap.appendChild(b);
+  },
+
+  // Ouvre une zone de signature plein écran liée au canvas d'origine.
+  // À la validation, le tracé est reporté dans le petit canvas -> les chaînes de
+  // sauvegarde existantes (canvas._hasDrawing ? toDataURL()) fonctionnent sans changement.
+  openSignatureFullscreen(originId) {
+    if (!document.getElementById(originId)) return;
+    this._sigFsOriginId = originId;
+    let modal = document.getElementById('sig-fs-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'sig-fs-modal';
+      modal.className = 'modal fade';
+      modal.tabIndex = -1;
+      modal.innerHTML = `
+        <div class="modal-dialog modal-fullscreen">
+          <div class="modal-content">
+            <div class="modal-header py-2 align-items-center">
+              <h6 class="modal-title mb-0"><i class="bi bi-pen me-1"></i>Signez dans le cadre</h6>
+              <div class="ms-auto d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="sig-fs-clear"><i class="bi bi-eraser me-1"></i>Effacer</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary btn-sm fw-bold" id="sig-fs-valider"><i class="bi bi-check-lg me-1"></i>Valider</button>
+              </div>
+            </div>
+            <div class="modal-body p-2" id="sig-fs-body" style="display:flex">
+              <canvas id="sig-fs-canvas" style="flex:1 1 auto;align-self:stretch;width:100%;touch-action:none;border:2px dashed #adb5bd;border-radius:8px;background:#fff"></canvas>
+            </div>
+          </div>
+        </div>`;
+      document.body.appendChild(modal);
+      modal.querySelector('#sig-fs-clear').addEventListener('click', () => {
+        const cv = document.getElementById('sig-fs-canvas');
+        if (cv) { cv.getContext('2d').clearRect(0,0,cv.width,cv.height); cv._hasDrawing = false; }
+      });
+      modal.querySelector('#sig-fs-valider').addEventListener('click', () => this._applySignatureFullscreen());
+    }
+    const inst = bootstrap.Modal.getOrCreateInstance(modal);
+    // Canvas neuf à chaque ouverture (drop des anciens écouteurs) + dimensionnement
+    // à la taille réelle du corps de la modale une fois affichée.
+    modal.addEventListener('shown.bs.modal', () => {
+      const old = document.getElementById('sig-fs-canvas');
+      if (!old) return;
+      const fresh = old.cloneNode(false);
+      old.parentNode.replaceChild(fresh, old);
+      fresh.width = fresh.offsetWidth || (window.innerWidth - 24);
+      fresh.height = fresh.offsetHeight || (window.innerHeight - 110);
+      fresh._hasDrawing = false;
+      this._attachSigDraw(fresh);
+    }, { once: true });
+    inst.show();
+  },
+
+  _applySignatureFullscreen() {
+    const big = document.getElementById('sig-fs-canvas');
+    const origin = document.getElementById(this._sigFsOriginId);
+    const modal = document.getElementById('sig-fs-modal');
+    const inst = modal && bootstrap.Modal.getInstance(modal);
+    const close = () => { if (inst) inst.hide(); };
+    if (!big || !origin || !big._hasDrawing) { close(); return; } // rien dessiné -> ne touche pas l'existant
+    const url = big.toDataURL('image/png');
+    const ctx = origin.getContext('2d');
+    const img = new Image();
+    img.onload = () => {
+      ctx.clearRect(0, 0, origin.width, origin.height);
+      ctx.drawImage(img, 0, 0, origin.width, origin.height);
+      origin._hasDrawing = true;
+      close();
+    };
+    img.onerror = close;
+    img.src = url;
   },
 
   loadSigImg(id, url) {
