@@ -1795,7 +1795,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
 
     <!-- Section: Mesures -->
     <div id="section-mesures" class="pdp-section" style="display:none">
-      <div class="section-helper"><i class="bi bi-lightbulb"></i>Ajouter les mesures de prévention en un clic avec les boutons rapides. Elles apparaitront dans le document final face aux risques identifiés.</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i>Ajouter les mesures de prévention générales en un clic avec les boutons rapides. Elles apparaissent dans une section dédiée « Mesures de prévention générales » du document final (avec la partie responsable : EU, EE ou Commune).</div>
       <div class="form-section">
         <div class="form-section-title d-flex justify-content-between align-items-center">
           <span><i class="bi bi-shield-check"></i>Mesures de prévention</span>
@@ -18352,8 +18352,18 @@ const App = {
     if (!(p.risques||[]).length) rRows.push(new TableRow({cantSplit:true,children:[cell('',{width:20}),cell('',{width:8}),cell('',{width:32}),cell('',{width:7}),cell('',{width:7}),cell('',{width:17})]}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:rRows}));
 
-    // 5. Exigences
+    // 5. Mesures de prévention générales (onglet « Mesures ») — désormais exportées
     let secNum = 5;
+    if ((p.mesures||[]).length) {
+      children.push(secTitle(String(secNum),'MESURES DE PRÉVENTION GÉNÉRALES'));
+      const _respLabelDocx = t => t==='eu' ? (eu.nom||'EU') : (t==='ee' ? 'Entreprise extérieure' : 'Commune (EU + EE)');
+      const mRows = [new TableRow({cantSplit:true,children:[hCell('Mesure',30),hCell('Description',48),hCell('À la charge de',22)]})];
+      p.mesures.forEach(mez => mRows.push(new TableRow({cantSplit:true,children:[cell(mez.titre||'',{width:30,bold:true}),cell(mez.description||'',{width:48}),cell(_respLabelDocx(mez.responsable_type),{width:22,align:AlignmentType.CENTER})]})));
+      children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:mRows}));
+      secNum++;
+    }
+
+    // Exigences
     if ((p.exigences||[]).length) {
       children.push(secTitle(String(secNum),`EXIGENCES ${(eu.nom||'EU').toUpperCase()}`));
       const eRows = [new TableRow({cantSplit:true,children:[hCell('N°',8),hCell('Exigence',92)]})];
@@ -19198,9 +19208,19 @@ const App = {
       children.push(new Paragraph({children:[],spacing:{before:100}}));
     }
 
+    // Mesures de prévention générales (onglet « Mesures »)
+    if ((p.mesures||[]).length) {
+      children.push(new Paragraph({children:[new TextRun({text:'3. MESURES DE PRÉVENTION GÉNÉRALES',size:24,bold:true,font:'Calibri',color:GREEN})],spacing:{before:100,after:80}}));
+      const _respLabelST = t => t==='eu' ? (eu.nom||'EU') : (t==='ee' ? 'Entreprise extérieure' : 'Commune (EU + EE)');
+      const mRows = [new TableRow({cantSplit:true,children:[hCell('Mesure',30),hCell('Description',48),hCell('À la charge de',22)]})];
+      p.mesures.forEach(mez => mRows.push(new TableRow({cantSplit:true,children:[cell(mez.titre||'',{width:30,bold:true}),cell(mez.description||'',{width:48}),cell(_respLabelST(mez.responsable_type),{width:22,align:AlignmentType.CENTER})]})));
+      children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:mRows}));
+      children.push(new Paragraph({children:[],spacing:{before:100}}));
+    }
+
     // Consignes urgence
     const urg = p.urgence||{};
-    children.push(new Paragraph({children:[new TextRun({text:'3. CONSIGNES DE SÉCURITÉ & URGENCE',size:24,bold:true,font:'Calibri',color:GREEN})],spacing:{before:100,after:80}}));
+    children.push(new Paragraph({children:[new TextRun({text:'4. CONSIGNES DE SÉCURITÉ & URGENCE',size:24,bold:true,font:'Calibri',color:GREEN})],spacing:{before:100,after:80}}));
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
       new TableRow({cantSplit:true,children:[cell('Responsable sécurité',{width:30,bold:true}),cell(`${urg.responsable||''} — Tél : ${urg.telResponsable||''}`)]}),
       new TableRow({cantSplit:true,children:[cell('SST',{width:30,bold:true}),cell(`${urg.sst||''} — Tél : ${urg.telSst||''}`)]}),
@@ -19609,8 +19629,20 @@ const App = {
       });
     } else { doc.setFontSize(9); doc.setFont('helvetica','italic'); doc.text('Aucun risque identifié.',m,y); y+=6; }
 
-    // 5. Exigences
+    // 5. Mesures de prévention générales (onglet « Mesures ») — désormais exportées
     let secNum = 5;
+    if ((p.mesures||[]).length) {
+      secTitle(`${secNum}. MESURES DE PRÉVENTION GÉNÉRALES`);
+      const _respLabelPdf = t => t==='eu' ? (eu.nom||'EU') : (t==='ee' ? 'Entreprise extérieure' : 'Commune (EU + EE)');
+      addTable(['Mesure','Description','À la charge de'], p.mesures.map(mez=>[
+        {content:mez.titre||'',styles:{fontStyle:'bold'}},
+        mez.description||'',
+        {content:_respLabelPdf(mez.responsable_type),styles:{halign:'center'}}
+      ]), {columnStyles:{0:{cellWidth:45},2:{cellWidth:35}}});
+      secNum++;
+    }
+
+    // Exigences
     if ((p.exigences||[]).length) {
       secTitle(`${secNum}. EXIGENCES ${(eu.nom||'EU').toUpperCase()}`);
       addTable(['N°','Exigence'], p.exigences.map((e,i)=>[{content:String(i+1),styles:{halign:'center',fontStyle:'bold'}},e]), {columnStyles:{0:{cellWidth:15}}});
