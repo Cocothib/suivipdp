@@ -1924,7 +1924,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <div class="field-group-title"><i class="bi bi-pen"></i><span data-type-label="sig-eu-title">Signature Entreprise Utilisatrice</span></div>
           <div class="row g-2">
             <div class="col-md-4"><label class="form-label" for="sig-eu-nom">Signataire</label><div class="input-icon-wrap"><i class="bi bi-person input-icon"></i><input type="text" class="form-control" id="sig-eu-nom" placeholder="Nom"></div></div>
-            <div class="col-md-4"><label class="form-label" for="sig-eu-fonction">Fonction</label><div class="input-icon-wrap"><i class="bi bi-briefcase input-icon"></i><input type="text" class="form-control" id="sig-eu-fonction" placeholder="Fonction"></div></div>
+            <div class="col-md-4"><label class="form-label" for="sig-eu-fonction">Fonction / qualité <span class="badge bg-light text-secondary border ms-1" title="Rôle du signataire dans le PDP">Rôle : Contact EU</span></label><div class="input-icon-wrap"><i class="bi bi-briefcase input-icon"></i><input type="text" class="form-control" id="sig-eu-fonction" placeholder="ex : Responsable de site"></div></div>
             <div class="col-md-4"><label class="form-label" for="sig-eu-date">Date</label><div class="input-icon-wrap"><i class="bi bi-calendar input-icon"></i><input type="date" class="form-control" id="sig-eu-date"></div></div>
             <div class="col-12">
               <span class="form-label d-block">Signature</span>
@@ -10985,7 +10985,7 @@ const App = {
     const nomEl = document.getElementById('sig-eu-nom');
     const fctEl = document.getElementById('sig-eu-fonction');
     if (nomEl && !nomEl.value.trim() && eu.responsable) nomEl.value = eu.responsable;
-    if (fctEl && !fctEl.value.trim() && eu.fonction) fctEl.value = eu.fonction;
+    if (fctEl && !fctEl.value.trim() && eu.fonction && !/^contact\s+eu$/i.test(eu.fonction.trim())) fctEl.value = eu.fonction;
   },
 
   captureAllSigs() {
@@ -11445,6 +11445,17 @@ const App = {
   // en gardant les champs renseignés (la signature/nom de l'ICP l'emporte sur la
   // colonne EE vide) et le libellé le plus descriptif. L'EU (index 0) n'est jamais
   // fusionnée. cf. remontée J. Huriez 09/07 (« deuxième Agriwatt qui se greffe »).
+  // Rôle du signataire par colonne de signature (index 0 = EU).
+  _sigRole(index) { return index === 0 ? 'Contact EU' : 'Représentant EE'; },
+
+  // Fonction/qualité réelle : masque les anciennes valeurs qui étaient en fait des
+  // rôles (« Contact EU », « Représentant EE ») désormais affichés sur leur propre ligne.
+  _realFonction(f) {
+    const s = (f == null ? '' : String(f)).trim();
+    if (/^contact\s+eu$/i.test(s) || /^repr[ée]sentant\s+ee$/i.test(s)) return '';
+    return s;
+  },
+
   _dedupeSigCols(cols) {
     const norm = s => (s == null ? '' : String(s)).toLowerCase()
       .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -14114,7 +14125,7 @@ const App = {
       numero:'', refOperation:'', statut:'effectuee',
       dateVisite:'', heure:'', site:'', lieu:'', objet:'',
       agenceId:'', entite:'agriwatt',
-      euParticipant: { nom:'', fonction:'Contact EU', tel:'' },
+      euParticipant: { nom:'', fonction:'', tel:'' },
       entreprisesExt: [],
       risques: [],
       conformite: { secteur:{ok:false,note:''}, zonesDanger:{ok:false,note:''}, circulation:{ok:false,note:''}, acces:{ok:false,note:''}, consignes:{ok:false,note:''} },
@@ -18420,7 +18431,8 @@ const App = {
     children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:[
       new TableRow({cantSplit:true,children:sigCols.map(c=>hCell(c.label,cw))}),
       new TableRow({cantSplit:true,children:sigCols.map(c=>cell(`Nom / Prénom : ${c.sig.nom||''}`,{width:cw}))}),
-      new TableRow({cantSplit:true,children:sigCols.map(c=>cell(`Fonction : ${c.sig.fonction||''}`,{width:cw}))}),
+      new TableRow({cantSplit:true,children:sigCols.map((c,ci)=>cell(`Rôle : ${this._sigRole(ci)}`,{width:cw}))}),
+      new TableRow({cantSplit:true,children:sigCols.map(c=>cell(`Fonction : ${this._realFonction(c.sig.fonction)}`,{width:cw}))}),
       new TableRow({cantSplit:true,children:sigCols.map(c=>cell(`Date : ${c.sig.date||''}`,{width:cw}))}),
       new TableRow({cantSplit:true,children:sigCols.map(c=>_sigCellPDP(c.sig,c.label,cw))}),
     ]}));
@@ -19679,7 +19691,8 @@ const App = {
     if (sigCols.length === 1) sigCols.push({label:'ENTREPRISE EXTÉRIEURE',sig:{}});
     addTable(sigCols.map(c=>c.label), [
       sigCols.map(c=>`Nom : ${c.sig.nom||''}`),
-      sigCols.map(c=>`Fonction : ${c.sig.fonction||''}`),
+      sigCols.map((c,ci)=>`Rôle : ${this._sigRole(ci)}`),
+      sigCols.map(c=>`Fonction : ${this._realFonction(c.sig.fonction)}`),
       sigCols.map(c=>`Date : ${c.sig.date||''}`),
       sigCols.map(c=>({content:'Signature :',styles:{minCellHeight:25}}))
     ], {pageBreak:'avoid'});
