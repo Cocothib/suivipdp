@@ -413,19 +413,22 @@ textarea.form-control { min-height: 70px; }
     display: block;
     touch-action: none;
 }
-/* Bouton « Signer en grand » injecté dans chaque zone de signature (cf. remontée
-   J. Huriez : case trop petite en portrait sur tablette). */
-.sig-enlarge-btn {
+/* Boutons injectés dans chaque zone de signature (cf. remontées J. Huriez :
+   case trop petite en portrait + verrouillage de la signature validée). */
+.sig-btns {
     position: absolute;
     top: 3px;
     right: 3px;
     z-index: 4;
+    display: flex;
+    gap: 4px;
+}
+.sig-enlarge-btn, .sig-valider-btn {
     width: 34px;
     height: 34px;
     padding: 0;
     border: 0;
     border-radius: 6px;
-    background: rgba(0, 105, 62, 0.9);
     color: #fff;
     display: flex;
     align-items: center;
@@ -435,7 +438,10 @@ textarea.form-control { min-height: 70px; }
     cursor: pointer;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
+.sig-enlarge-btn { background: rgba(0, 105, 62, 0.9); }
 .sig-enlarge-btn:active { background: #00563a; }
+.sig-valider-btn { background: rgba(13, 110, 68, 0.95); font-size: 17px; }
+.sig-valider-btn:active { background: #00563a; }
 /* Signature validée : verrouillée (non modifiable tant qu'on n'a pas Effacé). */
 .signature-pad-wrapper.sig-locked { background: #f4fbf7; border-color: #00693e; }
 
@@ -10759,17 +10765,28 @@ const App = {
     };
     const start = e => { if (c._locked) return; e.preventDefault(); drawing=true; const p=pos(e); lx=p.x; ly=p.y; };
     const move = e => { if(!drawing)return; e.preventDefault(); const p=pos(e); ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(p.x,p.y); ctx.strokeStyle='#000'; ctx.lineWidth=2; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke(); lx=p.x; ly=p.y; c._hasDrawing=true; };
-    const end = () => { drawing=false; };
+    const end = () => { drawing=false; if (c._hasDrawing) App._refreshSigButtons(c); };
     c.addEventListener('mousedown',start); c.addEventListener('mousemove',move); c.addEventListener('mouseup',end); c.addEventListener('mouseleave',end);
     c.addEventListener('touchstart',start,{passive:false}); c.addEventListener('touchmove',move,{passive:false}); c.addEventListener('touchend',end);
   },
 
-  // Injecte le bouton « Signer en grand » dans la zone de signature.
+  // Injecte les boutons « Valider » (verrouiller) et « Signer en grand » dans la zone.
   _addEnlargeBtn(c) {
     const wrap = c.parentElement;
     if (!wrap || !wrap.classList.contains('signature-pad-wrapper')) return;
-    if (wrap.querySelector('.sig-enlarge-btn')) return;
+    if (wrap.querySelector('.sig-btns')) return;
     wrap.style.position = 'relative';
+    const bar = document.createElement('div');
+    bar.className = 'sig-btns';
+    // Valider : verrouille la signature dessinée inline (équivalent du Valider plein écran).
+    const v = document.createElement('button');
+    v.type = 'button';
+    v.className = 'sig-valider-btn';
+    v.title = 'Valider la signature (verrouiller)';
+    v.setAttribute('aria-label', 'Valider et verrouiller la signature');
+    v.innerHTML = '<i class="bi bi-check-lg"></i>';
+    v.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); if (c._hasDrawing) App._setSigLocked(c, true); });
+    // Agrandir : mode plein écran.
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'sig-enlarge-btn';
@@ -10777,7 +10794,16 @@ const App = {
     b.setAttribute('aria-label', 'Agrandir la zone de signature');
     b.innerHTML = '<i class="bi bi-arrows-fullscreen"></i>';
     b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); App.openSignatureFullscreen(c.id); });
-    wrap.appendChild(b);
+    bar.appendChild(v); bar.appendChild(b);
+    wrap.appendChild(bar);
+    App._refreshSigButtons(c);
+  },
+
+  // Affiche le bouton Valider seulement s'il y a un tracé non encore verrouillé.
+  _refreshSigButtons(c) {
+    const wrap = c && c.parentElement;
+    const v = wrap && wrap.querySelector('.sig-valider-btn');
+    if (v) v.style.display = (c._hasDrawing && !c._locked) ? 'flex' : 'none';
   },
 
   // Ouvre une zone de signature plein écran liée au canvas d'origine.
@@ -10861,6 +10887,7 @@ const App = {
     c.style.cursor = locked ? 'not-allowed' : 'crosshair';
     const wrap = c.parentElement;
     if (wrap && wrap.classList.contains('signature-pad-wrapper')) wrap.classList.toggle('sig-locked', !!locked);
+    this._refreshSigButtons(c);
   },
 
   loadSigImg(id, url) {
