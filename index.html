@@ -20224,7 +20224,7 @@ if ('serviceWorker' in navigator) {
     const b = document.createElement('div');
     b.id = 'sw-update-banner';
     b.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:20000;background:#00693E;color:#fff;padding:8px 14px;display:flex;align-items:center;justify-content:center;gap:12px;box-shadow:0 -2px 8px rgba(0,0,0,.25);font-size:14px';
-    b.innerHTML = '<span><i class="bi bi-arrow-clockwise me-1"></i>Nouvelle version disponible — enregistrez votre saisie puis rechargez.</span><button class="btn btn-light btn-sm fw-bold" id="sw-reload-btn">Recharger</button>';
+    b.innerHTML = '<span><i class="bi bi-exclamation-triangle-fill me-1"></i>Nouvelle version disponible. <strong>Enregistrer impérativement la saisie en cours</strong> (bouton Enregistrer) avant de recharger — sinon les données non sauvegardées seront perdues.</span><button class="btn btn-light btn-sm fw-bold" id="sw-reload-btn">Recharger</button>';
     document.body.appendChild(b);
     document.getElementById('sw-reload-btn').onclick = () => { _swRefreshing = true; location.reload(); };
   };
