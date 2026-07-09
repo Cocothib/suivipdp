@@ -10883,15 +10883,21 @@ const App = {
       if (v) {
         const eeSoc = v.eeRepresentant?.entrepriseNom || '';
         const personnes = [];
-        if (v.eeRepresentant?.nom) personnes.push({ nom: v.eeRepresentant.nom, fonction: v.eeRepresentant.fonction||'', societe: eeSoc });
-        (v.eeParticipants||[]).forEach(pp => { if (pp.nom) personnes.push({ nom: pp.nom, fonction: pp.fonction||'', societe: eeSoc }); });
+        // On embarque la signature dessinée dans l'ICP (_srcDate/_srcData) pour la
+        // reprendre lors de la 1re liaison au PDP (sinon elle « disparaissait »).
+        if (v.eeRepresentant?.nom) personnes.push({ nom: v.eeRepresentant.nom, fonction: v.eeRepresentant.fonction||'', societe: eeSoc, _srcDate: v.signatureEERep?.date||'', _srcData: v.signatureEERep?.data||null });
+        (v.eeParticipants||[]).forEach((pp,idx) => { if (pp.nom) { const sa = (v.signaturesEEAdd||[])[idx]||{}; personnes.push({ nom: pp.nom, fonction: pp.fonction||'', societe: eeSoc, _srcDate: sa.date||'', _srcData: sa.data||null }); } });
         if (personnes.length) {
           p.signaturesICPEE = p.signaturesICPEE || [];
           const keyOf = x => `${x.nom}|${x.societe}`.toLowerCase();
           const oldByKey = new Map(p.signaturesICPEE.map(s => [keyOf(s), s]));
           p.signaturesICPEE = personnes.map(x => {
             const old = oldByKey.get(keyOf(x));
-            return old ? { ...x, date: old.date||'', data: old.data||null } : { ...x, date:'', data:null };
+            // Entrée déjà présente sur le PDP -> on respecte son état (édition / effacement).
+            // Sinon (1re liaison) -> on reprend la signature issue de l'ICP.
+            const date = old ? (old.date||'') : (x._srcDate||'');
+            const data = old ? (old.data||null) : (x._srcData||null);
+            return { nom: x.nom, fonction: x.fonction, societe: x.societe, date, data };
           });
           html += personnes.map((x,i) => {
             const s = p.signaturesICPEE[i];
