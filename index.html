@@ -11302,6 +11302,42 @@ const App = {
       .filter(e => { const k = this._normPersonName(e && e.nom); return k && !main.has(k); });
   },
 
+  // Déduplication des colonnes de signature à l'export : une même société (ex.
+  // l'entité AGRIWATT/ENERSOLYS présente à la fois en EE pré-remplie et via le
+  // représentant EE de l'ICP liée) ne doit produire qu'UNE colonne. On fusionne
+  // en gardant les champs renseignés (la signature/nom de l'ICP l'emporte sur la
+  // colonne EE vide) et le libellé le plus descriptif. L'EU (index 0) n'est jamais
+  // fusionnée. cf. remontée J. Huriez 09/07 (« deuxième Agriwatt qui se greffe »).
+  _dedupeSigCols(cols) {
+    const norm = s => (s == null ? '' : String(s)).toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ').trim();
+    const sameCompany = (a, b) => {
+      const na = norm(a), nb = norm(b);
+      if (!na || !nb) return false;
+      if (na === nb) return true;
+      // même société si l'un est un préfixe mot-à-mot de l'autre
+      // (« agriwatt » ⊂ « agriwatt bouxieres sous froidmont »)
+      return na.startsWith(nb + ' ') || nb.startsWith(na + ' ');
+    };
+    const filled = s => s && (s.data || (s.nom || '').trim());
+    const out = [];
+    cols.forEach((c, idx) => {
+      // l'EU (1ʳᵉ colonne) reste toujours distincte
+      const hit = idx === 0 ? null : out.slice(1).find(o => sameCompany(o.label, c.label));
+      if (!hit) { out.push({ label: c.label, sig: { ...(c.sig || {}) } }); return; }
+      const a = hit.sig || {}, b = c.sig || {};
+      // la colonne renseignée l'emporte ; sinon fusion champ par champ
+      hit.sig = filled(b) && !filled(a) ? { ...b }
+        : filled(a) && !filled(b) ? { ...a }
+        : { nom: a.nom || b.nom || '', fonction: a.fonction || b.fonction || '',
+            date: a.date || b.date || '', data: a.data || b.data || null };
+      // garde le libellé le plus long (le plus précis)
+      if ((c.label || '').length > (hit.label || '').length) hit.label = c.label;
+    });
+    return out;
+  },
+
   async prefillEmargements() {
     const p = this.currentPDP;
     if (!p) return;
@@ -18209,10 +18245,11 @@ const App = {
     // 6. Validation & Signatures
     children.push(secTitle(String(secNum),'VALIDATION & SIGNATURES'));
     children.push(new Paragraph({children:[new TextRun({text:'Les parties soussignées attestent avoir pris connaissance des dispositions du présent plan de prévention et s\'engagent à les respecter.',size:20,font:'Calibri',italics:true})],spacing:{after:150}}));
-    const sigCols = [{label:`EU (${(eu.nom||'').toUpperCase()})`,sig:p.signatureEU||{}}];
+    let sigCols = [{label:`EU (${(eu.nom||'').toUpperCase()})`,sig:p.signatureEU||{}}];
     ees.forEach((ee,i) => sigCols.push({label:ee.nom||`EE ${i+1}`,sig:(p.signaturesEE||[])[i]||{}}));
     // Signatures depuis les participants ICP liée (Représentant EE + additionnels)
     (p.signaturesICPEE||[]).forEach(s => { if (s.nom||s.data) sigCols.push({label:s.societe||'EE',sig:{nom:s.nom||'', fonction:s.fonction||'', date:s.date||'', data:s.data||null}}); });
+    sigCols = this._dedupeSigCols(sigCols); // fusionne les colonnes d'une même société (ex. AGRIWATT en double)
     if (sigCols.length === 1) sigCols.push({label:'ENTREPRISE EXTÉRIEURE',sig:{}});
     const cw = Math.floor(100/sigCols.length);
     const _sigCellPDP = (sig, label, w) => {
@@ -19466,9 +19503,10 @@ const App = {
     doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(80,80,80);
     doc.text('Les parties soussignées attestent avoir pris connaissance des dispositions du présent plan de prévention.',m,y); y+=5;
     doc.setTextColor(0,0,0);
-    const sigCols = [{label:`EU (${(eu.nom||'').toUpperCase()})`,sig:p.signatureEU||{}}];
+    let sigCols = [{label:`EU (${(eu.nom||'').toUpperCase()})`,sig:p.signatureEU||{}}];
     ees.forEach((ee,i) => sigCols.push({label:ee.nom||`EE ${i+1}`,sig:(p.signaturesEE||[])[i]||{}}));
     (p.signaturesICPEE||[]).forEach(s => { if (s.nom||s.data) sigCols.push({label:s.societe||'EE',sig:{nom:s.nom||'', fonction:s.fonction||'', date:s.date||'', data:s.data||null}}); });
+    sigCols = this._dedupeSigCols(sigCols); // fusionne les colonnes d'une même société (ex. AGRIWATT en double)
     if (sigCols.length === 1) sigCols.push({label:'ENTREPRISE EXTÉRIEURE',sig:{}});
     addTable(sigCols.map(c=>c.label), [
       sigCols.map(c=>`Nom : ${c.sig.nom||''}`),
