@@ -2696,6 +2696,12 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     </div>
 
     <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-person-vcard"></i>Conducteurs de travaux</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Liste des conducteurs de travaux notifiés par mail à chaque génération de permis de feu. Le rapprochement se fait par nom avec le responsable AGRIWATT/ENERSOLYS saisi dans le PDP (ordre prénom/nom et accents indifférents). Une entrée sans email ne pourra pas être notifiée.</div>
+      <div id="settings-cond-travaux"></div>
+    </div>
+
+    <div class="form-section">
       <div class="form-section-title"><i class="bi bi-camera"></i>Étapes de prise de photos (ICP / visite)</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Oriente la prise de photos par zones successives (entrée, cheminement, tableau, toiture…). Modifiable selon le type de site (toiture, sol…).</div>
       <div id="settings-photo-etapes"></div>
@@ -3645,6 +3651,14 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
               <div class="col-auto small">heures après la fin</div>
             </div>
             <hr class="my-2">
+            <div class="mb-2">
+              <label class="form-label small mb-0" for="pfr-conducteur">Conducteur de travaux à notifier</label>
+              <select class="form-select form-select-sm" id="pfr-conducteur">
+                <option value="">— Ne pas notifier —</option>
+              </select>
+              <div class="form-text small">Le conducteur sélectionné recevra un mail l'informant de la génération du permis.</div>
+            </div>
+            <hr class="my-2">
             <h6 class="small fw-bold text-primary mb-1">Donneur d'ordre</h6>
             <div class="row g-2 mb-2">
               <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pfr-do-nom" placeholder="Nom"></div>
@@ -3674,6 +3688,35 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fermer</button>
             <button type="button" class="btn btn-danger btn-sm" onclick="App.exportPermisRapide()"><i class="bi bi-fire me-1"></i>Générer le permis</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modale : Permis de feu vierge (téléchargement + notification du conducteur de travaux) -->
+    <div class="modal fade" id="permisViergeModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="bi bi-fire me-1 text-danger"></i>Permis de feu vierge</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+          </div>
+          <div class="modal-body">
+            <div class="alert alert-info small mb-2"><i class="bi bi-info-circle me-1"></i>Télécharge le permis de feu vierge de la bibliothèque, à compléter à la main sur le chantier. Le conducteur de travaux sélectionné sera informé par mail.</div>
+            <div class="mb-2">
+              <label class="form-label small mb-0" for="pfv-conducteur">Conducteur de travaux à notifier</label>
+              <select class="form-select form-select-sm" id="pfv-conducteur">
+                <option value="">— Ne pas notifier —</option>
+              </select>
+            </div>
+            <div class="mb-2">
+              <label class="form-label small mb-0" for="pfv-lieu">Chantier / lieu (facultatif)</label>
+              <input type="text" class="form-control form-control-sm" id="pfv-lieu" placeholder="Site, localisation des travaux">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuler</button>
+            <button type="button" class="btn btn-danger btn-sm" onclick="App.downloadBlankPermisFeu()"><i class="bi bi-download me-1"></i>Télécharger</button>
           </div>
         </div>
       </div>
@@ -8118,6 +8161,14 @@ const App = {
   // #settings/risques-en-attente -> ouvre Paramètres et défile vers la section des risques à valider.
   async _handleDeepLink() {
     const route = (location.hash || '').replace(/^#\/?/, '').toLowerCase();
+    // #pdp/<id> : ouvre directement le PDP (ex. depuis les mails de notification permis de feu).
+    // Pas de garde admin : l'ouverture d'un PDP est accessible à tous.
+    const mPdp = route.match(/^pdp\/(\d+)$/);
+    if (mPdp) {
+      try { await this.openPDP(parseInt(mPdp[1], 10)); }
+      catch (e) { console.warn('Deep link PDP:', e); this.toast('PDP introuvable', 'warning'); }
+      return;
+    }
     if (!route.startsWith('settings')) return;
     let admin = this._isAdminCached;
     if (admin === undefined) { try { admin = await this.isAdmin(); this._isAdminCached = admin; } catch (e) { admin = true; } }
@@ -9302,6 +9353,10 @@ const App = {
       p.documents = p.documents.filter(d => !isVierge(d) && !(isRempli(d) && (d._periode||'') === periode));
       p.documents.push({ nom: docName, type:'application/pdf', taille: res.blob.size, data: res.dataURL, date: new Date().toISOString(), categorie:'permis_feu', genere_auto:true, _pfSig: sigKey, _periode: periode });
       try { await db.pdps.put(p); } catch(_){}
+      // Notification mail au conducteur de travaux (fire-and-forget, anti-doublon par période).
+      // Trade-off assumé : le mail peut partir dès le premier enregistrement d'un permis encore
+      // incomplet (avant signatures) — mieux vaut informer tôt que jamais.
+      this._notifyPermisFeu(p, periode).catch(e => console.warn('Notif permis feu:', e));
       try { this._externalizeOnSave(p, db.pdps); } catch(_){}
       if (this.currentPDP && this.currentPDP.id === p.id) { try { this.renderDocuments(); } catch(_){} }
     } catch(e) { console.warn('_autoAttachPermisCNPP:', e); }
@@ -12426,8 +12481,19 @@ const App = {
     }
   },
 
-  // Télécharge le permis de feu vierge depuis la bibliothèque, sans PDP ouvert.
+  // Permis de feu vierge : ouvre la mini-modale (choix du conducteur de travaux à notifier
+  // + chantier/lieu facultatif) avant le téléchargement.
   async printBlankPermisFeu() {
+    const el = document.getElementById('permisViergeModal');
+    if (!el || typeof bootstrap === 'undefined') { await this.downloadBlankPermisFeu(); return; }
+    try { await this._fillCondTravauxSelect('pfv-conducteur'); } catch(e) { console.warn('Select conducteur permis vierge:', e); }
+    const lieu = document.getElementById('pfv-lieu');
+    if (lieu) lieu.value = '';
+    bootstrap.Modal.getOrCreateInstance(el).show();
+  },
+
+  // Télécharge le permis de feu vierge depuis la bibliothèque, puis notifie le conducteur sélectionné.
+  async downloadBlankPermisFeu() {
     const all = await db.fds.toArray();
     const f = all.find(x => x.categorie === 'permis_feu' && x.standard)
            || all.find(x => x.categorie === 'permis_feu');
@@ -12435,6 +12501,21 @@ const App = {
     const full = await this.ensureFDSData(f.id);   // télécharge depuis SharePoint si besoin
     if (!full || !full.data) { this.toast('Permis de feu introuvable (contenu manquant).', 'danger'); return; }
     this._triggerDownload(full.data, full.nom || 'Permis-de-feu-vierge.pdf');
+    try { bootstrap.Modal.getInstance(document.getElementById('permisViergeModal'))?.hide(); } catch(_){}
+    // Notification au conducteur de travaux sélectionné (fire-and-forget : ne bloque jamais le téléchargement)
+    try {
+      const cond = this._getSelectedCondTravaux('pfv-conducteur');
+      if (cond) {
+        const res = await this._sendPermisFeuMail(cond, {
+          origine: 'vierge',
+          lieu: (document.getElementById('pfv-lieu')?.value || '').trim(),
+          types: [],
+          renouvellement: false,
+          lienProfond: null
+        });
+        if (res === true) this.toast(`Conducteur de travaux notifié par mail (${cond.nom})`);
+      }
+    } catch(e) { console.warn('Notif permis vierge:', e); }
   },
 
   async downloadFDSRef(fdsId, nom) {
@@ -15518,6 +15599,116 @@ const App = {
     } catch (e) { console.warn('Notif mail réponse risque échouée:', e); }
   },
 
+  // ---- Notification permis de feu au conducteur de travaux ----
+  _pfTypesLabels: { soudage:'Soudage', tronconnage:'Tronçonnage', meulage:'Découpage / Meulage', thermosoudure:'Thermosoudure au gaz', miseALaTerre:'Soudure mise à la terre', autre:'Autre' },
+
+  // Brique commune d'envoi (3 chemins : PDP, permis rapide, permis vierge).
+  // cond : { nom, email } ; ctx : { origine:'pdp'|'rapide'|'vierge', numero, chantier, site, lieu, eu,
+  //   periode:{dateDebut,heureDebut,dateFin,heureFin}, nbPeriodes, types:[libellés], description,
+  //   renouvellement, lienProfond }
+  // Retourne true si le mail est parti, 'self' si auto-notification (émetteur = conducteur : pas de
+  // mail, mais à considérer comme traité), false en cas d'échec. Ne lève jamais d'exception.
+  async _sendPermisFeuMail(cond, ctx) {
+    try {
+      const to = (cond?.email || '').trim();
+      if (!to) return false;
+      if (to.toLowerCase() === (DataSync.getUserEmail() || '').toLowerCase()) {
+        this.toast('Vous êtes le conducteur de travaux concerné : aucune notification envoyée', 'info');
+        return 'self';
+      }
+      const emetteur = DataSync.getUserName() || 'Un utilisateur';
+      const appUrl = window.location.origin + window.location.pathname;
+      const per = ctx.periode || {};
+      const perTxt = per.dateDebut
+        ? `${this._formatDateFr(per.dateDebut)}${per.heureDebut ? ' ' + per.heureDebut : ''} → ${this._formatDateFr(per.dateFin || per.dateDebut)}${per.heureFin ? ' ' + per.heureFin : ''}`
+        : '';
+      const intro = {
+        pdp: `<strong>${this.esc(emetteur)}</strong> vient de ${ctx.renouvellement ? 'renouveler' : 'générer'} un permis de feu dans l'application SuiviPDP pour un chantier dont vous êtes le conducteur de travaux.`,
+        rapide: `<strong>${this.esc(emetteur)}</strong> vient de générer un permis de feu rapide (sans plan de prévention) dans l'application SuiviPDP.`,
+        vierge: `<strong>${this.esc(emetteur)}</strong> vient de télécharger un permis de feu vierge depuis l'application SuiviPDP. Le permis sera complété à la main sur le chantier.`
+      }[ctx.origine] || `<strong>${this.esc(emetteur)}</strong> vient de générer un permis de feu dans l'application SuiviPDP.`;
+      const row = (label, val) => val ? `<tr><td style="padding:4px 12px 4px 0;vertical-align:top"><strong>${label} :</strong></td><td>${this.esc(val)}</td></tr>` : '';
+      const html = `
+        <p>Bonjour,</p>
+        <p>${intro}</p>
+        <table style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif">
+          ${row('PDP', ctx.numero && ctx.origine === 'pdp' ? ctx.numero : '')}
+          ${row('N° de permis', ctx.origine !== 'pdp' ? ctx.numero : '')}
+          ${row('Chantier', ctx.chantier)}
+          ${row('Site', ctx.site)}
+          ${row('Lieu', ctx.lieu)}
+          ${row('Entreprise utilisatrice', ctx.eu)}
+          ${row('Période', perTxt)}
+          ${row('Périodes de 24 h', ctx.nbPeriodes > 1 ? String(ctx.nbPeriodes) : '')}
+          ${row('Types de travaux', (ctx.types || []).join(', '))}
+          ${row('Description', ctx.description)}
+          ${ctx.renouvellement ? row('Nature', 'Renouvellement (nouvelle période)') : ''}
+        </table>
+        ${ctx.lienProfond ? `<p style="margin-top:16px"><a href="${appUrl}${ctx.lienProfond}" style="background:#00693e;color:#fff;padding:8px 16px;text-decoration:none;border-radius:4px">Ouvrir le PDP</a></p>` : ''}
+        <p style="font-size:11px;color:#888">Notification automatique SuiviPDP — ne pas répondre à cet email.</p>`;
+      let sujet = '[SuiviPDP] Permis de feu';
+      if (ctx.origine === 'rapide') sujet += ' rapide';
+      else if (ctx.origine === 'vierge') sujet += ' vierge';
+      if (ctx.renouvellement) sujet += ' (renouvellement)';
+      const cible = ctx.numero || ctx.chantier || ctx.lieu || ctx.site;
+      if (cible) sujet += ` — ${cible}`;
+      const ok = await _sendMailViaGraph([to], sujet, html);
+      if (!ok) this.toast('Notification au conducteur de travaux non envoyée (envoi de mail indisponible)', 'warning', 6000);
+      return ok;
+    } catch (e) {
+      console.warn('Notif permis feu échouée:', e);
+      this.toast("Échec de l'envoi de la notification au conducteur de travaux", 'warning', 6000);
+      return false;
+    }
+  },
+
+  // Garde mémoire contre le double-clic (clé `id|periode`) pendant un envoi en cours.
+  _pfNotifInFlight: new Set(),
+
+  // Chemin PDP : notifie le conducteur de travaux à la génération/renouvellement du permis CNPP.
+  // Fire-and-forget : ne bloque jamais l'enregistrement du PDP. Anti-doublon par période via
+  // pf._notifiedPeriodes, marqué SUR SUCCÈS seulement (échec → nouvelle tentative au prochain
+  // enregistrement). Le flag voyage avec le PDP via la sync (robuste multi-postes).
+  async _notifyPermisFeu(p, periode) {
+    if (!p || !p.permisFeu) return;
+    if (!DataSync._connected) return;
+    const pf = p.permisFeu;
+    const done = Array.isArray(pf._notifiedPeriodes) ? pf._notifiedPeriodes : [];
+    if (done.includes(periode)) return;
+    const flightKey = `${p.id}|${periode}`;
+    if (this._pfNotifInFlight.has(flightKey)) return;
+    this._pfNotifInFlight.add(flightKey);
+    try {
+      const nomCond = this._getConducteurAgriwatt(p);
+      if (!nomCond) { this.toast('Permis de feu : aucun conducteur de travaux identifié sur ce PDP, pas de notification envoyée', 'warning', 7000); return; }
+      const { sure, fuzzy } = this._findContactMatch(await this.loadCondTravaux(), nomCond);
+      const cond = sure || fuzzy;
+      if (!cond) { this.toast(`Permis de feu : « ${nomCond} » n'est pas dans la liste des conducteurs de travaux (Paramètres), pas de notification envoyée`, 'warning', 8000); return; }
+      if (!(cond.email||'').trim()) { this.toast(`Permis de feu : ${cond.nom} n'a pas d'email dans la liste des conducteurs de travaux, pas de notification envoyée`, 'warning', 8000); return; }
+      const res = await this._sendPermisFeuMail(cond, {
+        origine: 'pdp',
+        numero: p.numero || '',
+        chantier: p.titre || '',
+        site: p.site || '',
+        lieu: p.lieu || '',
+        eu: p.eu?.nom || '',
+        periode: { dateDebut: pf.dateDebut, heureDebut: pf.heureDebut, dateFin: pf.dateFin, heureFin: pf.heureFin },
+        nbPeriodes: (pf.renouvellements || []).length,
+        types: (pf.types || []).map(t => this._pfTypesLabels[t] || t),
+        description: pf.description || '',
+        renouvellement: done.length > 0,
+        lienProfond: p.id != null ? `#pdp/${p.id}` : null
+      });
+      if (res) { // true (mail parti) ou 'self' (auto-notification) → marquer la période
+        pf._notifiedPeriodes = done.concat([periode]);
+        try { await db.pdps.put(p); DataSync.markDirty(); } catch(e) { console.warn('Marquage période notifiée:', e); }
+        if (res === true) this.toast(`Conducteur de travaux notifié par mail (${cond.nom})`);
+      }
+    } finally {
+      this._pfNotifInFlight.delete(flightKey);
+    }
+  },
+
   // Backward-compat : l'ancien code appelle saveCustomRisk(name). On redirige vers proposeCustomRisk.
   async saveCustomRisk(name) {
     await this.proposeCustomRisk({ nom: name });
@@ -16351,6 +16542,174 @@ const App = {
     this.renderNotifyEmails();
   },
 
+  // ---- Conducteurs de travaux (notification des permis de feu) ----
+  async loadCondTravaux() {
+    try { const s = await db.settings.get('condTravaux'); return (s?.value)||[]; } catch(e) { return []; }
+  },
+  async saveCondTravaux(list) {
+    const clean = (list||[])
+      .map(c => ({ nom:(c.nom||'').trim(), email:(c.email||'').trim(), tel:(c.tel||'').trim() }))
+      .filter(c => c.nom);
+    await db.settings.put({ key:'condTravaux', value: clean });
+    DataSync.markDirty();
+  },
+
+  _condTravauxEditIdx: null,
+  _condTravauxSuggCache: [],
+
+  // Suggestions fusionnées (dédup par _personKey, exclusion des entrées déjà présentes) :
+  // 1) agences (responsable : source la plus riche, email + tél connus) ;
+  // 2) contacts du répertoire des entreprises AGRIWATT/ENERSOLYS (priorité aux fonctions conducteur/travaux) ;
+  // 3) noms déjà saisis dans les PDP (nom seul).
+  async _condTravauxSuggestions(existing) {
+    const sugg = [];
+    const seen = new Set((existing||[]).map(c => this._personKey(c.nom)).filter(Boolean));
+    const push = (nom, email, tel) => {
+      nom = (nom||'').trim();
+      if (!nom) return;
+      const k = this._personKey(nom);
+      if (!k || seen.has(k)) return;
+      seen.add(k);
+      sugg.push({ nom, email:(email||'').trim(), tel:(tel||'').trim() });
+    };
+    try { (await loadAgences()).forEach(a => push(a.responsable, a.email, a.tel)); } catch(e) {}
+    try {
+      const ents = (await db.entreprises.toArray()).filter(e => /agriwatt|enersolys/i.test(e.nom||''));
+      const contacts = [];
+      ents.forEach(e => this.getEntrepriseContacts(e).forEach(c => contacts.push(c)));
+      const isCond = c => /conduct|travaux/i.test(c.fonction||'') ? 1 : 0;
+      contacts.sort((a, b) => isCond(b) - isCond(a));
+      contacts.forEach(c => push(c.nom, c.email, c.tel));
+    } catch(e) {}
+    try { (await db.pdps.toArray()).forEach(p => push(this._getConducteurAgriwatt(p), '', '')); } catch(e) {}
+    return sugg;
+  },
+
+  // À la sélection d'une suggestion dans le datalist : auto-remplir email/tél connus.
+  _applyCondTravauxSuggestion(nom) {
+    const k = this._personKey(nom);
+    if (!k) return;
+    const s = (this._condTravauxSuggCache||[]).find(x => this._personKey(x.nom) === k);
+    if (!s) return;
+    const em = document.getElementById('new-ct-email');
+    if (em && !em.value.trim() && s.email) em.value = s.email;
+    const tl = document.getElementById('new-ct-tel');
+    if (tl && !tl.value.trim() && s.tel) tl.value = s.tel;
+  },
+
+  async renderCondTravaux() {
+    const el = document.getElementById('settings-cond-travaux');
+    if (!el) return;
+    const list = await this.loadCondTravaux();
+    let sugg = [];
+    try { sugg = await this._condTravauxSuggestions(list); } catch(e) { console.warn('Suggestions conducteurs:', e); }
+    this._condTravauxSuggCache = sugg;
+
+    const rows = list.map((c, i) => {
+      if (this._condTravauxEditIdx === i) {
+        return `<li class="list-group-item py-2 px-2">
+          <div class="row g-1 align-items-center">
+            <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="ct-edit-nom" value="${this.esc(c.nom)}" placeholder="Nom et prénom"></div>
+            <div class="col-md-4"><input type="email" class="form-control form-control-sm" id="ct-edit-email" value="${this.esc(c.email||'')}" placeholder="Email"></div>
+            <div class="col-md-2"><input type="tel" class="form-control form-control-sm" id="ct-edit-tel" value="${this.esc(c.tel||'')}" placeholder="Téléphone"></div>
+            <div class="col-auto d-flex gap-1">
+              <button class="btn btn-sm btn-success" onclick="App.doSaveCondTravauxEdit(${i})" title="Enregistrer"><i class="bi bi-check-lg"></i></button>
+              <button class="btn btn-sm btn-outline-secondary" onclick="App.doCancelCondTravauxEdit()" title="Annuler"><i class="bi bi-x-lg"></i></button>
+            </div>
+          </div></li>`;
+      }
+      return `<li class="list-group-item d-flex justify-content-between align-items-center py-1 px-2">
+        <span class="small"><i class="bi bi-person-badge me-1 text-primary"></i><strong>${this.esc(c.nom)}</strong>
+          ${c.email ? `<span class="text-muted ms-1">${this.esc(c.email)}</span>` : `<span class="badge text-bg-warning ms-1" title="Sans email, ce conducteur ne peut pas être notifié"><i class="bi bi-exclamation-triangle me-1"></i>Sans email — ne sera pas notifié</span>`}
+          ${c.tel ? `<span class="text-muted ms-1">· ${this.esc(c.tel)}</span>` : ''}
+        </span>
+        <span class="d-flex gap-1">
+          <button class="btn btn-sm btn-outline-primary" onclick="App.doEditCondTravaux(${i})" title="Modifier"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-sm btn-outline-danger" onclick="App.doRemoveCondTravaux(${i})" title="Retirer"><i class="bi bi-x"></i></button>
+        </span>
+      </li>`;
+    }).join('') || '<li class="list-group-item small text-muted">Aucun conducteur de travaux</li>';
+
+    const options = sugg.map(s => `<option value="${this.esc(s.nom)}">${this.esc([s.email, s.tel].filter(Boolean).join(' · '))}</option>`).join('');
+    const form = `
+      <div class="row g-1 mt-2">
+        <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="new-ct-nom" list="ct-suggestions" placeholder="Nom et prénom" onchange="App._applyCondTravauxSuggestion(this.value)"></div>
+        <div class="col-md-4"><input type="email" class="form-control form-control-sm" id="new-ct-email" placeholder="Email"></div>
+        <div class="col-md-2"><input type="tel" class="form-control form-control-sm" id="new-ct-tel" placeholder="Téléphone"></div>
+        <div class="col-auto"><button class="btn btn-sm btn-outline-primary" onclick="App.doAddCondTravaux()"><i class="bi bi-plus-lg me-1"></i>Ajouter</button></div>
+      </div>
+      <datalist id="ct-suggestions">${options}</datalist>`;
+
+    el.innerHTML = '<ul class="list-group list-group-flush">' + rows + '</ul>' + form;
+  },
+
+  async doAddCondTravaux() {
+    const nom = (document.getElementById('new-ct-nom')?.value || '').trim();
+    const email = (document.getElementById('new-ct-email')?.value || '').trim();
+    const tel = (document.getElementById('new-ct-tel')?.value || '').trim();
+    if (!nom) { this.toast('Saisir le nom du conducteur de travaux', 'warning'); return; }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { this.toast('Email invalide', 'warning'); return; }
+    const list = await this.loadCondTravaux();
+    if (list.some(c => this._personKey(c.nom) === this._personKey(nom))) { this.toast('Conducteur déjà présent', 'warning'); return; }
+    list.push({ nom, email, tel });
+    await this.saveCondTravaux(list);
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('condTravaux.add', { nom });
+    if (email) this.toast('Conducteur de travaux ajouté');
+    else this.toast('Conducteur ajouté sans email : il ne sera pas notifié', 'warning');
+    await this.renderCondTravaux();
+  },
+
+  doEditCondTravaux(i) { this._condTravauxEditIdx = i; this.renderCondTravaux(); },
+  doCancelCondTravauxEdit() { this._condTravauxEditIdx = null; this.renderCondTravaux(); },
+
+  async doSaveCondTravauxEdit(i) {
+    const nom = (document.getElementById('ct-edit-nom')?.value || '').trim();
+    const email = (document.getElementById('ct-edit-email')?.value || '').trim();
+    const tel = (document.getElementById('ct-edit-tel')?.value || '').trim();
+    if (!nom) { this.toast('Saisir le nom du conducteur de travaux', 'warning'); return; }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { this.toast('Email invalide', 'warning'); return; }
+    const list = await this.loadCondTravaux();
+    if (!list[i]) return;
+    if (list.some((c, j) => j !== i && this._personKey(c.nom) === this._personKey(nom))) { this.toast('Conducteur déjà présent', 'warning'); return; }
+    list[i] = { nom, email, tel };
+    await this.saveCondTravaux(list);
+    this._condTravauxEditIdx = null;
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('condTravaux.edit', { nom });
+    this.toast('Conducteur de travaux modifié');
+    await this.renderCondTravaux();
+  },
+
+  async doRemoveCondTravaux(i) {
+    const list = await this.loadCondTravaux();
+    const c = list[i];
+    if (!c) return;
+    if (!await this.confirm(`Retirer ${c.nom} de la liste des conducteurs de travaux ?`)) return;
+    list.splice(i, 1);
+    await this.saveCondTravaux(list);
+    if (this._condTravauxEditIdx === i) this._condTravauxEditIdx = null;
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('condTravaux.remove', { nom: c.nom });
+    this.toast('Conducteur de travaux retiré');
+    await this.renderCondTravaux();
+  },
+
+  // Peuple un <select> avec les conducteurs de travaux disposant d'un email
+  // (+ option « Ne pas notifier »). La liste est mémorisée sur l'élément.
+  async _fillCondTravauxSelect(selectId) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    let list = [];
+    try { list = (await this.loadCondTravaux()).filter(c => (c.email||'').trim()); } catch(e) { console.warn('loadCondTravaux:', e); }
+    sel.innerHTML = '<option value="">— Ne pas notifier —</option>' +
+      list.map((c, i) => `<option value="${i}">${this.esc(c.nom)} — ${this.esc(c.email)}</option>`).join('');
+    sel._condList = list;
+  },
+
+  _getSelectedCondTravaux(selectId) {
+    const sel = document.getElementById(selectId);
+    if (!sel || sel.value === '') return null;
+    return (sel._condList || [])[parseInt(sel.value, 10)] || null;
+  },
+
   // ---- Étapes de prise de photos (guidage ICP/visite) ----
   async savePhotoEtapes(list) {
     await db.settings.put({ key:'photoEtapes', value: list });
@@ -17077,6 +17436,7 @@ const App = {
     try { await this.renderAdminsSection(); } catch (e) { console.warn('renderAdminsSection:', e); }
     try { await this.renderMaintTeamSection(); } catch (e) { console.warn('renderMaintTeamSection:', e); }
     try { await this.renderNotifyEmails(); } catch (e) { console.warn('renderNotifyEmails:', e); }
+    try { await this.renderCondTravaux(); } catch (e) { console.warn('renderCondTravaux:', e); }
     try { await this.renderPhotoEtapesSettings(); } catch (e) { console.warn('renderPhotoEtapesSettings:', e); }
     try { await this.renderRisksManager(); } catch (e) { console.warn('renderRisksManager:', e); }
     try { await this.renderMaintenanceToggle(); } catch (e) { console.warn('renderMaintenanceToggle:', e); }
@@ -19120,9 +19480,10 @@ const App = {
   },
 
   // Mode permis de feu rapide (sans PDP) : ouvre la modale et initialise/efface les 3 canvas.
-  openPermisRapide() {
+  async openPermisRapide() {
     const el = document.getElementById('permisRapideModal');
     if (!el || typeof bootstrap === 'undefined') return;
+    try { await this._fillCondTravauxSelect('pfr-conducteur'); } catch(e) { console.warn('Select conducteur permis rapide:', e); }
     bootstrap.Modal.getOrCreateInstance(el).show();
     setTimeout(() => { ['pfr-sig-do-canvas','pfr-sig-sv-canvas','pfr-sig-int-canvas'].forEach(id => { this.initCanvas(id); try { this.clearSignature(id); } catch(_){} }); }, 300);
   },
@@ -19167,6 +19528,27 @@ const App = {
           this.toast('Permis CNPP généré et téléchargé. SharePoint hors-ligne : non archivé.','warning',8000);
         }
       } catch(e) { console.warn('Archivage permis rapide SharePoint:', e); this.toast('Permis généré et téléchargé. Archivage SharePoint échoué.','warning',8000); }
+      // Notification au conducteur de travaux sélectionné (fire-and-forget : ne bloque jamais
+      // la génération d'un document de sécurité). Pas d'anti-doublon : chaque clic = un permis distinct.
+      try {
+        const cond = this._getSelectedCondTravaux('pfr-conducteur');
+        if (cond) {
+          const res = await this._sendPermisFeuMail(cond, {
+            origine: 'rapide',
+            numero: v('pfr-numero'),
+            lieu: v('pfr-lieu'),
+            periode: { dateDebut: pf.dateDebut, heureDebut: pf.heureDebut, dateFin: pf.dateDebut, heureFin: pf.heureFin },
+            types: types.map(t => this._pfTypesLabels[t] || t),
+            description: pf.description,
+            renouvellement: false,
+            lienProfond: null
+          });
+          if (res === true) this.toast(`Conducteur de travaux notifié par mail (${cond.nom})`);
+        } else {
+          const lst = await this.loadCondTravaux();
+          if (lst.some(c => (c.email||'').trim())) this.toast('Permis généré sans notification au conducteur de travaux', 'warning', 6000);
+        }
+      } catch(e) { console.warn('Notif permis rapide:', e); }
     } catch(err) { console.error('exportPermisRapide:', err); this.toast('Erreur : '+err.message,'danger'); }
   },
 
