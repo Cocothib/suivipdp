@@ -15638,7 +15638,7 @@ const App = {
         : '';
       const intro = {
         pdp: `<strong>${this.esc(emetteur)}</strong> vient de ${ctx.renouvellement ? 'renouveler' : 'générer'} un permis de feu dans l'application SuiviPDP pour un chantier dont vous êtes le conducteur de travaux.`,
-        rapide: `<strong>${this.esc(emetteur)}</strong> vient de générer un permis de feu rapide (sans plan de prévention) dans l'application SuiviPDP.`,
+        rapide: `<strong>${this.esc(emetteur)}</strong> vient de générer un permis de feu rapide dans l'application SuiviPDP.`,
         vierge: `<strong>${this.esc(emetteur)}</strong> vient de télécharger un permis de feu vierge depuis l'application SuiviPDP : un permis de feu va être réalisé sur le chantier indiqué ci-dessous et sera complété à la main.`
       }[ctx.origine] || `<strong>${this.esc(emetteur)}</strong> vient de générer un permis de feu dans l'application SuiviPDP.`;
       const row = (label, val) => val ? `<tr><td style="padding:4px 12px 4px 0;vertical-align:top"><strong>${label} :</strong></td><td>${this.esc(val)}</td></tr>` : '';
