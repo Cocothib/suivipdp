@@ -15616,6 +15616,9 @@ const App = {
   // ---- Notification permis de feu au conducteur de travaux ----
   _pfTypesLabels: { soudage:'Soudage', tronconnage:'Tronçonnage', meulage:'Découpage / Meulage', thermosoudure:'Thermosoudure au gaz', miseALaTerre:'Soudure mise à la terre', autre:'Autre' },
 
+  // Destinataires des 3 exemplaires du permis de feu rempli dans les exports PDP (Word/PDF).
+  _pfExemplaires: ['Donneur d\'ordre', 'Intervenant / Entreprise extérieure', 'Affichage sur le lieu des travaux'],
+
   // Brique commune d'envoi (3 chemins : PDP, permis rapide, permis vierge).
   // cond : { nom, email } ; ctx : { origine:'pdp'|'rapide'|'vierge', numero, chantier, site, lieu, eu,
   //   periode:{dateDebut,heureDebut,dateFin,heureFin}, nbPeriodes, types:[libellés], description,
@@ -19077,13 +19080,20 @@ const App = {
             const usableW = 660; // largeur utile A4 portrait (cohérent avec FR-01)
             const ratio = (imgs.heightPt && imgs.widthPt) ? (imgs.heightPt / imgs.widthPt) : 1.4134;
             const h = Math.round(usableW * ratio);
-            imgs.images.forEach((im, idx) => {
-              if (idx > 0) children.push(new Paragraph({children:[new PageBreak()]})); // 1 page permis par page Word
-              try {
-                const raw = atob(im.split(',')[1]||'');
-                const arr = new Uint8Array(raw.length); for (let k=0;k<raw.length;k++) arr[k]=raw.charCodeAt(k);
-                children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:usableW,height:h},type:'jpg'})],alignment:AlignmentType.CENTER,spacing:{after:80}}));
-              } catch(e) { console.warn('Incrustation page permis échouée:', e); }
+            // Permis de feu REMPLI (généré CNPP) : 3 exemplaires (donneur d'ordre, intervenant,
+            // affichage sur le lieu des travaux). Modèle vierge et fiches réflexe : 1 seul.
+            const _exemplaires = (d.categorie === 'permis_feu' && d.genere_auto) ? this._pfExemplaires : [null];
+            _exemplaires.forEach((exLabel, exIdx) => {
+              if (exIdx > 0) children.push(new Paragraph({children:[new PageBreak()]}));
+              if (exLabel) children.push(new Paragraph({children:[new TextRun({text:`Exemplaire ${exIdx+1}/${_exemplaires.length} — ${exLabel}`,size:18,bold:true,font:'Calibri',color:'C0392B'})],spacing:{after:40}}));
+              imgs.images.forEach((im, idx) => {
+                if (idx > 0) children.push(new Paragraph({children:[new PageBreak()]})); // 1 page permis par page Word
+                try {
+                  const raw = atob(im.split(',')[1]||'');
+                  const arr = new Uint8Array(raw.length); for (let k=0;k<raw.length;k++) arr[k]=raw.charCodeAt(k);
+                  children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:usableW,height:h},type:'jpg'})],alignment:AlignmentType.CENTER,spacing:{after:80}}));
+                } catch(e) { console.warn('Incrustation page permis échouée:', e); }
+              });
             });
             _incrustedDocs.add(d);
             continue; // contenu incrusté → pas de ligne « Fichier joint » redondante
@@ -20371,7 +20381,7 @@ const App = {
           }
         } else if (_annexePleinePage) {
           doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(100,100,100);
-          doc.text('→ annexé en pleine page en fin de document', m, y); y+=5;
+          doc.text((d.categorie === 'permis_feu' && d.genere_auto) ? '→ annexé en 3 exemplaires en pleine page en fin de document (donneur d\'ordre, intervenant, affichage)' : '→ annexé en pleine page en fin de document', m, y); y+=5;
           doc.setTextColor(0,0,0);
         } else {
           doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(100,100,100);
@@ -20478,8 +20488,23 @@ const App = {
           try {
             const fdsBytes = Uint8Array.from(atob(dataUrl.split(',')[1]||''), c => c.charCodeAt(0));
             const fdsDoc = await PDFDocument.load(fdsBytes);
-            const pages = await out.copyPages(fdsDoc, fdsDoc.getPageIndices());
-            pages.forEach(pg => out.addPage(pg));
+            // Permis de feu REMPLI (généré CNPP) : 3 exemplaires étiquetés en marge haute
+            // (donneur d'ordre, intervenant, affichage). Autres documents : 1 seul.
+            const _nbEx = (d.categorie === 'permis_feu' && d.genere_auto) ? this._pfExemplaires.length : 1;
+            let _exFont = null;
+            if (_nbEx > 1) { try { _exFont = await out.embedFont(PDFLib.StandardFonts.Helvetica); } catch(_){} }
+            for (let ex = 0; ex < _nbEx; ex++) {
+              const pages = await out.copyPages(fdsDoc, fdsDoc.getPageIndices());
+              pages.forEach((pg, pgIdx) => {
+                out.addPage(pg);
+                if (_nbEx > 1 && pgIdx === 0 && _exFont) {
+                  try {
+                    pg.drawText(`Exemplaire ${ex+1}/${_nbEx} — ${this._pfExemplaires[ex]}`,
+                      { x: 28, y: pg.getHeight() - 12, size: 7, font: _exFont, color: PDFLib.rgb(0.75, 0.22, 0.17) });
+                  } catch(_){}
+                }
+              });
+            }
           } catch (e) {
             console.warn('Fusion FDS échouée (corrompue ?):', nm, e);
             skippedPDF.push(nm || d.nom || ('FDS#'+(d.fdsRef||'?')));
