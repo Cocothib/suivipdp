@@ -15616,8 +15616,9 @@ const App = {
   // ---- Notification permis de feu au conducteur de travaux ----
   _pfTypesLabels: { soudage:'Soudage', tronconnage:'Tronçonnage', meulage:'Découpage / Meulage', thermosoudure:'Thermosoudure au gaz', miseALaTerre:'Soudure mise à la terre', autre:'Autre' },
 
-  // Nombre d'exemplaires du permis de feu rempli dans les exports PDP (Word/PDF) :
-  // 3 feuillets identiques à laisser sur le chantier à l'impression.
+  // Nombre d'exemplaires du permis de feu VIERGE dans les exports PDP (Word/PDF) :
+  // 3 feuillets papier à remplir à la main sur le chantier si l'application ou le
+  // réseau est indisponible. Le permis rempli généré depuis l'app reste en 1 exemplaire.
   _pfNbExemplaires: 3,
 
   // Brique commune d'envoi (3 chemins : PDP, permis rapide, permis vierge).
@@ -19081,9 +19082,9 @@ const App = {
             const usableW = 660; // largeur utile A4 portrait (cohérent avec FR-01)
             const ratio = (imgs.heightPt && imgs.widthPt) ? (imgs.heightPt / imgs.widthPt) : 1.4134;
             const h = Math.round(usableW * ratio);
-            // Permis de feu REMPLI (généré CNPP) : 3 feuillets identiques à laisser sur le
-            // chantier à l'impression. Modèle vierge et fiches réflexe : 1 seul.
-            const _nbEx = (d.categorie === 'permis_feu' && d.genere_auto) ? this._pfNbExemplaires : 1;
+            // Permis de feu VIERGE : 3 feuillets papier à remplir à la main sur le chantier
+            // (secours si app/réseau indisponible). Permis rempli et fiches réflexe : 1 seul.
+            const _nbEx = (d.categorie === 'permis_feu' && !d.genere_auto) ? this._pfNbExemplaires : 1;
             for (let exIdx = 0; exIdx < _nbEx; exIdx++) {
               if (exIdx > 0) children.push(new Paragraph({children:[new PageBreak()]}));
               imgs.images.forEach((im, idx) => {
@@ -19125,6 +19126,35 @@ const App = {
           children.push(new Paragraph({children:[new TextRun({text:`Fichier joint : ${d.nom||''} (${(d.type||'').split('/').pop()||'fichier'})`,size:18,font:'Calibri',italics:true,color:'666666'})],spacing:{after:80}}));
         }
       }
+    }
+
+    // Permis de feu vierges de secours : si le PDP n'a plus de vierge dans ses documents
+    // (retiré quand un permis rempli a été généré), on annexe quand même 3 feuillets vierges
+    // depuis la bibliothèque — les techniciens doivent toujours pouvoir rédiger un permis à
+    // la main si l'application ou le réseau est indisponible.
+    if (!(p.documents||[]).some(d => d && d.categorie === 'permis_feu' && !d.genere_auto)) {
+      try {
+        const _allFds = await db.fds.toArray();
+        const _pfModel = _allFds.find(x => x.categorie === 'permis_feu' && x.standard) || _allFds.find(x => x.categorie === 'permis_feu');
+        const _pfImgs = _pfModel ? await this._getPermisImages({ categorie:'permis_feu', fdsRef:_pfModel.id }) : null;
+        if (_pfImgs && _pfImgs.images && _pfImgs.images.length) {
+          const usableW = 660;
+          const ratio = (_pfImgs.heightPt && _pfImgs.widthPt) ? (_pfImgs.heightPt / _pfImgs.widthPt) : 1.4134;
+          const h = Math.round(usableW * ratio);
+          children.push(new Paragraph({children:[new TextRun({text:'Permis de feu vierges — à remplir à la main si nécessaire',size:20,bold:true,font:'Calibri'})],spacing:{before:150,after:60}}));
+          for (let exIdx = 0; exIdx < this._pfNbExemplaires; exIdx++) {
+            if (exIdx > 0) children.push(new Paragraph({children:[new PageBreak()]}));
+            _pfImgs.images.forEach((im, idx) => {
+              if (idx > 0) children.push(new Paragraph({children:[new PageBreak()]}));
+              try {
+                const raw = atob(im.split(',')[1]||'');
+                const arr = new Uint8Array(raw.length); for (let k=0;k<raw.length;k++) arr[k]=raw.charCodeAt(k);
+                children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:usableW,height:h},type:'jpg'})],alignment:AlignmentType.CENTER,spacing:{after:80}}));
+              } catch(e) { console.warn('Incrustation permis vierge échouée:', e); }
+            });
+          }
+        }
+      } catch(e) { console.warn('Annexe permis vierges (Word):', e); }
     }
 
     // Documents joints PDF (contenu non incrustable dans un .docx). Ils sont déjà listés
@@ -20381,7 +20411,7 @@ const App = {
           }
         } else if (_annexePleinePage) {
           doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(100,100,100);
-          doc.text((d.categorie === 'permis_feu' && d.genere_auto) ? '→ annexé en 3 exemplaires en pleine page en fin de document' : '→ annexé en pleine page en fin de document', m, y); y+=5;
+          doc.text((d.categorie === 'permis_feu' && !d.genere_auto) ? '→ annexé en 3 exemplaires vierges en pleine page en fin de document (à remplir à la main si besoin)' : '→ annexé en pleine page en fin de document', m, y); y+=5;
           doc.setTextColor(0,0,0);
         } else {
           doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(100,100,100);
@@ -20488,9 +20518,9 @@ const App = {
           try {
             const fdsBytes = Uint8Array.from(atob(dataUrl.split(',')[1]||''), c => c.charCodeAt(0));
             const fdsDoc = await PDFDocument.load(fdsBytes);
-            // Permis de feu REMPLI (généré CNPP) : 3 feuillets identiques à laisser sur le
-            // chantier à l'impression. Autres documents : 1 seul.
-            const _nbEx = (d.categorie === 'permis_feu' && d.genere_auto) ? this._pfNbExemplaires : 1;
+            // Permis de feu VIERGE : 3 feuillets papier à remplir à la main sur le chantier
+            // (secours si app/réseau indisponible). Autres documents : 1 seul.
+            const _nbEx = (d.categorie === 'permis_feu' && !d.genere_auto) ? this._pfNbExemplaires : 1;
             for (let ex = 0; ex < _nbEx; ex++) {
               const pages = await out.copyPages(fdsDoc, fdsDoc.getPageIndices());
               pages.forEach(pg => out.addPage(pg));
@@ -20499,6 +20529,24 @@ const App = {
             console.warn('Fusion FDS échouée (corrompue ?):', nm, e);
             skippedPDF.push(nm || d.nom || ('FDS#'+(d.fdsRef||'?')));
           }
+        }
+        // Permis de feu vierges de secours : si le PDP n'a plus de vierge dans ses documents
+        // (retiré quand un permis rempli a été généré), on annexe quand même 3 feuillets
+        // vierges depuis la bibliothèque (permis à rédiger à la main si app/réseau indisponible).
+        if (!(p.documents||[]).some(d => d && d.categorie === 'permis_feu' && !d.genere_auto)) {
+          try {
+            const _allFds = await db.fds.toArray();
+            const _pfModel = _allFds.find(x => x.categorie === 'permis_feu' && x.standard) || _allFds.find(x => x.categorie === 'permis_feu');
+            const _pfFull = _pfModel ? await this.ensureFDSData(_pfModel.id) : null;
+            if (_pfFull?.data && /^data:application\/pdf/i.test(_pfFull.data)) {
+              const _pfBytes = Uint8Array.from(atob(_pfFull.data.split(',')[1]||''), c => c.charCodeAt(0));
+              const _pfDoc = await PDFDocument.load(_pfBytes);
+              for (let ex = 0; ex < this._pfNbExemplaires; ex++) {
+                const pages = await out.copyPages(_pfDoc, _pfDoc.getPageIndices());
+                pages.forEach(pg => out.addPage(pg));
+              }
+            }
+          } catch(e) { console.warn('Annexe permis vierges (PDF):', e); }
         }
         const mergedBytes = await out.save();
         pdfBlob = new Blob([mergedBytes], {type:'application/pdf'});
