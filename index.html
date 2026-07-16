@@ -2364,6 +2364,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <input type="checkbox" class="form-check-input" id="icp-mode-express-toggle" onchange="App.toggleICPModeExpress(this.checked)">
           <i class="bi bi-lightning-charge-fill"></i><span>Mode Express</span>
         </label>
+        <button class="btn btn-outline-secondary btn-sm" id="btn-duplicate-icp" style="display:none" onclick="App.duplicateICP()" title="Créer une copie de cette ICP (numéro, date de visite, photos, observations et signatures réinitialisés)"><i class="bi bi-files me-1"></i>Dupliquer</button>
         <button class="btn btn-outline-danger btn-sm" id="btn-delete-icp" style="display:none" onclick="App.deleteICP()"><i class="bi bi-trash me-1"></i>Supprimer</button>
         <button class="btn btn-outline-secondary btn-sm" onclick="App.showView('icps')"><i class="bi bi-arrow-left me-1"></i>Retour</button>
         <button class="btn btn-primary btn-sm" id="btn-save-icp" onclick="App.saveICP()"><i class="bi bi-check-lg me-1"></i>Enregistrer</button>
@@ -14277,6 +14278,7 @@ const App = {
     this.showView('icp-detail');
     document.getElementById('icp-detail-title').textContent = 'Nouvelle ICP';
     document.getElementById('btn-delete-icp').style.display = 'none';
+    document.getElementById('btn-duplicate-icp').style.display = 'none';
     const btnBack = document.getElementById('btn-back-to-pdp');
     if (btnBack) btnBack.style.display = 'none';
     this._returnToPDPId = null;
@@ -14291,6 +14293,7 @@ const App = {
     this.showView('icp-detail');
     document.getElementById('icp-detail-title').textContent = [v.refOperation, v.numero || ('ICP #' + v.id), v.objet].filter(Boolean).join(' | ');
     document.getElementById('btn-delete-icp').style.display = '';
+    document.getElementById('btn-duplicate-icp').style.display = '';
     const btnBack = document.getElementById('btn-back-to-pdp');
     if (btnBack) btnBack.style.display = v.pdpId ? '' : 'none';
     DataSync.setEditing && DataSync.setEditing('icp', id);
@@ -14736,6 +14739,7 @@ const App = {
       else { if (!v.uid) v.uid = _uid(); v.id = await db.icps.add(v); v.numero = `ICP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(v.id).padStart(4,'0')}`; await db.icps.put(v); }
       document.getElementById('icp-detail-title').textContent = [v.refOperation, v.numero || ('ICP #' + v.id), v.objet].filter(Boolean).join(' | ');
       document.getElementById('btn-delete-icp').style.display = '';
+      document.getElementById('btn-duplicate-icp').style.display = '';
       const newContactsAdded = await this.addNewContactsToRepo(v, 'icps');
       this.toast(newContactsAdded ? `ICP enregistrée + ${newContactsAdded} ajout(s) au répertoire` : 'ICP enregistrée');
       this._formDirty = false;
@@ -14747,6 +14751,56 @@ const App = {
       // et re-archivage à CHAQUE modification ultérieure (garde le PDF/Word à jour, écrase l'ancien).
       if (this._icpRealisee(v)) await this._autoArchiveICP(v);
     } catch(e) { console.error(e); this.toast('Erreur','danger'); }
+  },
+
+  // Duplique l'ICP courante (même logique que duplicatePDP) : la copie reprend le site,
+  // l'objet, les participants et les risques ; tout ce qui est propre à LA visite
+  // (numéro, date, observations, photos, conformité, signatures) est réinitialisé.
+  async duplicateICP() {
+    if (!this.currentICP?.id) return;
+    if (!await this.confirm('Dupliquer cette ICP ?\n\nLa copie reprend le site, l\'objet, les participants et les risques. Numéro, date de visite, observations, photos, conformité et signatures sont réinitialisés.')) return;
+    try { this.collectICPForm(); } catch {}
+    const src = this.currentICP;
+    const copy = JSON.parse(JSON.stringify(src));
+    delete copy.id;
+    copy.uid = _uid();
+    copy.numero = '';
+    copy.statut = 'effectuee';
+    copy.refOperation = '';
+    copy.pdpId = null;
+    copy.dateVisite = ''; copy.heure = '';
+    copy.observations = '';
+    copy.photos = [];
+    (copy.risques || []).forEach(r => { if (r && r.photos) r.photos = []; });
+    copy.conformite = { secteur:{ok:false,note:''}, zonesDanger:{ok:false,note:''}, circulation:{ok:false,note:''}, acces:{ok:false,note:''}, consignes:{ok:false,note:''} };
+    // Signatures réinitialisées ; les noms des signataires (participants) sont conservés.
+    copy.signatureEU = { nom: copy.signatureEU?.nom || '', date:'', data:null };
+    copy.signatureEERep = { nom: copy.signatureEERep?.nom || '', date:'', data:null };
+    copy.signaturesEE = [];
+    copy.signaturesEUAdd = (copy.euParticipants || []).map(pt => ({ nom: pt?.nom || '', date:'', data:null }));
+    copy.signaturesEEAdd = (copy.eeParticipants || []).map(pt => ({ nom: pt?.nom || '', date:'', data:null }));
+    copy.dateCreation = new Date().toISOString();
+    copy.dateModification = copy.dateCreation;
+    try {
+      const newId = await db.icps.add(copy);
+      copy.id = newId;
+      copy.numero = `ICP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(newId).padStart(4,'0')}`;
+      await db.icps.put(copy);
+    } catch (e) { console.error(e); this.toast('Erreur lors de la duplication', 'danger'); return; }
+    if (typeof DataSync !== 'undefined') DataSync.markDirty();
+    if (typeof ActivityLog !== 'undefined') ActivityLog.log('icp.duplicate', { id: copy.id, numero: copy.numero, site: copy.site, source: src.numero || src.id });
+    this.currentICP = copy;
+    this._ensurePhotoFields(copy);
+    this.populateICPForm();
+    this.showView('icp-detail');
+    document.getElementById('icp-detail-title').textContent = [copy.refOperation, copy.numero, copy.objet].filter(Boolean).join(' | ');
+    document.getElementById('btn-delete-icp').style.display = '';
+    document.getElementById('btn-duplicate-icp').style.display = '';
+    const btnBack = document.getElementById('btn-back-to-pdp');
+    if (btnBack) btnBack.style.display = 'none';
+    this._formDirty = false;
+    DataSync.setEditing && DataSync.setEditing('icp', copy.id);
+    this.toast('ICP dupliquée — adapter la date de visite et la référence OPP');
   },
 
   async deleteICP() {
