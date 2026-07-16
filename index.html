@@ -12518,13 +12518,14 @@ const App = {
     try {
       const cond = this._getSelectedCondTravaux('pfv-conducteur');
       if (cond) {
+        // Pas de pièce jointe : le PDF vierge n'apporte rien au conducteur, le mail sert
+        // uniquement à l'informer qu'un permis de feu va être réalisé sur ce chantier.
         const res = await this._sendPermisFeuMail(cond, {
           origine: 'vierge',
           lieu: (document.getElementById('pfv-lieu')?.value || '').trim(),
           types: [],
           renouvellement: false,
-          lienProfond: null,
-          pdf: { nom: full.nom || 'Permis-de-feu-vierge.pdf', dataURL: full.data }
+          lienProfond: null
         });
         if (res === true) this.toast(`Conducteur de travaux notifié par mail (${cond.nom})`);
       }
@@ -15638,7 +15639,7 @@ const App = {
       const intro = {
         pdp: `<strong>${this.esc(emetteur)}</strong> vient de ${ctx.renouvellement ? 'renouveler' : 'générer'} un permis de feu dans l'application SuiviPDP pour un chantier dont vous êtes le conducteur de travaux.`,
         rapide: `<strong>${this.esc(emetteur)}</strong> vient de générer un permis de feu rapide (sans plan de prévention) dans l'application SuiviPDP.`,
-        vierge: `<strong>${this.esc(emetteur)}</strong> vient de télécharger un permis de feu vierge depuis l'application SuiviPDP. Le permis sera complété à la main sur le chantier.`
+        vierge: `<strong>${this.esc(emetteur)}</strong> vient de télécharger un permis de feu vierge depuis l'application SuiviPDP : un permis de feu va être réalisé sur le chantier indiqué ci-dessous et sera complété à la main.`
       }[ctx.origine] || `<strong>${this.esc(emetteur)}</strong> vient de générer un permis de feu dans l'application SuiviPDP.`;
       const row = (label, val) => val ? `<tr><td style="padding:4px 12px 4px 0;vertical-align:top"><strong>${label} :</strong></td><td>${this.esc(val)}</td></tr>` : '';
       const html = `
