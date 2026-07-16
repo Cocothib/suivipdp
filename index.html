@@ -4248,11 +4248,22 @@ async function _safeDeleteFile(filePath) {
 // Envoie un mail via Graph API (depuis le compte connecté).
 // Utilise un token Mail.Send séparé : si l'admin IT a bloqué ce scope,
 // la notif est juste désactivée silencieusement, sans impacter la sync SharePoint.
-async function _sendMailViaGraph(to, subject, htmlBody) {
+async function _sendMailViaGraph(to, subject, htmlBody, attachments) {
     const recipients = (Array.isArray(to) ? to : [to]).filter(e => e && /@/.test(e));
     if (!recipients.length) return false;
     const token = await _getMailToken();
     if (!token) return false;
+    // attachments : [{ nom, dataURL, contentType? }] — la requête sendMail est limitée à ~4 Mo,
+    // les pièces trop lourdes sont ignorées silencieusement (le mail part sans).
+    const files = (attachments || [])
+        .filter(a => a && a.dataURL && a.dataURL.includes('base64,'))
+        .map(a => ({
+            '@odata.type': '#microsoft.graph.fileAttachment',
+            name: a.nom || 'document.pdf',
+            contentType: a.contentType || 'application/pdf',
+            contentBytes: a.dataURL.slice(a.dataURL.indexOf('base64,') + 7),
+        }))
+        .filter(a => a.contentBytes.length < 3500000);
     const resp = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -4261,6 +4272,7 @@ async function _sendMailViaGraph(to, subject, htmlBody) {
                 subject,
                 body: { contentType: 'HTML', content: htmlBody },
                 toRecipients: recipients.map(e => ({ emailAddress: { address: e } })),
+                ...(files.length ? { attachments: files } : {}),
             },
             saveToSentItems: true,
         }),
@@ -9356,7 +9368,7 @@ const App = {
       // Notification mail au conducteur de travaux (fire-and-forget, anti-doublon par période).
       // Trade-off assumé : le mail peut partir dès le premier enregistrement d'un permis encore
       // incomplet (avant signatures) — mieux vaut informer tôt que jamais.
-      this._notifyPermisFeu(p, periode).catch(e => console.warn('Notif permis feu:', e));
+      this._notifyPermisFeu(p, periode, { nom: docName, dataURL: res.dataURL }).catch(e => console.warn('Notif permis feu:', e));
       try { this._externalizeOnSave(p, db.pdps); } catch(_){}
       if (this.currentPDP && this.currentPDP.id === p.id) { try { this.renderDocuments(); } catch(_){} }
     } catch(e) { console.warn('_autoAttachPermisCNPP:', e); }
@@ -12511,7 +12523,8 @@ const App = {
           lieu: (document.getElementById('pfv-lieu')?.value || '').trim(),
           types: [],
           renouvellement: false,
-          lienProfond: null
+          lienProfond: null,
+          pdf: { nom: full.nom || 'Permis-de-feu-vierge.pdf', dataURL: full.data }
         });
         if (res === true) this.toast(`Conducteur de travaux notifié par mail (${cond.nom})`);
       }
@@ -15605,7 +15618,7 @@ const App = {
   // Brique commune d'envoi (3 chemins : PDP, permis rapide, permis vierge).
   // cond : { nom, email } ; ctx : { origine:'pdp'|'rapide'|'vierge', numero, chantier, site, lieu, eu,
   //   periode:{dateDebut,heureDebut,dateFin,heureFin}, nbPeriodes, types:[libellés], description,
-  //   renouvellement, lienProfond }
+  //   renouvellement, lienProfond, pdf:{nom,dataURL} (joint au mail), lienPdf (URL SharePoint du PDF) }
   // Retourne true si le mail est parti, 'self' si auto-notification (émetteur = conducteur : pas de
   // mail, mais à considérer comme traité), false en cas d'échec. Ne lève jamais d'exception.
   async _sendPermisFeuMail(cond, ctx) {
@@ -15644,7 +15657,11 @@ const App = {
           ${row('Description', ctx.description)}
           ${ctx.renouvellement ? row('Nature', 'Renouvellement (nouvelle période)') : ''}
         </table>
-        ${ctx.lienProfond ? `<p style="margin-top:16px"><a href="${appUrl}${ctx.lienProfond}" style="background:#00693e;color:#fff;padding:8px 16px;text-decoration:none;border-radius:4px">Ouvrir le PDP</a></p>` : ''}
+        ${ctx.pdf ? `<p style="margin-top:12px">Le permis de feu est joint à ce message.</p>` : ''}
+        <p style="margin-top:16px">
+          ${ctx.lienPdf ? `<a href="${ctx.lienPdf}" style="background:#c0392b;color:#fff;padding:8px 16px;text-decoration:none;border-radius:4px;margin-right:8px">Ouvrir le permis de feu (SharePoint)</a>` : ''}
+          ${ctx.lienProfond ? `<a href="${appUrl}${ctx.lienProfond}" style="background:#00693e;color:#fff;padding:8px 16px;text-decoration:none;border-radius:4px">Ouvrir le PDP</a>` : ''}
+        </p>
         <p style="font-size:11px;color:#888">Notification automatique SuiviPDP — ne pas répondre à cet email.</p>`;
       let sujet = '[SuiviPDP] Permis de feu';
       if (ctx.origine === 'rapide') sujet += ' rapide';
@@ -15652,7 +15669,7 @@ const App = {
       if (ctx.renouvellement) sujet += ' (renouvellement)';
       const cible = ctx.numero || ctx.chantier || ctx.lieu || ctx.site;
       if (cible) sujet += ` — ${cible}`;
-      const ok = await _sendMailViaGraph([to], sujet, html);
+      const ok = await _sendMailViaGraph([to], sujet, html, ctx.pdf ? [ctx.pdf] : null);
       if (!ok) this.toast('Notification au conducteur de travaux non envoyée (envoi de mail indisponible)', 'warning', 6000);
       return ok;
     } catch (e) {
@@ -15669,7 +15686,7 @@ const App = {
   // Fire-and-forget : ne bloque jamais l'enregistrement du PDP. Anti-doublon par période via
   // pf._notifiedPeriodes, marqué SUR SUCCÈS seulement (échec → nouvelle tentative au prochain
   // enregistrement). Le flag voyage avec le PDP via la sync (robuste multi-postes).
-  async _notifyPermisFeu(p, periode) {
+  async _notifyPermisFeu(p, periode, pdf) {
     if (!p || !p.permisFeu) return;
     if (!DataSync._connected) return;
     const pf = p.permisFeu;
@@ -15685,7 +15702,19 @@ const App = {
       const cond = sure || fuzzy;
       if (!cond) { this.toast(`Permis de feu : « ${nomCond} » n'est pas dans la liste des conducteurs de travaux (Paramètres), pas de notification envoyée`, 'warning', 8000); return; }
       if (!(cond.email||'').trim()) { this.toast(`Permis de feu : ${cond.nom} n'a pas d'email dans la liste des conducteurs de travaux, pas de notification envoyée`, 'warning', 8000); return; }
+      // Copie du PDF sur SharePoint (dossier central) pour donner un lien direct dans le mail —
+      // best-effort : sans lien, le mail part quand même avec la pièce jointe.
+      let lienPdf = null;
+      if (pdf?.dataURL) {
+        try {
+          const ref = (p.numero || `PDP-${p.id}`).replace(/[<>:"/\\|?*\s]+/g, '_');
+          const item = await _uploadBinaryFromDataURL(`SuiviPDP/PermisFeu/${ref}-${pdf.nom}`, pdf.dataURL, 'application/pdf');
+          lienPdf = item?.webUrl || null;
+        } catch(e) { console.warn('Copie SharePoint permis de feu:', e); }
+      }
       const res = await this._sendPermisFeuMail(cond, {
+        pdf: pdf || null,
+        lienPdf,
         origine: 'pdp',
         numero: p.numero || '',
         chantier: p.titre || '',
@@ -19520,9 +19549,11 @@ const App = {
       const name = `Permis-de-feu-CNPP-${stamp}${lieuPart?'-'+lieuPart:''}.pdf`;
       try { const a = document.createElement('a'); a.href = res.dataURL; a.download = name; document.body.appendChild(a); a.click(); a.remove(); } catch(_){}
       // Archivage SharePoint (trace centralisée des permis rapides) — best-effort
+      let lienPdf = null;
       try {
         if (typeof DataSync !== 'undefined' && DataSync._connected && typeof _uploadBinaryFromDataURL === 'function') {
-          await _uploadBinaryFromDataURL(`SuiviPDP/PermisFeuRapides/${name}`, res.dataURL, 'application/pdf');
+          const item = await _uploadBinaryFromDataURL(`SuiviPDP/PermisFeuRapides/${name}`, res.dataURL, 'application/pdf');
+          lienPdf = item?.webUrl || null;
           this.toast('Permis CNPP généré, téléchargé et archivé sur SharePoint ✓','success');
         } else {
           this.toast('Permis CNPP généré et téléchargé. SharePoint hors-ligne : non archivé.','warning',8000);
@@ -19533,7 +19564,7 @@ const App = {
       try {
         const cond = this._getSelectedCondTravaux('pfr-conducteur');
         if (cond) {
-          const res = await this._sendPermisFeuMail(cond, {
+          const sent = await this._sendPermisFeuMail(cond, {
             origine: 'rapide',
             numero: v('pfr-numero'),
             lieu: v('pfr-lieu'),
@@ -19541,9 +19572,11 @@ const App = {
             types: types.map(t => this._pfTypesLabels[t] || t),
             description: pf.description,
             renouvellement: false,
-            lienProfond: null
+            lienProfond: null,
+            pdf: { nom: name, dataURL: res.dataURL },
+            lienPdf
           });
-          if (res === true) this.toast(`Conducteur de travaux notifié par mail (${cond.nom})`);
+          if (sent === true) this.toast(`Conducteur de travaux notifié par mail (${cond.nom})`);
         } else {
           const lst = await this.loadCondTravaux();
           if (lst.some(c => (c.email||'').trim())) this.toast('Permis généré sans notification au conducteur de travaux', 'warning', 6000);
