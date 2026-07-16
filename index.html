@@ -18448,7 +18448,7 @@ const App = {
     // ne pas relire le DOM (collectForm/captureAllSigs liraient le PDP affiché → corruption croisée).
     if (!this._returnDOCXBlob) { this.collectForm(); this.captureAllSigs(); }
     const p = this.currentPDP;
-    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle, VerticalAlign, ShadingType, PageBreak, Footer, PageNumber, ImageRun, HeightRule, PageOrientation } = docx;
+    const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType, BorderStyle, VerticalAlign, ShadingType, PageBreak, Footer, PageNumber, ImageRun, HeightRule, PageOrientation, SectionType } = docx;
     const niveauLabels = {1:'FAIBLE',2:'MOYEN',3:'ÉLEVÉ',4:'CRITIQUE'};
     const GREEN = '00693E';
 
@@ -19058,6 +19058,22 @@ const App = {
     // Documents joints / Annexes
     const _docs = p.documents||[];
     const _incrustedDocs = new Set(); // permis de feu rastérisés+incrustés (exclus du compte « PDF non inclus »)
+    // Sections « page impaire » pour les permis de feu (1 section par exemplaire) : chaque permis
+    // démarre sur un RECTO à l'impression recto-verso (Word insère une page blanche au besoin),
+    // ses pages 1-2 restent donc sur la même feuille, sans page étrangère au dos.
+    const _pfOddSections = [];
+    const _mkPermisPages = (imgs, usableW, h) => {
+      const paras = [];
+      imgs.images.forEach((im, idx) => {
+        if (idx > 0) paras.push(new Paragraph({children:[new PageBreak()]})); // 1 page permis par page Word
+        try {
+          const raw = atob(im.split(',')[1]||'');
+          const arr = new Uint8Array(raw.length); for (let k=0;k<raw.length;k++) arr[k]=raw.charCodeAt(k);
+          paras.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:usableW,height:h},type:'jpg'})],alignment:AlignmentType.CENTER,spacing:{after:80}}));
+        } catch(e) { console.warn('Incrustation page permis échouée:', e); }
+      });
+      return paras;
+    };
     if (_docs.length) {
       secNum++;
       children.push(secTitle(String(secNum),'DOCUMENTS JOINTS / ANNEXES'));
@@ -19082,13 +19098,16 @@ const App = {
             const usableW = 660; // largeur utile A4 portrait (cohérent avec FR-01)
             const ratio = (imgs.heightPt && imgs.widthPt) ? (imgs.heightPt / imgs.widthPt) : 1.4134;
             const h = Math.round(usableW * ratio);
-            // Permis de feu VIERGE : 3 feuillets papier à remplir à la main sur le chantier
-            // (secours si app/réseau indisponible). Permis rempli et fiches réflexe : 1 seul.
-            const _nbEx = (d.categorie === 'permis_feu' && !d.genere_auto) ? this._pfNbExemplaires : 1;
-            for (let exIdx = 0; exIdx < _nbEx; exIdx++) {
-              if (exIdx > 0) children.push(new Paragraph({children:[new PageBreak()]}));
+            if (d.categorie === 'permis_feu') {
+              // Permis de feu → sections « page impaire » en fin de document (voir _pfOddSections).
+              // Vierge : 3 feuillets à remplir à la main (secours si app/réseau indisponible) ; rempli : 1.
+              const _nbEx = d.genere_auto ? 1 : this._pfNbExemplaires;
+              for (let exIdx = 0; exIdx < _nbEx; exIdx++) _pfOddSections.push(_mkPermisPages(imgs, usableW, h));
+              children.push(new Paragraph({children:[new TextRun({text:`→ annexé en ${_nbEx > 1 ? _nbEx + ' exemplaires' : '1 exemplaire'} en fin de document (aligné pour impression recto-verso)`,size:18,font:'Calibri',italics:true,color:'666666'})],spacing:{after:80}}));
+            } else {
+              // Fiche réflexe : incrustée dans le flux comme avant.
               imgs.images.forEach((im, idx) => {
-                if (idx > 0) children.push(new Paragraph({children:[new PageBreak()]})); // 1 page permis par page Word
+                if (idx > 0) children.push(new Paragraph({children:[new PageBreak()]})); // 1 page par page Word
                 try {
                   const raw = atob(im.split(',')[1]||'');
                   const arr = new Uint8Array(raw.length); for (let k=0;k<raw.length;k++) arr[k]=raw.charCodeAt(k);
@@ -19141,18 +19160,8 @@ const App = {
           const usableW = 660;
           const ratio = (_pfImgs.heightPt && _pfImgs.widthPt) ? (_pfImgs.heightPt / _pfImgs.widthPt) : 1.4134;
           const h = Math.round(usableW * ratio);
-          children.push(new Paragraph({children:[new TextRun({text:'Permis de feu vierges — à remplir à la main si nécessaire',size:20,bold:true,font:'Calibri'})],spacing:{before:150,after:60}}));
-          for (let exIdx = 0; exIdx < this._pfNbExemplaires; exIdx++) {
-            if (exIdx > 0) children.push(new Paragraph({children:[new PageBreak()]}));
-            _pfImgs.images.forEach((im, idx) => {
-              if (idx > 0) children.push(new Paragraph({children:[new PageBreak()]}));
-              try {
-                const raw = atob(im.split(',')[1]||'');
-                const arr = new Uint8Array(raw.length); for (let k=0;k<raw.length;k++) arr[k]=raw.charCodeAt(k);
-                children.push(new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:{width:usableW,height:h},type:'jpg'})],alignment:AlignmentType.CENTER,spacing:{after:80}}));
-              } catch(e) { console.warn('Incrustation permis vierge échouée:', e); }
-            });
-          }
+          children.push(new Paragraph({children:[new TextRun({text:`Permis de feu vierges — ${this._pfNbExemplaires} exemplaires à remplir à la main si nécessaire, annexés en fin de document (alignés pour impression recto-verso)`,size:18,font:'Calibri',italics:true,color:'666666'})],spacing:{before:150,after:60}}));
+          for (let exIdx = 0; exIdx < this._pfNbExemplaires; exIdx++) _pfOddSections.push(_mkPermisPages(_pfImgs, usableW, h));
         }
       } catch(e) { console.warn('Annexe permis vierges (Word):', e); }
     }
@@ -19216,7 +19225,10 @@ const App = {
 
     const doc = new Document({ sections:[
       {properties:{page:{margin:{top:720,bottom:720,left:720,right:720}}},footers:{default:new Footer({children:[mkFooterPara()]})},children},
-      {properties:{page:{margin:{top:720,bottom:720,left:720,right:720},size:{orientation:PageOrientation.LANDSCAPE}}},footers:{default:new Footer({children:[mkFooterPara()]})},children:releveChildren}
+      {properties:{page:{margin:{top:720,bottom:720,left:720,right:720},size:{orientation:PageOrientation.LANDSCAPE}}},footers:{default:new Footer({children:[mkFooterPara()]})},children:releveChildren},
+      // Permis de feu : 1 section « page impaire » PAR exemplaire → chaque permis démarre sur
+      // un recto en impression recto-verso (pages 1-2 du permis sur la même feuille).
+      ..._pfOddSections.map(secChildren => ({properties:{type:SectionType.ODD_PAGE,page:{margin:{top:720,bottom:720,left:720,right:720}}},footers:{default:new Footer({children:[mkFooterPara()]})},children:secChildren}))
     ] });
     const blob = await Packer.toBlob(doc);
     const fn = await this.buildPDPFilename(p, 'docx');
@@ -20504,6 +20516,8 @@ const App = {
               const _isPng = /^data:image\/png/i.test(dataUrl);
               const _imgBytes = Uint8Array.from(atob(dataUrl.split(',')[1]||''), c=>c.charCodeAt(0));
               const _img = _isPng ? await out.embedPng(_imgBytes) : await out.embedJpg(_imgBytes);
+              // Calage recto-verso pour les permis de feu : démarrage sur page impaire (recto).
+              if (d.categorie === 'permis_feu' && out.getPageCount() % 2 === 1) out.addPage([595.28, 841.89]);
               const _pg = out.addPage([595.28, 841.89]); // A4 portrait en points
               const _mw = 595.28 - 56, _scale = Math.min(_mw/_img.width, (841.89-56)/_img.height);
               const _w = _img.width*_scale, _h = _img.height*_scale;
@@ -20522,6 +20536,9 @@ const App = {
             // (secours si app/réseau indisponible). Autres documents : 1 seul.
             const _nbEx = (d.categorie === 'permis_feu' && !d.genere_auto) ? this._pfNbExemplaires : 1;
             for (let ex = 0; ex < _nbEx; ex++) {
+              // Calage recto-verso : chaque permis démarre sur une page IMPAIRE (recto), pour que
+              // ses pages 1-2 sortent sur la même feuille sans page étrangère au dos.
+              if (d.categorie === 'permis_feu' && out.getPageCount() % 2 === 1) out.addPage([595.28, 841.89]);
               const pages = await out.copyPages(fdsDoc, fdsDoc.getPageIndices());
               pages.forEach(pg => out.addPage(pg));
             }
@@ -20542,6 +20559,8 @@ const App = {
               const _pfBytes = Uint8Array.from(atob(_pfFull.data.split(',')[1]||''), c => c.charCodeAt(0));
               const _pfDoc = await PDFDocument.load(_pfBytes);
               for (let ex = 0; ex < this._pfNbExemplaires; ex++) {
+                // Calage recto-verso : chaque vierge démarre sur une page impaire (recto).
+                if (out.getPageCount() % 2 === 1) out.addPage([595.28, 841.89]);
                 const pages = await out.copyPages(_pfDoc, _pfDoc.getPageIndices());
                 pages.forEach(pg => out.addPage(pg));
               }
