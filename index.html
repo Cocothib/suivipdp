@@ -2637,6 +2637,14 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     </div>
     <div class="form-section">
       <div class="form-section-title d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-diagram-3"></i>Référentiel partagé (inter-apps)</span>
+        <button class="btn btn-sm btn-primary" onclick="App.publishSharedRefNow()"><i class="bi bi-cloud-upload me-1"></i>Publier maintenant</button>
+      </div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Données de référence publiées par SuiviPDP pour les autres applications QSE (entreprises, chantiers, personnel, agences). Publication automatique après chaque sauvegarde SharePoint réussie.</div>
+      <div id="sharedref-status-container"></div>
+    </div>
+    <div class="form-section">
+      <div class="form-section-title d-flex justify-content-between align-items-center">
         <span><i class="bi bi-file-earmark-pdf"></i>Bibliothèque de documents</span>
         <label class="btn btn-sm btn-outline-primary mb-0"><i class="bi bi-upload me-1"></i>Importer<input type="file" accept="application/pdf,image/*,.doc,.docx" multiple style="display:none" onchange="App.importFDSFiles(event)"></label>
       </div>
@@ -4615,6 +4623,172 @@ SharedRef.configure({
 });
 try { window.SharedRef = SharedRef; } catch (_) {}
 
+/* ==============================================================
+   Lot 1 — Publication du référentiel partagé (owner : suivipdp)
+   Sections publiées : entreprises, chantiers (store sites),
+   personnel (store salaries_habilitations) et agences (settings).
+   Projections compactes, ids canoniques stables (helpers SharedRef).
+   Anti-bruit : hash djb2 mémorisé (sharedref:pubHashPdp), publication
+   uniquement si le contenu change. Erreurs non bloquantes.
+   ============================================================== */
+const SHAREDREF_OWNER_PDP = 'suivipdp';
+const PUB_HASH_KEY_PDP = 'sharedref:pubHashPdp';
+const PUB_MIN_INTERVAL_MS_PDP = 60 * 1000;   // au plus une publication / 60 s
+let _pubTimerPdp = null;
+let _pubLastAtPdp = 0;
+
+function _djb2Pdp(str) {
+    let h = 5381;
+    for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) >>> 0;
+    return h.toString(36);
+}
+
+const _pubStrPdp = (s) => String(s == null ? '' : s).trim();
+
+/* JJ/MM/AAAA → AAAA-MM-JJ (contrat inter-apps : dates ISO) ; sinon valeur inchangée */
+function _pubDateISOPdp(s) {
+    s = _pubStrPdp(s);
+    const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : s;
+}
+
+/* Projection du répertoire entreprises (contacts[] si présent, sinon miroirs racine) */
+async function _pubItemsEntreprisesPdp() {
+    const ents = await db.entreprises.toArray();
+    const byId = new Map();
+    for (const e of ents) {
+        const nom = _pubStrPdp(e.nom);
+        const siret = SharedRef.normSiret(e.siret);
+        if (!siret && !nom) continue;   // pas de clé naturelle exploitable
+        let contacts = (Array.isArray(e.contacts) && e.contacts.length)
+            ? e.contacts.map(c => ({ nom: _pubStrPdp(c.nom), fonction: _pubStrPdp(c.fonction), tel: _pubStrPdp(c.tel), email: _pubStrPdp(c.email), isMain: !!c.isMain }))
+            : [];
+        if (!contacts.length) {
+            const main = { nom: _pubStrPdp(e.responsable), fonction: _pubStrPdp(e.fonction), tel: _pubStrPdp(e.tel), email: _pubStrPdp(e.email), isMain: true };
+            if (main.nom || main.fonction || main.tel || main.email) contacts = [main];
+        }
+        contacts = contacts.filter(c => c.nom || c.fonction || c.tel || c.email);
+        const id = SharedRef.idEntreprise(siret, nom);
+        if (byId.has(id)) continue;     // doublon (même SIRET ou même nom) : premier conservé
+        byId.set(id, { id, siret, nom, adresse: _pubStrPdp(e.adresse), type: 'exterieure', contacts });
+    }
+    return [...byId.values()];
+}
+
+/* Projection des sites d'intervention (store sites : pas de gps/oppId/statut dans ce modèle) */
+async function _pubItemsChantiersPdp() {
+    const sites = await db.sites.toArray();
+    const byId = new Map();
+    for (const s of sites) {
+        const nom = _pubStrPdp(s.nom);
+        if (!nom) continue;
+        const entite = _pubStrPdp(s.entite);
+        const id = SharedRef.idChantier(nom, entite, '');
+        if (byId.has(id)) continue;
+        const it = { id, nom, entite };
+        const adresse = _pubStrPdp(s.adresse);
+        const siret = SharedRef.normSiret(s.siret);
+        if (adresse) it.adresse = adresse;
+        if (siret) it.siret = siret;
+        byId.set(id, it);
+    }
+    return [...byId.values()];
+}
+
+/* Projection des salariés + habilitations (alertes d'expiration côté apps lectrices) */
+async function _pubItemsPersonnelPdp() {
+    const sals = await db.salaries_habilitations.toArray();
+    const byId = new Map();
+    for (const s of sals) {
+        const nom = _pubStrPdp(s.nom);
+        const prenom = _pubStrPdp(s.prenom);
+        if (!nom || !prenom) continue;
+        const id = SharedRef.idPersonnel(nom, prenom);
+        if (byId.has(id)) continue;
+        const habilitations = (Array.isArray(s.habilitations) ? s.habilitations : [])
+            .filter(h => h && (_pubStrPdp(h.type) || _pubStrPdp(h.symbole)))
+            .map(h => ({ type: _pubStrPdp(h.type), symbole: _pubStrPdp(h.symbole), dateValidite: _pubDateISOPdp(h.dateValidite) }));
+        const it = { id, nom, prenom, habilitations };
+        const service = _pubStrPdp(s.service);
+        const poste = _pubStrPdp(s.poste);
+        if (service) it.service = service;
+        if (poste) it.poste = poste;
+        const vmDate = _pubDateISOPdp(s.dateVisiteMedicale);
+        const vmMed = _pubStrPdp(s.medecineTravail);
+        if (vmDate || vmMed) it.visiteMedicale = { date: vmDate, medecine: vmMed };
+        byId.set(id, it);
+    }
+    return [...byId.values()];
+}
+
+/* Projection des agences (db.settings 'agences', défauts inclus via loadAgences) */
+async function _pubItemsAgencesPdp() {
+    const agences = await loadAgences();
+    const byId = new Map();
+    for (const a of agences) {
+        const marque = _pubStrPdp(a.marque);
+        const ville = _pubStrPdp(a.ville);
+        if (!marque && !ville) continue;   // pas de clé naturelle exploitable
+        const id = SharedRef.idAgence(marque, ville);
+        if (byId.has(id)) continue;
+        byId.set(id, { id, marque, ville, nomComplet: _pubStrPdp(a.nomComplet), siret: SharedRef.normSiret(a.siret), adresse: _pubStrPdp(a.adresse), tel: _pubStrPdp(a.tel) });
+    }
+    return [...byId.values()];
+}
+
+/* Publie les 4 sections du référentiel partagé dont SuiviPDP est owner.
+   opts.manual : action utilisateur (toasts de résultat).
+   opts.force  : ignore la garde de hash (re-publication complète).
+   Retourne { entreprises, chantiers, personnel, agences } (compteurs) ou null. */
+async function publishReferentielsPdp(opts = {}) {
+    try {
+        if (typeof DataSync === 'undefined' || !DataSync._connected || !_msalAccount || !navigator.onLine) {
+            if (opts.manual) App.toast('Publication impossible : connexion SharePoint requise.', 'warning');
+            return null;
+        }
+
+        const [entItems, chtItems, perItems, agcItems] = await Promise.all([
+            _pubItemsEntreprisesPdp(), _pubItemsChantiersPdp(), _pubItemsPersonnelPdp(), _pubItemsAgencesPdp()
+        ]);
+
+        const hash = _djb2Pdp(JSON.stringify({ entreprises: entItems, chantiers: chtItems, personnel: perItems, agences: agcItems }));
+        if (!opts.force) {
+            let prev = null;
+            try { prev = localStorage.getItem(PUB_HASH_KEY_PDP); } catch (_) {}
+            if (prev === hash) return null;   // rien de neuf à publier
+        }
+
+        // Séquentiel : chaque publish relit le fichier (verrou ETag), éviter de se concurrencer soi-même
+        await SharedRef.publish('entreprises', entItems, { owner: SHAREDREF_OWNER_PDP });
+        await SharedRef.publish('chantiers', chtItems, { owner: SHAREDREF_OWNER_PDP });
+        await SharedRef.publish('personnel', perItems, { owner: SHAREDREF_OWNER_PDP });
+        await SharedRef.publish('agences', agcItems, { owner: SHAREDREF_OWNER_PDP });
+
+        try { localStorage.setItem(PUB_HASH_KEY_PDP, hash); } catch (_) {}
+        _pubLastAtPdp = Date.now();
+        console.log(`SharedRef: référentiel publié (${entItems.length} entreprises, ${chtItems.length} chantiers, ${perItems.length} personnels, ${agcItems.length} agences)`);
+        if (opts.manual) App.toast(`Référentiel partagé publié (${entItems.length} entreprises, ${chtItems.length} chantiers, ${perItems.length} personnels, ${agcItems.length} agences)`, 'success');
+        return { entreprises: entItems.length, chantiers: chtItems.length, personnel: perItems.length, agences: agcItems.length };
+    } catch (e) {
+        console.warn('SharedRef: publication du référentiel échouée (non bloquant)', e);
+        if (opts.manual) App.toast('Publication du référentiel partagé impossible pour le moment.', 'warning');
+        return null;
+    }
+}
+
+/* Déclenchement différé : appelé après chaque écriture distante réussie et au boot connecté.
+   Regroupe les rafales de sauvegardes (au plus une publication / 60 s). */
+function schedulePublishReferentielsPdp() {
+    if (typeof DataSync === 'undefined' || !DataSync._connected) return;
+    if (_pubTimerPdp) return;
+    const wait = Math.max(0, PUB_MIN_INTERVAL_MS_PDP - (Date.now() - _pubLastAtPdp));
+    _pubTimerPdp = setTimeout(() => {
+        _pubTimerPdp = null;
+        publishReferentielsPdp().catch(() => { /* déjà géré dans publishReferentielsPdp */ });
+    }, wait);
+}
+try { window.publishReferentielsPdp = publishReferentielsPdp; } catch (_) {}
+
 // Liste RÉCURSIVE et paginée des FICHIERS (hors dossiers) sous un dossier
 // SharePoint. Renvoie [{path, size}] (path = chemin complet relatif à la racine
 // du drive, reconstruit dossier par dossier → matche exactement les ref stockées).
@@ -5776,6 +5950,8 @@ const DataSync = {
         if (typeof ActivityLog !== 'undefined') ActivityLog.log('sauvegarde', {
             vPdp: pdpData._meta.version, vIcp: icpData._meta.version, vShared: sharedData._meta.version, merged: conflict
         });
+        // Lot 1 : publication différée du référentiel partagé après une sauvegarde réussie
+        try { schedulePublishReferentielsPdp(); } catch (_) {}
     },
 
     markDirty() {
@@ -5889,6 +6065,8 @@ const DataSync = {
                 const loaded = await this._loadFromRemote();
                 if (!loaded && _msalInstance._fromRedirect) { await this.save(); }
                 this._registerPresence();
+                // Lot 1 : publication différée du référentiel partagé au boot connecté
+                try { schedulePublishReferentielsPdp(); } catch (_) {}
                 // B3 : migration de fond des binaires photos (différée, non bloquante, data conservé)
                 setTimeout(() => { App.syncPhotoFilesToSP().catch(()=>{}); }, 8000);
                 if (_msalInstance._fromRedirect) App.toast('Connecté à SharePoint — '+(_msalAccount.name||''));
@@ -5931,6 +6109,8 @@ const DataSync = {
             const loaded = await this._loadFromRemote();
             if (!loaded) await this.save();
             this._registerPresence();
+            // Lot 1 : publication différée du référentiel partagé à la connexion
+            try { schedulePublishReferentielsPdp(); } catch (_) {}
             // B3 : migration de fond des binaires photos (différée, non bloquante, data conservé)
             setTimeout(() => { App.syncPhotoFilesToSP().catch(()=>{}); }, 8000);
             App.toast('Connecté à SharePoint — '+(_msalAccount.name||''));
@@ -17577,6 +17757,7 @@ const App = {
 
   async renderSettingsView() {
     try { await this.renderAgencesList(); } catch (e) { console.warn('renderAgencesList:', e); }
+    try { await this.renderSharedRefSection(); } catch (e) { console.warn('renderSharedRefSection:', e); }
     try { await this.renderFDSList(); } catch (e) { console.warn('renderFDSList:', e); }
     try { await DataSync.renderSettingsStatus(); } catch (e) { console.warn('renderSettingsStatus:', e); }
     try { await this.renderAdminsSection(); } catch (e) { console.warn('renderAdminsSection:', e); }
@@ -18272,6 +18453,35 @@ const App = {
     if (ok) { this.toast('Risque rejeté'); await this.renderRisksManager(); }
   },
 
+
+  // === RÉFÉRENTIEL PARTAGÉ (inter-apps) ===
+  async renderSharedRefSection() {
+    const c = document.getElementById('sharedref-status-container');
+    if (!c) return;
+    try { await SharedRef.read(); } catch (_) { /* cache local conservé */ }
+    const labels = { entreprises: 'Entreprises', chantiers: 'Chantiers', personnel: 'Personnel', agences: 'Agences' };
+    const rows = Object.keys(labels).map(sec => {
+      const m = SharedRef.meta(sec);
+      const nb = SharedRef.get(sec).length;
+      let quand = '—';
+      if (m && m.updatedAt) { try { quand = new Date(m.updatedAt).toLocaleString('fr-FR'); } catch (_) { quand = m.updatedAt; } }
+      return `<tr>
+        <td>${labels[sec]}</td>
+        <td class="text-center">${m ? 'v' + (m.version || 0) : '—'}</td>
+        <td class="text-center">${m ? nb : '—'}</td>
+        <td class="small text-muted">${this.esc(quand)}</td>
+      </tr>`;
+    }).join('');
+    c.innerHTML = `<div class="table-responsive"><table class="table table-sm align-middle mb-0">
+      <thead><tr><th>Section</th><th class="text-center">Version</th><th class="text-center">Éléments</th><th>Dernière publication</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+  },
+
+  async publishSharedRefNow() {
+    const res = await publishReferentielsPdp({ manual: true, force: true });
+    if (res) { try { await this.renderSharedRefSection(); } catch (_) {} }
+  },
 
   // === AGENCES ===
   async renderAgencesList() {
