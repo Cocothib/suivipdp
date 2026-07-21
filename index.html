@@ -1423,6 +1423,12 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="card-header bg-white fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>Échéances proches</div>
       <div class="card-body p-2" id="dashboard-deadlines"></div>
     </div>
+
+    <!-- Plan d'actions QSE — lecture seule du référentiel partagé SuiviNC -->
+    <div class="card mt-3">
+      <div class="card-header bg-white fw-bold"><i class="bi bi-list-check me-1"></i>Plan d'actions QSE (SuiviNC)</div>
+      <div class="card-body p-2" id="dashboard-nc-actions"></div>
+    </div>
   </div>
 
   <!-- ==================== PDP LIST ==================== -->
@@ -8501,6 +8507,57 @@ const App = {
         }).join('');
 
     await this.renderICPMaintenance(this._icpMaintAnnee);
+    this.renderDashboardNcActions();
+  },
+
+  // Carte « Plan d'actions QSE (SuiviNC) » — LECTURE SEULE du référentiel
+  // partagé (SharedRef, sections 'nc' et 'actions' publiées par SuiviNC).
+  // Aucune écriture, aucun impact sur les données locales.
+  async renderDashboardNcActions() {
+    const el = document.getElementById('dashboard-nc-actions');
+    if (!el) return;
+    try {
+      await SharedRef.read().catch(() => null);
+      const ncs = SharedRef.get('nc');
+      const actions = SharedRef.get('actions');
+      if (!ncs.length && !actions.length) {
+        const dispo = SharedRef.meta('nc') || SharedRef.meta('actions');
+        el.innerHTML = `<p class="text-muted small m-2">${dispo ? 'Aucune NC ni action en cours.' : 'Référentiel SuiviNC non disponible.'}</p>`;
+        return;
+      }
+      const today = new Date().toISOString().slice(0, 10);
+      const isLate = it => !!it.echeance && it.echeance < today;
+      const items = [
+        ...ncs.map(n => ({ kind: 'NC', ref: n.ref || '', libelle: n.objet || '', pilote: n.pilote || '', echeance: n.echeance || '' })),
+        ...actions.map(a => ({ kind: 'Action', ref: a.ref || '', libelle: a.titre || '', pilote: a.pilote || '', echeance: a.echeance || '' })),
+      ];
+      const enRetard = items.filter(isLate).length;
+      // Tri : échéance croissante (retard en premier), sans échéance en dernier
+      items.sort((a, b) => {
+        if (!a.echeance && !b.echeance) return 0;
+        if (!a.echeance) return 1;
+        if (!b.echeance) return -1;
+        return a.echeance < b.echeance ? -1 : a.echeance > b.echeance ? 1 : 0;
+      });
+      const trunc = s => { s = String(s || ''); return s.length > 60 ? s.slice(0, 59) + '…' : s; };
+      const fmtDate = d => d ? d.split('-').reverse().join('/') : '—';
+      const compteurs = `<div class="d-flex flex-wrap gap-3 px-2 pt-1 pb-2 small border-bottom">
+        <span><strong>${ncs.length}</strong> NC ouverte${ncs.length > 1 ? 's' : ''}</span>
+        <span><strong>${actions.length}</strong> action${actions.length > 1 ? 's' : ''} en cours</span>
+        <span class="${enRetard ? 'text-danger fw-bold' : 'text-muted'}"><strong>${enRetard}</strong> en retard</span>
+      </div>`;
+      const lignes = items.slice(0, 8).map(it => {
+        const late = isLate(it);
+        return `<div class="d-flex align-items-center gap-2 p-2 border-bottom">
+          <span class="badge bg-${it.kind === 'NC' ? 'secondary' : 'info text-dark'}">${this.esc(it.ref || it.kind)}</span>
+          <span class="flex-grow-1 small">${this.esc(trunc(it.libelle))}${it.pilote ? ` <span class="text-muted">— ${this.esc(it.pilote)}</span>` : ''}</span>
+          ${late ? `<span class="badge bg-danger">${fmtDate(it.echeance)}</span>` : `<span class="text-muted small">${fmtDate(it.echeance)}</span>`}
+        </div>`;
+      }).join('');
+      el.innerHTML = compteurs + lignes;
+    } catch (e) {
+      el.innerHTML = '<p class="text-muted small m-2">Référentiel SuiviNC non disponible.</p>';
+    }
   },
 
   // ========================================
