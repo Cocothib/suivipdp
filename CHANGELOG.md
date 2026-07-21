@@ -4,7 +4,11 @@
 
 ---
 
-## Juillet 2026 (v167 → v194)
+## Juillet 2026 (v167 → v196)
+
+### Intégration inter-apps QSE
+- Nouvelle carte « Plan d'actions QSE (SuiviNC) » sur le tableau de bord : NC ouvertes, actions en cours et retards du registre central SuiviNC, en lecture seule depuis le référentiel partagé (v196).
+- Bouton « Dupliquer » sur les ICP, comme pour les PDP (v195).
 
 ### Permis de feu
 - Notification automatique par mail au conducteur de travaux à chaque permis de feu créé, avec le PDF rempli en pièce jointe et un lien SharePoint direct (v187-v190).
