@@ -4,9 +4,10 @@
 
 ---
 
-## Juillet 2026 (v167 → v196)
+## Juillet 2026 (v167 → v197)
 
 ### Intégration inter-apps QSE
+- SuiviPDP publie désormais son référentiel (entreprises, chantiers, personnel avec habilitations, agences) pour les autres applications QSE, avec bouton « Publier maintenant » dans les Paramètres (v197).
 - Nouvelle carte « Plan d'actions QSE (SuiviNC) » sur le tableau de bord : NC ouvertes, actions en cours et retards du registre central SuiviNC, en lecture seule depuis le référentiel partagé (v196).
 - Bouton « Dupliquer » sur les ICP, comme pour les PDP (v195).
 
