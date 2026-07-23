@@ -3700,7 +3700,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
               <div class="col-6 col-md-3"><label class="form-label small mb-0">Heure début</label><input type="time" class="form-control form-control-sm" id="pfr-heure-debut"></div>
               <div class="col-6 col-md-3"><label class="form-label small mb-0">Heure fin</label><input type="time" class="form-control form-control-sm" id="pfr-heure-fin"></div>
               <div class="col-6 col-md-3"><label class="form-label small mb-0">N° (optionnel)</label><input type="text" class="form-control form-control-sm" id="pfr-numero" placeholder="N°"></div>
-              <div class="col-12"><label class="form-label small mb-0">Lieu / emplacement</label><input type="text" class="form-control form-control-sm" id="pfr-lieu" placeholder="Site, localisation des travaux"></div>
+              <div class="col-12"><label class="form-label small mb-0">Lieu et emplacement du travail</label><input type="text" class="form-control form-control-sm" id="pfr-lieu" placeholder="Site, localisation des travaux"></div>
             </div>
             <label class="form-label small fw-bold mb-1">Nature du travail</label>
             <div class="row g-1 mb-2">
@@ -3716,22 +3716,22 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
             <div class="mb-2"><label class="form-label small mb-0">Risques identifiés</label><textarea class="form-control form-control-sm" id="pfr-risques" rows="2" placeholder="Poussières, gaz ou liquides inflammables, risque d'explosion, propagation par proximité..."></textarea></div>
             <label class="form-label small fw-bold mb-1">Actions essentielles (CNPP)</label>
             <div class="row g-1 mb-2">
-              <div class="col-6"><label class="check-card"><input type="checkbox" id="pfr-cnpp-nettoyer"><span>Nettoyer la zone</span></label></div>
-              <div class="col-6"><label class="check-card"><input type="checkbox" id="pfr-cnpp-eloigner"><span>Éloigner / couvrir matériau combustible</span></label></div>
-              <div class="col-6"><label class="check-card"><input type="checkbox" id="pfr-cnpp-degazer"><span>Dégazer réservoirs / canalisations</span></label></div>
-              <div class="col-6"><label class="check-card"><input type="checkbox" id="pfr-cnpp-extincteurs"><span>Extincteurs à proximité</span></label></div>
+              <div class="col-6"><label class="check-card"><input type="checkbox" id="pfr-cnpp-nettoyer"><span>Nettoyer la zone de travail</span></label></div>
+              <div class="col-6"><label class="check-card"><input type="checkbox" id="pfr-cnpp-eloigner"><span>Éloigner ou couvrir de bâches tout matériau combustible</span></label></div>
+              <div class="col-6"><label class="check-card"><input type="checkbox" id="pfr-cnpp-degazer"><span>Dégazer les réservoirs et canalisations</span></label></div>
+              <div class="col-6"><label class="check-card"><input type="checkbox" id="pfr-cnpp-extincteurs"><span>Disposer d'extincteurs à proximité</span></label></div>
             </div>
+            <div class="mb-2"><label class="form-label small mb-0">Actions complémentaires (s'aider de la liste au verso du permis CNPP)</label><textarea class="form-control form-control-sm" id="pfr-actions" rows="2" placeholder="Mesures de sécurité supplémentaires..."></textarea></div>
             <div class="row g-2 mb-2">
-              <div class="col-md-6"><label class="form-label small mb-0">Moyens de lutte contre l'incendie</label><input type="text" class="form-control form-control-sm" id="pfr-moyens-lutte"></div>
-              <div class="col-md-6"><label class="form-label small mb-0">Moyens d'alerte</label><input type="text" class="form-control form-control-sm" id="pfr-moyens-alerte"></div>
+              <div class="col-md-6"><label class="form-label small mb-0">Moyens de lutte contre l'incendie</label><input type="text" class="form-control form-control-sm" id="pfr-moyens-lutte" placeholder="Extincteurs, RIA, couverture anti-feu..."></div>
+              <div class="col-md-6"><label class="form-label small mb-0">Moyens d'alerte</label><input type="text" class="form-control form-control-sm" id="pfr-moyens-alerte" placeholder="Téléphone, n° secours, sirène..."></div>
             </div>
-            <div class="mb-2"><label class="form-label small mb-0">Actions complémentaires</label><textarea class="form-control form-control-sm" id="pfr-actions" rows="2"></textarea></div>
             <div class="row g-2 mb-2 align-items-center">
-              <div class="col-auto"><span class="small fw-bold">Ronde de sécurité</span></div>
+              <div class="col-auto"><span class="small fw-bold">Une ronde de sécurité est nécessaire ?</span></div>
               <div class="col-auto form-check"><input class="form-check-input" type="radio" name="pfr-ronde" id="pfr-ronde-non" value="non"><label class="form-check-label small" for="pfr-ronde-non">Non</label></div>
-              <div class="col-auto form-check"><input class="form-check-input" type="radio" name="pfr-ronde" id="pfr-ronde-oui" value="oui"><label class="form-check-label small" for="pfr-ronde-oui">Oui</label></div>
+              <div class="col-auto form-check"><input class="form-check-input" type="radio" name="pfr-ronde" id="pfr-ronde-oui" value="oui"><label class="form-check-label small" for="pfr-ronde-oui">Oui, elle sera réalisée</label></div>
               <div class="col-auto"><input type="number" min="0" step="1" class="form-control form-control-sm" id="pfr-ronde-heures" style="width:72px" placeholder="2"></div>
-              <div class="col-auto small">heures après la fin</div>
+              <div class="col-auto small">heures après la fin des travaux</div>
             </div>
             <hr class="my-2">
             <div class="mb-2">
