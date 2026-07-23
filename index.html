@@ -2009,27 +2009,35 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     </div>
 
     <!-- Section: Permis de feu -->
-    <div id="section-permisfeu" class="pdp-section" style="display:none">
+    <div id="section-permisfeu" class="pdp-section" style="display:none" oninput="App.updatePFStepBadges()" onchange="App.updatePFStepBadges()">
       <div class="form-section">
         <div class="form-section-title"><i class="bi bi-fire"></i>Permis de feu — Travaux par points chauds</div>
-        <div class="alert alert-warning small">
-          <i class="bi bi-exclamation-triangle me-1"></i>Ce permis de feu doit être établi avant le démarrage de tout travail utilisant un outil susceptible de générer un point chaud (flamme nue, arcs électriques, étincelles).
-        </div>
-        <div class="alert alert-danger small">
-          <i class="bi bi-clock-fill me-1"></i><strong>INTERDICTION :</strong> Les travaux par points chauds sont strictement interdits après <strong>12h00 (midi)</strong>. Tout travail par point chaud doit être terminé avant midi afin de permettre les rondes de surveillance post-intervention.
-        </div>
-        <div class="alert alert-danger small" data-type-label="pf-oblig">
-          <i class="bi bi-shield-check me-1"></i><strong>OBLIGATION :</strong> Ce permis de feu doit être <strong>obligatoirement signé et validé par le client (Entreprise Utilisatrice)</strong> avant le début de toute réalisation de travaux par points chauds. Aucun travail ne peut débuter sans cette validation.
-        </div>
-        <div class="alert alert-danger small" data-type-label="pf-renouv">
-          <i class="bi bi-hourglass-split me-1"></i><strong>DURÉE MAXIMALE :</strong> Le permis de feu ne peut pas excéder <strong>24 heures</strong>. Au-delà de cette durée, un renouvellement avec <strong>nouvelle validation de l'EU</strong> est obligatoire pour chaque période de 24h.
+        <div class="alert alert-danger small mb-2 py-2">
+          <div class="d-flex justify-content-between align-items-start flex-wrap gap-1">
+            <div><strong><i class="bi bi-shield-fill-exclamation me-1"></i>Règles clés :</strong> travaux <strong>interdits après 12h00</strong> · signature <strong>client (EU) obligatoire</strong> avant démarrage · durée max <strong>24 h</strong> · à établir <strong>avant</strong> tout point chaud, renouvelé chaque jour</div>
+            <button class="btn btn-sm btn-outline-danger py-0" type="button" data-bs-toggle="collapse" data-bs-target="#pf-rules-detail" aria-expanded="false" aria-controls="pf-rules-detail">Détails</button>
+          </div>
+          <div class="collapse mt-2" id="pf-rules-detail">
+            <div class="small mb-2"><i class="bi bi-exclamation-triangle me-1"></i>Ce permis de feu doit être établi avant le démarrage de tout travail utilisant un outil susceptible de générer un point chaud (flamme nue, arcs électriques, étincelles). Il doit être renouvelé quotidiennement.</div>
+            <div class="small mb-2"><i class="bi bi-clock-fill me-1"></i><strong>INTERDICTION :</strong> Les travaux par points chauds sont strictement interdits après <strong>12h00 (midi)</strong>. Tout travail par point chaud doit être terminé avant midi afin de permettre les rondes de surveillance post-intervention.</div>
+            <div class="small mb-2" data-type-label="pf-oblig"><i class="bi bi-shield-check me-1"></i><strong>OBLIGATION :</strong> Ce permis de feu doit être <strong>obligatoirement signé et validé par le client (Entreprise Utilisatrice)</strong> avant le début de toute réalisation de travaux par points chauds. Aucun travail ne peut débuter sans cette validation.</div>
+            <div class="small mb-0" data-type-label="pf-renouv"><i class="bi bi-hourglass-split me-1"></i><strong>DURÉE MAXIMALE :</strong> Le permis de feu ne peut pas excéder <strong>24 heures</strong>. Au-delà de cette durée, un renouvellement avec <strong>nouvelle validation de l'EU</strong> est obligatoire pour chaque période de 24h.</div>
+          </div>
         </div>
         <div id="pf-duree-warning" class="alert alert-danger small" style="display:none">
           <i class="bi bi-exclamation-octagon-fill me-1"></i><strong id="pf-duree-warning-text"></strong>
         </div>
 
-        <div class="section-helper"><i class="bi bi-lightbulb"></i> Le permis de feu est obligatoire pour tout travail par point chaud. Il doit être renouvelé quotidiennement.</div>
+        <div class="accordion mb-3" id="pf-accordion">
 
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button py-2" type="button" data-bs-toggle="collapse" data-bs-target="#pf-step-1" aria-expanded="true" aria-controls="pf-step-1">
+              <i class="bi bi-tools me-2"></i><span class="fw-bold me-2">Étape 1 — Travail par point chaud</span><span class="badge rounded-pill text-bg-secondary" id="pf-step-badge-1">À compléter</span>
+            </button>
+          </h2>
+          <div id="pf-step-1" class="accordion-collapse collapse show" data-bs-parent="#pf-accordion">
+          <div class="accordion-body p-2">
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-tools"></i> Description du travail par point chaud</div>
           <label class="form-label mb-1 fw-bold">Nature du travail</label>
@@ -2048,7 +2056,18 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
             <div class="col-12"><label class="form-label" for="pf-description">Outillage et matériel</label><textarea class="form-control" id="pf-description" rows="2" placeholder="Outillage et matériel utilisés : perceuse, meuleuse, chalumeau, poste à souder..."></textarea></div>
           </div>
         </div>
+          </div>
+          </div>
+        </div>
 
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button py-2 collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pf-step-2" aria-expanded="false" aria-controls="pf-step-2">
+              <i class="bi bi-exclamation-triangle me-2"></i><span class="fw-bold me-2">Étape 2 — Risques &amp; prévention</span><span class="badge rounded-pill text-bg-secondary" id="pf-step-badge-2">À compléter</span>
+            </button>
+          </h2>
+          <div id="pf-step-2" class="accordion-collapse collapse" data-bs-parent="#pf-accordion">
+          <div class="accordion-body p-2">
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-exclamation-triangle"></i> Risques identifiés</div>
           <div class="section-helper"><i class="bi bi-lightbulb"></i> Signaler la présence de poussières, de gaz ou de liquides inflammables, un risque d'explosion, un risque de propagation par proximité, etc. (rubrique « Risques identifiés » du permis CNPP).</div>
@@ -2057,17 +2076,6 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
             <div class="col-md-4"><label class="form-label" for="pf-risque-activite">Risques liés à l'activité du site</label><textarea class="form-control" id="pf-risque-activite" rows="2" placeholder="Stockage, produits inflammables..."></textarea></div>
             <div class="col-md-4"><label class="form-label" for="pf-risque-environnement">Risques liés à l'environnement</label><textarea class="form-control" id="pf-risque-environnement" rows="2" placeholder="Végétation, paille, gaz..."></textarea></div>
           </div>
-        </div>
-
-        <div class="field-group">
-          <div class="field-group-title"><i class="bi bi-calendar-range"></i> Date, heure et durée de validité du permis</div>
-          <div class="row g-2 mb-1">
-            <div class="col-md-3"><label class="form-label" for="pf-date-debut">Date début</label><div class="input-icon-wrap"><i class="bi bi-calendar-event input-icon"></i><input type="date" class="form-control" id="pf-date-debut" onchange="App.checkPFDuree()"></div></div>
-            <div class="col-md-3"><label class="form-label" for="pf-heure-debut">Heure début</label><div class="input-icon-wrap"><i class="bi bi-clock input-icon"></i><input type="time" class="form-control" id="pf-heure-debut" onchange="App.checkPFDuree()"></div></div>
-            <div class="col-md-3"><label class="form-label" for="pf-date-fin">Date fin</label><div class="input-icon-wrap"><i class="bi bi-calendar-event input-icon"></i><input type="date" class="form-control" id="pf-date-fin" onchange="App.checkPFDuree()"></div></div>
-            <div class="col-md-3"><label class="form-label" for="pf-heure-fin">Heure fin</label><div class="input-icon-wrap"><i class="bi bi-clock input-icon"></i><input type="time" class="form-control" id="pf-heure-fin" onchange="App.checkPFDuree()"></div></div>
-          </div>
-          <div id="pf-duree-info" class="small mb-1"></div>
         </div>
 
         <div class="field-group">
@@ -2086,8 +2094,30 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
             <div class="col-md-6"><label class="form-label small mb-0">Moyens d'alerte</label><input type="text" class="form-control form-control-sm" id="pf-moyens-alerte" placeholder="Téléphone, n° secours, sirène..."></div>
           </div>
         </div>
+          </div>
+          </div>
+        </div>
 
-        <h6 class="mt-4 mb-2 text-primary" data-type-label="pf-validations-title"><i class="bi bi-arrow-repeat me-1"></i>Périodes de validation EU &amp; Rondes de surveillance</h6>
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button py-2 collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pf-step-3" aria-expanded="false" aria-controls="pf-step-3">
+              <i class="bi bi-calendar-range me-2"></i><span class="fw-bold me-2">Étape 3 — Validité &amp; rondes</span><span class="badge rounded-pill text-bg-secondary" id="pf-step-badge-3">À compléter</span>
+            </button>
+          </h2>
+          <div id="pf-step-3" class="accordion-collapse collapse" data-bs-parent="#pf-accordion">
+          <div class="accordion-body p-2">
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-calendar-range"></i> Date, heure et durée de validité du permis</div>
+          <div class="row g-2 mb-1">
+            <div class="col-md-3"><label class="form-label" for="pf-date-debut">Date début</label><div class="input-icon-wrap"><i class="bi bi-calendar-event input-icon"></i><input type="date" class="form-control" id="pf-date-debut" onchange="App.checkPFDuree()"></div></div>
+            <div class="col-md-3"><label class="form-label" for="pf-heure-debut">Heure début</label><div class="input-icon-wrap"><i class="bi bi-clock input-icon"></i><input type="time" class="form-control" id="pf-heure-debut" onchange="App.checkPFDuree()"></div></div>
+            <div class="col-md-3"><label class="form-label" for="pf-date-fin">Date fin</label><div class="input-icon-wrap"><i class="bi bi-calendar-event input-icon"></i><input type="date" class="form-control" id="pf-date-fin" onchange="App.checkPFDuree()"></div></div>
+            <div class="col-md-3"><label class="form-label" for="pf-heure-fin">Heure fin</label><div class="input-icon-wrap"><i class="bi bi-clock input-icon"></i><input type="time" class="form-control" id="pf-heure-fin" onchange="App.checkPFDuree()"></div></div>
+          </div>
+          <div id="pf-duree-info" class="small mb-1"></div>
+        </div>
+
+        <h6 class="mt-2 mb-2 text-primary" data-type-label="pf-validations-title"><i class="bi bi-arrow-repeat me-1"></i>Périodes de validation EU &amp; Rondes de surveillance</h6>
         <div class="alert alert-info small mb-2" data-type-label="pf-validations-info">
           <i class="bi bi-info-circle me-1"></i>Les périodes de validation sont <strong>générées automatiquement</strong> en fonction de la durée du permis. Chaque période de 24h nécessite une <strong>signature de l'EU</strong>.
         </div>
@@ -2101,9 +2131,20 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
             <div class="d-flex align-items-center gap-1"><input type="number" min="0" step="1" class="form-control form-control-sm" id="pf-ronde-heures" style="width:80px" placeholder="2"> <span class="small">heures après la fin des travaux</span></div>
           </div>
         </div>
+          </div>
+          </div>
+        </div>
 
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button py-2 collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pf-step-4" aria-expanded="false" aria-controls="pf-step-4">
+              <i class="bi bi-pen me-2"></i><span class="fw-bold me-2">Étape 4 — Signataires</span><span class="badge rounded-pill text-bg-secondary" id="pf-step-badge-4">0/3 signatures</span>
+            </button>
+          </h2>
+          <div id="pf-step-4" class="accordion-collapse collapse" data-bs-parent="#pf-accordion">
+          <div class="accordion-body p-2">
         <div class="field-group">
-          <div class="field-group-title"><i class="bi bi-person-check"></i> <span data-type-label="pf-sig-eu">Donneur d'ordre (représentant EU)</span></div>
+          <div class="field-group-title"><i class="bi bi-person-check"></i> <span data-type-label="pf-sig-eu">Donneur d'ordre (représentant EU)</span> <span class="badge text-bg-warning ms-1" id="pf-sig-status-eu">En attente</span></div>
           <div class="section-helper"><i class="bi bi-lightbulb"></i> Chef de l'entreprise utilisatrice dans laquelle est réalisé le travail par point chaud, ou son représentant.</div>
           <div class="row g-2 mb-2">
             <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-eu-nom" name="pf-sig-eu-nom" aria-label="Nom du donneur d'ordre" placeholder="Nom"></div>
@@ -2119,7 +2160,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         </div>
 
         <div class="field-group">
-          <div class="field-group-title"><i class="bi bi-eye"></i> Personne désignée pour la sécurité et la surveillance <span class="badge bg-info text-dark">requis CNPP</span></div>
+          <div class="field-group-title"><i class="bi bi-eye"></i> Personne désignée pour la sécurité et la surveillance <span class="badge bg-info text-dark">requis CNPP</span> <span class="badge text-bg-warning ms-1" id="pf-sig-status-surv">En attente</span></div>
           <div class="section-helper"><i class="bi bi-lightbulb"></i> Accompagne l'opérateur pour veiller à la sécurité générale du travail par point chaud. Désignée par le chef d'entreprise utilisatrice et formée à l'utilisation des moyens de lutte contre le feu placés à proximité du lieu de travail.</div>
           <div class="row g-2 mb-2">
             <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-surv-nom" aria-label="Nom du surveillant" placeholder="Nom"></div>
@@ -2135,7 +2176,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         </div>
 
         <div class="field-group">
-          <div class="field-group-title"><i class="bi bi-people"></i> Intervenants</div>
+          <div class="field-group-title"><i class="bi bi-people"></i> Intervenants <span class="badge text-bg-warning ms-1" id="pf-sig-status-ee">En attente</span></div>
           <div class="section-helper"><i class="bi bi-lightbulb"></i> Responsable d'intervention et/ou opérateur(s) qui réalise(nt) le travail par point chaud. Il(s) s'engage(nt) à respecter, ou à faire respecter, les mesures de sécurité définies.</div>
           <label class="form-label mb-1 fw-bold">Type d'intervenant</label>
           <div class="row g-2 mb-2 align-items-center">
@@ -2163,8 +2204,12 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
             <div class="col-md-8"><label class="form-label small mb-0">Signature</label><div class="signature-pad-wrapper"><canvas id="pf-sig-ee-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-ee-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
           </div>
         </div>
+          </div>
+          </div>
+        </div>
 
-        <hr class="my-3">
+        </div>
+
         <div class="d-flex flex-wrap gap-2">
           <button class="btn btn-danger btn-sm" onclick="App.exportPermisFeuCNPP()" title="Génère le permis au modèle officiel CNPP pré-rempli depuis les données saisies et l'attache au PDP"><i class="bi bi-fire me-1"></i>Générer le permis CNPP pré-rempli</button>
         </div>
@@ -9733,8 +9778,8 @@ const App = {
     if (section === 'emargement') { this.prefillEmargements(); this.prefillEmargementsLibres(); }
     if (section === 'autorisations') AutorisationInterne.renderPDPSection();
     if (section === 'signatures') { this.renderSignaturesEE(); this.prefillSignatureEU(); }
-    if (section === 'permisfeu') { this.prefillPermisFeuSignataires(); }
-    if (section === 'permisfeu') setTimeout(() => { this.initCanvas('pf-sig-eu-canvas'); this.initCanvas('pf-sig-ee-canvas'); this.initCanvas('pf-sig-exec-canvas'); this.initCanvas('pf-sig-surv-canvas'); if (this.currentPDP?.permisFeu?.signatureSurveillance?.data) this.loadSigImg('pf-sig-surv-canvas', this.currentPDP.permisFeu.signatureSurveillance.data); if (this.currentPDP?.permisFeu?.signatureEU?.data) this.loadSigImg('pf-sig-eu-canvas', this.currentPDP.permisFeu.signatureEU.data); if (this.currentPDP?.permisFeu?.signatureEE?.data) this.loadSigImg('pf-sig-ee-canvas', this.currentPDP.permisFeu.signatureEE.data); if (this.currentPDP?.permisFeu?.signatureExec?.data) this.loadSigImg('pf-sig-exec-canvas', this.currentPDP.permisFeu.signatureExec.data); (this.currentPDP?.permisFeu?.renouvellements||[]).forEach((r,i) => { this.initCanvas('pf-renouv-sig-'+i); if (r.signatureEU?.data) this.loadSigImg('pf-renouv-sig-'+i, r.signatureEU.data); }); }, 100);
+    if (section === 'permisfeu') { this.prefillPermisFeuSignataires(); this._wirePFAccordion(); }
+    if (section === 'permisfeu') setTimeout(() => { this._initPFSigCanvases(); }, 100);
     this._currentSection = section;
     this.updateProgress();
     // Navigation arrows
@@ -11174,6 +11219,74 @@ const App = {
     if (d && !d.value) d.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
     const h = document.getElementById(ids[1]);
     if (h && !h.value) h.value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    try { this.updatePFStepBadges(); } catch(_){}
+  },
+
+  // Badges d'avancement des 4 étapes de l'accordéon permis de feu + pastilles signataires.
+  updatePFStepBadges() {
+    const q = id => document.getElementById(id);
+    if (!q('pf-step-badge-1')) return; // section pas affichée
+    const setB = (n, ok, txt) => { const b = q('pf-step-badge-'+n); if (b) { b.className = 'badge rounded-pill ' + (ok ? 'text-bg-success' : 'text-bg-secondary'); b.textContent = ok ? 'Complet ✓' : (txt || 'À compléter'); } };
+    const types = ['soudage','tronconnage','meulage','thermosoudure','miseALaTerre','autre'].filter(t => q('pf-'+t)?.checked);
+    setB(1, types.length > 0 && (q('pf-description')?.value.trim() || '') !== '');
+    const risques = ['pf-risque-structure','pf-risque-activite','pf-risque-environnement'].some(id => (q(id)?.value.trim() || '') !== '');
+    const actions = ['nettoyer','eloigner','degazer','extincteurs'].some(a => q('pf-cnpp-'+a)?.checked);
+    setB(2, risques && actions);
+    setB(3, !!(q('pf-date-debut')?.value && q('pf-heure-debut')?.value && q('pf-date-fin')?.value && q('pf-heure-fin')?.value && (q('pf-ronde-non')?.checked || q('pf-ronde-oui')?.checked)));
+    const pf = this.currentPDP?.permisFeu || {};
+    const signed = (cid, data) => { const c = q(cid); return !!(c && c._hasDrawing) || !!data; };
+    const sEU = signed('pf-sig-eu-canvas', pf.signatureEU?.data);
+    const sSV = signed('pf-sig-surv-canvas', pf.signatureSurveillance?.data);
+    const sEE = signed('pf-sig-ee-canvas', pf.signatureEE?.data || pf.signatureExec?.data);
+    const n = [sEU, sSV, sEE].filter(Boolean).length;
+    setB(4, n === 3, n + '/3 signatures');
+    const pill = (id, ok) => { const el = q(id); if (el) { el.className = 'badge ms-1 ' + (ok ? 'text-bg-success' : 'text-bg-warning'); el.textContent = ok ? 'Signé ✓' : 'En attente'; } };
+    pill('pf-sig-status-eu', sEU); pill('pf-sig-status-surv', sSV); pill('pf-sig-status-ee', sEE);
+  },
+
+  // Initialise (ou redimensionne) les canvas de signature du permis de feu et recharge
+  // les signatures enregistrées. Un canvas initialisé dans une étape d'accordéon repliée
+  // a une taille nulle : on le redimensionne à l'ouverture de l'étape.
+  _initPFSigCanvases() {
+    const pf = this.currentPDP?.permisFeu || {};
+    const items = [
+      ['pf-sig-eu-canvas', pf.signatureEU?.data],
+      ['pf-sig-ee-canvas', pf.signatureEE?.data],
+      ['pf-sig-exec-canvas', pf.signatureExec?.data],
+      ['pf-sig-surv-canvas', pf.signatureSurveillance?.data],
+    ];
+    for (const [id, data] of items) {
+      const c = document.getElementById(id); if (!c) continue;
+      this.initCanvas(id);
+      if (c.width === 0 && c.offsetWidth > 0) { c.width = c.offsetWidth; c.height = c.offsetHeight; c._hasDrawing = false; }
+      if (c.width > 0 && data && !c._hasDrawing) this.loadSigImg(id, data);
+    }
+    (pf.renouvellements||[]).forEach((r,i) => { this.initCanvas('pf-renouv-sig-'+i); if (r.signatureEU?.data) this.loadSigImg('pf-renouv-sig-'+i, r.signatureEU.data); });
+    try { this.updatePFStepBadges(); } catch(_){}
+  },
+
+  // Branche (une fois) les ouvertures d'étapes de l'accordéon : re-init des canvas
+  // masqués (étape 4) et re-rendu des renouvellements (étape 3).
+  _wirePFAccordion() {
+    if (this._pfAccordionWired) return;
+    const s3 = document.getElementById('pf-step-3'), s4 = document.getElementById('pf-step-4');
+    if (!s3 || !s4) return;
+    s3.addEventListener('shown.bs.collapse', e => { if (e.target === s3) { try { this.renderPFRenouvellements(); } catch(_){} } });
+    s4.addEventListener('shown.bs.collapse', e => { if (e.target === s4) { try { this._initPFSigCanvases(); } catch(_){} } });
+    this._pfAccordionWired = true;
+  },
+
+  // Ouvre une étape de l'accordéon permis de feu et amène le focus sur un champ.
+  _gotoPFStep(n, focusId) {
+    this.showPDPSection('permisfeu');
+    setTimeout(() => {
+      const el = document.getElementById('pf-step-'+n);
+      if (el && typeof bootstrap !== 'undefined') bootstrap.Collapse.getOrCreateInstance(el, { toggle: false }).show();
+      setTimeout(() => {
+        const f = focusId && document.getElementById(focusId);
+        if (f) { f.scrollIntoView({ behavior: 'smooth', block: 'center' }); try { f.focus({ preventScroll: true }); } catch(_){} }
+      }, 380);
+    }, 150);
   },
 
   // Ouvre une zone de signature plein écran liée au canvas d'origine.
@@ -11277,6 +11390,10 @@ const App = {
     if (dt) {
       const d = document.getElementById(dt[0]); if (d) d.value = '';
       const h = document.getElementById(dt[1]); if (h) h.value = '';
+      const sigMap = { 'pf-sig-eu-canvas': 'signatureEU', 'pf-sig-surv-canvas': 'signatureSurveillance', 'pf-sig-ee-canvas': 'signatureEE' };
+      const k = sigMap[id], pf = this.currentPDP?.permisFeu;
+      if (k && pf && pf[k]) pf[k].data = null;
+      try { this.updatePFStepBadges(); } catch(_){}
     }
     if (!c._init) this.initCanvas(id); // sécurité si le canvas n'avait pas encore été initialisé
   },
@@ -19971,8 +20088,63 @@ const App = {
     return { blob, dataURL };
   },
 
-  // Génère le permis CNPP depuis le PDP courant (saisie de la section permis) et l'attache au PDP.
+  // Contrôle des manques avant génération du permis CNPP : liste ce qui reste à
+  // compléter (avec lien vers l'étape) au lieu de générer un PDF incomplet.
+  _checkPermisFeuManques(pf) {
+    const m = [];
+    if (!(pf.types||[]).length) m.push({ t: 'Nature du travail (aucun type coché)', s: 1, f: 'pf-soudage' });
+    if (!(pf.description||'').trim()) m.push({ t: 'Outillage et matériel', s: 1, f: 'pf-description' });
+    if (!((pf.risqueStructure||'') + (pf.risqueActivite||'') + (pf.risqueEnvironnement||'')).trim()) m.push({ t: 'Risques identifiés', s: 2, f: 'pf-risque-structure' });
+    if (!(pf.cnppActions||[]).length) m.push({ t: 'Actions essentielles de prévention', s: 2, f: 'pf-cnpp-nettoyer' });
+    if (!pf.dateDebut || !pf.heureDebut || !pf.heureFin) m.push({ t: 'Période de validité (date et heures)', s: 3, f: 'pf-date-debut' });
+    if (!pf.rondeNecessaire) m.push({ t: 'Ronde de sécurité (Non / Oui)', s: 3, f: 'pf-ronde-non' });
+    if (!(pf.signatureEU?.nom||'').trim()) m.push({ t: 'Donneur d\'ordre (nom)', s: 4, f: 'pf-sig-eu-nom' });
+    if (!pf.signatureEU?.data) m.push({ t: 'Signature du donneur d\'ordre (EU)', s: 4, f: 'pf-sig-eu-nom' });
+    if (!(pf.signatureSurveillance?.nom||'').trim()) m.push({ t: 'Personne désignée pour la surveillance (nom)', s: 4, f: 'pf-sig-surv-nom' });
+    if (!pf.signatureSurveillance?.data) m.push({ t: 'Signature du surveillant', s: 4, f: 'pf-sig-surv-nom' });
+    if (!(pf.signatureEE?.nom||'').trim() && !(pf.signatureExec?.nom||'').trim()) m.push({ t: 'Intervenant (responsable ou opérateur)', s: 4, f: 'pf-sig-ee-nom' });
+    if (!pf.signatureEE?.data && !pf.signatureExec?.data) m.push({ t: 'Signature de l\'intervenant', s: 4, f: 'pf-sig-ee-nom' });
+    return m;
+  },
+
+  _showPFCheckModal(manques) {
+    let modal = document.getElementById('pf-check-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'pf-check-modal';
+      modal.className = 'modal fade';
+      modal.setAttribute('tabindex', '-1');
+      modal.innerHTML = `<div class="modal-dialog modal-dialog-scrollable"><div class="modal-content">
+        <div class="modal-header py-2"><h5 class="modal-title"><i class="bi bi-clipboard-check me-2 text-warning"></i>Permis de feu incomplet</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button></div>
+        <div class="modal-body"><p class="small mb-2">Éléments restant à compléter avant de générer le permis CNPP :</p><ul class="list-group list-group-flush" id="pf-check-list"></ul></div>
+        <div class="modal-footer py-2"><button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal"><i class="bi bi-pencil me-1"></i>Compléter la saisie</button><button type="button" class="btn btn-outline-danger btn-sm" id="pf-check-force"><i class="bi bi-fire me-1"></i>Générer quand même</button></div>
+      </div></div>`;
+      document.body.appendChild(modal);
+      modal.querySelector('#pf-check-force').addEventListener('click', () => { try { bootstrap.Modal.getInstance(modal)?.hide(); } catch(_){} this._doExportPermisFeuCNPP(); });
+    }
+    const ul = modal.querySelector('#pf-check-list');
+    ul.innerHTML = manques.map(m => `<li class="list-group-item d-flex justify-content-between align-items-center py-1 px-0">
+      <span class="small"><i class="bi bi-exclamation-circle text-warning me-2"></i>${this.esc(m.t)}</span>
+      <button class="btn btn-sm btn-outline-primary py-0" data-bs-dismiss="modal" onclick="App._gotoPFStep(${m.s}, '${m.f}')">Étape ${m.s}</button>
+    </li>`).join('');
+    bootstrap.Modal.getOrCreateInstance(modal).show();
+  },
+
+  // Point d'entrée du bouton « Générer le permis CNPP pré-rempli » : contrôle d'abord la complétude.
   async exportPermisFeuCNPP() {
+    try {
+      if (!this.currentPDP) return;
+      this.collectForm(); this.captureAllSigs();
+      const pf = this.currentPDP.permisFeu || {};
+      if (!pf.actif && !(pf.types||[]).length) { this.toast('Aucun permis de feu actif','warning'); return; }
+      const manques = this._checkPermisFeuManques(pf);
+      if (manques.length) { this._showPFCheckModal(manques); return; }
+      await this._doExportPermisFeuCNPP();
+    } catch(err) { console.error('exportPermisFeuCNPP error:', err); this.toast('Erreur CNPP : '+err.message,'danger'); }
+  },
+
+  // Génère le permis CNPP depuis le PDP courant (saisie de la section permis) et l'attache au PDP.
+  async _doExportPermisFeuCNPP() {
    try {
     if (!this.currentPDP) return;
     this.collectForm(); this.captureAllSigs();

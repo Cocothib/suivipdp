@@ -12,6 +12,7 @@
 - Bouton « Dupliquer » sur les ICP, comme pour les PDP (v195).
 
 ### Permis de feu
+- Refonte UX de la section : saisie guidée en 4 étapes dépliables (Travail par point chaud, Risques & prévention, Validité & rondes, Signataires) avec badge d'avancement par étape (« Complet ✓ », « 2/3 signatures »...) ; les 4 pavés d'alerte sont condensés en un bandeau « Règles clés » d'une ligne, dépliable ; pastilles « Signé ✓ / En attente » sur chaque signataire ; au clic sur « Générer », contrôle de complétude avec liste des manques et lien direct vers l'étape concernée (« Générer quand même » possible) (v203).
 - Horodatage automatique des signatures du permis : au moment où le signataire trace ou valide sa signature, la date et l'heure de l'appareil (téléphone/PC) sont remplies automatiquement si les champs sont vides — une saisie manuelle n'est jamais écrasée ; chaque signataire horodate uniquement sa propre section (v201).
 - Effacer une signature du permis efface aussi la date et l'heure de sa section (v202).
 - Les trois blocs de signature du permis (Donneur d'ordre, Personne désignée pour la surveillance, Intervenant) affichent désormais le trio « Signature — Date — Heure » comme sur le PDF CNPP, et l'heure de signature est reportée sur le PDF (champs Heure jamais remplis auparavant) — PDP et permis rapide (v200).
