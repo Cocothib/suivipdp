@@ -20006,7 +20006,24 @@ const App = {
           }
         } else {
           const w = wAt1(txt);
-          if (w * size > maxW) size = Math.max(9, maxW / w);
+          const oneLine = maxW / w; // taille max qui tient sur une seule ligne
+          if (w * size <= maxW) { /* tient à la taille de base */ }
+          else if (oneLine >= 11) size = oneLine; // réduction simple, reste lisible
+          else {
+            // Trop long même réduit : bascule en multiligne. Le cadre est étendu vers le
+            // haut si l'espace le permet (o.up, en points), sinon on utilise sa hauteur.
+            let hAvail = rect.height;
+            if (o.up) {
+              try { fld.acroField.getWidgets()[0].setRectangle({ x: rect.x, y: rect.y, width: rect.width, height: rect.height + o.up }); hAvail += o.up; } catch(_){}
+            }
+            if (hAvail >= 2 * 9 * 1.3) {
+              fld.enableMultiline();
+              size = 12;
+              const maxH2 = hAvail - 4;
+              const nLines = s => Math.ceil((w * s * 1.08) / maxW); // marge : la césure aux mots consomme plus
+              while (size > 8 && nLines(size) * size * 1.3 > maxH2) size -= 0.5;
+            } else size = Math.max(9, oneLine); // pas la place pour 2 lignes : réduction simple
+          }
         }
         fld.setFontSize(size);
       } catch(e) { console.warn('Ajustement champ permis', name, e); }
@@ -20030,7 +20047,7 @@ const App = {
     const natureParts = (pf.types||[]).filter(t => t !== 'autre').map(t => typeLabels[t] || t);
     if ((pf.types||[]).includes('autre')) natureParts.push(pf.autrePrecision ? 'Autre : ' + pf.autrePrecision : 'Autre');
     setT('Permisfeu_nature', natureParts.join(', '));
-    setT('Permisfeu_materiel', pf.description||'');
+    setT('Permisfeu_materiel', pf.description||'', { up: 8 }); // peut s'étendre vers le haut (2-3 lignes)
     setT('Permisfeu_risques', [pf.risqueStructure, pf.risqueActivite, pf.risqueEnvironnement].filter(Boolean).join('\n'), { ml: true });
     setT('Permisfeu_actions', pf.autresPrescriptions||'', { ml: true });
     setT('Permisfeu_EE_intervenant', pf.moyensLutte||'');  // libellé CNPP : « Moyens de lutte contre l'incendie »
@@ -20070,6 +20087,34 @@ const App = {
     setT('Permisfeu_Heuresign_intervenant', sEE.heure||'');
     setT('Numero_PDp_Permisdefeu', ctx.numero||'');
 
+    // Prépare une signature pour l'incrustation : recadrage sur l'encre (les grandes
+    // marges vides du canvas écrasaient la signature dans la case) + épaississement
+    // du trait par superposition décalée. Navigateur uniquement ; sinon image d'origine.
+    const prepSig = async (dataURL) => {
+      try {
+        if (typeof document === 'undefined') return dataURL;
+        const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = dataURL; });
+        const cv = document.createElement('canvas');
+        cv.width = img.width; cv.height = img.height;
+        const cx = cv.getContext('2d');
+        cx.drawImage(img, 0, 0);
+        const d = cx.getImageData(0, 0, cv.width, cv.height).data;
+        let minX = cv.width, minY = cv.height, maxX = -1, maxY = -1;
+        for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) {
+          if (d[(y*cv.width+x)*4+3] > 20) { if (x<minX)minX=x; if (x>maxX)maxX=x; if (y<minY)minY=y; if (y>maxY)maxY=y; }
+        }
+        if (maxX < 0) return dataURL; // canvas vide
+        const pad = 6;
+        minX = Math.max(0, minX-pad); minY = Math.max(0, minY-pad);
+        maxX = Math.min(cv.width-1, maxX+pad); maxY = Math.min(cv.height-1, maxY+pad);
+        const w = maxX-minX+1, h = maxY-minY+1;
+        const out = document.createElement('canvas');
+        out.width = w; out.height = h;
+        const ox = out.getContext('2d');
+        for (const [dx, dy] of [[0,0],[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1]]) ox.drawImage(cv, minX, minY, w, h, dx, dy, w, h);
+        return out.toDataURL('image/png');
+      } catch(_) { return dataURL; }
+    };
     const SIGS = [
       [sEU.data,        900.1, 1111.2, 1069.9, 1183.1],
       [sSV.data,        908.1, 1287.7, 1068.2, 1357.2],
@@ -20077,7 +20122,18 @@ const App = {
     ];
     for (const [data, x0, y0, x1, y1] of SIGS) {
       if (!data || typeof data !== 'string' || !data.startsWith('data:image')) continue;
-      try { const b64 = data.split(',')[1] || ''; const png = await pdfDoc.embedPng(Uint8Array.from(atob(b64), c => c.charCodeAt(0))); page0.drawImage(png, { x: x0, y: H - y1, width: x1 - x0, height: y1 - y0 }); } catch(e) { console.warn('Signature permis non incrustée', e); }
+      try {
+        const prepped = await prepSig(data);
+        const b64 = prepped.split(',')[1] || '';
+        const png = await pdfDoc.embedPng(Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
+        // Case légèrement agrandie + image ajustée en conservant les proportions (pas d'écrasement)
+        const cx0 = x0 - 20, cy0 = y0 - 12, cx1 = x1 + 2, cy1 = y1 + 2;
+        const bw = cx1 - cx0, bh = cy1 - cy0;
+        const sc = Math.min(bw / png.width, bh / png.height);
+        const w = png.width * sc, h = png.height * sc;
+        const px = cx0 + (bw - w) / 2, py = cy0 + (bh - h) / 2;
+        page0.drawImage(png, { x: px, y: H - py - h, width: w, height: h });
+      } catch(e) { console.warn('Signature permis non incrustée', e); }
     }
 
     try { const { PDFTextField } = PDFLib; for (const f of form.getFields()) { if (!(f instanceof PDFTextField)) { try { form.removeField(f); } catch(_){} } } } catch(e) { console.warn('removeField permis', e); }
