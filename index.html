@@ -2105,24 +2105,32 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-person-check"></i> <span data-type-label="pf-sig-eu">Donneur d'ordre (représentant EU)</span></div>
           <div class="section-helper"><i class="bi bi-lightbulb"></i> Chef de l'entreprise utilisatrice dans laquelle est réalisé le travail par point chaud, ou son représentant.</div>
-          <div class="row g-2">
+          <div class="row g-2 mb-2">
             <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-eu-nom" name="pf-sig-eu-nom" aria-label="Nom du donneur d'ordre" placeholder="Nom"></div>
             <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-eu-fonction" name="pf-sig-eu-fonction" aria-label="Fonction du donneur d'ordre" placeholder="Fonction"></div>
             <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-eu-tel" name="pf-sig-eu-tel" aria-label="Téléphone du donneur d'ordre" placeholder="Téléphone"></div>
-            <div class="col-md-4"><input type="date" class="form-control form-control-sm" id="pf-sig-eu-date" name="pf-sig-eu-date" aria-label="Date signature donneur d'ordre"></div>
-            <div class="col-md-8"><div class="signature-pad-wrapper"><canvas id="pf-sig-eu-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-eu-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
+          </div>
+          <label class="form-label mb-1 fw-bold">Signature — Date — Heure</label>
+          <div class="row g-2">
+            <div class="col-6 col-md-2"><label class="form-label small mb-0" for="pf-sig-eu-date">Date</label><input type="date" class="form-control form-control-sm" id="pf-sig-eu-date" name="pf-sig-eu-date" aria-label="Date signature donneur d'ordre"></div>
+            <div class="col-6 col-md-2"><label class="form-label small mb-0" for="pf-sig-eu-heure">Heure</label><input type="time" class="form-control form-control-sm" id="pf-sig-eu-heure" name="pf-sig-eu-heure" aria-label="Heure signature donneur d'ordre"></div>
+            <div class="col-md-8"><label class="form-label small mb-0">Signature</label><div class="signature-pad-wrapper"><canvas id="pf-sig-eu-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-eu-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
           </div>
         </div>
 
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-eye"></i> Personne désignée pour la sécurité et la surveillance <span class="badge bg-info text-dark">requis CNPP</span></div>
           <div class="section-helper"><i class="bi bi-lightbulb"></i> Accompagne l'opérateur pour veiller à la sécurité générale du travail par point chaud. Désignée par le chef d'entreprise utilisatrice et formée à l'utilisation des moyens de lutte contre le feu placés à proximité du lieu de travail.</div>
-          <div class="row g-2">
+          <div class="row g-2 mb-2">
             <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-surv-nom" aria-label="Nom du surveillant" placeholder="Nom"></div>
             <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-surv-fonction" aria-label="Fonction du surveillant" placeholder="Fonction"></div>
             <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-surv-tel" aria-label="Téléphone du surveillant" placeholder="Téléphone"></div>
-            <div class="col-md-4"><input type="date" class="form-control form-control-sm" id="pf-sig-surv-date" aria-label="Date signature surveillant"></div>
-            <div class="col-md-8"><div class="signature-pad-wrapper"><canvas id="pf-sig-surv-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-surv-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
+          </div>
+          <label class="form-label mb-1 fw-bold">Signature — Date — Heure</label>
+          <div class="row g-2">
+            <div class="col-6 col-md-2"><label class="form-label small mb-0" for="pf-sig-surv-date">Date</label><input type="date" class="form-control form-control-sm" id="pf-sig-surv-date" aria-label="Date signature surveillant"></div>
+            <div class="col-6 col-md-2"><label class="form-label small mb-0" for="pf-sig-surv-heure">Heure</label><input type="time" class="form-control form-control-sm" id="pf-sig-surv-heure" aria-label="Heure signature surveillant"></div>
+            <div class="col-md-8"><label class="form-label small mb-0">Signature</label><div class="signature-pad-wrapper"><canvas id="pf-sig-surv-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-surv-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
           </div>
         </div>
 
@@ -2148,10 +2156,11 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           </div>
           <div id="pf-operateurs-container"></div>
           <button class="btn btn-sm btn-outline-primary mb-2" onclick="App.addPFOperateur()"><i class="bi bi-plus-lg me-1"></i>Ajouter un opérateur</button>
-          <label class="form-label mb-1 fw-bold">Signature de l'intervenant (responsable ou opérateur principal)</label>
+          <label class="form-label mb-1 fw-bold">Signature de l'intervenant (responsable ou opérateur principal) — Date — Heure</label>
           <div class="row g-2">
-            <div class="col-md-4"><input type="date" class="form-control form-control-sm" id="pf-sig-ee-date" name="pf-sig-ee-date" aria-label="Date signature intervenant"></div>
-            <div class="col-md-8"><div class="signature-pad-wrapper"><canvas id="pf-sig-ee-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-ee-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
+            <div class="col-6 col-md-2"><label class="form-label small mb-0" for="pf-sig-ee-date">Date</label><input type="date" class="form-control form-control-sm" id="pf-sig-ee-date" name="pf-sig-ee-date" aria-label="Date signature intervenant"></div>
+            <div class="col-6 col-md-2"><label class="form-label small mb-0" for="pf-sig-ee-heure">Heure</label><input type="time" class="form-control form-control-sm" id="pf-sig-ee-heure" name="pf-sig-ee-heure" aria-label="Heure signature intervenant"></div>
+            <div class="col-md-8"><label class="form-label small mb-0">Signature</label><div class="signature-pad-wrapper"><canvas id="pf-sig-ee-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-ee-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
           </div>
         </div>
 
@@ -3693,16 +3702,18 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
               <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pfr-do-nom" placeholder="Nom"></div>
               <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pfr-do-fonction" placeholder="Fonction"></div>
               <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pfr-do-tel" placeholder="Téléphone"></div>
-              <div class="col-md-4"><input type="date" class="form-control form-control-sm" id="pfr-do-date"></div>
-              <div class="col-md-8"><div class="signature-pad-wrapper"><canvas id="pfr-sig-do-canvas" class="signature-canvas"></canvas></div><button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pfr-sig-do-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
+              <div class="col-6 col-md-2"><label class="form-label small mb-0" for="pfr-do-date">Date</label><input type="date" class="form-control form-control-sm" id="pfr-do-date"></div>
+              <div class="col-6 col-md-2"><label class="form-label small mb-0" for="pfr-do-heure">Heure</label><input type="time" class="form-control form-control-sm" id="pfr-do-heure"></div>
+              <div class="col-md-8"><label class="form-label small mb-0">Signature</label><div class="signature-pad-wrapper"><canvas id="pfr-sig-do-canvas" class="signature-canvas"></canvas></div><button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pfr-sig-do-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
             </div>
             <h6 class="small fw-bold text-primary mb-1">Personne désignée pour la sécurité et la surveillance</h6>
             <div class="row g-2 mb-2">
               <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pfr-sv-nom" placeholder="Nom"></div>
               <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pfr-sv-fonction" placeholder="Fonction"></div>
               <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pfr-sv-tel" placeholder="Téléphone"></div>
-              <div class="col-md-4"><input type="date" class="form-control form-control-sm" id="pfr-sv-date"></div>
-              <div class="col-md-8"><div class="signature-pad-wrapper"><canvas id="pfr-sig-sv-canvas" class="signature-canvas"></canvas></div><button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pfr-sig-sv-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
+              <div class="col-6 col-md-2"><label class="form-label small mb-0" for="pfr-sv-date">Date</label><input type="date" class="form-control form-control-sm" id="pfr-sv-date"></div>
+              <div class="col-6 col-md-2"><label class="form-label small mb-0" for="pfr-sv-heure">Heure</label><input type="time" class="form-control form-control-sm" id="pfr-sv-heure"></div>
+              <div class="col-md-8"><label class="form-label small mb-0">Signature</label><div class="signature-pad-wrapper"><canvas id="pfr-sig-sv-canvas" class="signature-canvas"></canvas></div><button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pfr-sig-sv-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
             </div>
             <h6 class="small fw-bold text-primary mb-1">Intervenants</h6>
             <div class="row g-1 mb-2 align-items-center">
@@ -3715,8 +3726,9 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
               <div class="col-md-3"><input type="text" class="form-control form-control-sm" id="pfr-int-resp-nom" placeholder="Responsable — Nom"></div>
               <div class="col-md-3"><input type="text" class="form-control form-control-sm" id="pfr-int-resp-fonction" placeholder="Responsable — Fonction"></div>
               <div class="col-md-6"><input type="text" class="form-control form-control-sm" id="pfr-int-exec-nom" placeholder="Opérateur — Nom / téléphone"></div>
-              <div class="col-md-3"><input type="date" class="form-control form-control-sm" id="pfr-int-date"></div>
-              <div class="col-12"><div class="signature-pad-wrapper"><canvas id="pfr-sig-int-canvas" class="signature-canvas"></canvas></div><button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pfr-sig-int-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
+              <div class="col-6 col-md-3"><label class="form-label small mb-0" for="pfr-int-date">Date</label><input type="date" class="form-control form-control-sm" id="pfr-int-date"></div>
+              <div class="col-6 col-md-3"><label class="form-label small mb-0" for="pfr-int-heure">Heure</label><input type="time" class="form-control form-control-sm" id="pfr-int-heure"></div>
+              <div class="col-12"><label class="form-label small mb-0">Signature</label><div class="signature-pad-wrapper"><canvas id="pfr-sig-int-canvas" class="signature-canvas"></canvas></div><button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pfr-sig-int-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
             </div>
           </div>
           <div class="modal-footer">
@@ -9387,9 +9399,11 @@ const App = {
     document.getElementById('pf-autres-prescriptions').value = pf.autresPrescriptions || '';
     document.getElementById('pf-sig-eu-nom').value = (pf.signatureEU||{}).nom || '';
     document.getElementById('pf-sig-eu-date').value = (pf.signatureEU||{}).date || '';
+    { const _h = document.getElementById('pf-sig-eu-heure'); if (_h) _h.value = (pf.signatureEU||{}).heure || ''; }
     document.getElementById('pf-sig-ee-nom').value = (pf.signatureEE||{}).nom || '';
     document.getElementById('pf-sig-ee-fonction').value = (pf.signatureEE||{}).fonction || '';
     document.getElementById('pf-sig-ee-date').value = (pf.signatureEE||{}).date || '';
+    { const _h = document.getElementById('pf-sig-ee-heure'); if (_h) _h.value = (pf.signatureEE||{}).heure || ''; }
     // Pré-remplissage si vide depuis les données du PDP (Rep EU = contact EU PDP, Rep EE = Rep EE de l'ICP liée)
     this.prefillPermisFeuSignataires();
     document.getElementById('pf-sig-exec-nom').value = (pf.signatureExec||{}).nom || '';
@@ -9408,6 +9422,7 @@ const App = {
     document.getElementById('pf-sig-surv-fonction').value = _sv.fonction || '';
     document.getElementById('pf-sig-surv-tel').value = _sv.telephone || '';
     document.getElementById('pf-sig-surv-date').value = _sv.date || '';
+    { const _h = document.getElementById('pf-sig-surv-heure'); if (_h) _h.value = _sv.heure || ''; }
     document.getElementById('pf-ronde-non').checked = (pf.rondeNecessaire === 'non');
     document.getElementById('pf-ronde-oui').checked = (pf.rondeNecessaire === 'oui');
     document.getElementById('pf-ronde-heures').value = pf.rondeHeuresApres || '';
@@ -9508,9 +9523,9 @@ const App = {
     });
     // #15 : canvas présent → reflète son état (effacé → null) ; canvas absent → préserve l'ancienne donnée.
     const _sigCanvasData = (id, prev) => { const cv = document.getElementById(id); return cv ? (cv._hasDrawing ? cv.toDataURL() : null) : (prev||null); };
-    p.permisFeu.signatureEU = { nom: document.getElementById('pf-sig-eu-nom').value.trim(), fonction: document.getElementById('pf-sig-eu-fonction').value.trim(), telephone: document.getElementById('pf-sig-eu-tel').value.trim(), date: document.getElementById('pf-sig-eu-date').value, data: _sigCanvasData('pf-sig-eu-canvas', p.permisFeu.signatureEU?.data) };
-    p.permisFeu.signatureEE = { nom: document.getElementById('pf-sig-ee-nom').value.trim(), fonction: document.getElementById('pf-sig-ee-fonction').value.trim(), date: document.getElementById('pf-sig-ee-date').value, data: _sigCanvasData('pf-sig-ee-canvas', p.permisFeu.signatureEE?.data) };
-    p.permisFeu.signatureSurveillance = { nom: document.getElementById('pf-sig-surv-nom').value.trim(), fonction: document.getElementById('pf-sig-surv-fonction').value.trim(), telephone: document.getElementById('pf-sig-surv-tel').value.trim(), date: document.getElementById('pf-sig-surv-date').value, data: _sigCanvasData('pf-sig-surv-canvas', p.permisFeu.signatureSurveillance?.data) };
+    p.permisFeu.signatureEU = { nom: document.getElementById('pf-sig-eu-nom').value.trim(), fonction: document.getElementById('pf-sig-eu-fonction').value.trim(), telephone: document.getElementById('pf-sig-eu-tel').value.trim(), date: document.getElementById('pf-sig-eu-date').value, heure: document.getElementById('pf-sig-eu-heure')?.value || '', data: _sigCanvasData('pf-sig-eu-canvas', p.permisFeu.signatureEU?.data) };
+    p.permisFeu.signatureEE = { nom: document.getElementById('pf-sig-ee-nom').value.trim(), fonction: document.getElementById('pf-sig-ee-fonction').value.trim(), date: document.getElementById('pf-sig-ee-date').value, heure: document.getElementById('pf-sig-ee-heure')?.value || '', data: _sigCanvasData('pf-sig-ee-canvas', p.permisFeu.signatureEE?.data) };
+    p.permisFeu.signatureSurveillance = { nom: document.getElementById('pf-sig-surv-nom').value.trim(), fonction: document.getElementById('pf-sig-surv-fonction').value.trim(), telephone: document.getElementById('pf-sig-surv-tel').value.trim(), date: document.getElementById('pf-sig-surv-date').value, heure: document.getElementById('pf-sig-surv-heure')?.value || '', data: _sigCanvasData('pf-sig-surv-canvas', p.permisFeu.signatureSurveillance?.data) };
     p.permisFeu.signatureExec = { nom: document.getElementById('pf-sig-exec-nom').value.trim(), societe: document.getElementById('pf-sig-exec-societe').value.trim(), date: document.getElementById('pf-sig-exec-date')?.value ?? (p.permisFeu.signatureExec?.date || ''), data: _sigCanvasData('pf-sig-exec-canvas', p.permisFeu.signatureExec?.data) };
     p.permisFeu.intervenantType = document.getElementById('pf-int-type-ee')?.checked ? 'ee' : (document.getElementById('pf-int-type-interne')?.checked ? 'interne' : '');
     p.permisFeu.interneService = document.getElementById('pf-int-service')?.value.trim() || '';
@@ -9605,7 +9620,7 @@ const App = {
 
       if (typeof PDFLib === 'undefined') return;
       const periode = pf.dateDebut || '';
-      const lite = s => s ? [s.nom,s.fonction,s.telephone,s.date,s.societe,(s.data||'').length].join('|') : '';
+      const lite = s => s ? [s.nom,s.fonction,s.telephone,s.date,s.heure,s.societe,(s.data||'').length].join('|') : '';
       const sigKey = JSON.stringify({
         t:pf.types, tp:pf.autrePrecision||'', d:pf.description, r:[pf.risqueStructure,pf.risqueActivite,pf.risqueEnvironnement],
         dt:[pf.dateDebut,pf.heureDebut,pf.dateFin,pf.heureFin], a:pf.cnppActions, ml:pf.moyensLutte, ma:pf.moyensAlerte,
@@ -19889,11 +19904,13 @@ const App = {
     setT('Permisfeu_fonction_donneurordre', sEU.fonction || eu.fonction || '');
     setT('Permisfeu_tel_donneurordre', sEU.telephone || eu.tel || '');
     setT('Permisfeu_Datesign_donneurordre', fr(sEU.date));
+    setT('Permisfeu_Heuresign_donneurordre', sEU.heure||'');
 
     setT('Permisfeu_nom_surveillant', sSV.nom||'');
     setT('Permisfeu_fonction_surveillant', sSV.fonction||'');
     setT('Permisfeu_tel_surveillant', sSV.telephone||'');
     setT('Permisfeu_Datesign_surveillant', fr(sSV.date));
+    setT('Permisfeu_Heuresign_surveillant', sSV.heure||'');
 
     const intType = pf.intervenantType || (sEx.societe ? 'ee' : ((sEE.nom || sEx.nom) ? 'interne' : ''));
     if (intType === 'ee') drawX(CHK.intExt); else if (intType === 'interne') drawX(CHK.intInt);
@@ -19905,6 +19922,7 @@ const App = {
     setT('Form_Intervention_Nom_Telephone_Operateur1', sEx.nom||'');
     setT('Form_Intervention_Nom_Telephone_Operateur2', opsAdd.join(' ; '));
     setT('Permisfeu_Datesign_intervenant', fr(sEE.date||sEx.date));
+    setT('Permisfeu_Heuresign_intervenant', sEE.heure||'');
     setT('Numero_PDp_Permisdefeu', ctx.numero||'');
 
     const SIGS = [
@@ -19974,9 +19992,9 @@ const App = {
         autresPrescriptions: v('pfr-actions'), cnppActions,
         moyensLutte: v('pfr-moyens-lutte'), moyensAlerte: v('pfr-moyens-alerte'),
         rondeNecessaire: ronde, rondeHeuresApres: v('pfr-ronde-heures'),
-        signatureEU: { nom:v('pfr-do-nom'), fonction:v('pfr-do-fonction'), telephone:v('pfr-do-tel'), date:v('pfr-do-date'), data: sig('pfr-sig-do-canvas') },
-        signatureSurveillance: { nom:v('pfr-sv-nom'), fonction:v('pfr-sv-fonction'), telephone:v('pfr-sv-tel'), date:v('pfr-sv-date'), data: sig('pfr-sig-sv-canvas') },
-        signatureEE: { nom:v('pfr-int-resp-nom'), fonction:v('pfr-int-resp-fonction'), date:v('pfr-int-date'), data: sig('pfr-sig-int-canvas') },
+        signatureEU: { nom:v('pfr-do-nom'), fonction:v('pfr-do-fonction'), telephone:v('pfr-do-tel'), date:v('pfr-do-date'), heure:v('pfr-do-heure'), data: sig('pfr-sig-do-canvas') },
+        signatureSurveillance: { nom:v('pfr-sv-nom'), fonction:v('pfr-sv-fonction'), telephone:v('pfr-sv-tel'), date:v('pfr-sv-date'), heure:v('pfr-sv-heure'), data: sig('pfr-sig-sv-canvas') },
+        signatureEE: { nom:v('pfr-int-resp-nom'), fonction:v('pfr-int-resp-fonction'), date:v('pfr-int-date'), heure:v('pfr-int-heure'), data: sig('pfr-sig-int-canvas') },
         signatureExec: { nom:v('pfr-int-exec-nom'), societe:v('pfr-int-societe'), date:v('pfr-int-date') },
         operateurs: [],
       };
