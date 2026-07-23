@@ -2070,10 +2070,6 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <div id="pf-duree-info" class="small mb-1"></div>
         </div>
 
-        <h6 class="mt-3 mb-2 text-primary">Opérateurs</h6>
-        <div id="pf-operateurs-container"></div>
-        <button class="btn btn-sm btn-outline-primary mb-3" onclick="App.addPFOperateur()"><i class="bi bi-plus-lg me-1"></i>Ajouter un opérateur</button>
-
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-shield-fill-check"></i> Actions de prévention et de protection (modèle CNPP)</div>
           <div class="section-helper"><i class="bi bi-lightbulb"></i> Mesures reportées telles quelles sur le permis de feu officiel CNPP.</div>
@@ -2106,50 +2102,60 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           </div>
         </div>
 
-        <h6 class="mt-4 mb-2 text-primary">Personne désignée pour la sécurité et la surveillance <span class="badge bg-info text-dark">requis CNPP</span></h6>
-        <div class="alert alert-info small mb-2"><i class="bi bi-info-circle me-1"></i>Accompagne l'opérateur pour veiller à la sécurité générale des travaux par point chaud. Désignée par l'EU et formée à l'utilisation des moyens de lutte contre le feu à proximité.</div>
-        <div class="row g-2 mb-2">
-          <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-surv-nom" aria-label="Nom du surveillant" placeholder="Nom"></div>
-          <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-surv-fonction" aria-label="Fonction du surveillant" placeholder="Fonction"></div>
-          <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-surv-tel" aria-label="Téléphone du surveillant" placeholder="Téléphone"></div>
-          <div class="col-md-4"><input type="date" class="form-control form-control-sm" id="pf-sig-surv-date" aria-label="Date signature surveillant"></div>
-          <div class="col-md-8"><div class="signature-pad-wrapper"><canvas id="pf-sig-surv-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-surv-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-person-check"></i> <span data-type-label="pf-sig-eu">Donneur d'ordre (représentant EU)</span></div>
+          <div class="section-helper"><i class="bi bi-lightbulb"></i> Chef de l'entreprise utilisatrice dans laquelle est réalisé le travail par point chaud, ou son représentant.</div>
+          <div class="row g-2">
+            <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-eu-nom" name="pf-sig-eu-nom" aria-label="Nom du donneur d'ordre" placeholder="Nom"></div>
+            <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-eu-fonction" name="pf-sig-eu-fonction" aria-label="Fonction du donneur d'ordre" placeholder="Fonction"></div>
+            <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-eu-tel" name="pf-sig-eu-tel" aria-label="Téléphone du donneur d'ordre" placeholder="Téléphone"></div>
+            <div class="col-md-4"><input type="date" class="form-control form-control-sm" id="pf-sig-eu-date" name="pf-sig-eu-date" aria-label="Date signature donneur d'ordre"></div>
+            <div class="col-md-8"><div class="signature-pad-wrapper"><canvas id="pf-sig-eu-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-eu-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
+          </div>
         </div>
 
-        <h6 class="mt-4 mb-2 text-primary">Signatures du permis de feu</h6>
-        <div class="row g-3">
-          <div class="col-md-4">
-            <h6 class="small fw-bold" data-type-label="pf-sig-eu">Donneur d'ordre (représentant EU)</h6>
-            <div class="row g-2">
-              <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-eu-nom" name="pf-sig-eu-nom" aria-label="Nom du représentant EU" placeholder="Nom"></div>
-              <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-eu-fonction" name="pf-sig-eu-fonction" aria-label="Fonction du représentant EU" placeholder="Fonction"></div>
-              <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-eu-tel" name="pf-sig-eu-tel" aria-label="Téléphone du représentant EU" placeholder="Téléphone"></div>
-              <div class="col-12"><input type="date" class="form-control form-control-sm" id="pf-sig-eu-date" name="pf-sig-eu-date" aria-label="Date signature EU"></div>
-              <div class="col-12"><div class="signature-pad-wrapper"><canvas id="pf-sig-eu-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-eu-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
-            </div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-eye"></i> Personne désignée pour la sécurité et la surveillance <span class="badge bg-info text-dark">requis CNPP</span></div>
+          <div class="section-helper"><i class="bi bi-lightbulb"></i> Accompagne l'opérateur pour veiller à la sécurité générale du travail par point chaud. Désignée par le chef d'entreprise utilisatrice et formée à l'utilisation des moyens de lutte contre le feu placés à proximité du lieu de travail.</div>
+          <div class="row g-2">
+            <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-surv-nom" aria-label="Nom du surveillant" placeholder="Nom"></div>
+            <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-surv-fonction" aria-label="Fonction du surveillant" placeholder="Fonction"></div>
+            <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-surv-tel" aria-label="Téléphone du surveillant" placeholder="Téléphone"></div>
+            <div class="col-md-4"><input type="date" class="form-control form-control-sm" id="pf-sig-surv-date" aria-label="Date signature surveillant"></div>
+            <div class="col-md-8"><div class="signature-pad-wrapper"><canvas id="pf-sig-surv-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-surv-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
           </div>
-          <div class="col-md-4">
-            <h6 class="small fw-bold" data-type-label="pf-sig-ee">Intervenants — Responsable d'intervention</h6>
-            <div class="row g-2">
-              <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-ee-nom" name="pf-sig-ee-nom" aria-label="Nom du représentant EE" placeholder="Nom"></div>
-              <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-ee-fonction" name="pf-sig-ee-fonction" aria-label="Fonction du représentant EE" placeholder="Fonction"></div>
-              <div class="col-12"><input type="date" class="form-control form-control-sm" id="pf-sig-ee-date" name="pf-sig-ee-date" aria-label="Date signature EE"></div>
-              <div class="col-12"><div class="signature-pad-wrapper"><canvas id="pf-sig-ee-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-ee-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
-            </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-people"></i> Intervenants</div>
+          <div class="section-helper"><i class="bi bi-lightbulb"></i> Responsable d'intervention et/ou opérateur(s) qui réalise(nt) le travail par point chaud. Il(s) s'engage(nt) à respecter, ou à faire respecter, les mesures de sécurité définies.</div>
+          <label class="form-label mb-1 fw-bold">Type d'intervenant</label>
+          <div class="row g-2 mb-2 align-items-center">
+            <div class="col-auto"><div class="form-check"><input class="form-check-input" type="radio" name="pf-int-type" id="pf-int-type-ee" value="ee"><label class="form-check-label" for="pf-int-type-ee">Entreprise extérieure</label></div></div>
+            <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pf-sig-exec-societe" name="pf-sig-exec-societe" aria-label="Raison sociale de l'entreprise extérieure" placeholder="Préciser la raison sociale"></div>
+            <div class="col-auto"><div class="form-check"><input class="form-check-input" type="radio" name="pf-int-type" id="pf-int-type-interne" value="interne"><label class="form-check-label" for="pf-int-type-interne">Interne</label></div></div>
+            <div class="col-md-3"><input type="text" class="form-control form-control-sm" id="pf-int-service" aria-label="Service interne" placeholder="Préciser le service"></div>
           </div>
-          <div class="col-md-4">
-            <h6 class="small fw-bold">Intervenants — Opérateur du travail par point chaud</h6>
-            <div class="row g-2">
-              <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-exec-nom" name="pf-sig-exec-nom" aria-label="Nom de l'exécutant" placeholder="Nom"></div>
-              <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-exec-societe" name="pf-sig-exec-societe" aria-label="Société de l'exécutant" placeholder="Société (si sous-traitant)"></div>
-              <div class="col-12"><input type="date" class="form-control form-control-sm" id="pf-sig-exec-date" name="pf-sig-exec-date" aria-label="Date signature exécutant"></div>
-            </div>
+          <label class="form-label mb-1 fw-bold" data-type-label="pf-sig-ee">Responsable d'intervention</label>
+          <div class="row g-2 mb-2">
+            <div class="col-md-6"><input type="text" class="form-control form-control-sm" id="pf-sig-ee-nom" name="pf-sig-ee-nom" aria-label="Nom du responsable d'intervention" placeholder="Nom"></div>
+            <div class="col-md-6"><input type="text" class="form-control form-control-sm" id="pf-sig-ee-fonction" name="pf-sig-ee-fonction" aria-label="Fonction du responsable d'intervention" placeholder="Fonction"></div>
+          </div>
+          <label class="form-label mb-1 fw-bold">Opérateur(s)</label>
+          <div class="section-helper"><i class="bi bi-lightbulb"></i> Reportés sur les lignes « Nom/téléphone » de la rubrique Intervenants du permis CNPP.</div>
+          <div class="row g-2 mb-1">
+            <div class="col-md-6"><input type="text" class="form-control form-control-sm" id="pf-sig-exec-nom" name="pf-sig-exec-nom" aria-label="Nom de l'opérateur principal" placeholder="Opérateur principal — Nom / téléphone"></div>
+          </div>
+          <div id="pf-operateurs-container"></div>
+          <button class="btn btn-sm btn-outline-primary mb-2" onclick="App.addPFOperateur()"><i class="bi bi-plus-lg me-1"></i>Ajouter un opérateur</button>
+          <label class="form-label mb-1 fw-bold">Signature de l'intervenant (responsable ou opérateur principal)</label>
+          <div class="row g-2">
+            <div class="col-md-4"><input type="date" class="form-control form-control-sm" id="pf-sig-ee-date" name="pf-sig-ee-date" aria-label="Date signature intervenant"></div>
+            <div class="col-md-8"><div class="signature-pad-wrapper"><canvas id="pf-sig-ee-canvas" class="signature-canvas"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-sig-ee-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
           </div>
         </div>
 
         <hr class="my-3">
-        <h6 class="text-primary"><i class="bi bi-fire me-1"></i>Permis de feu officiel AXA / CNPP</h6>
-        <div class="alert alert-success small mb-2"><i class="bi bi-paperclip me-1"></i>Un <strong>permis de feu AXA vierge</strong> (modèle CNPP exigé par les conditions particulières) est <strong>automatiquement annexé à chaque PDP</strong> en pièce jointe — à compléter et signer à la main par le conducteur de travaux si besoin. Le bouton ci-dessous génère en plus le permis CNPP <strong>pré-rempli</strong> à partir des données saisies ci-dessus.</div>
         <div class="d-flex flex-wrap gap-2">
           <button class="btn btn-danger btn-sm" onclick="App.exportPermisFeuCNPP()" title="Génère le permis au modèle officiel CNPP pré-rempli depuis les données saisies et l'attache au PDP"><i class="bi bi-fire me-1"></i>Générer le permis CNPP pré-rempli</button>
         </div>
@@ -3699,11 +3705,16 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
               <div class="col-md-8"><div class="signature-pad-wrapper"><canvas id="pfr-sig-sv-canvas" class="signature-canvas"></canvas></div><button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pfr-sig-sv-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
             </div>
             <h6 class="small fw-bold text-primary mb-1">Intervenants</h6>
+            <div class="row g-1 mb-2 align-items-center">
+              <div class="col-auto"><div class="form-check"><input class="form-check-input" type="radio" name="pfr-int-type" id="pfr-int-type-ee" value="ee"><label class="form-check-label small" for="pfr-int-type-ee">Entreprise extérieure</label></div></div>
+              <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pfr-int-societe" placeholder="Préciser la raison sociale"></div>
+              <div class="col-auto"><div class="form-check"><input class="form-check-input" type="radio" name="pfr-int-type" id="pfr-int-type-interne" value="interne"><label class="form-check-label small" for="pfr-int-type-interne">Interne</label></div></div>
+              <div class="col-md-3"><input type="text" class="form-control form-control-sm" id="pfr-int-service" placeholder="Préciser le service"></div>
+            </div>
             <div class="row g-2 mb-2">
-              <div class="col-md-6"><input type="text" class="form-control form-control-sm" id="pfr-int-societe" placeholder="Entreprise extérieure (raison sociale, si sous-traitant)"></div>
               <div class="col-md-3"><input type="text" class="form-control form-control-sm" id="pfr-int-resp-nom" placeholder="Responsable — Nom"></div>
               <div class="col-md-3"><input type="text" class="form-control form-control-sm" id="pfr-int-resp-fonction" placeholder="Responsable — Fonction"></div>
-              <div class="col-md-6"><input type="text" class="form-control form-control-sm" id="pfr-int-exec-nom" placeholder="Opérateur / exécutant — Nom"></div>
+              <div class="col-md-6"><input type="text" class="form-control form-control-sm" id="pfr-int-exec-nom" placeholder="Opérateur — Nom / téléphone"></div>
               <div class="col-md-3"><input type="date" class="form-control form-control-sm" id="pfr-int-date"></div>
               <div class="col-12"><div class="signature-pad-wrapper"><canvas id="pfr-sig-int-canvas" class="signature-canvas"></canvas></div><button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pfr-sig-int-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
             </div>
@@ -9383,7 +9394,12 @@ const App = {
     this.prefillPermisFeuSignataires();
     document.getElementById('pf-sig-exec-nom').value = (pf.signatureExec||{}).nom || '';
     document.getElementById('pf-sig-exec-societe').value = (pf.signatureExec||{}).societe || '';
-    document.getElementById('pf-sig-exec-date').value = (pf.signatureExec||{}).date || '';
+    { const _ed = document.getElementById('pf-sig-exec-date'); if (_ed) _ed.value = (pf.signatureExec||{}).date || ''; }
+    // Type d'intervenant (rubrique Intervenants du permis CNPP) : EE ou Interne
+    { const _svc = document.getElementById('pf-int-service'); if (_svc) _svc.value = pf.interneService || '';
+      const _type = pf.intervenantType || ((pf.signatureExec||{}).societe ? 'ee' : (((pf.signatureEE||{}).nom || (pf.signatureExec||{}).nom) ? 'interne' : ''));
+      const _tee = document.getElementById('pf-int-type-ee'); if (_tee) _tee.checked = (_type === 'ee');
+      const _tin = document.getElementById('pf-int-type-interne'); if (_tin) _tin.checked = (_type === 'interne'); }
     // Donneur d'ordre (fonction/tél) + surveillant + ronde (modèle CNPP)
     document.getElementById('pf-sig-eu-fonction').value = (pf.signatureEU||{}).fonction || '';
     document.getElementById('pf-sig-eu-tel').value = (pf.signatureEU||{}).telephone || '';
@@ -9495,7 +9511,9 @@ const App = {
     p.permisFeu.signatureEU = { nom: document.getElementById('pf-sig-eu-nom').value.trim(), fonction: document.getElementById('pf-sig-eu-fonction').value.trim(), telephone: document.getElementById('pf-sig-eu-tel').value.trim(), date: document.getElementById('pf-sig-eu-date').value, data: _sigCanvasData('pf-sig-eu-canvas', p.permisFeu.signatureEU?.data) };
     p.permisFeu.signatureEE = { nom: document.getElementById('pf-sig-ee-nom').value.trim(), fonction: document.getElementById('pf-sig-ee-fonction').value.trim(), date: document.getElementById('pf-sig-ee-date').value, data: _sigCanvasData('pf-sig-ee-canvas', p.permisFeu.signatureEE?.data) };
     p.permisFeu.signatureSurveillance = { nom: document.getElementById('pf-sig-surv-nom').value.trim(), fonction: document.getElementById('pf-sig-surv-fonction').value.trim(), telephone: document.getElementById('pf-sig-surv-tel').value.trim(), date: document.getElementById('pf-sig-surv-date').value, data: _sigCanvasData('pf-sig-surv-canvas', p.permisFeu.signatureSurveillance?.data) };
-    p.permisFeu.signatureExec = { nom: document.getElementById('pf-sig-exec-nom').value.trim(), societe: document.getElementById('pf-sig-exec-societe').value.trim(), date: document.getElementById('pf-sig-exec-date').value, data: _sigCanvasData('pf-sig-exec-canvas', p.permisFeu.signatureExec?.data) };
+    p.permisFeu.signatureExec = { nom: document.getElementById('pf-sig-exec-nom').value.trim(), societe: document.getElementById('pf-sig-exec-societe').value.trim(), date: document.getElementById('pf-sig-exec-date')?.value ?? (p.permisFeu.signatureExec?.date || ''), data: _sigCanvasData('pf-sig-exec-canvas', p.permisFeu.signatureExec?.data) };
+    p.permisFeu.intervenantType = document.getElementById('pf-int-type-ee')?.checked ? 'ee' : (document.getElementById('pf-int-type-interne')?.checked ? 'interne' : '');
+    p.permisFeu.interneService = document.getElementById('pf-int-service')?.value.trim() || '';
     p.permisFeu.rondeNecessaire = document.getElementById('pf-ronde-oui').checked ? 'oui' : (document.getElementById('pf-ronde-non').checked ? 'non' : '');
     p.permisFeu.rondeHeuresApres = document.getElementById('pf-ronde-heures').value.trim();
 
@@ -9593,7 +9611,7 @@ const App = {
         dt:[pf.dateDebut,pf.heureDebut,pf.dateFin,pf.heureFin], a:pf.cnppActions, ml:pf.moyensLutte, ma:pf.moyensAlerte,
         ap:pf.autresPrescriptions, rn:pf.rondeNecessaire, rh:pf.rondeHeuresApres,
         eu:lite(pf.signatureEU), sv:lite(pf.signatureSurveillance), ee:lite(pf.signatureEE), ex:lite(pf.signatureExec),
-        op:(pf.operateurs||[]).map(o=>(o.nom||'')+'|'+(o.fonction||'')), num:p.numero, site:p.site, lieu:p.lieu
+        op:(pf.operateurs||[]).map(o=>(o.nom||'')+'|'+(o.fonction||'')+'|'+(o.telephone||'')), it:pf.intervenantType||'', is:pf.interneService||'', num:p.numero, site:p.site, lieu:p.lieu
       });
       // Permis déjà présent pour CETTE période et inchangé → ne rien régénérer (retirer juste le vierge).
       const samePeriod = p.documents.find(d => isRempli(d) && (d._periode||'') === periode);
@@ -11432,7 +11450,7 @@ const App = {
         pf_validations_title: 'Périodes de validation (EU) &amp; Rondes de surveillance',
         pf_validations_info: "Chaque période de 24h nécessite une <strong>signature de notre représentant (EU)</strong>.",
         pf_sig_eu: 'Donneur d\'ordre — notre représentant (EU)',
-        pf_sig_ee: 'Intervenants — responsable d\'intervention (EE)',
+        pf_sig_ee: 'Responsable d\'intervention (EE)',
         contact_default: 'Contact EU (interne)',
         export_eu_block: 'ENTREPRISE UTILISATRICE (EU) — notre entité',
         export_ee_block: 'ENTREPRISE INTERVENANTE (EE)',
@@ -11462,7 +11480,7 @@ const App = {
       pf_validations_title: 'Périodes de validation client (EU) &amp; Rondes de surveillance',
       pf_validations_info: "Chaque période de 24h nécessite une <strong>signature du client (EU)</strong>.",
       pf_sig_eu: 'Donneur d\'ordre — représentant du client (EU)',
-      pf_sig_ee: 'Intervenants — responsable d\'intervention (EE)',
+      pf_sig_ee: 'Responsable d\'intervention (représentant EE)',
       contact_default: 'Contact client (EU)',
       export_eu_block: 'ENTREPRISE UTILISATRICE (EU)',
       export_ee_block: 'ENTREPRISE EXTÉRIEURE (EE)',
@@ -12029,7 +12047,7 @@ const App = {
   addPFOperateur() {
     this.currentPDP.permisFeu = this.currentPDP.permisFeu || {};
     this.currentPDP.permisFeu.operateurs = this.currentPDP.permisFeu.operateurs || [];
-    this.currentPDP.permisFeu.operateurs.push({ nom: '', societe: '', fonction: '', habilitation: '' });
+    this.currentPDP.permisFeu.operateurs.push({ nom: '', telephone: '', societe: '', fonction: '', habilitation: '' });
     this.renderPFOperateurs();
   },
 
@@ -12048,12 +12066,13 @@ const App = {
     const c = document.getElementById('pf-operateurs-container');
     if (!c) return;
     const ops = this.currentPDP?.permisFeu?.operateurs || [];
-    if (!ops.length) { c.innerHTML = '<p class="text-muted small">Aucun opérateur.</p>'; return; }
+    if (!ops.length) { c.innerHTML = '<p class="text-muted small">Aucun opérateur supplémentaire.</p>'; return; }
     c.innerHTML = ops.map((o, i) => `<div class="row g-2 mb-2 align-items-center">
       <div class="col-md-3"><input type="text" class="form-control form-control-sm" placeholder="Nom" value="${this.esc(o.nom||'')}" onchange="App.currentPDP.permisFeu.operateurs[${i}].nom=this.value"></div>
-      <div class="col-md-3"><select class="form-select form-select-sm" onchange="App.currentPDP.permisFeu.operateurs[${i}].societe=this.value">${this._getPFSocieteOptions(o.societe||'')}</select></div>
+      <div class="col-md-2"><input type="text" class="form-control form-control-sm" placeholder="Téléphone" value="${this.esc(o.telephone||'')}" onchange="App.currentPDP.permisFeu.operateurs[${i}].telephone=this.value"></div>
+      <div class="col-md-2"><select class="form-select form-select-sm" onchange="App.currentPDP.permisFeu.operateurs[${i}].societe=this.value">${this._getPFSocieteOptions(o.societe||'')}</select></div>
       <div class="col-md-2"><input type="text" class="form-control form-control-sm" placeholder="Fonction" value="${this.esc(o.fonction||'')}" onchange="App.currentPDP.permisFeu.operateurs[${i}].fonction=this.value"></div>
-      <div class="col-md-3"><input type="text" class="form-control form-control-sm" placeholder="Habilitation" value="${this.esc(o.habilitation||'')}" onchange="App.currentPDP.permisFeu.operateurs[${i}].habilitation=this.value"></div>
+      <div class="col-md-2"><input type="text" class="form-control form-control-sm" placeholder="Habilitation" value="${this.esc(o.habilitation||'')}" onchange="App.currentPDP.permisFeu.operateurs[${i}].habilitation=this.value"></div>
       <div class="col-md-1"><button class="btn btn-outline-danger btn-sm" onclick="App.currentPDP.permisFeu.operateurs.splice(${i},1);App.renderPFOperateurs()"><i class="bi bi-trash"></i></button></div>
     </div>`).join('');
   },
@@ -19876,13 +19895,15 @@ const App = {
     setT('Permisfeu_tel_surveillant', sSV.telephone||'');
     setT('Permisfeu_Datesign_surveillant', fr(sSV.date));
 
-    if (sEx.societe) drawX(CHK.intExt); else if (sEE.nom || sEx.nom) drawX(CHK.intInt);
-    setT('Permisfeu_nom_entrepriseintervenante', sEx.societe||'');
+    const intType = pf.intervenantType || (sEx.societe ? 'ee' : ((sEE.nom || sEx.nom) ? 'interne' : ''));
+    if (intType === 'ee') drawX(CHK.intExt); else if (intType === 'interne') drawX(CHK.intInt);
+    setT('Permisfeu_nom_entrepriseintervenante', intType === 'ee' ? (sEx.societe||'') : '');
+    setT('Permisfeu_nom_interne', intType === 'interne' ? (pf.interneService||'') : '');
     setT('Form_Intervention_Nom_Responsable', sEE.nom||'');
     setT('Form_Intervention_Fonction_Responsable', sEE.fonction||'');
-    const opAdd = (pf.operateurs||[])[0]||{};
+    const opsAdd = (pf.operateurs||[]).map(o => [o.nom, o.telephone || o.fonction].filter(Boolean).join(' / ')).filter(Boolean);
     setT('Form_Intervention_Nom_Telephone_Operateur1', sEx.nom||'');
-    setT('Form_Intervention_Nom_Telephone_Operateur2', [opAdd.nom, opAdd.fonction].filter(Boolean).join(' - '));
+    setT('Form_Intervention_Nom_Telephone_Operateur2', opsAdd.join(' ; '));
     setT('Permisfeu_Datesign_intervenant', fr(sEE.date||sEx.date));
     setT('Numero_PDp_Permisdefeu', ctx.numero||'');
 
@@ -19949,6 +19970,7 @@ const App = {
       const pf = {
         dateDebut: v('pfr-date-debut'), heureDebut: v('pfr-heure-debut'), heureFin: v('pfr-heure-fin'),
         types, autrePrecision: v('pfr-autre-precision'), description: v('pfr-materiel'), risqueStructure: v('pfr-risques'),
+        intervenantType: chk('pfr-int-type-ee') ? 'ee' : (chk('pfr-int-type-interne') ? 'interne' : ''), interneService: v('pfr-int-service'),
         autresPrescriptions: v('pfr-actions'), cnppActions,
         moyensLutte: v('pfr-moyens-lutte'), moyensAlerte: v('pfr-moyens-alerte'),
         rondeNecessaire: ronde, rondeHeuresApres: v('pfr-ronde-heures'),

@@ -12,6 +12,8 @@
 - Bouton « Dupliquer » sur les ICP, comme pour les PDP (v195).
 
 ### Permis de feu
+- La rubrique « Intervenants » du formulaire est désormais le miroir exact du permis CNPP : type d'intervenant (Entreprise extérieure — raison sociale / Interne — service, case « Interne » enfin reportée avec le service sur le PDF), responsable d'intervention, opérateurs en « Nom/téléphone » regroupés au même endroit, et une seule signature d'intervenant ; blocs réordonnés comme le PDF (Donneur d'ordre → Surveillance → Intervenants) (v199).
+- Suppression de la note explicative « Permis de feu officiel AXA / CNPP » en bas de la section permis de feu du PDP (v199).
 - Les rubriques du formulaire (PDP et permis rapide) reprennent désormais la nomenclature exacte du permis CNPP : « Description du travail par point chaud », « Nature du travail », « Outillage et matériel », « Risques identifiés », « Actions essentielles / complémentaires », « Donneur d'ordre », « Intervenants » (v198).
 - Nouveau champ « Autre — préciser » pour la nature du travail, reporté sur le PDF et dans le mail au conducteur de travaux (v198).
 - Le texte saisi tient toujours dans les cases du PDF CNPP : taille de police ajustée automatiquement au cadre, risques identifiés sur une ligne par catégorie, retour à la ligne automatique pour les actions complémentaires — plus aucun texte coupé (v198).
