@@ -2976,8 +2976,8 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <li>Dates et horaires de validité (24h max sans renouvellement). <strong>Rappel affiché dans l'app</strong> : travaux par points chauds interdits après <strong>12h00 (midi)</strong> afin de laisser le temps aux rondes de surveillance, et permis à signer/valider par le client (EU) avant tout démarrage</li>
           <li>Opérateurs autorisés</li>
           <li>Consignes avant / pendant / après les travaux (cases à cocher)</li>
-          <li><strong>Signataires pré-remplis</strong> : Représentant EU (= contact EU PDP) + Représentant Entreprise Intervenante (= Rep EE de l'ICP). L'Exécutant point chaud reste à saisir manuellement.</li>
-          <li><strong>Renouvellements</strong> : pour les chantiers &gt; 24h, ajouter des périodes (chacune avec validation EU + Exécutant)</li>
+          <li><strong>Signataires pré-remplis</strong> : Représentant EU (= contact EU PDP) + Représentant Entreprise Intervenante (= Rep EE de l'ICP). L'opérateur principal (intervenant point chaud) reste à saisir manuellement.</li>
+          <li><strong>Renouvellements</strong> : pour les chantiers &gt; 24h, ajouter des périodes (chacune avec validation EU + intervenant)</li>
           <li><strong>Rondes de surveillance</strong> : ajouter une ronde par passage post-travaux (heure, inspecteur, observations, RAS) avec <strong>case signature dédiée</strong> pour émargement de l'inspecteur. Obligatoire au moins une ronde dans les 2h suivant la fin des travaux.</li>
         </ul>
       </div></div></div>
@@ -3131,7 +3131,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
             <ul>
               <li><strong>Représentant Entreprise Utilisatrice (EU / client)</strong> — autorise les travaux</li>
               <li><strong>Représentant Entreprise Extérieure (EE)</strong> — Agriwatt/Enersolys, responsable du chantier</li>
-              <li><strong>Exécutant</strong> — le compagnon qui réalise effectivement le point chaud</li>
+              <li><strong>Intervenant (opérateur principal)</strong> — le compagnon qui réalise effectivement le point chaud</li>
             </ul>
             Les noms sont pré-remplis depuis l'ICP et l'EU pré-configurée. Signature au doigt ou au stylet sur le canvas tactile.
           </li>
@@ -11261,7 +11261,10 @@ const App = {
       if (c.width === 0 && c.offsetWidth > 0) { c.width = c.offsetWidth; c.height = c.offsetHeight; c._hasDrawing = false; }
       if (c.width > 0 && data && !c._hasDrawing) this.loadSigImg(id, data);
     }
-    (pf.renouvellements||[]).forEach((r,i) => { this.initCanvas('pf-renouv-sig-'+i); if (r.signatureEU?.data) this.loadSigImg('pf-renouv-sig-'+i, r.signatureEU.data); });
+    (pf.renouvellements||[]).forEach((r,i) => {
+      this.initCanvas('pf-renouv-sig-eu-'+i); if (r.signatureEU?.data) this.loadSigImg('pf-renouv-sig-eu-'+i, r.signatureEU.data);
+      this.initCanvas('pf-renouv-sig-exec-'+i); if (r.signatureExec?.data) this.loadSigImg('pf-renouv-sig-exec-'+i, r.signatureExec.data);
+    });
     try { this.updatePFStepBadges(); } catch(_){}
   },
 
@@ -11667,7 +11670,7 @@ const App = {
     set('[data-type-label="pf-oblig"]', `<i class="bi bi-shield-check me-1"></i><strong>OBLIGATION :</strong> ${L.pf_oblig}`);
     set('[data-type-label="pf-renouv"]', `<i class="bi bi-hourglass-split me-1"></i><strong>DURÉE MAXIMALE :</strong> Le permis de feu ne peut pas excéder <strong>24 heures</strong>. Au-delà de cette durée, un renouvellement avec <strong>${L.pf_renouv}</strong> est obligatoire pour chaque période de 24h.`);
     set('[data-type-label="pf-validations-title"]', `<i class="bi bi-arrow-repeat me-1"></i>${L.pf_validations_title}`);
-    set('[data-type-label="pf-validations-info"]', `<i class="bi bi-info-circle me-1"></i>Les périodes de validation sont <strong>générées automatiquement</strong> en fonction de la durée du permis. ${L.pf_validations_info}`);
+    set('[data-type-label="pf-validations-info"]', `<i class="bi bi-info-circle me-1"></i>Les périodes de validation sont <strong>générées automatiquement</strong> en fonction de la durée du permis. ${L.pf_validations_info} Ces validations et rondes sont reportées sur le document <strong>« Suivi des rondes de surveillance »</strong> (exports PDF/Word) — le permis CNPP officiel ne comporte pas de case dédiée.`);
     setText('[data-type-label="pf-sig-eu"]', L.pf_sig_eu);
     setText('[data-type-label="pf-sig-ee"]', L.pf_sig_ee);
   },
@@ -12327,11 +12330,14 @@ const App = {
     const existing = pf.renouvellements || [];
     // Capturer les signatures canvas actuelles avant regénération
     existing.forEach((r, i) => {
-      const canvas = document.getElementById('pf-renouv-sig-'+i);
-      if (canvas?._hasDrawing) r.signatureEU.data = canvas.toDataURL();
+      const cvEU = document.getElementById('pf-renouv-sig-eu-'+i);
+      if (cvEU?._hasDrawing) { r.signatureEU = r.signatureEU || {}; r.signatureEU.data = cvEU.toDataURL(); }
+      const cvEx = document.getElementById('pf-renouv-sig-exec-'+i);
+      if (cvEx?._hasDrawing) { r.signatureExec = r.signatureExec || {}; r.signatureExec.data = cvEx.toDataURL(); }
     });
-    // Conserver les signatures et rondes déjà remplies par index
+    // Conserver les signatures (EU + exécutant) et rondes déjà remplies par index
     const oldSigs = existing.map(r => r.signatureEU ? {...r.signatureEU} : { nom:'', date:'', data:null });
+    const oldExecs = existing.map(r => r.signatureExec ? {...r.signatureExec} : null);
     const oldRondes = existing.map(r => r.rondes ? [...r.rondes] : []);
     // Migration : si des rondes globales existent (ancien format), les déplacer dans la 1ère période
     if ((pf.rondes||[]).length && !existing.some(r => (r.rondes||[]).length)) {
@@ -12350,6 +12356,7 @@ const App = {
         dateDebut: fmtDate(pStart), heureDebut: fmtTime(pStart),
         dateFin: fmtDate(pEnd), heureFin: fmtTime(pEnd),
         signatureEU: sig,
+        signatureExec: oldExecs[i] || { nom:'', date:'', data:null },
         rondes: oldRondes[i] || []
       });
     }
@@ -12411,9 +12418,9 @@ const App = {
         </div>
         <!-- Validation Exécutant -->
         <div class="row g-2 align-items-end mb-3">
-          <div class="col-md-5"><label class="form-label small fw-bold" for="pf-renouv-exec-nom-${i}"><i class="bi bi-person-badge me-1"></i>Exécutant travaux — Nom</label><input type="text" class="form-control form-control-sm" id="pf-renouv-exec-nom-${i}" name="pf-renouv-exec-nom-${i}" placeholder="Nom de l'exécutant" value="${this.esc(r.signatureExec?.nom||'')}" onchange="App.currentPDP.permisFeu.renouvellements[${i}].signatureExec=App.currentPDP.permisFeu.renouvellements[${i}].signatureExec||{};App.currentPDP.permisFeu.renouvellements[${i}].signatureExec.nom=this.value"></div>
+          <div class="col-md-5"><label class="form-label small fw-bold" for="pf-renouv-exec-nom-${i}"><i class="bi bi-person-badge me-1"></i>Intervenant (opérateur principal) — Nom</label><input type="text" class="form-control form-control-sm" id="pf-renouv-exec-nom-${i}" name="pf-renouv-exec-nom-${i}" placeholder="Nom de l'intervenant" value="${this.esc(r.signatureExec?.nom||'')}" onchange="App.currentPDP.permisFeu.renouvellements[${i}].signatureExec=App.currentPDP.permisFeu.renouvellements[${i}].signatureExec||{};App.currentPDP.permisFeu.renouvellements[${i}].signatureExec.nom=this.value"></div>
           <div class="col-md-3"><label class="form-label small fw-bold" for="pf-renouv-exec-date-${i}">Date</label><input type="date" class="form-control form-control-sm" id="pf-renouv-exec-date-${i}" name="pf-renouv-exec-date-${i}" value="${this.esc(r.signatureExec?.date||'')}" onchange="App.currentPDP.permisFeu.renouvellements[${i}].signatureExec=App.currentPDP.permisFeu.renouvellements[${i}].signatureExec||{};App.currentPDP.permisFeu.renouvellements[${i}].signatureExec.date=this.value"></div>
-          <div class="col-md-4"><span class="form-label small fw-bold d-block">Signature</span><div class="signature-pad-wrapper"><canvas id="pf-renouv-sig-exec-${i}" class="signature-canvas" style="height:60px" aria-label="Signature exécutant travaux"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-renouv-sig-exec-${i}')"><i class="bi bi-eraser"></i></button></div>
+          <div class="col-md-4"><span class="form-label small fw-bold d-block">Signature</span><div class="signature-pad-wrapper"><canvas id="pf-renouv-sig-exec-${i}" class="signature-canvas" style="height:60px" aria-label="Signature intervenant (opérateur principal)"></canvas></div><button class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pf-renouv-sig-exec-${i}')"><i class="bi bi-eraser"></i></button></div>
         </div>
         <!-- Rondes de cette période -->
         <div class="border-top pt-2">
@@ -19530,7 +19537,7 @@ const App = {
           // Validation EU + Exécutant
           const rExec = r.signatureExec||{};
           const vRows = [
-            new TableRow({cantSplit:true,children:[hCell('Représentant EU',50),hCell('Exécutant travaux',50)]}),
+            new TableRow({cantSplit:true,children:[hCell('Représentant EU',50),hCell('Intervenant (opérateur principal)',50)]}),
             new TableRow({cantSplit:true,children:[cell(`Nom : ${r.signatureEU?.nom||''}\nDate : ${r.signatureEU?.date||''}`,{width:50}),cell(`Nom : ${rExec.nom||''}\nDate : ${rExec.date||''}`,{width:50})]}),
             new TableRow({cantSplit:true,children:[
               new TableCell({children:[new Paragraph({children:[new TextRun({text:'Signature :',size:18,font:'Calibri',italics:true})],spacing:{before:20,after:150}})],width:{size:50,type:WidthType.PERCENTAGE}}),
@@ -19804,7 +19811,7 @@ const App = {
         // Validation EU + Exécutant
         const rExec = r.signatureExec||{};
         const vRows = [
-          new TableRow({cantSplit:true,children:[hCell('Représentant EU',50),hCell('Exécutant travaux',50)]}),
+          new TableRow({cantSplit:true,children:[hCell('Représentant EU',50),hCell('Intervenant (opérateur principal)',50)]}),
           new TableRow({cantSplit:true,children:[cell(`Nom : ${r.signatureEU?.nom||''}\nDate : ${r.signatureEU?.date||''}`,{width:50}),cell(`Nom : ${rExec.nom||''}\nDate : ${rExec.date||''}`,{width:50})]}),
           new TableRow({cantSplit:true,children:[
             new TableCell({children:[new Paragraph({children:[new TextRun({text:'Signature :',size:18,font:'Calibri',italics:true})],spacing:{before:20,after:150}})],width:{size:50,type:WidthType.PERCENTAGE}}),
@@ -19918,7 +19925,7 @@ const App = {
         y+=10; doc.setTextColor(0,0,0);
         // Validation par période : Représentant EU + Exécutant travaux
         const rExec = r.signatureExec||{};
-        addTable(['Représentant EU','','Exécutant travaux',''], [
+        addTable(['Représentant EU','','Intervenant (opérateur principal)',''], [
           [`Nom : ${r.signatureEU?.nom||''}`,`Date : ${r.signatureEU?.date||''}`,`Nom : ${rExec.nom||''}`,`Date : ${rExec.date||''}`],
           [{content:'Signature :',styles:{minCellHeight:10}},{content:'',styles:{minCellHeight:10}},{content:'Signature :',styles:{minCellHeight:10}},{content:'',styles:{minCellHeight:10}}]
         ], {columnStyles:{0:{cellWidth:50},1:{cellWidth:40},2:{cellWidth:50},3:{cellWidth:40}}, pageBreak:'avoid'});
@@ -21025,7 +21032,7 @@ const App = {
           y+=10; doc.setTextColor(0,0,0);
           // Validation EU + Exécutant
           const rExec = r.signatureExec||{};
-          addTable(['Représentant EU','','Exécutant travaux',''], [
+          addTable(['Représentant EU','','Intervenant (opérateur principal)',''], [
             [`Nom : ${r.signatureEU?.nom||''}`,`Date : ${r.signatureEU?.date||''}`,`Nom : ${rExec.nom||''}`,`Date : ${rExec.date||''}`],
             [{content:'Signature :',styles:{minCellHeight:10}},{content:'',styles:{minCellHeight:10}},{content:'Signature :',styles:{minCellHeight:10}},{content:'',styles:{minCellHeight:10}}]
           ], {columnStyles:{0:{cellWidth:50},1:{cellWidth:40},2:{cellWidth:50},3:{cellWidth:40}}, pageBreak:'avoid'});
