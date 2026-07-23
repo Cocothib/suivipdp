@@ -11114,7 +11114,7 @@ const App = {
     };
     const start = e => { if (c._locked) return; e.preventDefault(); drawing=true; const p=pos(e); lx=p.x; ly=p.y; };
     const move = e => { if(!drawing)return; e.preventDefault(); const p=pos(e); ctx.beginPath(); ctx.moveTo(lx,ly); ctx.lineTo(p.x,p.y); ctx.strokeStyle='#000'; ctx.lineWidth=2; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.stroke(); lx=p.x; ly=p.y; c._hasDrawing=true; };
-    const end = () => { drawing=false; if (c._hasDrawing) App._refreshSigButtons(c); };
+    const end = () => { drawing=false; if (c._hasDrawing) { App._refreshSigButtons(c); App._stampSigDateTime(c.id); } };
     c.addEventListener('mousedown',start); c.addEventListener('mousemove',move); c.addEventListener('mouseup',end); c.addEventListener('mouseleave',end);
     c.addEventListener('touchstart',start,{passive:false}); c.addEventListener('touchmove',move,{passive:false}); c.addEventListener('touchend',end);
   },
@@ -11134,7 +11134,7 @@ const App = {
     v.title = 'Valider la signature (verrouiller)';
     v.setAttribute('aria-label', 'Valider et verrouiller la signature');
     v.innerHTML = '<i class="bi bi-check-lg"></i>';
-    v.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); if (c._hasDrawing) App._setSigLocked(c, true); });
+    v.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); if (c._hasDrawing) { App._setSigLocked(c, true); App._stampSigDateTime(c.id); } });
     // Agrandir : mode plein écran.
     const b = document.createElement('button');
     b.type = 'button';
@@ -11153,6 +11153,27 @@ const App = {
     const wrap = c && c.parentElement;
     const v = wrap && wrap.querySelector('.sig-valider-btn');
     if (v) v.style.display = (c._hasDrawing && !c._locked) ? 'flex' : 'none';
+  },
+
+  // Permis de feu : canvas de signature -> champs date/heure du signataire.
+  _sigDateTimeMap: {
+    'pf-sig-eu-canvas': ['pf-sig-eu-date','pf-sig-eu-heure'],
+    'pf-sig-surv-canvas': ['pf-sig-surv-date','pf-sig-surv-heure'],
+    'pf-sig-ee-canvas': ['pf-sig-ee-date','pf-sig-ee-heure'],
+    'pfr-sig-do-canvas': ['pfr-do-date','pfr-do-heure'],
+    'pfr-sig-sv-canvas': ['pfr-sv-date','pfr-sv-heure'],
+    'pfr-sig-int-canvas': ['pfr-int-date','pfr-int-heure'],
+  },
+  // Horodate la signature avec l'horloge de l'appareil (téléphone/PC) au moment du
+  // tracé ou de la validation. Ne remplit que les champs laissés vides : une date ou
+  // heure saisie à la main n'est jamais écrasée.
+  _stampSigDateTime(canvasId) {
+    const ids = this._sigDateTimeMap[canvasId]; if (!ids) return;
+    const now = new Date();
+    const d = document.getElementById(ids[0]);
+    if (d && !d.value) d.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    const h = document.getElementById(ids[1]);
+    if (h && !h.value) h.value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   },
 
   // Ouvre une zone de signature plein écran liée au canvas d'origine.
@@ -11221,6 +11242,7 @@ const App = {
       ctx.drawImage(img, 0, 0, origin.width, origin.height);
       origin._hasDrawing = true;
       this._setSigLocked(origin, true); // verrouille : plus de tracé accidentel tant qu'on n'a pas Effacé
+      this._stampSigDateTime(origin.id); // horodatage auto à la validation (heure de l'appareil)
       close();
     };
     img.onerror = close;

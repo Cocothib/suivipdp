@@ -12,6 +12,7 @@
 - Bouton « Dupliquer » sur les ICP, comme pour les PDP (v195).
 
 ### Permis de feu
+- Horodatage automatique des signatures du permis : au moment où le signataire trace ou valide sa signature, la date et l'heure de l'appareil (téléphone/PC) sont remplies automatiquement si les champs sont vides — une saisie manuelle n'est jamais écrasée (v201).
 - Les trois blocs de signature du permis (Donneur d'ordre, Personne désignée pour la surveillance, Intervenant) affichent désormais le trio « Signature — Date — Heure » comme sur le PDF CNPP, et l'heure de signature est reportée sur le PDF (champs Heure jamais remplis auparavant) — PDP et permis rapide (v200).
 - La rubrique « Intervenants » du formulaire est désormais le miroir exact du permis CNPP : type d'intervenant (Entreprise extérieure — raison sociale / Interne — service, case « Interne » enfin reportée avec le service sur le PDF), responsable d'intervention, opérateurs en « Nom/téléphone » regroupés au même endroit, et une seule signature d'intervenant ; blocs réordonnés comme le PDF (Donneur d'ordre → Surveillance → Intervenants) (v199).
 - Suppression de la note explicative « Permis de feu officiel AXA / CNPP » en bas de la section permis de feu du PDP (v199).
