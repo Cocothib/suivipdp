@@ -11272,6 +11272,12 @@ const App = {
     const c = document.getElementById(id); if(!c) return;
     c.getContext('2d').clearRect(0,0,c.width,c.height); c._hasDrawing=false;
     this._setSigLocked(c, false); // ré-ouvre la saisie (inline ou plein écran)
+    // Permis de feu : effacer la signature efface aussi son horodatage (date + heure de SA section)
+    const dt = this._sigDateTimeMap[id];
+    if (dt) {
+      const d = document.getElementById(dt[0]); if (d) d.value = '';
+      const h = document.getElementById(dt[1]); if (h) h.value = '';
+    }
     if (!c._init) this.initCanvas(id); // sécurité si le canvas n'avait pas encore été initialisé
   },
 
