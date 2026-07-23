@@ -2031,21 +2031,28 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <div class="section-helper"><i class="bi bi-lightbulb"></i> Le permis de feu est obligatoire pour tout travail par point chaud. Il doit être renouvelé quotidiennement.</div>
 
         <div class="field-group">
-          <div class="field-group-title"><i class="bi bi-tools"></i> Types de travaux</div>
+          <div class="field-group-title"><i class="bi bi-tools"></i> Description du travail par point chaud</div>
+          <label class="form-label mb-1 fw-bold">Nature du travail</label>
           <div class="row g-2">
             <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pf-soudage"><span>Soudage</span></label></div>
             <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pf-tronconnage"><span>Tronçonnage</span></label></div>
             <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pf-meulage"><span>Découpage / Meulage</span></label></div>
             <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pf-thermosoudure"><span>Thermosoudure au gaz</span></label></div>
             <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pf-miseALaTerre"><span>Soudure mise à la terre</span></label></div>
-            <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pf-autre"><span>Autre</span></label></div>
+            <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pf-autre" onchange="document.getElementById('pf-autre-precision-wrap').style.display=this.checked?'':'none'"><span>Autre</span></label></div>
+          </div>
+          <div class="row g-2 mt-1" id="pf-autre-precision-wrap" style="display:none">
+            <div class="col-12"><label class="form-label" for="pf-autre-precision">Autre — préciser la nature du travail</label><input type="text" class="form-control" id="pf-autre-precision" placeholder="Ex : perçage du bac acier, brasage..."></div>
+          </div>
+          <div class="row g-2 mt-1">
+            <div class="col-12"><label class="form-label" for="pf-description">Outillage et matériel</label><textarea class="form-control" id="pf-description" rows="2" placeholder="Outillage et matériel utilisés : perceuse, meuleuse, chalumeau, poste à souder..."></textarea></div>
           </div>
         </div>
 
         <div class="field-group">
-          <div class="field-group-title"><i class="bi bi-exclamation-triangle"></i> Évaluation des risques</div>
+          <div class="field-group-title"><i class="bi bi-exclamation-triangle"></i> Risques identifiés</div>
+          <div class="section-helper"><i class="bi bi-lightbulb"></i> Signaler la présence de poussières, de gaz ou de liquides inflammables, un risque d'explosion, un risque de propagation par proximité, etc. (rubrique « Risques identifiés » du permis CNPP).</div>
           <div class="row g-2">
-            <div class="col-12"><label class="form-label" for="pf-description">Description des travaux</label><textarea class="form-control" id="pf-description" rows="2" placeholder="Détail des travaux par points chauds..."></textarea></div>
             <div class="col-md-4"><label class="form-label" for="pf-risque-structure">Risques liés à la structure</label><textarea class="form-control" id="pf-risque-structure" rows="2" placeholder="Matériaux combustibles, isolation..."></textarea></div>
             <div class="col-md-4"><label class="form-label" for="pf-risque-activite">Risques liés à l'activité du site</label><textarea class="form-control" id="pf-risque-activite" rows="2" placeholder="Stockage, produits inflammables..."></textarea></div>
             <div class="col-md-4"><label class="form-label" for="pf-risque-environnement">Risques liés à l'environnement</label><textarea class="form-control" id="pf-risque-environnement" rows="2" placeholder="Végétation, paille, gaz..."></textarea></div>
@@ -2053,7 +2060,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         </div>
 
         <div class="field-group">
-          <div class="field-group-title"><i class="bi bi-calendar-range"></i> Période de validité</div>
+          <div class="field-group-title"><i class="bi bi-calendar-range"></i> Date, heure et durée de validité du permis</div>
           <div class="row g-2 mb-1">
             <div class="col-md-3"><label class="form-label" for="pf-date-debut">Date début</label><div class="input-icon-wrap"><i class="bi bi-calendar-event input-icon"></i><input type="date" class="form-control" id="pf-date-debut" onchange="App.checkPFDuree()"></div></div>
             <div class="col-md-3"><label class="form-label" for="pf-heure-debut">Heure début</label><div class="input-icon-wrap"><i class="bi bi-clock input-icon"></i><input type="time" class="form-control" id="pf-heure-debut" onchange="App.checkPFDuree()"></div></div>
@@ -2067,17 +2074,17 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <div id="pf-operateurs-container"></div>
         <button class="btn btn-sm btn-outline-primary mb-3" onclick="App.addPFOperateur()"><i class="bi bi-plus-lg me-1"></i>Ajouter un opérateur</button>
 
-        <div class="mt-2"><label class="form-label" for="pf-autres-prescriptions">Autres prescriptions</label><textarea class="form-control" id="pf-autres-prescriptions" rows="2" placeholder="Prescriptions supplémentaires..."></textarea></div>
-
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-shield-fill-check"></i> Actions de prévention et de protection (modèle CNPP)</div>
-          <div class="section-helper"><i class="bi bi-lightbulb"></i> Mesures essentielles reportées sur le permis de feu officiel CNPP.</div>
+          <div class="section-helper"><i class="bi bi-lightbulb"></i> Mesures reportées telles quelles sur le permis de feu officiel CNPP.</div>
+          <label class="form-label mb-1 fw-bold">Actions essentielles</label>
           <div class="row g-2">
             <div class="col-12 col-md-6"><label class="check-card mb-1"><input type="checkbox" id="pf-cnpp-nettoyer"><span>Nettoyer la zone de travail</span></label></div>
             <div class="col-12 col-md-6"><label class="check-card mb-1"><input type="checkbox" id="pf-cnpp-eloigner"><span>Éloigner ou couvrir de bâches tout matériau combustible</span></label></div>
             <div class="col-12 col-md-6"><label class="check-card mb-1"><input type="checkbox" id="pf-cnpp-degazer"><span>Dégazer les réservoirs et canalisations</span></label></div>
             <div class="col-12 col-md-6"><label class="check-card mb-1"><input type="checkbox" id="pf-cnpp-extincteurs"><span>Disposer d'extincteurs à proximité</span></label></div>
           </div>
+          <div class="mt-2"><label class="form-label" for="pf-autres-prescriptions">Actions complémentaires (s'aider de la liste au verso du permis CNPP)</label><textarea class="form-control" id="pf-autres-prescriptions" rows="2" placeholder="Mesures de sécurité supplémentaires..."></textarea></div>
           <div class="row g-2 mt-1">
             <div class="col-md-6"><label class="form-label small mb-0">Moyens de lutte contre l'incendie</label><input type="text" class="form-control form-control-sm" id="pf-moyens-lutte" placeholder="Extincteurs, RIA, couverture anti-feu..."></div>
             <div class="col-md-6"><label class="form-label small mb-0">Moyens d'alerte</label><input type="text" class="form-control form-control-sm" id="pf-moyens-alerte" placeholder="Téléphone, n° secours, sirène..."></div>
@@ -2091,9 +2098,9 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <div id="pf-renouvellements-container"></div>
 
         <div class="field-group">
-          <div class="field-group-title"><i class="bi bi-arrow-repeat"></i> Ronde de sécurité (modèle CNPP)</div>
+          <div class="field-group-title"><i class="bi bi-arrow-repeat"></i> Une ronde de sécurité est nécessaire ? (modèle CNPP)</div>
           <div class="d-flex flex-wrap align-items-center gap-3">
-            <div class="form-check"><input class="form-check-input" type="radio" name="pf-ronde" id="pf-ronde-non" value="non"><label class="form-check-label" for="pf-ronde-non">Non nécessaire</label></div>
+            <div class="form-check"><input class="form-check-input" type="radio" name="pf-ronde" id="pf-ronde-non" value="non"><label class="form-check-label" for="pf-ronde-non">Non</label></div>
             <div class="form-check"><input class="form-check-input" type="radio" name="pf-ronde" id="pf-ronde-oui" value="oui"><label class="form-check-label" for="pf-ronde-oui">Oui, elle sera réalisée</label></div>
             <div class="d-flex align-items-center gap-1"><input type="number" min="0" step="1" class="form-control form-control-sm" id="pf-ronde-heures" style="width:80px" placeholder="2"> <span class="small">heures après la fin des travaux</span></div>
           </div>
@@ -2112,7 +2119,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <h6 class="mt-4 mb-2 text-primary">Signatures du permis de feu</h6>
         <div class="row g-3">
           <div class="col-md-4">
-            <h6 class="small fw-bold" data-type-label="pf-sig-eu">Représentant EU</h6>
+            <h6 class="small fw-bold" data-type-label="pf-sig-eu">Donneur d'ordre (représentant EU)</h6>
             <div class="row g-2">
               <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-eu-nom" name="pf-sig-eu-nom" aria-label="Nom du représentant EU" placeholder="Nom"></div>
               <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-eu-fonction" name="pf-sig-eu-fonction" aria-label="Fonction du représentant EU" placeholder="Fonction"></div>
@@ -2122,7 +2129,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
             </div>
           </div>
           <div class="col-md-4">
-            <h6 class="small fw-bold" data-type-label="pf-sig-ee">Représentant Entreprise Intervenante</h6>
+            <h6 class="small fw-bold" data-type-label="pf-sig-ee">Intervenants — Responsable d'intervention</h6>
             <div class="row g-2">
               <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-ee-nom" name="pf-sig-ee-nom" aria-label="Nom du représentant EE" placeholder="Nom"></div>
               <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-ee-fonction" name="pf-sig-ee-fonction" aria-label="Fonction du représentant EE" placeholder="Fonction"></div>
@@ -2131,7 +2138,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
             </div>
           </div>
           <div class="col-md-4">
-            <h6 class="small fw-bold">Exécutant travaux par point chaud</h6>
+            <h6 class="small fw-bold">Intervenants — Opérateur du travail par point chaud</h6>
             <div class="row g-2">
               <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-exec-nom" name="pf-sig-exec-nom" aria-label="Nom de l'exécutant" placeholder="Nom"></div>
               <div class="col-12"><input type="text" class="form-control form-control-sm" id="pf-sig-exec-societe" name="pf-sig-exec-societe" aria-label="Société de l'exécutant" placeholder="Société (si sous-traitant)"></div>
@@ -3635,18 +3642,19 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
               <div class="col-6 col-md-3"><label class="form-label small mb-0">N° (optionnel)</label><input type="text" class="form-control form-control-sm" id="pfr-numero" placeholder="N°"></div>
               <div class="col-12"><label class="form-label small mb-0">Lieu / emplacement</label><input type="text" class="form-control form-control-sm" id="pfr-lieu" placeholder="Site, localisation des travaux"></div>
             </div>
-            <label class="form-label small fw-bold mb-1">Types de travaux</label>
+            <label class="form-label small fw-bold mb-1">Nature du travail</label>
             <div class="row g-1 mb-2">
               <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pfr-soudage"><span>Soudage</span></label></div>
               <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pfr-tronconnage"><span>Tronçonnage</span></label></div>
               <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pfr-meulage"><span>Découpage / Meulage</span></label></div>
               <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pfr-thermosoudure"><span>Thermosoudure au gaz</span></label></div>
               <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pfr-miseALaTerre"><span>Soudure mise à la terre</span></label></div>
-              <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pfr-autre"><span>Autre</span></label></div>
+              <div class="col-6 col-md-4"><label class="check-card"><input type="checkbox" id="pfr-autre" onchange="document.getElementById('pfr-autre-precision-wrap').style.display=this.checked?'':'none'"><span>Autre</span></label></div>
             </div>
+            <div class="mb-2" id="pfr-autre-precision-wrap" style="display:none"><label class="form-label small mb-0" for="pfr-autre-precision">Autre — préciser la nature du travail</label><input type="text" class="form-control form-control-sm" id="pfr-autre-precision" placeholder="Ex : perçage du bac acier, brasage..."></div>
             <div class="mb-2"><label class="form-label small mb-0">Outillage et matériel</label><input type="text" class="form-control form-control-sm" id="pfr-materiel"></div>
-            <div class="mb-2"><label class="form-label small mb-0">Risques identifiés</label><textarea class="form-control form-control-sm" id="pfr-risques" rows="2"></textarea></div>
-            <label class="form-label small fw-bold mb-1">Actions de prévention (CNPP)</label>
+            <div class="mb-2"><label class="form-label small mb-0">Risques identifiés</label><textarea class="form-control form-control-sm" id="pfr-risques" rows="2" placeholder="Poussières, gaz ou liquides inflammables, risque d'explosion, propagation par proximité..."></textarea></div>
+            <label class="form-label small fw-bold mb-1">Actions essentielles (CNPP)</label>
             <div class="row g-1 mb-2">
               <div class="col-6"><label class="check-card"><input type="checkbox" id="pfr-cnpp-nettoyer"><span>Nettoyer la zone</span></label></div>
               <div class="col-6"><label class="check-card"><input type="checkbox" id="pfr-cnpp-eloigner"><span>Éloigner / couvrir matériau combustible</span></label></div>
@@ -3682,7 +3690,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
               <div class="col-md-4"><input type="date" class="form-control form-control-sm" id="pfr-do-date"></div>
               <div class="col-md-8"><div class="signature-pad-wrapper"><canvas id="pfr-sig-do-canvas" class="signature-canvas"></canvas></div><button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pfr-sig-do-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
             </div>
-            <h6 class="small fw-bold text-primary mb-1">Personne désignée surveillance</h6>
+            <h6 class="small fw-bold text-primary mb-1">Personne désignée pour la sécurité et la surveillance</h6>
             <div class="row g-2 mb-2">
               <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pfr-sv-nom" placeholder="Nom"></div>
               <div class="col-md-4"><input type="text" class="form-control form-control-sm" id="pfr-sv-fonction" placeholder="Fonction"></div>
@@ -3690,7 +3698,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
               <div class="col-md-4"><input type="date" class="form-control form-control-sm" id="pfr-sv-date"></div>
               <div class="col-md-8"><div class="signature-pad-wrapper"><canvas id="pfr-sig-sv-canvas" class="signature-canvas"></canvas></div><button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="App.clearSignature('pfr-sig-sv-canvas')"><i class="bi bi-eraser me-1"></i>Effacer</button></div>
             </div>
-            <h6 class="small fw-bold text-primary mb-1">Intervenant</h6>
+            <h6 class="small fw-bold text-primary mb-1">Intervenants</h6>
             <div class="row g-2 mb-2">
               <div class="col-md-6"><input type="text" class="form-control form-control-sm" id="pfr-int-societe" placeholder="Entreprise extérieure (raison sociale, si sous-traitant)"></div>
               <div class="col-md-3"><input type="text" class="form-control form-control-sm" id="pfr-int-resp-nom" placeholder="Responsable — Nom"></div>
@@ -9350,6 +9358,8 @@ const App = {
     ['soudage','tronconnage','meulage','thermosoudure','miseALaTerre','autre'].forEach(id => {
       const el = document.getElementById('pf-'+id); if (el) el.checked = (pf.types||[]).includes(id);
     });
+    { const _ap = document.getElementById('pf-autre-precision'); if (_ap) _ap.value = pf.autrePrecision || '';
+      const _apw = document.getElementById('pf-autre-precision-wrap'); if (_apw) _apw.style.display = (pf.types||[]).includes('autre') ? '' : 'none'; }
     document.getElementById('pf-description').value = pf.description || '';
     document.getElementById('pf-risque-structure').value = pf.risqueStructure || '';
     document.getElementById('pf-risque-activite').value = pf.risqueActivite || '';
@@ -9450,6 +9460,7 @@ const App = {
     // Permis de feu
     p.permisFeu = p.permisFeu || {};
     p.permisFeu.types = ['soudage','tronconnage','meulage','thermosoudure','miseALaTerre','autre'].filter(id => document.getElementById('pf-'+id)?.checked);
+    p.permisFeu.autrePrecision = document.getElementById('pf-autre-precision')?.value.trim() || '';
     p.permisFeu.actif = p.permisFeu.types.length > 0 || this._hasPointChaudRisk();
     p.permisFeu.description = document.getElementById('pf-description').value.trim();
     p.permisFeu.risqueStructure = document.getElementById('pf-risque-structure').value.trim();
@@ -9578,7 +9589,7 @@ const App = {
       const periode = pf.dateDebut || '';
       const lite = s => s ? [s.nom,s.fonction,s.telephone,s.date,s.societe,(s.data||'').length].join('|') : '';
       const sigKey = JSON.stringify({
-        t:pf.types, d:pf.description, r:[pf.risqueStructure,pf.risqueActivite,pf.risqueEnvironnement],
+        t:pf.types, tp:pf.autrePrecision||'', d:pf.description, r:[pf.risqueStructure,pf.risqueActivite,pf.risqueEnvironnement],
         dt:[pf.dateDebut,pf.heureDebut,pf.dateFin,pf.heureFin], a:pf.cnppActions, ml:pf.moyensLutte, ma:pf.moyensAlerte,
         ap:pf.autresPrescriptions, rn:pf.rondeNecessaire, rh:pf.rondeHeuresApres,
         eu:lite(pf.signatureEU), sv:lite(pf.signatureSurveillance), ee:lite(pf.signatureEE), ex:lite(pf.signatureExec),
@@ -11420,8 +11431,8 @@ const App = {
         pf_renouv: "nouvelle validation de notre représentant (EU)",
         pf_validations_title: 'Périodes de validation (EU) &amp; Rondes de surveillance',
         pf_validations_info: "Chaque période de 24h nécessite une <strong>signature de notre représentant (EU)</strong>.",
-        pf_sig_eu: 'Notre représentant (EU)',
-        pf_sig_ee: 'Représentant intervenant (EE)',
+        pf_sig_eu: 'Donneur d\'ordre — notre représentant (EU)',
+        pf_sig_ee: 'Intervenants — responsable d\'intervention (EE)',
         contact_default: 'Contact EU (interne)',
         export_eu_block: 'ENTREPRISE UTILISATRICE (EU) — notre entité',
         export_ee_block: 'ENTREPRISE INTERVENANTE (EE)',
@@ -11450,8 +11461,8 @@ const App = {
       pf_renouv: "nouvelle validation du client (EU)",
       pf_validations_title: 'Périodes de validation client (EU) &amp; Rondes de surveillance',
       pf_validations_info: "Chaque période de 24h nécessite une <strong>signature du client (EU)</strong>.",
-      pf_sig_eu: 'Représentant du client (EU)',
-      pf_sig_ee: 'Représentant de l\'intervenant (EE)',
+      pf_sig_eu: 'Donneur d\'ordre — représentant du client (EU)',
+      pf_sig_ee: 'Intervenants — responsable d\'intervention (EE)',
       contact_default: 'Contact client (EU)',
       export_eu_block: 'ENTREPRISE UTILISATRICE (EU)',
       export_ee_block: 'ENTREPRISE EXTÉRIEURE (EE)',
@@ -16020,7 +16031,7 @@ const App = {
         eu: p.eu?.nom || '',
         periode: { dateDebut: pf.dateDebut, heureDebut: pf.heureDebut, dateFin: pf.dateFin, heureFin: pf.heureFin },
         nbPeriodes: (pf.renouvellements || []).length,
-        types: (pf.types || []).map(t => this._pfTypesLabels[t] || t),
+        types: (pf.types || []).map(t => (t === 'autre' && pf.autrePrecision) ? 'Autre : ' + pf.autrePrecision : (this._pfTypesLabels[t] || t)),
         description: pf.description || '',
         renouvellement: done.length > 0,
         lienProfond: p.id != null ? `#pdp/${p.id}` : null
@@ -19784,11 +19795,43 @@ const App = {
 
     const fr = d => (d && /^\d{4}-\d{2}-\d{2}/.test(d)) ? d.slice(0,10).split('-').reverse().join('/') : (d||'');
     const _san = s => String(s==null?'':s).replace(/[—–]/g,'-').replace(/…/g,'...').replace(/[’‘]/g,"'").replace(/[“”]/g,'"').replace(/ /g,' ');
-    const setT = (name, val) => { let fld; try { fld = form.getTextField(name); } catch(_) { return; } try { fld.setText(_san(val)); } catch(_){} };
     const { StandardFonts, rgb } = PDFLib;
     const page0 = pdfDoc.getPages()[0];
     const H = page0.getHeight();
     const markFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const helv = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    // Remplit un champ texte en adaptant la taille de police au cadre CNPP pour que le texte
+    // soit toujours entièrement visible : rétrécissement sur une ligne, ou multiligne (o.ml)
+    // avec retour à la ligne automatique pour les grandes zones (risques, actions complémentaires).
+    const setT = (name, val, o = {}) => {
+      let fld; try { fld = form.getTextField(name); } catch(_) { return; }
+      const txt = _san(val);
+      try { fld.setText(txt); } catch(_) { return; }
+      if (!txt) return;
+      try {
+        if (o.ml) fld.enableMultiline();
+        const rect = fld.acroField.getWidgets()[0]?.getRectangle();
+        if (!rect) return;
+        const maxW = Math.max(20, rect.width - 8);
+        const wAt1 = s => { try { return helv.widthOfTextAtSize(s || ' ', 1); } catch(_) { return (s || ' ').length * 0.5; } };
+        let size = Math.min(19, Math.max(12, rect.height - 4));
+        if (o.ml) {
+          const maxH = Math.max(20, rect.height - 8);
+          const lines = txt.split('\n');
+          size = 19;
+          while (size > 10) {
+            let n = 0;
+            for (const l of lines) n += Math.max(1, Math.ceil((wAt1(l) * size) / maxW));
+            if (n * size * 1.3 <= maxH) break;
+            size -= 1;
+          }
+        } else {
+          const w = wAt1(txt);
+          if (w * size > maxW) size = Math.max(9, maxW / w);
+        }
+        fld.setFontSize(size);
+      } catch(e) { console.warn('Ajustement champ permis', name, e); }
+    };
     const drawX = (r) => { const [x0,y0,x1,y1]=r, bw=x1-x0, bh=y1-y0; const size=bh*0.92; const tw=markFont.widthOfTextAtSize('X',size); try { page0.drawText('X',{x:x0+(bw-tw)/2, y:H-y1+bh*0.18, size, font:markFont, color:rgb(0,0,0)}); } catch(_){} };
     const CHK = {
       nettoyage:[296.9,779.5,320.1,802.7], eloignement:[693.5,781.6,715.8,803.9],
@@ -19805,10 +19848,12 @@ const App = {
     setT('Permisfeu_heuredebut', hd[0]||''); setT('Permisfeu_minutedebut', hd[1]||'');
     setT('Permisfeu_heurefin', hf[0]||''); setT('Permisfeu_minutefin', hf[1]||'');
     setT('Permisfeu_lieu', (ctx.site||'') + (ctx.lieu ? ' - ' + ctx.lieu : ''));
-    setT('Permisfeu_nature', (pf.types||[]).map(t=>typeLabels[t]||t).join(', '));
+    const natureParts = (pf.types||[]).filter(t => t !== 'autre').map(t => typeLabels[t] || t);
+    if ((pf.types||[]).includes('autre')) natureParts.push(pf.autrePrecision ? 'Autre : ' + pf.autrePrecision : 'Autre');
+    setT('Permisfeu_nature', natureParts.join(', '));
     setT('Permisfeu_materiel', pf.description||'');
-    setT('Permisfeu_risques', [pf.risqueStructure, pf.risqueActivite, pf.risqueEnvironnement].filter(Boolean).join(' ; '));
-    setT('Permisfeu_actions', pf.autresPrescriptions||'');
+    setT('Permisfeu_risques', [pf.risqueStructure, pf.risqueActivite, pf.risqueEnvironnement].filter(Boolean).join('\n'), { ml: true });
+    setT('Permisfeu_actions', pf.autresPrescriptions||'', { ml: true });
     setT('Permisfeu_EE_intervenant', pf.moyensLutte||'');  // libellé CNPP : « Moyens de lutte contre l'incendie »
     setT('TextFormField 32', pf.moyensAlerte||'');          // libellé CNPP : « Moyens d'alerte »
 
@@ -19903,7 +19948,7 @@ const App = {
       const ronde = document.getElementById('pfr-ronde-oui')?.checked ? 'oui' : (document.getElementById('pfr-ronde-non')?.checked ? 'non' : '');
       const pf = {
         dateDebut: v('pfr-date-debut'), heureDebut: v('pfr-heure-debut'), heureFin: v('pfr-heure-fin'),
-        types, description: v('pfr-materiel'), risqueStructure: v('pfr-risques'),
+        types, autrePrecision: v('pfr-autre-precision'), description: v('pfr-materiel'), risqueStructure: v('pfr-risques'),
         autresPrescriptions: v('pfr-actions'), cnppActions,
         moyensLutte: v('pfr-moyens-lutte'), moyensAlerte: v('pfr-moyens-alerte'),
         rondeNecessaire: ronde, rondeHeuresApres: v('pfr-ronde-heures'),
@@ -19943,7 +19988,7 @@ const App = {
             numero: v('pfr-numero'),
             lieu: v('pfr-lieu'),
             periode: { dateDebut: pf.dateDebut, heureDebut: pf.heureDebut, dateFin: pf.dateDebut, heureFin: pf.heureFin },
-            types: types.map(t => this._pfTypesLabels[t] || t),
+            types: types.map(t => (t === 'autre' && pf.autrePrecision) ? 'Autre : ' + pf.autrePrecision : (this._pfTypesLabels[t] || t)),
             description: pf.description,
             renouvellement: false,
             lienProfond: null,

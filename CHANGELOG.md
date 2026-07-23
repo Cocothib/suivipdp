@@ -12,6 +12,9 @@
 - Bouton « Dupliquer » sur les ICP, comme pour les PDP (v195).
 
 ### Permis de feu
+- Les rubriques du formulaire (PDP et permis rapide) reprennent désormais la nomenclature exacte du permis CNPP : « Description du travail par point chaud », « Nature du travail », « Outillage et matériel », « Risques identifiés », « Actions essentielles / complémentaires », « Donneur d'ordre », « Intervenants » (v198).
+- Nouveau champ « Autre — préciser » pour la nature du travail, reporté sur le PDF et dans le mail au conducteur de travaux (v198).
+- Le texte saisi tient toujours dans les cases du PDF CNPP : taille de police ajustée automatiquement au cadre, risques identifiés sur une ligne par catégorie, retour à la ligne automatique pour les actions complémentaires — plus aucun texte coupé (v198).
 - Notification automatique par mail au conducteur de travaux à chaque permis de feu créé, avec le PDF rempli en pièce jointe et un lien SharePoint direct (v187-v190).
 - Les exports de dossier PDP incluent désormais le permis de feu rempli en 1 exemplaire plus 3 permis vierges à remplir sur le chantier, mis en page pour l'impression recto-verso (v191-v194).
 
