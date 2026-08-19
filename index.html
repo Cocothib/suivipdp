@@ -1953,6 +1953,11 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <div class="field-group-title"><i class="bi bi-people"></i><span data-type-label="sig-ee-title">Signatures Entreprises Extérieures</span></div>
           <div id="signatures-ee-container"></div>
         </div>
+        <div class="field-group" id="icp-visas-group" style="display:none">
+          <div class="field-group-title"><i class="bi bi-clipboard-check"></i>Signatures issues de l'ICP <span class="badge bg-light text-secondary border ms-1">Lecture seule</span></div>
+          <p class="small text-muted mb-2">Visas recueillis lors de l'inspection commune préalable liée, repris pour traçabilité. Ils ne valent pas signature du présent plan de prévention.</p>
+          <div id="icp-visas-container"></div>
+        </div>
       </div>
     </div>
 
@@ -4552,7 +4557,7 @@ async function _writeJsonFile(filePath, data, etag = null, metaEtag = null) {
         if (writtenEtag && after && after !== writtenEtag) {
             console.warn('DataSync: écriture chunkée — eTag distant divergent après upload (' + filePath + '), écriture concurrente probable → resynchronisation planifiée');
             if (typeof ActivityLog !== 'undefined') ActivityLog.log('ecriture_chunked_divergence_postupload', { fichier: filePath });
-            try { if (typeof DataSync !== 'undefined') { DataSync._dirty = true; } } catch (e) { /* DataSync non prêt : ignoré */ }
+            try { if (typeof DataSync !== 'undefined') { DataSync._dirty = true; DataSync._persistDirtyFlag(true); } } catch (e) { /* DataSync non prêt : ignoré */ }
         }
     } catch (e) { /* contrôle best-effort : ne pas faire échouer une écriture réussie */ }
     return result;
@@ -4923,6 +4928,14 @@ const DataSync = {
     // quand rien n'a changé. En persistant, la lecture initiale devient CONDITIONNELLE
     // (If-None-Match) : 304 → aucun transfert ni ré-application → ouverture instantanée.
     _SYNC_STATE_KEY: 'pdp_sync_state_v1',
+    // Flag « modifs locales non synchronisées » persisté (survit au rechargement).
+    // Sans lui, après un échec de sauvegarde + F5, _dirty (mémoire) retombait à false :
+    // _loadFromRemote prenait le chemin « propre » et écrasait IndexedDB (clear+bulkPut)
+    // avec la version distante → perte silencieuse des saisies non poussées (signatures).
+    _DIRTY_KEY: 'pdp_dirty_flag_v1',
+    _persistDirtyFlag(v) {
+        try { if (v) localStorage.setItem(this._DIRTY_KEY, '1'); else localStorage.removeItem(this._DIRTY_KEY); } catch (_) { /* localStorage indisponible : protection intra-session seulement */ }
+    },
     _persistSyncState() {
         try {
             localStorage.setItem(this._SYNC_STATE_KEY, JSON.stringify({
@@ -4942,6 +4955,9 @@ const DataSync = {
     _restoreSyncState() {
         if (this._syncStateRestored) return;
         this._syncStateRestored = true;
+        // Restaure le flag dirty AVANT toute décision de chargement : _loadFromRemote
+        // prendra alors son chemin fusionnant (merge 3-way + re-push) au lieu d'écraser.
+        try { if (localStorage.getItem(this._DIRTY_KEY) === '1') this._dirty = true; } catch (_) {}
         try {
             const raw = localStorage.getItem(this._SYNC_STATE_KEY);
             if (!raw) return;
@@ -5896,7 +5912,7 @@ const DataSync = {
             const m = (e && e.message) || '';
             const compte = (_msalAccount && _msalAccount.name) || '';
             if (e && (e._persistentConflict || e._readError)) {
-                App.toast('Conflit de sauvegarde persistant (un collègue enregistre en même temps) ou réseau instable. Les données restent enregistrées localement et NE sont PAS perdues — réessai automatique au prochain cycle.', 'warning', 12000);
+                App.toast('Conflit de sauvegarde persistant (un collègue enregistre en même temps) ou réseau instable. Les données restent enregistrées localement et NE sont PAS perdues — réessai automatique au prochain cycle, y compris après un rechargement de la page.', 'warning', 12000);
                 if (typeof ActivityLog !== 'undefined') ActivityLog.log('conflit_persistant', { type: e._readError ? 'lecture' : '412' });
                 // _dirty conservé (non remis à false) → le poll relancera la sauvegarde.
             } else if (/\b403\b|forbidden|access.?denied/i.test(m)) {
@@ -6018,6 +6034,7 @@ const DataSync = {
         // replanifier une sauvegarde de suivi (la saisie non poussée n'est pas perdue).
         if ((this._dirtyGen || 0) === genAtCollect) {
             this._dirty = false;
+            this._persistDirtyFlag(false);
             this._updateBadge(false);
         } else {
             clearTimeout(this._saveTimer);
@@ -6032,6 +6049,7 @@ const DataSync = {
 
     markDirty() {
         this._dirty = true;
+        this._persistDirtyFlag(true);
         this._dirtyGen = (this._dirtyGen || 0) + 1; // détection lost-update (cf. _saveOnce #4)
         this._updateBadge(true);
         if (this._connected) {
@@ -6111,7 +6129,7 @@ const DataSync = {
             } else if (sharedRes && !sharedRes.notModified && sharedRes.etag !== undefined) {
                 this._pollEtags.shared = sharedRes.etag;
             }
-            this._dirty = false; this._updateBadge(false);
+            this._dirty = false; this._persistDirtyFlag(false); this._updateBadge(false);
             await this._captureSnapshot();
             this._persistSyncState();
             // Retour = « le distant existe » (pas « on a appliqué du neuf ») : un 304 pur
@@ -11401,10 +11419,48 @@ const App = {
     if (!c._init) this.initCanvas(id); // sécurité si le canvas n'avait pas encore été initialisé
   },
 
+  // Visas de l'inspection commune préalable liée au PDP (tous rôles : EU, EE,
+  // entreprises extérieures). Lus à la volée dans l'ICP (pas de copie dans le
+  // record PDP) : toujours à jour, pas de duplication de base64 dans le JSON.
+  async _getICPVisas(p) {
+    if (!p?.icpId) return [];
+    const v = await db.icps.get(p.icpId).catch(() => null);
+    if (!v) return [];
+    const euSoc = v.euInfo?.nom || p.eu?.nom || '';
+    const eeSoc = v.eeRepresentant?.entrepriseNom || '';
+    const visas = [];
+    const add = (role, nom, fonction, societe, sig) => {
+      const s = sig || {};
+      const n = (nom || s.nom || '').trim();
+      if (n || s.data) visas.push({ role, nom: n, fonction: fonction||'', societe: societe||'', date: s.date||'', data: s.data||null, numero: v.numero||'', dateVisite: v.dateVisite||'' });
+    };
+    add('Représentant EU', v.euParticipant?.nom, v.euParticipant?.fonction, euSoc, v.signatureEU);
+    (v.euParticipants||[]).forEach((pp,i) => add('Participant EU', pp?.nom, pp?.fonction, euSoc, (v.signaturesEUAdd||[])[i]));
+    add('Représentant EE', v.eeRepresentant?.nom, v.eeRepresentant?.fonction, eeSoc, v.signatureEERep);
+    (v.eeParticipants||[]).forEach((pp,i) => add('Participant EE', pp?.nom, pp?.fonction, eeSoc, (v.signaturesEEAdd||[])[i]));
+    (v.entreprisesExt||[]).forEach((ee,i) => add('Entreprise extérieure', ee?.responsable, ee?.fonction, ee?.nom, (v.signaturesEE||[])[i]));
+    return visas;
+  },
+
+  async renderICPVisas() {
+    const grp = document.getElementById('icp-visas-group');
+    const c = document.getElementById('icp-visas-container');
+    if (!grp || !c) return;
+    const visas = await this._getICPVisas(this.currentPDP);
+    if (!visas.length) { grp.style.display = 'none'; c.innerHTML = ''; return; }
+    grp.style.display = '';
+    const src = [visas[0].numero, visas[0].dateVisite ? 'du ' + visas[0].dateVisite : ''].filter(Boolean).join(' ');
+    c.innerHTML = (src ? `<div class="small text-muted mb-2"><i class="bi bi-link-45deg me-1"></i>ICP liée : <strong>${this.esc(src)}</strong></div>` : '') +
+      `<div class="table-responsive"><table class="table table-sm table-bordered align-middle mb-0"><thead><tr><th>Rôle (ICP)</th><th>Nom</th><th>Fonction</th><th>Société</th><th>Date</th><th style="width:170px">Signature</th></tr></thead><tbody>` +
+      visas.map(x => `<tr><td class="small">${this.esc(x.role)}</td><td class="small">${this.esc(x.nom)}</td><td class="small">${this.esc(x.fonction)}</td><td class="small">${this.esc(x.societe)}</td><td class="small">${this.esc(x.date)}</td><td>${x.data ? `<img src="${x.data}" alt="Signature ICP" style="max-height:45px;max-width:160px;object-fit:contain">` : '<span class="text-muted small">—</span>'}</td></tr>`).join('') +
+      `</tbody></table></div>`;
+  },
+
   async renderSignaturesEE() {
     const c = document.getElementById('signatures-ee-container');
     const p = this.currentPDP;
     if (!c || !p) return;
+    this.renderICPVisas().catch(() => {}); // section lecture seule, indépendante des pads
     const ees = p.entreprisesExt||[];
     p.signaturesEE = p.signaturesEE||[];
     while (p.signaturesEE.length < ees.length) p.signaturesEE.push({nom:'',date:'',data:null});
@@ -11423,10 +11479,8 @@ const App = {
       if (v) {
         const eeSoc = v.eeRepresentant?.entrepriseNom || '';
         const personnes = [];
-        // On embarque la signature dessinée dans l'ICP (_srcDate/_srcData) pour la
-        // reprendre lors de la 1re liaison au PDP (sinon elle « disparaissait »).
-        if (v.eeRepresentant?.nom) personnes.push({ nom: v.eeRepresentant.nom, fonction: v.eeRepresentant.fonction||'', societe: eeSoc, _srcDate: v.signatureEERep?.date||'', _srcData: v.signatureEERep?.data||null });
-        (v.eeParticipants||[]).forEach((pp,idx) => { if (pp.nom) { const sa = (v.signaturesEEAdd||[])[idx]||{}; personnes.push({ nom: pp.nom, fonction: pp.fonction||'', societe: eeSoc, _srcDate: sa.date||'', _srcData: sa.data||null }); } });
+        if (v.eeRepresentant?.nom) personnes.push({ nom: v.eeRepresentant.nom, fonction: v.eeRepresentant.fonction||'', societe: eeSoc });
+        (v.eeParticipants||[]).forEach(pp => { if (pp.nom) personnes.push({ nom: pp.nom, fonction: pp.fonction||'', societe: eeSoc }); });
         if (personnes.length) {
           p.signaturesICPEE = p.signaturesICPEE || [];
           const keyOf = x => `${x.nom}|${x.societe}`.toLowerCase();
@@ -11434,9 +11488,11 @@ const App = {
           p.signaturesICPEE = personnes.map(x => {
             const old = oldByKey.get(keyOf(x));
             // Entrée déjà présente sur le PDP -> on respecte son état (édition / effacement).
-            // Sinon (1re liaison) -> on reprend la signature issue de l'ICP.
-            const date = old ? (old.date||'') : (x._srcDate||'');
-            const data = old ? (old.data||null) : (x._srcData||null);
+            // Sinon pad vierge : le PDP se signe en propre — la signature posée sur
+            // l'ICP n'est PAS recopiée (elle reste visible dans la section dédiée
+            // « Signatures issues de l'ICP », cf. renderICPVisas).
+            const date = old ? (old.date||'') : '';
+            const data = old ? (old.data||null) : null;
             return { nom: x.nom, fonction: x.fonction, societe: x.societe, date, data };
           });
           html += personnes.map((x,i) => {
@@ -19393,6 +19449,28 @@ const App = {
       new TableRow({cantSplit:true,children:sigCols.map(c=>_sigCellPDP(c.sig,c.label,cw))}),
     ]}));
 
+    // Signatures issues de l'ICP liée : traçabilité de l'inspection commune préalable,
+    // distinctes des signatures du PDP (elles n'engagent pas sur le contenu du PDP).
+    const icpVisas = await this._getICPVisas(p);
+    if (icpVisas.length) {
+      children.push(new Paragraph({children:[new TextRun({text:`Signatures issues de l'ICP${icpVisas[0].numero?` ${icpVisas[0].numero}`:''}${icpVisas[0].dateVisite?` du ${icpVisas[0].dateVisite}`:''}`,size:22,font:'Calibri',bold:true,color:GREEN})],spacing:{before:250,after:60}}));
+      children.push(new Paragraph({children:[new TextRun({text:'Visas recueillis lors de l\'inspection commune préalable, repris pour traçabilité. Ils ne valent pas signature du présent plan de prévention.',size:18,font:'Calibri',italics:true})],spacing:{after:100}}));
+      const _visaSigCell = (data, w) => {
+        if (data) {
+          try {
+            const raw = atob(data.split(',')[1]);
+            const arr = new Uint8Array(raw.length);
+            for (let j = 0; j < raw.length; j++) arr[j] = raw.charCodeAt(j);
+            return new TableCell({children:[new Paragraph({children:[new ImageRun({data:arr.buffer,transformation:_pngFit(arr,110,40),type:'png'})]})],width:{size:w,type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER});
+          } catch(e) { /* image illisible : cellule vide */ }
+        }
+        return new TableCell({children:[new Paragraph({children:[]})],width:{size:w,type:WidthType.PERCENTAGE}});
+      };
+      const vRows = [new TableRow({cantSplit:true,children:[hCell('Rôle (ICP)',16),hCell('Nom',20),hCell('Fonction',16),hCell('Société',18),hCell('Date',12),hCell('Signature',18)]})];
+      icpVisas.forEach(x => vRows.push(new TableRow({cantSplit:true,children:[cell(x.role,{width:16}),cell(x.nom,{width:20}),cell(x.fonction,{width:16}),cell(x.societe,{width:18}),cell(x.date,{width:12}),_visaSigCell(x.data,18)]})));
+      children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:vRows}));
+    }
+
     // Émargement (nominatif) — uniquement intervenants additionnels, hors signataires principaux
     const _emExport = this._emargementsForExport(p);
     const hasEmargements = _emExport.length > 0;
@@ -20888,6 +20966,30 @@ const App = {
           hasPdpSigImg = true;
         } catch(e) { /* skip */ }
       }
+    }
+    // Signatures issues de l'ICP liée : traçabilité de l'inspection commune préalable,
+    // distinctes des signatures du PDP (elles n'engagent pas sur le contenu du PDP).
+    const icpVisas = await this._getICPVisas(p);
+    if (icpVisas.length) {
+      checkPage(45);
+      y += 3;
+      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(0,0,0);
+      doc.text(`Signatures issues de l'ICP${icpVisas[0].numero?` ${icpVisas[0].numero}`:''}${icpVisas[0].dateVisite?` du ${icpVisas[0].dateVisite}`:''}`, m, y); y+=4;
+      doc.setFontSize(7.5); doc.setFont('helvetica','italic'); doc.setTextColor(80,80,80);
+      doc.text("Visas recueillis lors de l'inspection commune préalable, repris pour traçabilité — ils ne valent pas signature du présent PDP.", m, y); y+=3;
+      doc.setTextColor(0,0,0);
+      const visaSigs = icpVisas.map(x => x.data || null);
+      addTable(['Rôle (ICP)','Nom','Fonction','Société','Date','Signature'],
+        icpVisas.map(x=>[x.role,x.nom,x.fonction,x.societe,x.date,'']),
+        {columnStyles:{5:{cellWidth:30}},
+         bodyStyles:{minCellHeight:12},
+         didDrawCell: (d) => {
+           if (d.section === 'body' && d.column.index === 5 && visaSigs[d.row.index]) {
+             try { const _f = _pngFitMM(visaSigs[d.row.index], d.cell.width-2, d.cell.height-2); doc.addImage(visaSigs[d.row.index], 'PNG', d.cell.x+1, d.cell.y+1, _f.w, _f.h); } catch {}
+           }
+         }
+        }
+      );
     }
     secNum++;
 

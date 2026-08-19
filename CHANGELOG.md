@@ -4,6 +4,17 @@
 
 ---
 
+## Août 2026 (v207)
+
+### Anti-perte de données
+- Les saisies non synchronisées survivent désormais au rechargement de la page : le marqueur « modifications locales en attente » est persisté. Auparavant, après un échec de sauvegarde (réseau instable, conflit avec un collègue) suivi d'un F5, l'application écrasait silencieusement les saisies locales (dont les signatures) par la version serveur — cas signalé le 28/07 (v207).
+
+### Signatures issues de l'ICP
+- Nouvelle section « Signatures issues de l'ICP » (lecture seule) dans la rubrique Signatures du PDP : tous les visas recueillis lors de l'inspection commune préalable liée (représentants et participants EU/EE, entreprises extérieures) y sont affichés avec nom, fonction, société, date et image de signature. Le bloc est repris dans les exports PDF et Word, distinct des signatures du PDP (v207).
+- Les signatures posées sur l'ICP ne sont plus recopiées dans les cases de signature du PDP : le PDP se signe en propre, la traçabilité ICP passe par la nouvelle section dédiée (v207).
+
+---
+
 ## Juillet 2026 (v167 → v197)
 
 ### Intégration inter-apps QSE
