@@ -4,6 +4,14 @@
 
 ---
 
+## Août 2026 (v210)
+
+### Connexion automatique renforcée
+- Quand le cache de connexion Microsoft est vide au démarrage (navigateur qui purge les données du site à la fermeture, profil géré), l'application tente désormais un SSO silencieux via la session Azure AD du navigateur avant de demander un clic sur le bouton nuage ; l'identifiant du dernier compte connecté est mémorisé pour cibler le bon compte (v210).
+- Le journal d'activité trace le mode d'autoconnexion (cache / SSO / retour de redirection) pour diagnostiquer les postes où elle échoue (v210).
+
+---
+
 ## Août 2026 (v208)
 
 ### Correctif critique : duplication massive des fiches

@@ -4150,9 +4150,31 @@ async function _initMSAL() {
     });
     await _msalInstance.initialize();
     const resp = await _msalInstance.handleRedirectPromise();
-    if (resp) { _msalAccount = resp.account; _msalInstance._fromRedirect = true; }
-    else { const accs = _msalInstance.getAllAccounts(); if (accs.length) _msalAccount = accs[0]; }
+    if (resp) { _msalAccount = resp.account; _msalInstance._fromRedirect = true; _msalInstance._acctSource = 'redirect'; }
+    else {
+        const accs = _msalInstance.getAllAccounts();
+        if (accs.length) { _msalAccount = accs[0]; _msalInstance._acctSource = 'cache'; }
+        else {
+            // Cache MSAL vide (navigateur qui purge les données du site à la fermeture,
+            // profil géré…) : tenter le SSO silencieux via la session Azure AD du
+            // navigateur avant de rendre la main au bouton nuage. Le login_hint
+            // mémorisé cible le bon compte quand plusieurs sessions coexistent.
+            try {
+                const hint = localStorage.getItem('pdp_login_hint') || undefined;
+                const sso = await _msalInstance.ssoSilent({ scopes: SP_CONFIG.SCOPES, loginHint: hint });
+                if (sso && sso.account) { _msalAccount = sso.account; _msalInstance._acctSource = 'sso'; }
+            } catch (e) { /* pas de session SSO exploitable : connexion manuelle */ }
+        }
+    }
+    _rememberLoginHint();
     return _msalInstance;
+}
+
+// Mémorise l'identifiant du compte connecté : sert de login_hint au ssoSilent
+// des prochains démarrages (clé distincte du cache MSAL — survit tant que le
+// localStorage n'est pas purgé, et le ssoSilent sans hint reste le repli).
+function _rememberLoginHint() {
+    try { if (_msalAccount && _msalAccount.username) localStorage.setItem('pdp_login_hint', _msalAccount.username); } catch (_) {}
 }
 
 async function _getToken() {
@@ -6312,6 +6334,10 @@ const DataSync = {
                 // B3 : migration de fond des binaires photos (différée, non bloquante, data conservé)
                 setTimeout(() => { App.syncPhotoFilesToSP().catch(()=>{}); }, 8000);
                 if (_msalInstance._fromRedirect) App.toast('Connecté à SharePoint — '+(_msalAccount.name||''));
+                // Trace du mode d'autoconnexion (diagnostic postes où elle échoue).
+                if (typeof ActivityLog !== 'undefined') {
+                    try { ActivityLog.log('autoconnexion', { mode: _msalInstance._acctSource || 'cache', compte: _msalAccount.name || '' }); } catch (_) {}
+                }
                 return 'connected';
             }
             return 'no-handle';
@@ -6338,6 +6364,7 @@ const DataSync = {
             if (_isMobile) { await _msalInstance.loginRedirect({ scopes: SP_CONFIG.SCOPES }); return false; }
             const resp = await _msalInstance.loginPopup({ scopes: SP_CONFIG.SCOPES });
             _msalAccount = resp.account;
+            _rememberLoginHint();
             // Authentifié : vérifier l'accès réel au site QHSE
             const access = await this._checkSiteAccess();
             if (!access.ok) {
