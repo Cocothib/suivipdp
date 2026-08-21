@@ -4,6 +4,15 @@
 
 ---
 
+## Août 2026 (v208)
+
+### Correctif critique : duplication massive des fiches
+- Corrigé : au rechargement de la page avec des modifications en attente (flag persisté introduit en v207), la fusion tournait avec un snapshot vide et re-clonait TOUTE la base sous de nouveaux identifiants à chaque boot (92 ICP réelles → 1 743 copies, 30 PDP → 566, 2 500 entreprises → 66 660 ; incident du 21/08). Une fiche locale dont l'uid existe déjà côté serveur est désormais fusionnée champ à champ avec sa jumelle distante au lieu d'être dupliquée (v208).
+- Auto-réparation : à chaque fusion, les clones stricts (contenu identique hors id/uid/numéro) sont purgés de façon déterministe — un poste encore pollué se nettoie seul au premier merge ; l'exemplaire conservé privilégie les photos locales, l'uid d'origine et le numéro le plus ancien (v208).
+- Les liens PDP → ICP (icpId) et ICP → entreprise (entrepriseId du représentant EE) suivent désormais les réattributions d'identifiants lors des fusions, comme le faisaient déjà les liens ICP → PDP et PDP → entreprises (v208).
+
+---
+
 ## Août 2026 (v207)
 
 ### Anti-perte de données

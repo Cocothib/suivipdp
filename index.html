@@ -5459,14 +5459,38 @@ const DataSync = {
         for (const entry of localAdded) {
             const newEntry = { ...entry };
             let keyClash = remoteByKey.has(keyOf(newEntry));
-            // Clé d'identité OPAQUE (uid) uniquement : deux records DISTINCTS ne
-            // doivent jamais partager la même clé → régénérer l'uid du nouveau
-            // préserve les deux (sinon le set() écraserait le record distant). Cas
-            // quasi nul avec un vrai uid ; couvre les uid hérités dérivés d'un
-            // numéro en collision. JAMAIS pour une clé sémantique ('key' settings).
+            // MÊME CLÉ que le distant. ATTENTION : « ajouté localement » ne veut pas
+            // dire « nouveau » — au boot avec flag dirty, le snapshot est vide et
+            // TOUTES les fiches locales (déjà synchronisées) passent par ici. Les
+            // cloner sous un nouvel uid doublait la base entière à chaque
+            // rechargement (incident du 21/08). Règles :
+            //   - uid RÉEL identique → même fiche, toujours : fusion champ à champ.
+            //   - uid legacy identique + contenu identique → même fiche : fusion.
+            //   - uid legacy identique + contenu DIFFÉRENT → deux fiches distinctes
+            //     partageant un uid dérivé d'un numéro en collision (cas d'origine) :
+            //     régénérer l'uid du local pour préserver les deux.
+            //   - clé 'id' (entreprises) + contenu identique (clone) → même record.
+            // JAMAIS de régénération pour une clé sémantique ('key' settings).
             if (keyClash && keyField === 'uid') {
+                const rem = remoteByKey.get(keyOf(newEntry));
+                const isLegacy = String(newEntry.uid || '').startsWith('legacy-');
+                if (!isLegacy || this._isCloneOf(newEntry, rem)) {
+                    const merged = fieldLevel
+                        ? this._mergeRecord(newEntry, snapByKey.get(keyOf(newEntry)), rem, { fieldLevel: true, conflicts, basePath: `[id=${newEntry.id}]` })
+                        : newEntry;
+                    merged.id = (typeof rem?.id === 'number') ? rem.id : newEntry.id;
+                    if (typeof newEntry.id === 'number' && typeof merged.id === 'number' && merged.id !== newEntry.id) {
+                        remap[newEntry.id] = merged.id;
+                    }
+                    remoteByKey.set(keyOf(merged), merged);
+                    continue;
+                }
                 newEntry[keyField] = _uid();
                 keyClash = false;
+            } else if (keyClash && keyField === 'id' && this._isCloneOf(newEntry, remoteByKey.get(keyOf(newEntry)))) {
+                // Clone strict d'un record distant (même id, même contenu) : garder
+                // le distant tel quel, ne surtout pas ré-insérer sous un nouvel id.
+                continue;
             }
             const idClash = newEntry.id != null && idSet.has(newEntry.id);
             if (autoId && (keyClash || idClash || newEntry.id == null)) {
@@ -5497,6 +5521,84 @@ const DataSync = {
             }
         }
         return arr;
+    },
+
+    // Sérialisation stable (clés triées) : les records issus du JSON distant et
+    // ceux relus de Dexie n'ont pas le même ordre de clés → JSON.stringify nu
+    // donnerait des faux "différents" lors de la comparaison de contenu.
+    _stableStringify(v) {
+        if (v === undefined) return 'null';
+        if (Array.isArray(v)) return '[' + v.map(x => this._stableStringify(x)).join(',') + ']';
+        if (v && typeof v === 'object') return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + this._stableStringify(v[k])).join(',') + '}';
+        return JSON.stringify(v);
+    },
+
+    // Signature de contenu d'un record, hors champs volatils : id (PK locale par
+    // poste), uid (régénéré par l'ancien bug de clonage), numero (renuméroté par
+    // _dedupeNumeros), photos (absentes des copies passées par le distant, cf.
+    // _stripPhotosForRemote) et dateModification (max() posé par les merges
+    // successifs — deux clones peuvent ne différer que par elle).
+    _cloneSignature(rec) {
+        const { id, uid, numero, photos, dateModification, ...rest } = rec || {};
+        return this._stableStringify(rest);
+    },
+    _isCloneOf(a, b) {
+        if (!a || !b) return false;
+        return this._cloneSignature(a) === this._cloneSignature(b);
+    },
+
+    // Purge des CLONES STRICTS (incident du 21/08 : le merge à snapshot vide
+    // re-clonait toute la base sous de nouveaux uid à chaque rechargement —
+    // 92 ICP réelles → 1743). Deux records au contenu identique (hors id/uid/
+    // numero/photos) sont la MÊME fiche : on n'en garde qu'un. Choix du gardé :
+    // le plus de photos (préserver les données locales), puis uid legacy
+    // (l'original d'avant correctif), puis numero le plus bas (numérotation
+    // d'origine, les clones ayant été renumérotés vers le haut), puis id min.
+    // Déterministe → converge à l'identique sur tous les postes. Retourne la
+    // table de remap des ids supprimés vers l'id conservé (refs croisées).
+    _collapseClones(arr, label) {
+        if (!Array.isArray(arr) || arr.length < 2) return { arr, remap: {} };
+        const groups = new Map();
+        for (const e of arr) {
+            const sig = this._cloneSignature(e);
+            if (!groups.has(sig)) groups.set(sig, []);
+            groups.get(sig).push(e);
+        }
+        if (groups.size === arr.length) return { arr, remap: {} };
+        const numKey = e => {
+            const m = /^[A-Z]+-(\d{6})-(\d+)$/.exec(e.numero || '');
+            return m ? (m[1] + '-' + m[2].padStart(8, '0')) : '999999-99999999';
+        };
+        const out = [];
+        const remap = {};
+        let dropped = 0;
+        for (const g of groups.values()) {
+            if (g.length === 1) { out.push(g[0]); continue; }
+            const best = [...g].sort((a, b) => {
+                const pa = Array.isArray(a.photos) ? a.photos.length : 0;
+                const pb = Array.isArray(b.photos) ? b.photos.length : 0;
+                if (pa !== pb) return pb - pa;
+                const la = String(a.uid || '').startsWith('legacy-') ? 0 : 1;
+                const lb = String(b.uid || '').startsWith('legacy-') ? 0 : 1;
+                if (la !== lb) return la - lb;
+                const na = numKey(a), nb = numKey(b);
+                if (na !== nb) return na < nb ? -1 : 1;
+                return (a.id || 0) - (b.id || 0);
+            })[0];
+            // Conserver la trace de modification la plus récente du groupe.
+            const dms = g.map(e => e.dateModification).filter(Boolean);
+            if (dms.length) best.dateModification = dms.sort().pop();
+            out.push(best);
+            for (const e of g) {
+                if (e === best) continue;
+                if (e.id != null && e.id !== best.id) remap[e.id] = best.id;
+                dropped++;
+            }
+        }
+        if (dropped && typeof ActivityLog !== 'undefined') {
+            try { ActivityLog.log('clones_purges', { store: label, supprimes: dropped, restants: out.length }); } catch (_) {}
+        }
+        return { arr: out, remap };
     },
 
     // Unicité des `numero` après fusion. Le numero est dérivé de l'id Dexie LOCAL
@@ -5774,6 +5876,52 @@ const DataSync = {
                         }
                     }
                 }
+            }
+        }
+
+        // AUTO-RÉPARATION (incident du 21/08) : purge des clones stricts créés par
+        // l'ancien bug de merge (base dupliquée sous de nouveaux uid à chaque boot
+        // dirty). Déterministe → tous les postes convergent vers la même base
+        // purgée, et un poste encore pollué se nettoie au premier merge.
+        // Ordre IMPORTANT : les clones d'ICP peuvent ne différer que par leur pdpId
+        // (chacun pointant un clone différent du même PDP) — idem PDP→entreprise.
+        // On purge donc entreprises → PDP → ICP en re-câblant les références entre
+        // chaque étape, pour que les signatures convergent dans la même passe.
+        const entCol = this._collapseClones(entRes.merged, 'entreprises');
+        entRes.merged = entCol.arr;
+        if (Object.keys(entCol.remap).length) {
+            for (const pdp of pdpRes.merged) {
+                if (Array.isArray(pdp.entreprisesExt)) {
+                    for (const ee of pdp.entreprisesExt) {
+                        if (ee._repoId != null && entCol.remap[ee._repoId] != null) ee._repoId = entCol.remap[ee._repoId];
+                    }
+                }
+            }
+            for (const icp of icpRes.merged) {
+                if (icp.eeRepresentant?.entrepriseId != null && entCol.remap[icp.eeRepresentant.entrepriseId] != null) {
+                    icp.eeRepresentant.entrepriseId = entCol.remap[icp.eeRepresentant.entrepriseId];
+                }
+            }
+        }
+        const pdpCol = this._collapseClones(pdpRes.merged, 'pdps');
+        pdpRes.merged = pdpCol.arr;
+        if (Object.keys(pdpCol.remap).length) {
+            for (const icp of icpRes.merged) {
+                if (icp.pdpId != null && pdpCol.remap[icp.pdpId] != null) icp.pdpId = pdpCol.remap[icp.pdpId];
+            }
+        }
+        const icpCol = this._collapseClones(icpRes.merged, 'icps');
+        icpRes.merged = icpCol.arr;
+        if (Object.keys(icpCol.remap).length) {
+            for (const pdp of pdpRes.merged) {
+                if (pdp.icpId != null && icpCol.remap[pdp.icpId] != null) pdp.icpId = icpCol.remap[pdp.icpId];
+            }
+        }
+        // Propagation manquante avant ce correctif : pdp.icpId doit suivre les ids
+        // d'ICP réattribués par _mergeStore (seul icps.pdpId était propagé).
+        if (Object.keys(icpRes.remap).length) {
+            for (const pdp of pdpRes.merged) {
+                if (pdp.icpId != null && icpRes.remap[pdp.icpId] != null) pdp.icpId = icpRes.remap[pdp.icpId];
             }
         }
 
