@@ -3938,6 +3938,24 @@ db.version(35).stores({
   settings: 'key'
 });
 
+// v36 : table `syncstate` = état de synchronisation PUREMENT LOCAL (flag dirty).
+// Volontairement distincte de `settings`, qui est collectée dans shared-data.json
+// et vidée par le clear+bulkPut du cycle de sync : un flag local n'a rien à faire
+// sur SharePoint, et il serait effacé au premier merge. Ici il vit dans la MÊME
+// unité de purge que les données qu'il protège (cf. _persistDirtyFlag).
+db.version(36).stores({
+  pdps: '++id, numero, titre, statut, dateDebut, dateFin, dateCreation, dateModification',
+  entreprises: '++id, nom, siret',
+  icps: '++id, numero, site, dateVisite, pdpId, dateCreation',
+  sites: '++id, nom, entite',
+  fds: '++id, nom, standard',
+  salaries_habilitations: '++id, &[nom+prenom], nom, prenom, service, poste, dateModification',
+  signataires: '++id, &[nom+fonction], nom, fonction, updated_at, usage_count',
+  media: '&ref, ts',
+  syncstate: '&key',
+  settings: 'key'
+});
+
 // ========================================
 // CACHE COURT DES LECTURES DE TABLES
 // ========================================
@@ -4955,8 +4973,88 @@ const DataSync = {
     // _loadFromRemote prenait le chemin « propre » et écrasait IndexedDB (clear+bulkPut)
     // avec la version distante → perte silencieuse des saisies non poussées (signatures).
     _DIRTY_KEY: 'pdp_dirty_flag_v1',
+    // Le flag est écrit dans DEUX stockages : localStorage (lecture synchrone au
+    // boot) ET la table Dexie `syncstate`. Raison : localStorage et IndexedDB sont
+    // purgeables INDÉPENDAMMENT (profil géré, nettoyeur de navigateur, réglage de
+    // confidentialité). Si seul localStorage était utilisé et qu'il était vidé
+    // alors qu'IndexedDB contient des saisies non poussées, le flag retombait à
+    // false, _loadFromRemote prenait le chemin « propre » et écrasait ces saisies
+    // par la version distante (clear+bulkPut) — perte silencieuse, famille de bug
+    // de la v207. Le miroir Dexie vit dans la même unité de purge que les données
+    // qu'il protège : si les données survivent, le flag survit avec elles.
+    // Écriture Dexie non attendue (markDirty est synchrone et appelé partout) :
+    // localStorage assure la protection immédiate, Dexie la protection au boot.
     _persistDirtyFlag(v) {
         try { if (v) localStorage.setItem(this._DIRTY_KEY, '1'); else localStorage.removeItem(this._DIRTY_KEY); } catch (_) { /* localStorage indisponible : protection intra-session seulement */ }
+        try {
+            const p = v ? db.syncstate.put({ key: 'dirty', value: true, ts: new Date().toISOString() })
+                        : db.syncstate.delete('dirty');
+            if (p && p.catch) p.catch(e => console.warn('DataSync: miroir Dexie du flag dirty indisponible', e));
+        } catch (e) { console.warn('DataSync: miroir Dexie du flag dirty indisponible', e); }
+    },
+    // --- Persistance du SNAPSHOT de fusion (cause racine de l'incident du 21/08) ---
+    // _loadedSnapshot est la référence « état au dernier sync » du merge 3-way : elle
+    // seule permet de distinguer « j'ai modifié ce champ » de « le collègue l'a
+    // modifié », et « j'ai supprimé cette fiche » de « le collègue l'a ajoutée ».
+    // Elle ne vivait qu'en mémoire, alors que le flag dirty, lui, survivait au
+    // rechargement : au boot dirty, le merge repartait donc d'une référence VIDE.
+    // Conséquences en chaîne : toutes les fiches locales classées « ajouts locaux »
+    // (chemin de clonage du 21/08), tout écart local/distant vu comme un conflit
+    // bilatéral arbitré à l'aveugle sur la date de la fiche entière, et toute
+    // suppression locale indétectable donc annulée. Persister le snapshot à côté
+    // des données supprime ces trois effets d'un coup : c'est le correctif de fond,
+    // le garde-fou de volume n'étant qu'un filet en aval.
+    // Écriture non attendue (plusieurs Mo, hors du chemin critique) ; en cas
+    // d'échec (quota), on efface l'entrée plutôt que de laisser un snapshot périmé
+    // qui serait pire que pas de snapshot du tout.
+    _persistSnapshot() {
+        try {
+            const snap = this._loadedSnapshot;
+            const p = snap
+                ? db.syncstate.put({ key: 'snapshot', value: snap, ts: new Date().toISOString() })
+                : db.syncstate.delete('snapshot');
+            if (p && p.catch) p.catch(e => {
+                console.warn('DataSync: snapshot non persisté (quota ?)', e);
+                try { db.syncstate.delete('snapshot').catch(() => {}); } catch (_) {}
+            });
+        } catch (e) { console.warn('DataSync: snapshot non persisté', e); }
+    },
+
+    // Restauration de l'état LOCAL de synchronisation depuis Dexie : flag dirty et
+    // snapshot de fusion. Asynchrone, donc séparée de _restoreSyncState (synchrone).
+    // Pour le flag : OU logique avec ce qui a été lu dans localStorage — il vaut
+    // true dès que l'UNE des deux sources le dit, jamais l'inverse : on ne
+    // « nettoie » pas un flag dirty sur la foi d'un stockage qui a pu être purgé.
+    _localStateRestored: false,
+    async _restoreLocalStateFromDb() {
+        if (this._localStateRestored) return;
+        this._localStateRestored = true;
+        try {
+            const row = await db.syncstate.get('dirty');
+            if (row && row.value === true && !this._dirty) {
+                this._dirty = true;
+                this._persistDirtyFlag(true); // re-sème localStorage s'il a été purgé
+                this._updateBadge(true);
+                console.warn('DataSync: modifications locales non synchronisées retrouvées dans IndexedDB (localStorage purgé) — chemin fusionnant activé.');
+                if (typeof ActivityLog !== 'undefined') ActivityLog.log('dirty_restaure_indexeddb', { ts: row.ts || '' });
+            }
+        } catch (e) { console.warn('DataSync: lecture du flag dirty en base impossible', e); }
+        try {
+            if (!this._loadedSnapshot) {
+                const row = await db.syncstate.get('snapshot');
+                if (row && typeof row.value === 'string' && row.value.length > 2) {
+                    this._loadedSnapshot = row.value;
+                    console.info('DataSync: snapshot de fusion restauré depuis IndexedDB (' + row.ts + ') — merge 3-way sur référence réelle.');
+                    if (typeof ActivityLog !== 'undefined') ActivityLog.log('snapshot_restaure', { ts: row.ts || '' });
+                } else if (this._dirty) {
+                    // Dirty SANS snapshot : c'est exactement la configuration du 21/08.
+                    // On ne peut pas la refuser (il faut bien fusionner), mais elle
+                    // doit être tracée — et le garde-fou de volume reste en aval.
+                    console.warn('DataSync: boot avec modifications locales mais SANS snapshot de référence — fusion dégradée, garde-fou de volume actif.');
+                    if (typeof ActivityLog !== 'undefined') ActivityLog.log('boot_dirty_sans_snapshot', {});
+                }
+            }
+        } catch (e) { console.warn('DataSync: lecture du snapshot en base impossible', e); }
     },
     _persistSyncState() {
         try {
@@ -5062,6 +5160,7 @@ const DataSync = {
             console.warn('DataSync: snapshot KO', e);
             this._loadedSnapshot = null;
         }
+        this._persistSnapshot(); // survit au rechargement (cf. _persistSnapshot)
     },
 
     // ---- Helpers internes pour le merge 3-way par champ ----
@@ -5569,6 +5668,67 @@ const DataSync = {
         return this._cloneSignature(a) === this._cloneSignature(b);
     },
 
+    // ---- GARDE-FOU ANTI-DUPLICATION (incident du 21/08) ----
+    // Filet de sécurité de dernier recours, indépendant de la logique de merge :
+    // il ne cherche PAS à comprendre pourquoi la base a grossi, seulement à
+    // refuser d'écrire un résultat aberrant. Le 21/08, chaque rechargement
+    // clonait la base entière (92 ICP → 1743 en quelques cycles) sans qu'aucune
+    // alerte ne se déclenche. Un merge SAIN ne peut pas faire exploser un
+    // effectif : au pire il additionne les fiches réellement ajoutées de part et
+    // d'autre depuis le dernier sync — quelques unités, jamais un doublement.
+    // Une croissance massive en UN seul cycle est donc la signature d'un clonage.
+    // Bloquer une synchronisation, c'est réparable (les données locales restent
+    // là, _dirty est conservé, on réessaie) ; doubler la base, beaucoup moins.
+    //
+    // Bypass ponctuel si le blocage est un faux positif légitime (deux imports
+    // massifs concurrents, p. ex.) : taper DataSync.autoriserProchainMerge() dans
+    // la console. Volontairement à usage unique — pas de désactivation permanente.
+    _mergeGuardBypassOnce: false,
+    _MERGE_GUARD_RATIO: 1.3,   // +30 % en un cycle
+    _MERGE_GUARD_MARGE: 10,    // tolérance absolue (petites collections)
+    autoriserProchainMerge() {
+        this._mergeGuardBypassOnce = true;
+        App.toast('Prochaine synchronisation autorisée sans contrôle de volume. Vérifiez le nombre de fiches juste après.', 'warning', 9000);
+        return 'Garde-fou désactivé pour la PROCHAINE synchronisation uniquement.';
+    },
+    _assertNoMergeExplosion(current, remotes, out) {
+        const lots = [
+            { label: 'PDP',         local: current.pdps,        remote: remotes.pdp?.pdps,          merged: out.pdp.pdps },
+            { label: 'ICP',         local: current.icps,        remote: remotes.icp?.icps,          merged: out.icp.icps },
+            { label: 'entreprises', local: current.entreprises, remote: remotes.shared?.entreprises, merged: out.shared.entreprises },
+        ];
+        const n = a => (Array.isArray(a) ? a.length : 0);
+        const alertes = [];
+        for (const l of lots) {
+            // Référence = le plus GROS des deux côtés : les ajouts locaux sont déjà
+            // dans `current` et les ajouts distants dans `remotes`, donc un merge
+            // légitime reste au voisinage de ce maximum.
+            const base = Math.max(n(l.local), n(l.remote));
+            const plafond = Math.ceil(base * this._MERGE_GUARD_RATIO) + this._MERGE_GUARD_MARGE;
+            if (n(l.merged) > plafond) alertes.push(`${l.label} ${base} → ${n(l.merged)}`);
+        }
+        if (!alertes.length) return;
+
+        if (this._mergeGuardBypassOnce) {
+            this._mergeGuardBypassOnce = false; // usage unique, consommé ici
+            console.warn('DataSync: garde-fou anti-duplication contourné (autorisation ponctuelle) —', alertes.join(' ; '));
+            if (typeof ActivityLog !== 'undefined') ActivityLog.log('garde_duplication_contournee', { detail: alertes.join(' ; ') });
+            return;
+        }
+
+        const detail = alertes.join(' ; ');
+        App.toast(
+            `Synchronisation BLOQUÉE par sécurité : la fusion multiplierait anormalement les fiches (${detail}). ` +
+            `C'est la signature du bug de duplication du 21/08. Vos données locales sont intactes et ne sont PAS perdues. ` +
+            `Ne rechargez pas en boucle : prévenez l'administrateur de l'application.`,
+            'danger', 30000);
+        if (typeof ActivityLog !== 'undefined') ActivityLog.log('garde_duplication_declenchee', { detail });
+        console.error('DataSync: merge refusé (explosion d\'effectif) —', detail);
+        const err = new Error(`Fusion refusée par le garde-fou anti-duplication (${detail})`);
+        err._mergeGuard = true;   // non retryable : la boucle de retry de save() ne doit PAS insister
+        throw err;
+    },
+
     // Purge des CLONES STRICTS (incident du 21/08 : le merge à snapshot vide
     // re-clonait toute la base sous de nouveaux uid à chaque rechargement —
     // 92 ICP réelles → 1743). Deux records au contenu identique (hors id/uid/
@@ -5958,7 +6118,7 @@ const DataSync = {
         this._dedupeNumeros(pdpRes.merged, 'PDP');
         this._dedupeNumeros(icpRes.merged, 'ICP');
 
-        return {
+        const out = {
             pdp:    { _meta: remotes.pdp?._meta    || null, pdps:        pdpRes.merged },
             icp:    { _meta: remotes.icp?._meta    || null, icps:        icpRes.merged },
             shared: {
@@ -5973,6 +6133,11 @@ const DataSync = {
                 signataires:            this._mergeByKey(current.signataires,            snapshot.signataires,            remotes.shared?.signataires            || [], r => (r.nom||'').toLowerCase().trim()+'|'+(r.fonction||'').toLowerCase().trim()),
             },
         };
+        // Dernier verrou avant TOUTE écriture (locale comme distante) : si la
+        // fusion a multiplié les effectifs, on lève — l'appelant (_saveOnce /
+        // _loadFromRemote) n'écrit alors rien et conserve le flag dirty.
+        this._assertNoMergeExplosion(current, remotes, out);
+        return out;
     },
 
     async _writeLocalData({ pdp, icp, shared }) {
@@ -6081,7 +6246,12 @@ const DataSync = {
             console.error('DataSync: erreur sauvegarde SharePoint', e);
             const m = (e && e.message) || '';
             const compte = (_msalAccount && _msalAccount.name) || '';
-            if (e && (e._persistentConflict || e._readError)) {
+            if (e && e._mergeGuard) {
+                // Garde-fou anti-duplication : il a déjà affiché un message détaillé
+                // et durable. Ne pas le recouvrir par le toast générique, et ne pas
+                // réessayer — l'anomalie ne se résoudra pas d'elle-même.
+                if (typeof ActivityLog !== 'undefined') ActivityLog.log('sauvegarde_bloquee_garde_duplication', {});
+            } else if (e && (e._persistentConflict || e._readError)) {
                 App.toast('Conflit de sauvegarde persistant (un collègue enregistre en même temps) ou réseau instable. Les données restent enregistrées localement et NE sont PAS perdues — réessai automatique au prochain cycle, y compris après un rechargement de la page.', 'warning', 12000);
                 if (typeof ActivityLog !== 'undefined') ActivityLog.log('conflit_persistant', { type: e._readError ? 'lecture' : '412' });
                 // _dirty conservé (non remis à false) → le poll relancera la sauvegarde.
@@ -6199,6 +6369,7 @@ const DataSync = {
             salaries_habilitations: sharedData.salaries_habilitations,
             signataires: sharedData.signataires,
         });
+        this._persistSnapshot(); // référence de fusion disponible même après rechargement
         // Lost-update (#4) : ne remettre _dirty=false que si AUCUNE mutation n'est
         // survenue pendant la fenêtre collecte→écriture. Sinon conserver _dirty et
         // replanifier une sauvegarde de suivi (la saisie non poussée n'est pas perdue).
@@ -6232,6 +6403,13 @@ const DataSync = {
     async _loadFromRemote() {
         // Restaure etags + versions de la session précédente → permet le 304 au boot.
         this._restoreSyncState();
+        // Puis l'état local côté IndexedDB : flag dirty (rattrape le cas
+        // « localStorage purgé, données locales non poussées toujours présentes »)
+        // et snapshot de fusion. DOIT rester avant le test `if (this._dirty)`
+        // ci-dessous : sinon on repart sur le chemin écrasant alors que des saisies
+        // attendent d'être fusionnées, et surtout le merge du chemin dirty
+        // repartirait d'une référence vide (cause racine du 21/08).
+        await this._restoreLocalStateFromDb();
         try {
             // Modifs locales en attente (ex. saisies hors-ligne avant reconnexion) :
             // fusionner avec le distant au lieu d'écraser la base locale, puis
@@ -8615,6 +8793,13 @@ const App = {
     await this.refreshMaintenanceBanner();
     setInterval(() => this.refreshMaintenanceBanner(), SP_CONFIG.PRESENCE_INTERVAL_MS);
     window.addEventListener('resize', () => this._positionMaintenanceBar());
+    // Restaurer d'abord l'état local persisté (flag dirty + snapshot). Indispensable
+    // ici et pas seulement dans _loadFromRemote : hors ligne, ce dernier n'est jamais
+    // atteint. Sans cette ligne, _captureSnapshot() écraserait le snapshot persisté
+    // par l'état COURANT — qui contient les saisies non poussées. Elles seraient alors
+    // vues comme « inchangées depuis le dernier sync » au retour du réseau, donc
+    // écrasées par la version distante. Idempotent (garde _localStateRestored).
+    await DataSync._restoreLocalStateFromDb();
     // Capturer le snapshot initial si pas encore fait (mode offline, premier run)
     if (!DataSync._loadedSnapshot) await DataSync._captureSnapshot();
     if (DataSync.isFirstLaunch()) await DataSync.showFirstLaunchGuide();

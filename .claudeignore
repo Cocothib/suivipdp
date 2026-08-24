@@ -1,0 +1,7 @@
+index.backup-*.html
+*.pptx
+*.docx
+*.xlsx
+*.jpg
+.git/
+captures_formation/
