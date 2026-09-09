@@ -1,5 +1,14 @@
 # Changelog SuiviPDP — historique simplifié
 
+## 2026-09-09 — Proxy Sellsy : authentification Microsoft
+
+- `sellsy-proxy.php` vérifie désormais le jeton d'identité Azure AD de l'utilisateur (signature RS256 via les clés du tenant, émetteur, audience = application Suivi*, tenant, expiration). L'en-tête `Authorization` étant retiré par PHP-CGI sur OVH, le jeton est aussi envoyé dans `X-Ms-Token`.
+- Mode piloté par `sellsy-auth.txt` (commité, déployé avec l'app) : `log` = vérifie et journalise sans bloquer (mode actuel, période d'observation le temps que les téléphones mettent à jour le service worker), `microsoft` = jeton obligatoire, `off` = retour arrière immédiat.
+- Action `co_all` : annuaire compact des sociétés (id, nom, type, SIREN, SIRET, NAF, archivée), cache disque 6 h ; action `auth_check` pour tester un jeton.
+- `index.html` : `_getIdToken()` (MSAL, `forceRefresh` sur 401), `SellsyAPI._call` envoie le jeton et réessaie une fois ; message explicite si l'utilisateur n'est pas connecté.
+- Utilisé aussi par SuiviMarché (même hébergement, même inscription Azure AD).
+
+
 Évolutions de l'application SuiviPDP de mars à juillet 2026 (versions v1 à v194). SuiviPDP gère les Plans De Prévention (PDP) et les Inspections Communes Préalables (ICP) réalisés avec les entreprises extérieures. Sigles utilisés : EU = Entreprise Utilisatrice (le client), EE = Entreprise Extérieure (l'intervenant), OPP = numéro d'opportunité commerciale Sellsy, FDS = Fiche de Données de Sécurité, FR-01 = fiche réflexe environnement, CNPP = modèle officiel de permis de feu (assureur AXA/CNPP).
 
 ---
