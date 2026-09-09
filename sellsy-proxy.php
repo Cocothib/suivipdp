@@ -16,6 +16,10 @@
  *   GET ?action=opp_all[&refresh=1]  -> liste complete agregee (champs reduits),
  *                                       cache disque 6h : 1 requete cote mobile
  *                                       au lieu de ~50 paginees
+ *   GET ?action=co_all[&refresh=1]   -> annuaire compact des societes (id, nom, type,
+ *                                       SIREN, SIRET, NAF, archivee), agrege cote
+ *                                       serveur, cache disque 6h (utilise par SuiviMarche
+ *                                       pour rapprocher les prospects par SIREN)
  *
  * Credentials are read from sellsy-config.php (NOT committed).
  */
@@ -174,6 +178,50 @@ try {
             ]);
             // Ne jamais figer 6h une liste incomplète (rate-limit/timeout en cours de pagination)
             if ($complete && count($all) > 0) @file_put_contents($oppsCacheFile, $res);
+            break;
+        case 'co_all':
+            // Annuaire compact de toutes les societes (~100 pages de 100), cache disque 6h.
+            $cosCacheFile = __DIR__ . '/.sellsy-cos.cache';
+            $maxAge = 6 * 3600;
+            $force = !empty($_GET['refresh']);
+            if (!$force && file_exists($cosCacheFile) && (time() - filemtime($cosCacheFile)) < $maxAge) {
+                echo file_get_contents($cosCacheFile);
+                exit;
+            }
+            @set_time_limit(280);
+            $all = [];
+            $offset = 0; $limit = 100; $total = null;
+            while (count($all) < 30000) {
+                $body = ['filters' => new stdClass()];
+                $resp = sellsy_call('POST', "/companies/search?limit=$limit&offset=$offset", $token, $body);
+                $page = json_decode($resp, true);
+                if (!is_array($page) || empty($page['data']) || !is_array($page['data'])) break;
+                if ($total === null && isset($page['pagination']['total'])) $total = (int)$page['pagination']['total'];
+                foreach ($page['data'] as $c) {
+                    $lf = (isset($c['legal_france']) && is_array($c['legal_france'])) ? $c['legal_france'] : [];
+                    $all[] = [
+                        'id' => $c['id'] ?? null,
+                        'nom' => $c['name'] ?? '',
+                        'type' => $c['type'] ?? '',
+                        'siren' => $lf['siren'] ?? '',
+                        'siret' => $lf['siret'] ?? '',
+                        'naf' => $lf['ape_naf_code'] ?? '',
+                        'archivee' => !empty($c['is_archived']),
+                        'maj' => $c['updated_at'] ?? ($c['created'] ?? ''),
+                    ];
+                }
+                if (count($page['data']) < $limit) break;
+                $offset += $limit;
+                if ($total !== null && count($all) >= $total) break;
+            }
+            $complete = ($total === null || count($all) >= $total);
+            $res = json_encode([
+                'items' => $all,
+                'total' => $total !== null ? $total : count($all),
+                'complete' => $complete,
+                'cached_at' => time(),
+            ]);
+            if ($complete && count($all) > 0) @file_put_contents($cosCacheFile, $res);
             break;
         default:
             http_response_code(404);
