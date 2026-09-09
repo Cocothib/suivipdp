@@ -4210,6 +4210,17 @@ async function _getToken() {
     }
 }
 
+// Jeton d'identité Microsoft (id_token, audience = cette application) : présenté au proxy
+// Sellsy qui vérifie signature, tenant, audience et expiration. Silencieux ; null si non connecté.
+async function _getIdToken(force = false) {
+    if (!_msalInstance) { try { await _initMSAL(); } catch (_) { return null; } }
+    if (!_msalAccount) return null;
+    try {
+        const r = await _msalInstance.acquireTokenSilent({ scopes: SP_CONFIG.SCOPES, account: _msalAccount, forceRefresh: !!force });
+        return r && r.idToken ? r.idToken : null;
+    } catch (e) { console.warn('MSAL id_token :', e && e.errorCode); return null; }
+}
+
 // Token séparé pour Mail.Send — silencieux, ne casse rien si refusé par l'admin
 async function _getMailToken() {
     if (!_msalInstance) await _initMSAL();
@@ -7102,9 +7113,11 @@ const SellsyAPI = {
   isConfigured() {
     return !!this.getProxyUrl();
   },
-  async _call(params, timeoutMs = 30000) {
+  async _call(params, timeoutMs = 30000, _retry = true) {
     const url = this.getProxyUrl() + '?' + new URLSearchParams(params).toString();
     const _key = localStorage.getItem('sellsyProxyKey');
+    // Jeton Microsoft : le proxy l'exige (sauf healthcheck). Rafraîchi une fois sur 401.
+    const _idTok = params && params.action === 'healthcheck' ? null : await _getIdToken(!_retry);
     // Timeout (P0.1) : un proxy Sellsy injoignable ne doit pas figer l'UI.
     // 30s (et non 10s) : le proxy PHP → API Sellsy est multi-saut et l'auto-
     // remplissage enchaîne opportunity + adresses/contacts en parallèle ; 10s
@@ -7113,7 +7126,7 @@ const SellsyAPI = {
     const _timer = _ctrl ? setTimeout(() => { try { _ctrl.abort(); } catch (_) {} }, timeoutMs) : null;
     let res;
     try {
-      res = await fetch(url, { method: 'GET', credentials: 'omit', headers: _key ? { 'X-Api-Key': _key } : {}, signal: _ctrl ? _ctrl.signal : undefined });
+      res = await fetch(url, { method: 'GET', credentials: 'omit', headers: Object.assign({}, _key ? { 'X-Api-Key': _key } : {}, _idTok ? { 'Authorization': 'Bearer ' + _idTok, 'X-Ms-Token': _idTok } : {}), signal: _ctrl ? _ctrl.signal : undefined });
     } catch (e) {
       if (e && e.name === 'AbortError') throw new Error('Délai dépassé : le proxy Sellsy ne répond pas (réseau lent ou serveur indisponible).');
       throw e;
@@ -7121,6 +7134,10 @@ const SellsyAPI = {
     const text = await res.text();
     let data;
     try { data = JSON.parse(text); } catch { throw new Error('Réponse non-JSON du proxy : ' + text.slice(0,120)); }
+    if (res.status === 401 && data && data.auth === 'microsoft') {
+      if (_retry && _msalAccount) return this._call(params, timeoutMs, false);   // jeton périmé : un nouvel essai avec un jeton rafraîchi
+      throw new Error(_msalAccount ? 'Sellsy : jeton Microsoft refusé par le proxy (' + (data.reason || '') + '). Déconnectez-vous puis reconnectez-vous.' : 'Sellsy : connexion Microsoft requise. Cliquez sur le bouton nuage pour vous connecter, puis réessayez.');
+    }
     if (!res.ok) {
       // L'API Sellsy renvoie souvent {error:{code,message,errors:[{message,field}]}}
       // ou {error:"texte"}. On extrait le plus lisible.

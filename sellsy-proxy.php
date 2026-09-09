@@ -22,6 +22,16 @@
  *                                       pour rapprocher les prospects par SIREN)
  *
  * Credentials are read from sellsy-config.php (NOT committed).
+ *
+ * Authentification Microsoft (2026-09) : chaque requete (sauf healthcheck et
+ * auth_check) doit porter un jeton d'identite Azure AD valide de l'application
+ * Suivi* (en-tete Authorization: Bearer <id_token>) : signature RS256 verifiee
+ * avec les cles publiques du tenant (JWKS, cache 24h), emetteur, audience,
+ * tenant et expiration controles. Mode pilote par le fichier sellsy-auth.txt
+ * (a cote de ce script, commite) : "microsoft" = obligatoire, "log" = verifie
+ * et journalise sans bloquer (observation), "off" = desactive (retour arriere).
+ * Une cle proxy_access_key valide reste acceptee a la place (scripts).
+ *   GET ?action=auth_check           -> { mode, ok, reason, user } pour tester un jeton
  */
 
 // ---- Config (chargee tot pour la liste blanche CORS) ----
@@ -41,7 +51,7 @@ if ($origin !== '' && in_array($origin, $allowedOrigins, true)) {
     header('Vary: Origin');
 }
 header('Access-Control-Allow-Methods: GET, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-Api-Key');
+header('Access-Control-Allow-Headers: Content-Type, X-Api-Key, Authorization, X-Ms-Token');
 header('Content-Type: application/json; charset=utf-8');
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') { http_response_code(204); exit; }
 
@@ -66,14 +76,33 @@ if ($action === 'healthcheck') {
     exit;
 }
 
-// ---- Verif cle d'acces (si configuree) — apres le healthcheck ----
+// ---- Authentification : jeton Microsoft (Azure AD) ou cle d'acces ----
+$authMode = ms_auth_mode();
+if ($action === 'auth_check') {
+    $r = ms_auth_verify($cfg);
+    echo json_encode(['mode' => $authMode, 'ok' => $r['ok'], 'reason' => $r['reason'], 'user' => $r['ok'] ? ms_mask($r['claims']['preferred_username'] ?? ($r['claims']['upn'] ?? '')) : null, 'exp' => $r['ok'] ? ($r['claims']['exp'] ?? null) : null]);
+    exit;
+}
+$keyOk = false;
 if (!empty($accessKey)) {
     $provided = $_SERVER['HTTP_X_API_KEY'] ?? ($_GET['key'] ?? '');
-    if (!hash_equals((string)$accessKey, (string)$provided)) {
-        http_response_code(401);
-        echo json_encode(['error' => 'cle d acces invalide ou manquante']);
-        exit;
+    $keyOk = hash_equals((string)$accessKey, (string)$provided);
+}
+if (!$keyOk && $authMode !== 'off') {
+    $r = ms_auth_verify($cfg);
+    if (!$r['ok']) {
+        error_log('sellsy-proxy auth ' . $authMode . ' : ' . $r['reason'] . ' [' . $action . '] ' . ($_SERVER['REMOTE_ADDR'] ?? ''));
+        if ($authMode === 'microsoft') {
+            http_response_code(401);
+            echo json_encode(['error' => 'connexion Microsoft requise', 'auth' => 'microsoft', 'reason' => $r['reason']]);
+            exit;
+        }
     }
+} elseif (!$keyOk && !empty($accessKey) && $authMode === 'off') {
+    // mode off avec une cle configuree : comportement historique (cle obligatoire)
+    http_response_code(401);
+    echo json_encode(['error' => 'cle d acces invalide ou manquante']);
+    exit;
 }
 
 if (!$hasCreds) {
@@ -268,6 +297,66 @@ function sellsy_map_opp_compact($o) {
         'companyName' => $companyName,
         'contactIds' => (isset($o['contact_ids']) && is_array($o['contact_ids'])) ? $o['contact_ids'] : [],
     ];
+}
+
+// ===========================================
+// Authentification Microsoft (Azure AD, jeton d'identite v2.0 de l'application Suivi*)
+function ms_auth_mode() {
+    $f = __DIR__ . '/sellsy-auth.txt';
+    $m = file_exists($f) ? strtolower(trim((string)file_get_contents($f))) : 'microsoft';
+    return in_array($m, ['microsoft', 'log', 'off'], true) ? $m : 'microsoft';
+}
+function ms_mask($u) { $u = (string)$u; $at = strpos($u, '@'); return $at > 1 ? substr($u, 0, 2) . '…' . substr($u, $at) : ($u ? substr($u, 0, 2) . '…' : ''); }
+function ms_b64url_decode($s) { $s = strtr($s, '-_', '+/'); return base64_decode(str_pad($s, strlen($s) % 4 ? strlen($s) + 4 - strlen($s) % 4 : strlen($s), '=', STR_PAD_RIGHT)); }
+function ms_jwks($tenant, $forceRefresh = false) {
+    $cacheFile = __DIR__ . '/.ms-jwks.cache';
+    if (!$forceRefresh && file_exists($cacheFile) && (time() - filemtime($cacheFile)) < 24 * 3600) {
+        $j = json_decode((string)file_get_contents($cacheFile), true);
+        if (is_array($j) && !empty($j['keys'])) return $j['keys'];
+    }
+    $ctx = stream_context_create(['http' => ['timeout' => 10, 'header' => "User-Agent: sellsy-proxy/1.0\r\n"]]);
+    $raw = @file_get_contents('https://login.microsoftonline.com/' . rawurlencode($tenant) . '/discovery/v2.0/keys', false, $ctx);
+    $j = $raw ? json_decode($raw, true) : null;
+    if (is_array($j) && !empty($j['keys'])) { @file_put_contents($cacheFile, $raw); return $j['keys']; }
+    return [];
+}
+// cle publique PEM a partir des composantes RSA (n, e) d'une JWK
+function ms_jwk_to_pem($jwk) {
+    $n = ms_b64url_decode($jwk['n']); $e = ms_b64url_decode($jwk['e']);
+    $der_len = function ($len) { if ($len < 128) return chr($len); $b = ltrim(pack('N', $len), "\0"); return chr(0x80 | strlen($b)) . $b; };
+    $der_int = function ($x) use ($der_len) { if (ord($x[0]) > 0x7f) $x = "\0" . $x; return "\x02" . $der_len(strlen($x)) . $x; };
+    $rsa = $der_int($n) . $der_int($e); $rsaSeq = "\x30" . $der_len(strlen($rsa)) . $rsa;
+    $bit = "\x03" . $der_len(strlen($rsaSeq) + 1) . "\0" . $rsaSeq;
+    $alg = "\x30\x0d\x06\x09\x2a\x86\x48\x86\xf7\x0d\x01\x01\x01\x05\x00";
+    $spki = "\x30" . $der_len(strlen($alg . $bit)) . $alg . $bit;
+    return "-----BEGIN PUBLIC KEY-----\n" . chunk_split(base64_encode($spki), 64, "\n") . "-----END PUBLIC KEY-----\n";
+}
+function ms_auth_verify($cfg) {
+    $ms = (is_array($cfg) && !empty($cfg['ms_auth']) && is_array($cfg['ms_auth'])) ? $cfg['ms_auth'] : [];
+    $tenant = $ms['tenant_id'] ?? '6487f869-e502-42be-91ab-5c1ecde34be6';
+    $clients = !empty($ms['client_ids']) && is_array($ms['client_ids']) ? $ms['client_ids'] : ['ae0f1f6c-aedc-4866-899c-8d128e2af81a'];
+    $h = $_SERVER['HTTP_AUTHORIZATION'] ?? ($_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '');
+    if (!empty($_SERVER['HTTP_X_MS_TOKEN'])) $h = 'Bearer ' . $_SERVER['HTTP_X_MS_TOKEN'];   // en-tete de repli : Authorization est parfois retire par PHP-CGI (OVH mutualise)
+    if ($h === '' && function_exists('apache_request_headers')) { $ah = apache_request_headers(); foreach ($ah as $k => $v) if (strtolower($k) === 'authorization') $h = $v; }
+    if (!preg_match('/^Bearer\s+(\S+)$/i', trim($h), $m)) return ['ok' => false, 'reason' => 'jeton absent', 'claims' => null];
+    $parts = explode('.', $m[1]); if (count($parts) !== 3) return ['ok' => false, 'reason' => 'jeton mal forme', 'claims' => null];
+    $hdr = json_decode(ms_b64url_decode($parts[0]), true); $cl = json_decode(ms_b64url_decode($parts[1]), true); $sig = ms_b64url_decode($parts[2]);
+    if (!is_array($hdr) || !is_array($cl)) return ['ok' => false, 'reason' => 'jeton illisible', 'claims' => null];
+    if (($hdr['alg'] ?? '') !== 'RS256' || empty($hdr['kid'])) return ['ok' => false, 'reason' => 'algorithme inattendu', 'claims' => null];
+    $now = time();
+    if (!isset($cl['exp']) || $cl['exp'] < $now - 60) return ['ok' => false, 'reason' => 'jeton expire', 'claims' => null];
+    if (isset($cl['nbf']) && $cl['nbf'] > $now + 300) return ['ok' => false, 'reason' => 'jeton pas encore valide', 'claims' => null];
+    if (($cl['tid'] ?? '') !== $tenant) return ['ok' => false, 'reason' => 'tenant inattendu', 'claims' => null];
+    if (($cl['iss'] ?? '') !== 'https://login.microsoftonline.com/' . $tenant . '/v2.0') return ['ok' => false, 'reason' => 'emetteur inattendu', 'claims' => null];
+    if (!in_array((string)($cl['aud'] ?? ''), $clients, true)) return ['ok' => false, 'reason' => 'audience inattendue', 'claims' => null];
+    $keys = ms_jwks($tenant); $jwk = null;
+    foreach ($keys as $k) if (($k['kid'] ?? '') === $hdr['kid']) { $jwk = $k; break; }
+    if (!$jwk) { $keys = ms_jwks($tenant, true); foreach ($keys as $k) if (($k['kid'] ?? '') === $hdr['kid']) { $jwk = $k; break; } }
+    if (!$jwk || empty($jwk['n']) || empty($jwk['e'])) return ['ok' => false, 'reason' => 'cle de signature inconnue', 'claims' => null];
+    $pub = openssl_pkey_get_public(ms_jwk_to_pem($jwk));
+    if (!$pub) return ['ok' => false, 'reason' => 'cle publique illisible', 'claims' => null];
+    $ok = openssl_verify($parts[0] . '.' . $parts[1], $sig, $pub, OPENSSL_ALGO_SHA256) === 1;
+    return $ok ? ['ok' => true, 'reason' => 'ok', 'claims' => $cl] : ['ok' => false, 'reason' => 'signature invalide', 'claims' => null];
 }
 
 function sellsy_get_token($cfg) {
