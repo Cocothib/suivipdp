@@ -2847,6 +2847,18 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       </div>
     </div>
     <div class="form-section">
+      <div class="form-section-title"><i class="bi bi-file-earmark-pdf"></i>Restaurer un PDP / une ICP depuis un rapport PDF</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Chaque PDF exporté par l'application embarque une copie complète de la fiche (photos et signatures comprises). Si une fiche a été saisie sur un appareil qui n'a jamais pu se synchroniser, déposez ici son rapport PDF pour la recréer.</div>
+      <div class="form-check form-switch mb-2">
+        <input class="form-check-input" type="checkbox" id="pdf-embed-record" checked onchange="PdfRestore.setEnabled(this.checked)">
+        <label class="form-check-label small" for="pdf-embed-record">Embarquer les données de restauration dans les PDF exportés (pièce jointe JSON, augmente la taille des fichiers)</label>
+      </div>
+      <label class="btn btn-outline-primary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>Choisir un rapport PDF<input type="file" accept=".pdf,application/pdf" class="d-none" onchange="PdfRestore.handleFile(this)"></label>
+      <div id="pdf-restore-status" class="small text-muted mt-2"></div>
+      <div id="pdf-restore-preview" class="mt-3 d-none"></div>
+      <p class="small text-muted mt-2 mb-0">Les PDF générés avant cette fonctionnalité (ou avec l'option désactivée) ne contiennent pas de pièce jointe et ne peuvent pas être restaurés.</p>
+    </div>
+    <div class="form-section">
       <div class="form-section-title"><i class="bi bi-plug"></i>Intégration Sellsy</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Connecte l'app au compte Sellsy via un proxy PHP hébergé sur OVH. Permet la recherche live et la synchronisation du répertoire entreprises depuis Sellsy.</div>
       <div class="field-group">
@@ -8714,6 +8726,7 @@ const App = {
       await db.open();
       _step('Chargement des paramètres...', 40);
       await this.loadSettings();
+      try { await PdfRestore.init(); } catch (e) { console.warn('PdfRestore.init:', e); }
       try { await loadAgences(); } catch (e) { console.warn('loadAgences:', e); }
       try { await this.loadMaintTeam(); } catch (e) { console.warn('loadMaintTeam:', e); }
       await this._refreshCustomRisksCache();
@@ -17913,9 +17926,10 @@ const App = {
     doc.setTextColor(0,0,0);
 
     const icpPdfFn = this.buildICPFilename(v, 'pdf');
-    if (this._returnICPPDFBlob) { this._icpPdfBlobResult = doc.output('blob'); return; }
-    doc.save(icpPdfFn);
-    const icpPdfBlob = doc.output('blob');
+    // Pièce jointe JSON de la fiche (restauration depuis le PDF, cf. PdfRestore)
+    const icpPdfBlob = await PdfRestore.embedInBytes(doc.output('arraybuffer'), 'icp', v);
+    if (this._returnICPPDFBlob) { this._icpPdfBlobResult = icpPdfBlob; return; }
+    saveAs(icpPdfBlob, icpPdfFn);
     DataSync.uploadExport(icpPdfBlob, icpPdfFn, 'icp', {notify:true});
     this.toast('PDF ICP généré');
   },
@@ -21629,7 +21643,7 @@ const App = {
     const pdfFn = await this.buildPDPFilename(p, 'pdf');
     if (this._returnPDFBlob) {
       // Le ZIP ajoute les FDS comme fichiers séparés : on renvoie le PDF de base sans fusion.
-      this._pdfBlobResult = doc.output('blob');
+      this._pdfBlobResult = await PdfRestore.embedInBytes(doc.output('arraybuffer'), 'pdp', p);
       return;
     }
     // Export PDF seul : on ANNEXE les pages réelles des FDS au PDF via pdf-lib.
@@ -21715,17 +21729,18 @@ const App = {
             }
           } catch(e) { console.warn('Annexe permis vierges (PDF):', e); }
         }
+        await PdfRestore.attachToPdfLibDoc(out, 'pdp', p); // pièce jointe JSON de la fiche
         const mergedBytes = await out.save();
         pdfBlob = new Blob([mergedBytes], {type:'application/pdf'});
       } catch (e) {
         console.error('Fusion PDF FDS échouée, export sans annexes:', e);
-        pdfBlob = doc.output('blob');
+        pdfBlob = await PdfRestore.embedInBytes(doc.output('arraybuffer'), 'pdp', p);
       }
     } else {
       if (fdsDocsPDF.length && typeof PDFLib === 'undefined') {
         fdsDocsPDF.forEach(d => skippedPDF.push(d.nom || ('FDS#'+(d.fdsRef||'?'))));
       }
-      pdfBlob = doc.output('blob');
+      pdfBlob = await PdfRestore.embedInBytes(doc.output('arraybuffer'), 'pdp', p);
     }
     // Si des FDS manquent : confirmation d'incomplétude (cohérent avec le ZIP), sans bloquer l'export.
     let pdfFnFinal = pdfFn;
@@ -22062,6 +22077,298 @@ const App = {
         }
       }
     });
+  }
+};
+
+// ========================================
+// PDF RESTORE — restauration d'un PDP / d'une ICP depuis son rapport PDF
+// ========================================
+// Cas d'usage : fiche saisie sur un appareil qui n'a jamais pu se resynchroniser
+// (panne SharePoint, tablette perdue) mais dont le PDF a été exporté/envoyé.
+// À l'export PDF (exportPDF / exportICPPDF), la fiche complète (photos et
+// signatures comprises) est jointe au PDF sous forme de pièce jointe JSON
+// (`suivipdp-<pdp|icp>-<numero>.json`, via pdf-lib). Paramètres > Données >
+// « Restaurer depuis un rapport PDF » relit cette pièce jointe (pdf.js) et
+// recrée la fiche : même uid (clé de fusion inter-postes), photos réexternalisées
+// par le socle B3/B5, liens PDP↔ICP résolus par uid.
+// Les PDF générés avant cette version ne contiennent pas de pièce jointe : ils
+// ne sont pas restaurables (aucune relecture du texte imprimé — mise en page
+// trop riche pour être relue de façon fiable).
+const PdfRestore = {
+  FORMAT: 'suivipdp-record/1',
+  MAX_PHOTOS_BYTES: 20 * 1024 * 1024,   // au-delà, les photos ne sont plus embarquées (refs conservées)
+  _enabled: true,
+  _pending: null,
+
+  async init() {
+    try {
+      const s = await db.settings.get('pdfEmbedRecord');
+      this._enabled = s?.value?.enabled !== false;
+    } catch (_) { this._enabled = true; }
+    const cb = document.getElementById('pdf-embed-record');
+    if (cb) cb.checked = this._enabled;
+  },
+  async setEnabled(on) {
+    this._enabled = !!on;
+    try { await db.settings.put({ key: 'pdfEmbedRecord', value: { enabled: this._enabled } }); } catch (_) {}
+    App.toast(this._enabled ? 'Les prochains PDF embarqueront les données de restauration' : 'Données de restauration désactivées dans les PDF', 'info');
+  },
+
+  // ---- Export : construction de la pièce jointe ----
+  attachmentName(kind, record) {
+    const num = String(record?.numero || record?.id || 'sans-numero').replace(/[^A-Za-z0-9_-]+/g, '_');
+    return `suivipdp-${kind}-${num}.json`;
+  },
+
+  // Copie de la fiche prête à être embarquée : photos et documents joints avec
+  // leur binaire (résolus via le cache média / SharePoint), liens PDP↔ICP par uid.
+  async buildPayload(kind, record) {
+    const rec = JSON.parse(JSON.stringify(record));
+    let bytes = 0, omitted = 0;
+    const photos = [];
+    App._eachPhoto(rec, p => photos.push(p));
+    // Résolution des binaires depuis la fiche d'origine (objets vivants, cache média)
+    const orig = [];
+    App._eachPhoto(record, p => orig.push(p));
+    for (let i = 0; i < photos.length; i++) {
+      const p = photos[i];
+      let data = typeof p.data === 'string' && p.data ? p.data : null;
+      if (!data && orig[i]) { try { data = await App.ensurePhotoData(orig[i]); } catch (_) { data = null; } }
+      if (data && bytes + data.length <= this.MAX_PHOTOS_BYTES) { p.data = data; bytes += data.length; }
+      else { delete p.data; if (data) omitted++; }
+    }
+    // Documents joints : FDS de la bibliothèque partagée par référence (fdsRef), les
+    // autres avec leur binaire s'il est inline ou résolvable.
+    const docs = Array.isArray(rec.documents) ? rec.documents : [];
+    const origDocs = Array.isArray(record.documents) ? record.documents : [];
+    for (let i = 0; i < docs.length; i++) {
+      const d = docs[i];
+      if (!d || d.fdsRef != null) continue;
+      let data = typeof d.data === 'string' && d.data ? d.data : null;
+      if (!data && origDocs[i] && typeof App.ensureDocumentData === 'function') {
+        try { data = await App.ensureDocumentData(origDocs[i]); } catch (_) { data = null; }
+      }
+      if (data && bytes + data.length <= this.MAX_PHOTOS_BYTES) { d.data = data; bytes += data.length; }
+      else { delete d.data; if (data) omitted++; }
+    }
+    // Liens inter-fiches par uid (les id Dexie sont locaux au poste)
+    const links = {};
+    try {
+      if (kind === 'pdp' && rec.icpId != null) { const v = await db.icps.get(rec.icpId); if (v?.uid) links.icpUid = v.uid; }
+      if (kind === 'icp' && rec.pdpId != null) { const p = await db.pdps.get(rec.pdpId); if (p?.uid) links.pdpUid = p.uid; }
+    } catch (_) {}
+    return {
+      format: this.FORMAT, kind, exportedAt: new Date().toISOString(),
+      exportedBy: localStorage.getItem('pdp_user_name') || '',
+      links, binariesOmitted: omitted, record: rec
+    };
+  },
+
+  // Joint la fiche à un document pdf-lib déjà chargé. Ne lève jamais : un
+  // échec laisse le PDF intact.
+  async attachToPdfLibDoc(pdfDoc, kind, record) {
+    if (!this._enabled || !pdfDoc || !record) return false;
+    try {
+      const payload = await this.buildPayload(kind, record);
+      const json = JSON.stringify(payload);
+      const bytes = new TextEncoder().encode(json);
+      const now = new Date();
+      await pdfDoc.attach(bytes, this.attachmentName(kind, record), {
+        mimeType: 'application/json',
+        description: `Données SuiviPDP (${kind.toUpperCase()} ${record.numero || ''}) pour restauration dans l'application`,
+        creationDate: now, modificationDate: now
+      });
+      try { pdfDoc.setKeywords(['SuiviPDP', kind.toUpperCase(), String(record.numero || '')]); } catch (_) {}
+      return true;
+    } catch (e) {
+      console.warn('PdfRestore: pièce jointe non ajoutée', e);
+      return false;
+    }
+  },
+
+  // Variante sur des octets jsPDF (arraybuffer) : renvoie un Blob PDF, avec la
+  // pièce jointe si possible, sinon le PDF d'origine tel quel.
+  async embedInBytes(bytes, kind, record) {
+    const plain = () => new Blob([bytes], { type: 'application/pdf' });
+    if (!this._enabled || typeof PDFLib === 'undefined' || !record) return plain();
+    try {
+      const { PDFDocument } = PDFLib;
+      const pdfDoc = await PDFDocument.load(bytes);
+      const ok = await this.attachToPdfLibDoc(pdfDoc, kind, record);
+      if (!ok) return plain();
+      const out = await pdfDoc.save();
+      return new Blob([out], { type: 'application/pdf' });
+    } catch (e) {
+      console.warn('PdfRestore: embed impossible, PDF sans pièce jointe', e);
+      return plain();
+    }
+  },
+
+  // ---- Import : lecture de la pièce jointe ----
+  async readPdf(file) {
+    if (!window.pdfjsLib) throw new Error('Module pdf.js non chargé : réessayer dans quelques secondes');
+    if (!App._pdfjsWorkerSet) {
+      try { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; } catch (_) {}
+      App._pdfjsWorkerSet = true;
+    }
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+    let attachments = null;
+    try { attachments = await pdf.getAttachments(); } catch (_) { attachments = null; }
+    try { pdf.destroy(); } catch (_) {}
+    const entries = attachments ? Object.values(attachments) : [];
+    const att = entries.find(a => /^suivipdp-(pdp|icp)-.*\.json$/i.test(a.filename || ''))
+             || entries.find(a => /\.json$/i.test(a.filename || ''));
+    if (!att) throw new Error("Ce PDF ne contient pas de données de restauration (généré avant cette version de l'application, ou option désactivée dans les Paramètres).");
+    let payload;
+    try { payload = JSON.parse(new TextDecoder().decode(att.content)); }
+    catch (e) { throw new Error('Pièce jointe illisible : ' + (e.message || e)); }
+    if (!payload || !payload.record || !['pdp', 'icp'].includes(payload.kind)) throw new Error('Pièce jointe inattendue (format non reconnu).');
+    return { payload, fileName: file.name || '' };
+  },
+
+  async handleFile(input) {
+    const file = input.files && input.files[0];
+    input.value = '';
+    const status = document.getElementById('pdf-restore-status');
+    const preview = document.getElementById('pdf-restore-preview');
+    this._pending = null;
+    preview.classList.add('d-none'); preview.innerHTML = '';
+    if (!file) return;
+    status.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Lecture du PDF…';
+    try {
+      const r = await this.readPdf(file);
+      this._pending = r;
+      await this.renderPreview(r, preview);
+      status.textContent = '';
+      preview.classList.remove('d-none');
+    } catch (e) {
+      console.error('PdfRestore:', e);
+      status.innerHTML = `<span class="text-danger">${App.esc(e.message || String(e))}</span>`;
+    }
+  },
+
+  _count(rec) {
+    let photos = 0, photosData = 0;
+    App._eachPhoto(rec, p => { photos++; if (typeof p.data === 'string' && p.data) photosData++; });
+    const sigs = [];
+    const push = s => { if (s && (s.data || s.nom)) sigs.push(s); };
+    push(rec.signatureEU); push(rec.signatureEERep);
+    for (const k of ['signaturesEE', 'signaturesEUAdd', 'signaturesEEAdd', 'signaturesICPEE']) (rec[k] || []).forEach(push);
+    return { photos, photosData, signatures: sigs.filter(s => s.data).length, signatairesNommes: sigs.length,
+      risques: (rec.risques || []).length, ees: (rec.entreprisesExt || []).length, documents: (rec.documents || []).length };
+  },
+
+  async _findExisting(kind, rec) {
+    const table = kind === 'pdp' ? db.pdps : db.icps;
+    const all = await table.toArray();
+    const byUid = rec.uid ? all.find(x => x.uid === rec.uid) : null;
+    const byNumero = rec.numero ? all.find(x => x.numero === rec.numero && (!byUid || x.id !== byUid.id)) : null;
+    return { byUid, byNumero };
+  },
+
+  async renderPreview(r, container) {
+    const { payload } = r;
+    const rec = payload.record;
+    const kind = payload.kind;
+    const c = this._count(rec);
+    const ex = await this._findExisting(kind, rec);
+    const fmt = iso => iso ? String(iso).slice(0, 10).split('-').reverse().join('/') : '-';
+    const warnings = [];
+    if (payload.binariesOmitted) warnings.push(`${payload.binariesOmitted} photo(s)/document(s) non embarqué(s) dans le PDF (taille) : ils seront absents s'ils n'existent pas déjà sur SharePoint.`);
+    if (c.photos && c.photosData < c.photos) warnings.push(`${c.photos - c.photosData} photo(s) sans binaire dans la pièce jointe.`);
+    if (ex.byNumero) warnings.push(`Le numéro ${rec.numero} est déjà porté par une autre fiche (#${ex.byNumero.id}) : la fiche restaurée sera renumérotée automatiquement à la prochaine fusion.`);
+    const label = kind === 'pdp' ? 'PDP' : 'ICP';
+    const rows = kind === 'pdp' ? [
+      ['Numéro', rec.numero], ['Titre', rec.titre], ['Statut', rec.statut], ['Site', rec.site || rec.lieu],
+      ['Période', `${fmt(rec.dateDebut)} → ${fmt(rec.dateFin)}`], ['Client EU', rec.eu?.nom],
+      ['Entreprises ext.', c.ees], ['Risques', c.risques], ['Documents', c.documents]
+    ] : [
+      ['Numéro', rec.numero], ['Objet', rec.objet], ['Statut', rec.statut], ['Site', rec.site || rec.lieu],
+      ['Visite', `${fmt(rec.dateVisite)} ${rec.heure || ''}`], ['Réf. opération', rec.refOperation],
+      ['Entreprises ext.', c.ees], ['Risques', c.risques]
+    ];
+    rows.push(['Photos', `${c.photosData}${c.photos !== c.photosData ? ' / ' + c.photos : ''}`]);
+    rows.push(['Signatures', `${c.signatures} image(s), ${c.signatairesNommes} signataire(s)`]);
+    rows.push(['Dernière modification', fmt(rec.dateModification) + (payload.exportedAt ? ` — PDF du ${fmt(payload.exportedAt)}${payload.exportedBy ? ' par ' + payload.exportedBy : ''}` : '')]);
+
+    container.innerHTML = `
+      <div class="alert alert-success py-2 small mb-2">✅ Pièce jointe SuiviPDP trouvée : <strong>${label} ${App.esc(rec.numero || '')}</strong> (${App.esc(r.fileName)})</div>
+      ${warnings.length ? `<div class="alert alert-warning py-2 small mb-2"><ul class="mb-0 ps-3">${warnings.map(w => `<li>${App.esc(w)}</li>`).join('')}</ul></div>` : ''}
+      ${ex.byUid ? `<div class="alert alert-danger py-2 small mb-2">⚠️ Cette fiche existe déjà localement (<strong>${App.esc(ex.byUid.numero || '#' + ex.byUid.id)}</strong>, modifiée le ${fmt(ex.byUid.dateModification)}). « Remplacer » écrase la fiche existante par le contenu du PDF ; « Créer une copie » crée une nouvelle fiche indépendante.</div>` : ''}
+      <table class="table table-sm small mb-2"><tbody>
+        ${rows.map(([k, v]) => `<tr><th class="w-25">${App.esc(k)}</th><td>${App.esc(String(v ?? '-') || '-')}</td></tr>`).join('')}
+      </tbody></table>
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        ${ex.byUid
+          ? `<button type="button" class="btn btn-warning btn-sm" onclick="PdfRestore.restore('replace')"><i class="bi bi-arrow-repeat me-1"></i>Remplacer la fiche existante</button>
+             <button type="button" class="btn btn-outline-secondary btn-sm" onclick="PdfRestore.restore('copy')"><i class="bi bi-files me-1"></i>Créer une copie</button>`
+          : `<button type="button" class="btn btn-success btn-sm" onclick="PdfRestore.restore('new')"><i class="bi bi-cloud-upload me-1"></i>Restaurer ${label === 'PDP' ? 'le PDP' : "l'ICP"}</button>`}
+        <span class="text-muted small">La fiche est enregistrée localement puis synchronisée ; les photos sont renvoyées sur SharePoint.</span>
+      </div>`;
+  },
+
+  async restore(mode) {
+    const r = this._pending;
+    if (!r) return;
+    const { payload } = r;
+    const kind = payload.kind;
+    const table = kind === 'pdp' ? db.pdps : db.icps;
+    const rec = JSON.parse(JSON.stringify(payload.record));
+    const now = new Date().toISOString();
+    try {
+      const ex = await this._findExisting(kind, rec);
+      delete rec.id;
+      if (mode === 'replace' && ex.byUid) rec.id = ex.byUid.id;
+      else if (mode === 'copy' || (ex.byUid && mode !== 'replace')) { rec.uid = _uid(); rec.numero = ''; }
+      if (!rec.uid) rec.uid = _uid();
+      // Photos / documents : binaire présent → référence retirée pour que le socle
+      // d'externalisation (B3/B5) renvoie le fichier sur SharePoint et le mette en cache.
+      App._eachPhoto(rec, p => { if (typeof p.data === 'string' && p.data) { delete p.ref; delete p._spPath; } });
+      for (const d of (rec.documents || [])) { if (d && d.fdsRef == null && typeof d.data === 'string' && d.data) { delete d.ref; delete d._spPath; } }
+      // Liens PDP↔ICP par uid (les id de l'appareil d'origine ne valent rien ici)
+      if (kind === 'pdp') {
+        rec.icpId = null;
+        if (payload.links?.icpUid) { const v = (await db.icps.toArray()).find(x => x.uid === payload.links.icpUid); if (v) rec.icpId = v.id; }
+      } else {
+        rec.pdpId = null;
+        if (payload.links?.pdpUid) { const p = (await db.pdps.toArray()).find(x => x.uid === payload.links.pdpUid); if (p) rec.pdpId = p.id; }
+      }
+      rec.dateModification = now;
+      rec.restaureDepuisPdf = { fichier: r.fileName, le: now, mode, exportedAt: payload.exportedAt || null };
+      if (rec.id != null) await table.put(rec);
+      else {
+        rec.id = await table.add(rec);
+        if (!rec.numero) {
+          const d = new Date();
+          rec.numero = `${kind.toUpperCase()}-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}-${String(rec.id).padStart(4, '0')}`;
+        }
+        await table.put(rec);
+      }
+      // Lien inverse (icp.pdpId / pdp.icpId) : posé si la fiche liée n'a pas de
+      // lien, ou si son lien pointe vers une fiche disparue (ancien id local).
+      try {
+        if (kind === 'pdp' && rec.icpId != null) {
+          const v = await db.icps.get(rec.icpId);
+          if (v && (v.pdpId == null || v.pdpId === rec.id || !(await db.pdps.get(v.pdpId)))) { v.pdpId = rec.id; await db.icps.put(v); }
+        }
+        if (kind === 'icp' && rec.pdpId != null) {
+          const p = await db.pdps.get(rec.pdpId);
+          if (p && (p.icpId == null || p.icpId === rec.id || !(await db.icps.get(p.icpId)))) { p.icpId = rec.id; await db.pdps.put(p); }
+        }
+      } catch (_) {}
+      DataSync.markDirty();
+      try { App._externalizeOnSave(rec, table); } catch (_) {}
+      if (typeof ActivityLog !== 'undefined') ActivityLog.log(kind + '.restore_pdf', { id: rec.id, numero: rec.numero, mode, fichier: r.fileName });
+      this._pending = null;
+      const preview = document.getElementById('pdf-restore-preview');
+      if (preview) { preview.classList.add('d-none'); preview.innerHTML = ''; }
+      App.toast(`${kind === 'pdp' ? 'PDP' : 'ICP'} ${rec.numero} restauré${kind === 'icp' ? 'e' : ''} depuis le PDF`, 'success', 5000);
+      if (kind === 'pdp') await App.openPDP(rec.id); else await App.openICP(rec.id);
+    } catch (e) {
+      console.error('PdfRestore.restore:', e);
+      App.toast('Restauration impossible : ' + (e.message || e), 'danger', 6000);
+    }
   }
 };
 

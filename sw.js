@@ -1,4 +1,4 @@
-const CACHE_NAME = 'suivi-pdp-v212';
+const CACHE_NAME = 'suivi-pdp-v213';
 // Cache séparé pour les libs CDN : leurs URLs sont versionnées (immuables),
 // inutile de les re-télécharger à chaque bump du cache applicatif.
 // N'incrémenter LIBS_CACHE que si la liste CDN_ASSETS change.
