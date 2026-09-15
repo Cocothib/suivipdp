@@ -51,7 +51,8 @@ Read avec offset/limit. Les `index.backup-*.html` sont des sauvegardes historiqu
   - 18004–19189 : paramètres — sites (DEFAULT_SITES l.18005), bibliothèque FDS, archivage batch,
     gestion des risques unifiée (l.18489), référentiel partagé (l.18885), agences (l.18914), export/import
   - 19190–21865 : EXPORT DOCX / PDF / ZIP (ICP, permis de feu, PDP simplifié, données embarquées l.19130)
-  - 21866–21950 : INIT, modales déplaçables, tutoriel, bootstrap de l'app
+  - ~21870–22150 : INIT, modales déplaçables, tutoriel, bootstrap de l'app ; `PdfRestore` juste avant la bannière INIT
+    (v213 : pièce jointe JSON de la fiche dans chaque PDF exporté + Paramètres > Restaurer depuis un rapport PDF)
 
 ## Schéma Dexie (v35, l.3929)
 ```
