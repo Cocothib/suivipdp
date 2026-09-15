@@ -2848,15 +2848,15 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
     </div>
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-file-earmark-pdf"></i>Restaurer un PDP / une ICP depuis un rapport PDF</div>
-      <div class="section-helper"><i class="bi bi-lightbulb"></i> Chaque PDF exporté par l'application embarque une copie complète de la fiche (photos et signatures comprises). Si une fiche a été saisie sur un appareil qui n'a jamais pu se synchroniser, déposez ici son rapport PDF pour la recréer.</div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Les copies PDF archivées sur SharePoint (<code>SuiviPDP/PDP/Exports</code> et <code>SuiviPDP/ICP/Exports</code>) embarquent une copie complète de la fiche (photos et signatures comprises). Si une fiche a été saisie sur un appareil qui n'a jamais pu synchroniser ses données, récupérez son PDF archivé et déposez-le ici pour la recréer. Les PDF téléchargés, les ZIP et les pièces jointes de mail n'embarquent rien.</div>
       <div class="form-check form-switch mb-2">
         <input class="form-check-input" type="checkbox" id="pdf-embed-record" checked onchange="PdfRestore.setEnabled(this.checked)">
-        <label class="form-check-label small" for="pdf-embed-record">Embarquer les données de restauration dans les PDF exportés (pièce jointe JSON, augmente la taille des fichiers)</label>
+        <label class="form-check-label small" for="pdf-embed-record">Embarquer les données de restauration dans les copies PDF archivées sur SharePoint (pièce jointe JSON, environ le poids des photos en plus)</label>
       </div>
       <label class="btn btn-outline-primary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>Choisir un rapport PDF<input type="file" accept=".pdf,application/pdf" class="d-none" onchange="PdfRestore.handleFile(this)"></label>
       <div id="pdf-restore-status" class="small text-muted mt-2"></div>
       <div id="pdf-restore-preview" class="mt-3 d-none"></div>
-      <p class="small text-muted mt-2 mb-0">Les PDF générés avant cette fonctionnalité (ou avec l'option désactivée) ne contiennent pas de pièce jointe et ne peuvent pas être restaurés.</p>
+      <p class="small text-muted mt-2 mb-0">Les PDF archivés avant cette fonctionnalité (ou avec l'option désactivée) ne contiennent pas de pièce jointe et ne peuvent pas être restaurés.</p>
     </div>
     <div class="form-section">
       <div class="form-section-title"><i class="bi bi-plug"></i>Intégration Sellsy</div>
@@ -17926,11 +17926,16 @@ const App = {
     doc.setTextColor(0,0,0);
 
     const icpPdfFn = this.buildICPFilename(v, 'pdf');
-    // Pièce jointe JSON de la fiche (restauration depuis le PDF, cf. PdfRestore)
-    const icpPdfBlob = await PdfRestore.embedInBytes(doc.output('arraybuffer'), 'icp', v);
-    if (this._returnICPPDFBlob) { this._icpPdfBlobResult = icpPdfBlob; return; }
-    saveAs(icpPdfBlob, icpPdfFn);
-    DataSync.uploadExport(icpPdfBlob, icpPdfFn, 'icp', {notify:true});
+    // Pièce jointe JSON de la fiche (restauration, cf. PdfRestore) : uniquement
+    // dans la copie archivée sur SharePoint, jamais dans le fichier téléchargé.
+    if (this._returnICPPDFBlob) {
+      this._icpPdfBlobResult = PdfRestore._archiveMode ? await PdfRestore.embedInBytes(doc.output('arraybuffer'), 'icp', v) : doc.output('blob');
+      return;
+    }
+    doc.save(icpPdfFn);
+    PdfRestore.embedInBytes(doc.output('arraybuffer'), 'icp', v)
+      .then(b => DataSync.uploadExport(b, icpPdfFn, 'icp', {notify:true}))
+      .catch(e => console.warn('Archivage ICP PDF:', e));
     this.toast('PDF ICP généré');
   },
 
@@ -18161,6 +18166,7 @@ const App = {
     if (!DataSync._connected) return 0; // hors connexion : rien à archiver (silencieux)
     if (!opts.silent) this.toast('Archivage SharePoint en cours…', 'info');
     let ok = 0;
+    PdfRestore._archiveMode = true; // pièce jointe de restauration dans la copie SharePoint
     // Word
     try {
       this._returnICPDOCXBlob = true;
@@ -18176,7 +18182,7 @@ const App = {
       const b = this._icpPdfBlobResult;
       if (b) { await DataSync.uploadExport(b, this.buildICPFilename(v, 'pdf'), 'icp'); ok++; }
     } catch (e) { console.warn('Auto-archive ICP PDF:', e); }
-    finally { this._returnICPPDFBlob = false; this._icpPdfBlobResult = null; }
+    finally { this._returnICPPDFBlob = false; this._icpPdfBlobResult = null; PdfRestore._archiveMode = false; }
     if (ok && !opts.silent) this.toast('ICP archivée sur SharePoint ✓', 'success');
     return ok;
   },
@@ -18573,6 +18579,7 @@ const App = {
     let done = 0, ok = 0, ko = 0;
     const savedPDP = this.currentPDP, savedICP = this.currentICP;
     this.toast(`Archivage de ${total} documents en cours…`, 'info');
+    PdfRestore._archiveMode = true; // pièce jointe de restauration dans les copies SharePoint
 
     for (const p of allPDP) {
       this.currentPDP = p;
@@ -18622,6 +18629,7 @@ const App = {
       } catch (e) { ko++; done++; console.error('✗ ICP', v.numero, e); }
     }
 
+    PdfRestore._archiveMode = false;
     this.currentPDP = savedPDP; this.currentICP = savedICP;
     this._docxBlobResult = null; this._pdfBlobResult = null;
     this._icpDocxBlobResult = null; this._icpPdfBlobResult = null;
@@ -21643,7 +21651,8 @@ const App = {
     const pdfFn = await this.buildPDPFilename(p, 'pdf');
     if (this._returnPDFBlob) {
       // Le ZIP ajoute les FDS comme fichiers séparés : on renvoie le PDF de base sans fusion.
-      this._pdfBlobResult = await PdfRestore.embedInBytes(doc.output('arraybuffer'), 'pdp', p);
+      // Pièce jointe de restauration (PdfRestore) seulement pour l'archivage SharePoint, pas pour le ZIP.
+      this._pdfBlobResult = PdfRestore._archiveMode ? await PdfRestore.embedInBytes(doc.output('arraybuffer'), 'pdp', p) : doc.output('blob');
       return;
     }
     // Export PDF seul : on ANNEXE les pages réelles des FDS au PDF via pdf-lib.
@@ -21729,18 +21738,17 @@ const App = {
             }
           } catch(e) { console.warn('Annexe permis vierges (PDF):', e); }
         }
-        await PdfRestore.attachToPdfLibDoc(out, 'pdp', p); // pièce jointe JSON de la fiche
         const mergedBytes = await out.save();
         pdfBlob = new Blob([mergedBytes], {type:'application/pdf'});
       } catch (e) {
         console.error('Fusion PDF FDS échouée, export sans annexes:', e);
-        pdfBlob = await PdfRestore.embedInBytes(doc.output('arraybuffer'), 'pdp', p);
+        pdfBlob = doc.output('blob');
       }
     } else {
       if (fdsDocsPDF.length && typeof PDFLib === 'undefined') {
         fdsDocsPDF.forEach(d => skippedPDF.push(d.nom || ('FDS#'+(d.fdsRef||'?'))));
       }
-      pdfBlob = await PdfRestore.embedInBytes(doc.output('arraybuffer'), 'pdp', p);
+      pdfBlob = doc.output('blob');
     }
     // Si des FDS manquent : confirmation d'incomplétude (cohérent avec le ZIP), sans bloquer l'export.
     let pdfFnFinal = pdfFn;
@@ -21750,7 +21758,11 @@ const App = {
       pdfFnFinal = 'INCOMPLET_' + pdfFn;
     }
     saveAs(pdfBlob, pdfFnFinal);
-    try { DataSync.uploadExport(pdfBlob, pdfFnFinal, 'pdp', {notify:true}); } catch(e) {}
+    // Copie archivée sur SharePoint : avec la pièce jointe de restauration (PdfRestore),
+    // jamais dans le fichier téléchargé (destiné aux entreprises extérieures).
+    PdfRestore.embedInBlob(pdfBlob, 'pdp', p)
+      .then(b => DataSync.uploadExport(b, pdfFnFinal, 'pdp', {notify:true}))
+      .catch(e => console.warn('Archivage PDP PDF:', e));
     if (skippedPDF.length) this.toast(`PDF INCOMPLET téléchargé — ${skippedPDF.length} FDS non annexée(s) : ${skippedPDF.join(', ')}`, 'warning', 9000);
     else this.toast('PDF généré');
   },
@@ -22085,9 +22097,12 @@ const App = {
 // ========================================
 // Cas d'usage : fiche saisie sur un appareil qui n'a jamais pu se resynchroniser
 // (panne SharePoint, tablette perdue) mais dont le PDF a été exporté/envoyé.
-// À l'export PDF (exportPDF / exportICPPDF), la fiche complète (photos et
-// signatures comprises) est jointe au PDF sous forme de pièce jointe JSON
-// (`suivipdp-<pdp|icp>-<numero>.json`, via pdf-lib). Paramètres > Données >
+// La fiche complète (photos et signatures comprises) est jointe sous forme de
+// pièce jointe JSON (`suivipdp-<pdp|icp>-<numero>.json`, via pdf-lib) aux SEULES
+// copies archivées sur SharePoint (SuiviPDP/PDP|ICP/Exports : copie déposée à
+// l'export, archivage automatique des ICP, ré-archivage batch). Le fichier
+// téléchargé, le ZIP et les pièces jointes de mail n'en portent jamais (ils
+// partent chez les entreprises extérieures). Paramètres > Données >
 // « Restaurer depuis un rapport PDF » relit cette pièce jointe (pdf.js) et
 // recrée la fiche : même uid (clé de fusion inter-postes), photos réexternalisées
 // par le socle B3/B5, liens PDP↔ICP résolus par uid.
@@ -22098,6 +22113,7 @@ const PdfRestore = {
   FORMAT: 'suivipdp-record/1',
   MAX_PHOTOS_BYTES: 20 * 1024 * 1024,   // au-delà, les photos ne sont plus embarquées (refs conservées)
   _enabled: true,
+  _archiveMode: false,   // vrai pendant un archivage SharePoint (seul cas où la pièce jointe est ajoutée)
   _pending: null,
 
   async init() {
@@ -22186,6 +22202,11 @@ const PdfRestore = {
     }
   },
 
+  async embedInBlob(blob, kind, record) {
+    if (!this._enabled || typeof PDFLib === 'undefined' || !record) return blob;
+    try { return await this.embedInBytes(await blob.arrayBuffer(), kind, record); }
+    catch (e) { console.warn('PdfRestore: embed impossible, PDF sans pièce jointe', e); return blob; }
+  },
   // Variante sur des octets jsPDF (arraybuffer) : renvoie un Blob PDF, avec la
   // pièce jointe si possible, sinon le PDF d'origine tel quel.
   async embedInBytes(bytes, kind, record) {

@@ -2,10 +2,10 @@
 
 ## 2026-09-15 — Restauration d'un PDP / d'une ICP depuis son rapport PDF
 
-- Chaque PDF exporté (PDP, ICP, ZIP, archivage, envoi mail) embarque désormais une pièce jointe JSON `suivipdp-<pdp|icp>-<numero>.json` contenant la fiche complète : photos et documents joints avec leur binaire (jusqu'à 20 Mo, sinon références seules), signatures, liens PDP↔ICP par uid. Ajoutée via pdf-lib après la génération jsPDF (y compris sur le PDF fusionné avec les FDS annexées).
+- Seules les copies PDF **archivées sur SharePoint** (`SuiviPDP/PDP/Exports`, `SuiviPDP/ICP/Exports` : copie déposée à l'export, archivage automatique des ICP, ré-archivage batch — indicateur `PdfRestore._archiveMode`) embarquent une pièce jointe JSON `suivipdp-<pdp|icp>-<numero>.json` contenant la fiche complète : photos et documents joints avec leur binaire (jusqu'à 20 Mo, sinon références seules), signatures, liens PDP↔ICP par uid. Ajoutée via pdf-lib après la génération jsPDF. Le fichier téléchargé, le ZIP et les pièces jointes de mail (destinés aux entreprises extérieures) n'en portent jamais. Poids : environ celui des photos de la fiche (+33 % de base64), soit typiquement +0,1 Mo par photo.
 - Paramètres > « Restaurer un PDP / une ICP depuis un rapport PDF » : dépôt du PDF, lecture de la pièce jointe (pdf.js `getAttachments`), aperçu (numéro, titre, dates, entreprises, risques, photos, signatures), détection de la fiche existante par uid (Remplacer / Créer une copie) ou restauration directe. La fiche recréée garde son uid (clé de fusion inter-postes) ; les photos avec binaire perdent leur `ref` pour être réexternalisées par le socle B3/B5 ; les liens PDP↔ICP sont résolus par uid (lien inverse posé si absent ou pointant vers une fiche disparue).
-- Interrupteur « Embarquer les données de restauration dans les PDF exportés » (réglage `pdfEmbedRecord`, activé par défaut) : la pièce jointe augmente la taille des PDF et contient l'intégralité de la fiche — à désactiver si un PDF ne doit rien porter de plus que son contenu imprimé.
-- Les PDF générés avant cette version ne sont pas restaurables (pas de relecture du texte imprimé).
+- Interrupteur « Embarquer les données de restauration dans les copies PDF archivées sur SharePoint » (réglage `pdfEmbedRecord`, activé par défaut) : la pièce jointe augmente la taille des PDF et contient l'intégralité de la fiche — à désactiver pour alléger l'archivage.
+- Les PDF archivés avant cette version ne sont pas restaurables (pas de relecture du texte imprimé).
 - Module `PdfRestore` (avant la section INIT) ; test headless `pptest/test_pdp.js` (export blob/complet, relecture, restauration new/replace/copy, ICP, option désactivée, UI).
 
 ## 2026-09-09 — Proxy Sellsy : authentification Microsoft
