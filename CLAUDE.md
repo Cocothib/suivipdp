@@ -53,6 +53,9 @@ Read avec offset/limit. Les `index.backup-*.html` sont des sauvegardes historiqu
   - 19190–21865 : EXPORT DOCX / PDF / ZIP (ICP, permis de feu, PDP simplifié, données embarquées l.19130)
   - ~21870–22150 : INIT, modales déplaçables, tutoriel, bootstrap de l'app ; `PdfRestore` juste avant la bannière INIT
     (v213 : pièce jointe JSON de la fiche dans chaque PDF exporté + Paramètres > Restaurer depuis un rapport PDF)
+    (v215, 18/09/2026 : glisser-déposer de documents sur la fiche PDP — `addDocumentFiles`, `_initGlobalDrop`,
+    `importMailFile` .msg/.eml → PDF jsPDF + PJ ; correctif #21 : `_materializeNewForm`/`_flushCurrentForm`
+    appellent `DataSync.markDirty()`, backoff `_saveRetryAt` dans le poll, journal agrégé, file ActivityLog en localStorage)
 
 ## Schéma Dexie (v35, l.3929)
 ```

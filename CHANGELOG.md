@@ -1,5 +1,24 @@
 # Changelog SuiviPDP — historique simplifié
 
+## 2026-09-18 — Glisser-déposer de documents et courriels dans un PDP ; correctifs de synchronisation (#21)
+
+### Documents joints
+- Zone de dépôt dans « Documents joints / Annexes » et dépôt possible n'importe où sur la fiche PDP ouverte (surcouche « Déposer pour joindre au PDP », bascule automatique sur la section Documents). Même traitement que le bouton Ajouter : catégorie du sélecteur, compression des images.
+- **Courriels Outlook `.msg` et `.eml`** : lecture côté navigateur (`@kenjiuno/msgreader` / `postal-mime`, bundles ESM jsDelivr chargés à la demande) → un PDF lisible « Courriel - <objet>.pdf » (De / À / Cc / Date / Objet / pièces jointes + texte re-flué, jsPDF) annexé automatiquement au dossier PDF exporté, le fichier d'origine conservé (réouvrable dans Outlook, inclus dans le ZIP), et chaque pièce jointe ajoutée comme document à part entière (les images incorporées au corps — signatures, logos — sont ignorées). Nouvelle catégorie « Courrier / Courriel ». Un courriel illisible est joint tel quel.
+
+### Synchronisation (analyse du journal d'activité du 21/08 au 15/09)
+- **Création paresseuse et flush à la mise en veille marquent désormais la base « dirty »** (`_materializeNewForm`, `_flushCurrentForm`). Avant : la fiche vivait en IndexedDB sans flag → poussée vide par une sauvegarde déclenchée pour une autre raison (auto-conflits « moi contre moi » sur les nouvelles ICP 4478, 4516, 4523, 4525, 4527), et surtout, sur mobile, la saisie flushée au kill de la PWA pouvait être effacée par le clear+bulkPut du distant ou perdre le merge 3-way (vue comme « déjà synchronisée »).
+- Conflits « sans référence » (fiche connue du distant mais absente du snapshot : poussée par un autre onglet/PWA du même utilisateur) : arbitrés par date comme avant, mais plus de toast alarmant ; le journal les distingue (`sansReference`).
+- Hors ligne / 412 persistant : backoff exponentiel entre deux relances par le poll (8 s → 16 → 32 … 5 min), un seul toast et une seule ligne de journal par épisode (`conflit_persistant`), puis `sauvegarde_retablie`. Avant : un toast de 12 s et une ligne toutes les 8 s pendant toute la coupure.
+
+### Journal d'activité
+- `pdp.create` / `icp.create` de nouveau journalisés (la création paresseuse donnait un id avant le premier Enregistrer → jamais « nouveau »).
+- File d'envoi mise en miroir dans localStorage : plus de perte des événements au rechargement / kill de la PWA, événements hors ligne conservés et envoyés à la reconnexion, nouvelle tentative 30 s après un échec d'envoi.
+- `conflit_merge` : un événement par fiche (liste des champs) au lieu d'un par champ ; `otherUser` = auteur du fichier de l'entité concernée (avant : celui du fichier PDP pour tout). `numero_dedup` : un événement agrégé par fusion (le 21/08, 3 942 lignes unitaires avaient saturé le journal). Erreurs de sauvegarde 401/403/autres journalisées (`sauvegarde_erreur`). Rétention 5 000 → 8 000 événements.
+
+### Non corrigé (connu)
+- Collision d'id Dexie entre postes (ICP-202609-4520 créée par deux techniciens le 14/09 → renumérotée 4521, photo uploadée sous deux dossiers Media) : inhérent à la numérotation locale ; nécessiterait une réservation de numéro côté serveur.
+
 ## 2026-09-15 — Restauration d'un PDP / d'une ICP depuis son rapport PDF
 
 - Seules les copies PDF **archivées sur SharePoint** (`SuiviPDP/PDP/Exports`, `SuiviPDP/ICP/Exports` : copie déposée à l'export, archivage automatique des ICP, ré-archivage batch — indicateur `PdfRestore._archiveMode`) embarquent une pièce jointe JSON `suivipdp-<pdp|icp>-<numero>.json` contenant la fiche complète : photos et documents joints avec leur binaire (jusqu'à 20 Mo, sinon références seules), signatures, liens PDP↔ICP par uid. Ajoutée via pdf-lib après la génération jsPDF. Le fichier téléchargé, le ZIP et les pièces jointes de mail (destinés aux entreprises extérieures) n'en portent jamais. Poids : environ celui des photos de la fiche (+33 % de base64), soit typiquement +0,1 Mo par photo.

@@ -11,6 +11,12 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" media="print" onload="this.media='all'">
   <style>
+    /* Zone de dépôt des documents joints (PDP) */
+    .doc-dropzone { border:2px dashed #b8c0cc; border-radius:10px; padding:14px 16px; text-align:center; color:#5b6470; background:#fafbfc; transition:background .15s,border-color .15s; cursor:default; }
+    .doc-dropzone.over, body.doc-drag-active .doc-dropzone { border-color:#007F85; background:#e6f4f4; color:#0b5f63; }
+    #doc-drop-overlay { position:fixed; inset:0; z-index:2000; display:none; align-items:center; justify-content:center; background:rgba(0,127,133,.18); pointer-events:none; }
+    #doc-drop-overlay > div { background:#fff; border:3px dashed #007F85; border-radius:14px; padding:28px 40px; font-size:1.15rem; color:#007F85; font-weight:600; box-shadow:0 8px 30px rgba(0,0,0,.15); }
+    body.doc-drag-active #doc-drop-overlay { display:flex; }
 /* =============================================================
    style.css — Theme Agriwatt pour Suivi PDP
    ============================================================= */
@@ -2284,12 +2290,18 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
                 <option value="permis_feu">Permis de feu</option>
                 <option value="fiche_reflexe">Fiche réflexe</option>
                 <option value="attestation">Attestation / Assurance</option>
+                <option value="courriel">Courrier / Courriel</option>
                 <option value="photo">Photo</option>
                 <option value="autre">Autre</option>
               </select>
             </div>
             <label class="btn btn-outline-primary btn-sm"><i class="bi bi-upload me-1"></i>Ajouter<input type="file" class="d-none" onchange="App.addDocument(event)" multiple></label>
             <button class="btn btn-outline-success btn-sm" onclick="App.attachStandardFDSManually()" title="Rattacher les documents marqués « Par défaut » depuis la bibliothèque"><i class="bi bi-file-earmark-pdf me-1"></i>Importer documents par défaut</button>
+          </div>
+          <div id="doc-dropzone" class="doc-dropzone mt-2" ondragover="App.docDragOver(event)" ondragleave="App.docDragLeave(event)" ondrop="App.docDrop(event)">
+            <i class="bi bi-cloud-arrow-up fs-4 d-block"></i>
+            <span>Glissez-déposez ici vos documents : PDF, images, Word, courriers, <b>courriels Outlook (.msg / .eml)</b> avec leurs pièces jointes…</span>
+            <div class="small text-muted mt-1">Un courriel est converti en PDF (expéditeur, destinataires, date, objet, texte) et annexé au dossier ; ses pièces jointes sont ajoutées séparément. Le fichier d'origine est conservé.</div>
           </div>
           <div class="small text-muted mt-1"><i class="bi bi-info-circle me-1"></i>Pour générer les autorisations internes des intervenants AGRIWATT, utiliser l'onglet <b>Autorisations</b>.</div>
         </div>
@@ -5619,9 +5631,15 @@ const DataSync = {
                 const rem = remoteByKey.get(keyOf(newEntry));
                 const isLegacy = String(newEntry.uid || '').startsWith('legacy-');
                 if (!isLegacy || this._isCloneOf(newEntry, rem)) {
+                    const nBefore = conflicts.length;
                     const merged = fieldLevel
                         ? this._mergeRecord(newEntry, snapByKey.get(keyOf(newEntry)), rem, { fieldLevel: true, conflicts, basePath: `[id=${newEntry.id}]` })
                         : newEntry;
+                    // #21 : fiche inconnue du snapshot mais déjà distante (poussée par un autre
+                    // contexte : 2e onglet/PWA, brouillon matérialisé) → chaque écart est un
+                    // « conflit » sans référence. Arbitré par date comme les autres, mais
+                    // signalé comme tel : journal agrégé, pas de toast alarmant.
+                    for (let k = nBefore; k < conflicts.length; k++) conflicts[k].sansReference = true;
                     merged.id = (typeof rem?.id === 'number') ? rem.id : newEntry.id;
                     if (typeof newEntry.id === 'number' && typeof merged.id === 'number' && merged.id !== newEntry.id) {
                         remap[newEntry.id] = merged.id;
@@ -5838,6 +5856,7 @@ const DataSync = {
             return ua < ub ? -1 : ua > ub ? 1 : 0;
         });
         const seen = new Set();
+        const renum = []; // #21 : journal agrégé (le 21/08, 3 942 événements unitaires ont saturé le journal)
         for (const e of sorted) {
             const num = e.numero || '';
             if (!num) continue;
@@ -5850,9 +5869,10 @@ const DataSync = {
             const ancien = e.numero;
             e.numero = `${prefix}-${mo}-${String(next).padStart(4, '0')}`;
             seen.add(e.numero);
-            if (typeof ActivityLog !== 'undefined') {
-                try { ActivityLog.log('numero_dedup', { type: prefix, ancien, nouveau: e.numero, uid: e.uid || null }); } catch (_) {}
-            }
+            renum.push({ ancien, nouveau: e.numero, uid: e.uid || null });
+        }
+        if (renum.length && typeof ActivityLog !== 'undefined') {
+            try { ActivityLog.log('numero_dedup', { type: prefix, nb: renum.length, liste: renum.slice(0, 20), tronque: renum.length > 20 }); } catch (_) {}
         }
         return arr;
     },
@@ -6001,7 +6021,11 @@ const DataSync = {
             ...entRes.conflicts.map(c => ({ ...c, _entityType: 'entreprise', _bucket: entRes.merged })),
         ];
         if (allConflicts.length) {
-            const savedBy = remotes.pdp?._meta?.savedBy || remotes.icp?._meta?.savedBy || remotes.shared?._meta?.savedBy || 'un collegue';
+            // #21 : auteur distant du fichier de l'entité concernée (avant : celui du fichier PDP
+            // pour tout le monde → « otherUser » faux pour les conflits ICP/entreprises).
+            const savedByOf = t => (t === 'pdp' ? remotes.pdp?._meta?.savedBy : t === 'icp' ? remotes.icp?._meta?.savedBy : remotes.shared?._meta?.savedBy)
+                || remotes.pdp?._meta?.savedBy || remotes.icp?._meta?.savedBy || remotes.shared?._meta?.savedBy || 'un collegue';
+            const savedBy = savedByOf('pdp');
             const byUser  = this.getUserName() || 'inconnu';
             // #10 : ne JAMAIS ouvrir la modale bloquante en contexte automatique
             // (auto-save / poll). Modale uniquement si appel explicite interactif.
@@ -6037,28 +6061,31 @@ const DataSync = {
                 }
                 // Appliquer la valeur finale dans le bucket (par defaut, _mergeRecord avait pose currentValue)
                 this._applyAtPath(c._bucket, c.path, () => finalValue);
-                // Trace ActivityLog
-                if (typeof ActivityLog !== 'undefined') {
+                c._decision = decision;
+            }
+            // Trace ActivityLog — #21 : UN événement par fiche (avant : un par champ → 16 lignes
+            // pour une ICP, journal saturé), champs en liste, auteur distant du bon fichier.
+            if (typeof ActivityLog !== 'undefined') {
+                const parRec = new Map();
+                for (const c of allConflicts) {
                     const idMatch = /\[id=([^\]]+)\]/.exec(c.path);
-                    ActivityLog.log('conflit_merge', {
-                        entityType: c._entityType,
-                        entityId: idMatch ? idMatch[1] : null,
-                        field: c.path.replace(/^\[id=[^\]]+\]\.?/, ''),
-                        chosen: decision,
-                        myValue: typeof c.currentValue === 'object' ? '[objet]' : String(c.currentValue ?? ''),
-                        otherValue: typeof c.remoteValue === 'object' ? '[objet]' : String(c.remoteValue ?? ''),
-                        otherUser: savedBy,
-                        byUser,
-                    });
+                    const k = c._entityType + ':' + (idMatch ? idMatch[1] : '?');
+                    if (!parRec.has(k)) parRec.set(k, { entityType: c._entityType, entityId: idMatch ? idMatch[1] : null, sansReference: !!c.sansReference, otherUser: savedByOf(c._entityType), byUser, champs: [] });
+                    const v = x => typeof x === 'object' ? (x === null ? '' : '[objet]') : String(x ?? '').slice(0, 80);
+                    parRec.get(k).champs.push({ f: c.path.replace(/^\[id=[^\]]+\]\.?/, ''), c: c._decision, m: v(c.currentValue), o: v(c.remoteValue) });
                 }
+                for (const d of parRec.values()) ActivityLog.log('conflit_merge', d);
             }
             // #5 : visibilité utilisateur. En mode NON interactif (auto-save/poll),
             // les conflits sont arbitrés automatiquement et silencieusement → on
             // informe l'utilisateur du nombre de champs arbitrés (déjà tracés dans
             // ActivityLog 'conflit_merge' pour le détail). Best-effort, sans risque.
-            if (!(interactive && document.getElementById('modal-merge-conflict'))) {
+            // #21 : pas de toast pour les seuls conflits « sans référence » (sa propre fiche
+            // poussée par un autre contexte : rien de concurrent, rien à vérifier).
+            const vrais = allConflicts.filter(c => !c.sansReference).length;
+            if (vrais && !(interactive && document.getElementById('modal-merge-conflict'))) {
                 try {
-                    App.toast(`${allConflicts.length} champ(s) en conflit arbitré(s) automatiquement (modif la plus récente conservée). Détail dans le journal d'activité.`, 'info', 7000);
+                    App.toast(`${vrais} champ(s) en conflit arbitré(s) automatiquement (modif la plus récente conservée). Détail dans le journal d'activité.`, 'info', 7000);
                 } catch (e) { /* toast non disponible : silencieux */ }
             }
         }
@@ -6275,14 +6302,26 @@ const DataSync = {
                 // réessayer — l'anomalie ne se résoudra pas d'elle-même.
                 if (typeof ActivityLog !== 'undefined') ActivityLog.log('sauvegarde_bloquee_garde_duplication', {});
             } else if (e && (e._persistentConflict || e._readError)) {
-                App.toast('Conflit de sauvegarde persistant (un collègue enregistre en même temps) ou réseau instable. Les données restent enregistrées localement et NE sont PAS perdues — réessai automatique au prochain cycle, y compris après un rechargement de la page.', 'warning', 12000);
-                if (typeof ActivityLog !== 'undefined') ActivityLog.log('conflit_persistant', { type: e._readError ? 'lecture' : '412' });
+                // #21 : backoff exponentiel entre deux relances par le poll (8 s → 16 → 32 … 5 min)
+                // et UN seul toast / événement de journal par épisode. Avant : hors ligne sur
+                // chantier, un toast de 12 s et une ligne de journal toutes les 8 s pendant
+                // toute la coupure (20 fois en 15 min dans le journal du 09/09).
+                const n = this._saveFailures = (this._saveFailures || 0) + 1;
+                this._saveRetryAt = Date.now() + Math.min(SP_CONFIG.POLL_INTERVAL_MS * Math.pow(2, n - 1), 5 * 60 * 1000);
+                if (n === 1) {
+                    App.toast('Conflit de sauvegarde persistant (un collègue enregistre en même temps) ou réseau instable. Les données restent enregistrées localement et NE sont PAS perdues — réessai automatique au prochain cycle, y compris après un rechargement de la page.', 'warning', 12000);
+                    if (typeof ActivityLog !== 'undefined') ActivityLog.log('conflit_persistant', { type: e._readError ? 'lecture' : '412' });
+                }
                 // _dirty conservé (non remis à false) → le poll relancera la sauvegarde.
             } else if (/\b403\b|forbidden|access.?denied/i.test(m)) {
+                if (typeof ActivityLog !== 'undefined') ActivityLog.log('sauvegarde_erreur', { type: '403', message: m.slice(0, 200) });
                 App.toast(`Sauvegarde refusée : le compte ${compte} a un accès en LECTURE SEULE au site SharePoint QHSE. Demander à l'administrateur les droits d'édition (rôle « Membres » / « Contribution »). Les données restent enregistrées localement.`, 'danger', 14000);
             } else if (/\b401\b|unauthor/i.test(m)) {
+                if (typeof ActivityLog !== 'undefined') ActivityLog.log('sauvegarde_erreur', { type: '401', message: m.slice(0, 200) });
                 App.toast('Session Microsoft expirée. Cliquer sur « Se reconnecter ». Les données restent enregistrées localement.', 'danger', 11000);
             } else {
+                // #21 : ces échecs n'étaient pas journalisés du tout (sessions « muettes » du journal).
+                if (typeof ActivityLog !== 'undefined') ActivityLog.log('sauvegarde_erreur', { type: 'autre', message: m.slice(0, 200) });
                 App.toast('Erreur sauvegarde SharePoint. Données conservées localement.', 'warning', 8000);
             }
         } finally { this._saving = false; }
@@ -6403,6 +6442,10 @@ const DataSync = {
         } else {
             clearTimeout(this._saveTimer);
             this._saveTimer = setTimeout(() => this.save(), SP_CONFIG.SAVE_DEBOUNCE_MS);
+        }
+        if (this._saveFailures) { // #21 : fin d'épisode réseau/412 → prochain toast possible
+            if (typeof ActivityLog !== 'undefined') ActivityLog.log('sauvegarde_retablie', { apres: this._saveFailures });
+            this._saveFailures = 0; this._saveRetryAt = 0;
         }
         if (typeof ActivityLog !== 'undefined') ActivityLog.log('sauvegarde', {
             vPdp: pdpData._meta.version, vIcp: icpData._meta.version, vShared: sharedData._meta.version, merged: conflict
@@ -6527,6 +6570,8 @@ const DataSync = {
                     }
                 }
                 this._connected = true;
+                // #21 : renvoi des événements de journal restés en file (session précédente / hors ligne)
+                try { ActivityLog._restoreQueue(); setTimeout(() => ActivityLog._flush(), 6000); } catch (_) {}
                 const loaded = await this._loadFromRemote();
                 if (!loaded && _msalInstance._fromRedirect) { await this.save(); }
                 this._registerPresence();
@@ -6603,7 +6648,10 @@ const DataSync = {
             // Modifs locales non sauvegardées : déclencher une sauvegarde fusionnante
             // (save() relit + merge anti-conflit) plutôt que d'écraser la base locale
             // par le distant — sinon perte silencieuse des saisies en attente.
-            if (this._dirty) { try { await this.save(); } catch(_) {} return; }
+            if (this._dirty) {
+                if (this._saveRetryAt && Date.now() < this._saveRetryAt) return; // #21 backoff après échec
+                try { await this.save(); } catch(_) {} return;
+            }
             try {
                 // #8 : lecture CONDITIONNELLE (If-None-Match). En régime stable,
                 // Graph répond 304 et NE transfère PAS les Mo de base64. On ne
@@ -6923,24 +6971,45 @@ const DataSync = {
 // ACTIVITY LOG — Journal des connexions, sauvegardes et modifications
 // ========================================
 const ActivityLog = {
-    MAX_EVENTS: 5000,
+    MAX_EVENTS: 8000,        // #21 : 5 000 → 8 000 (les événements sont désormais agrégés, le fichier reste léger)
+    _QUEUE_KEY: 'suivipdp_actlog_queue',
     _queue: [],
     _flushTimer: null,
     _flushing: false,
+    _restored: false,
+
+    // #21 : la file vivait en mémoire seulement → tout événement des 2 dernières
+    // secondes (et tout lot dont l'envoi échouait) était perdu au rechargement ou
+    // au kill de la PWA (sessions entières muettes dans le journal du 11/09).
+    // Miroir localStorage : restauré au prochain démarrage, purgé après envoi réussi.
+    _persistQueue() {
+        try { this._queue.length ? localStorage.setItem(this._QUEUE_KEY, JSON.stringify(this._queue.slice(-500))) : localStorage.removeItem(this._QUEUE_KEY); } catch (_) {}
+    },
+    _restoreQueue() {
+        if (this._restored) return; this._restored = true;
+        try {
+            const raw = localStorage.getItem(this._QUEUE_KEY);
+            const arr = raw ? JSON.parse(raw) : null;
+            if (Array.isArray(arr) && arr.length) this._queue.unshift(...arr);
+        } catch (_) {}
+    },
 
     log(action, details = {}) {
-        if (!DataSync._connected) return; // non connecte → pas de log distant
+        this._restoreQueue();
+        // Hors connexion : on garde l'événement en file (envoyé à la reconnexion) au lieu de le jeter.
         this._queue.push({
             ts: new Date().toISOString(),
-            user: DataSync.getUserName() || 'inconnu',
+            user: DataSync.getUserName() || (typeof _msalAccount !== 'undefined' && _msalAccount && _msalAccount.name) || 'inconnu',
             action,
             details
         });
+        this._persistQueue();
         clearTimeout(this._flushTimer);
         this._flushTimer = setTimeout(() => this._flush(), 2000);
     },
 
     async _flush() {
+        this._restoreQueue();
         if (this._flushing || !this._queue.length || !DataSync._connected) return;
         this._flushing = true;
         const batch = this._queue.splice(0);
@@ -6963,6 +7032,7 @@ const ActivityLog = {
                 }
                 try {
                     await _writeJsonFile(SP_CONFIG.ACTIVITY_LOG_FILE, current, etag);
+                    this._persistQueue(); // lot envoyé → miroir purgé (ou réduit à ce qui est arrivé entre-temps)
                     return; // succès (le finally remet _flushing=false)
                 } catch (e) {
                     if (e && e._precondition && attempt < MAX - 1) continue; // 412 → relire + réessayer
@@ -6972,7 +7042,11 @@ const ActivityLog = {
         } catch (e) {
             // Rollback : remettre dans la queue pour reessayer plus tard
             this._queue.unshift(...batch);
+            this._persistQueue();
             console.warn('ActivityLog: flush echoue', e);
+            // #21 : nouvelle tentative au prochain cycle (avant : seulement au prochain log)
+            clearTimeout(this._flushTimer);
+            this._flushTimer = setTimeout(() => this._flush(), 30000);
         } finally {
             this._flushing = false;
         }
@@ -7107,6 +7181,15 @@ window.addEventListener('beforeunload', e => {
 });
 // Flush automatique silencieux de la fiche en cours (protection mobile : onglet en arrière-plan / fermeture)
 window.addEventListener('pagehide', () => { if (typeof App !== 'undefined') App._flushCurrentForm(); });
+// Glisser-déposer de documents sur toute la fiche PDP (overlay + routage vers Documents joints)
+document.addEventListener('DOMContentLoaded', () => {
+    try {
+        const ov = document.createElement('div'); ov.id = 'doc-drop-overlay';
+        ov.innerHTML = '<div><i class="bi bi-cloud-arrow-up me-2"></i>Déposer pour joindre au PDP</div>';
+        document.body.appendChild(ov);
+        if (typeof App !== 'undefined') App._initGlobalDrop();
+    } catch (e) { console.warn('drag&drop init', e); }
+});
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden' && typeof App !== 'undefined') App._flushCurrentForm();
 });
@@ -10005,7 +10088,7 @@ const App = {
     if (p.id) { try { const old = await db.pdps.get(p.id); prevStatut = old?.statut||null; } catch {} }
     const isFinalTransition = p.statut === 'cloture' && prevStatut !== 'cloture';
     try {
-      const wasNew = !p.id;
+      const wasNew = !p.id || !!(this._lazyNewIds && this._lazyNewIds.has(p.id)); // #21 création paresseuse : l'id existe déjà
       // Prérequis externalisation : stabiliser/persister les id photos (sinon
       // _persistPhotoRefs ne peut pas apparier la ref par id sur une vieille photo).
       this._ensurePhotoFields(p);
@@ -10030,6 +10113,7 @@ const App = {
       // B5 : externalise les binaires photos de ce PDP en tâche de fond (data conservé)
       this._externalizeOnSave(p, db.pdps);
       if (typeof ActivityLog !== 'undefined') ActivityLog.log(wasNew ? 'pdp.create' : 'pdp.update', { id: p.id, numero: p.numero, titre: p.titre, statut: p.statut });
+      if (this._lazyNewIds) this._lazyNewIds.delete(p.id);
       // B0 : garantit le permis CNPP rempli au dossier (best-effort, silencieux ; régénère si le permis a changé)
       await this._autoAttachPermisCNPP(p);
       // Auto-export PDF + Word à la transition vers Clôturé
@@ -10321,6 +10405,14 @@ const App = {
       if (v === 'pdp-detail') cur.numero = `PDP-${yyyymm}-${String(newId).padStart(4,'0')}`;
       else cur.numero = `ICP-${yyyymm}-${String(newId).padStart(4,'0')}`;
       await table.put(cur);
+      // #21 : la fiche matérialisée n'existait qu'en Dexie, sans flag dirty → une
+      // sauvegarde déclenchée pour une autre raison (debounce d'une action
+      // précédente, 2e onglet/PWA) la poussait vide hors référence de fusion
+      // (auto-conflits « moi contre moi » du journal), et un cycle clear+bulkPut
+      // du poll pouvait l'effacer. Marquée dirty : poussée et snapshotée tout de suite.
+      if (!this._lazyNewIds) this._lazyNewIds = new Set();
+      this._lazyNewIds.add(newId); // pour journaliser pdp.create / icp.create au 1er Enregistrer
+      if (typeof DataSync !== 'undefined') DataSync.markDirty();
       // Le bouton Supprimer devient pertinent dès que la fiche existe en base.
       const delBtn = document.getElementById(v === 'pdp-detail' ? 'btn-delete-pdp' : 'btn-delete-icp');
       if (delBtn) delBtn.style.display = '';
@@ -10353,10 +10445,16 @@ const App = {
         this.captureAllSigs();
         db.pdps.put(this.currentPDP);
         this._formDirty = false;
+        // #21 : sans markDirty, la saisie flushée à la mise en veille (mobile) était
+        // vue comme « déjà synchronisée » au relancement : effacée par le clear+bulkPut
+        // du distant, ou perdante au merge 3-way. Le flag (localStorage + Dexie)
+        // survit au kill de la PWA → chemin fusionnant au prochain démarrage.
+        if (typeof DataSync !== 'undefined') DataSync.markDirty();
       } else if (this.currentView === 'icp-detail' && this.currentICP?.id) {
         this.collectICPForm();
         db.icps.put(this.currentICP);
         this._formDirty = false;
+        if (typeof DataSync !== 'undefined') DataSync.markDirty();
       }
     } catch (e) { console.warn('_flushCurrentForm:', e); }
   },
@@ -13285,7 +13383,7 @@ const App = {
   },
 
   // ---- DOCUMENTS ----
-  _docCatLabels: {plan:'Plan / Schéma',mode_operatoire:'Mode opératoire',habilitations:'Habilitations',autorisation_interne:'Autorisation interne',fds:'FDS',analyse_risques:'Analyse de risques',permis_feu:'Permis de feu',fiche_reflexe:'Fiche réflexe',attestation:'Attestation',photo:'Photo',autre:'Autre'},
+  _docCatLabels: {plan:'Plan / Schéma',mode_operatoire:'Mode opératoire',habilitations:'Habilitations',autorisation_interne:'Autorisation interne',fds:'FDS',analyse_risques:'Analyse de risques',permis_feu:'Permis de feu',fiche_reflexe:'Fiche réflexe',attestation:'Attestation',courriel:'Courrier / Courriel',photo:'Photo',autre:'Autre'},
 
   // P0.5 : compresse/redimensionne une image (même réglages que compressImage pour
   // les photos de risques : PHOTO_MAX_SIZE / PHOTO_QUALITY) en repartant d'une dataURL.
@@ -13315,27 +13413,212 @@ const App = {
   },
 
   addDocument(ev) {
+    const files = Array.from(ev.target.files || []);
+    ev.target.value = '';
+    this.addDocumentFiles(files);
+  },
+
+  // Ajout de fichiers au PDP courant (sélecteur OU glisser-déposer). Les courriels
+  // (.msg Outlook / .eml) passent par importMailFile : PDF lisible + pièces jointes.
+  async addDocumentFiles(files, categorieForcee) {
+    if (!this.currentPDP) { this.toast('Ouvrir un PDP avant d\'ajouter des documents', 'warning'); return; }
     this.currentPDP.documents = this.currentPDP.documents||[];
-    const categorie = document.getElementById('doc-categorie').value || 'autre';
-    Array.from(ev.target.files).forEach(f => {
-      const r = new FileReader();
-      r.onload = async e => {
-        let data = e.target.result, type = f.type, taille = f.size;
-        // P0.5 : seules les images (jpg/png/…) sont compressées comme les photos de
-        // risques. PDF/docx/autres restent intacts. Repli sûr si la compression échoue.
-        if (f.type && f.type.startsWith('image/')) {
-          const comp = await this._compressImageDataURL(e.target.result);
-          if (comp && comp.data) {
-            data = comp.data; type = comp.mime;
-            try { taille = Math.round((comp.data.length - (comp.data.indexOf(',')+1)) * 3 / 4); } catch (_) {}
-          }
-        }
-        this.currentPDP.documents.push({ nom:f.name, type, taille, data, date:new Date().toISOString(), categorie });
-        this.renderDocuments();
-        this.toast(`"${f.name}" ajouté (${this._docCatLabels[categorie]||categorie})`);
-      };
-      r.readAsDataURL(f);
-    }); ev.target.value = '';
+    const categorie = categorieForcee || document.getElementById('doc-categorie')?.value || 'autre';
+    for (const f of files) {
+      if (/\.(msg|eml)$/i.test(f.name) || f.type === 'message/rfc822' || f.type === 'application/vnd.ms-outlook') {
+        try { await this.importMailFile(f); }
+        catch (e) { console.warn('Import courriel :', e); this.toast(`Courriel "${f.name}" non lisible (${e && e.message || e}) — joint tel quel`, 'warning', 7000); await this._pushDocumentFromFile(f, 'courriel'); }
+        continue;
+      }
+      await this._pushDocumentFromFile(f, categorie);
+    }
+    this._markEditing();
+  },
+
+  _readFileAsDataURL(f) {
+    return new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = () => rej(r.error); r.readAsDataURL(f); });
+  },
+
+  async _pushDocumentFromFile(f, categorie) {
+    let data = await this._readFileAsDataURL(f), type = f.type, taille = f.size;
+    if (!type) type = this._mimeFromName(f.name);
+    if (/^data:;/.test(data) || /^data:application\/octet-stream/.test(data)) data = data.replace(/^data:[^;]*;/, `data:${type};`);
+    // P0.5 : seules les images (jpg/png/…) sont compressées comme les photos de
+    // risques. PDF/docx/autres restent intacts. Repli sûr si la compression échoue.
+    if (type && type.startsWith('image/')) {
+      const comp = await this._compressImageDataURL(data);
+      if (comp && comp.data) {
+        data = comp.data; type = comp.mime;
+        try { taille = Math.round((comp.data.length - (comp.data.indexOf(',')+1)) * 3 / 4); } catch (_) {}
+      }
+    }
+    this.currentPDP.documents.push({ nom:f.name, type, taille, data, date:new Date().toISOString(), categorie });
+    this.renderDocuments();
+    this.toast(`"${f.name}" ajouté (${this._docCatLabels[categorie]||categorie})`);
+  },
+
+  // ---- Glisser-déposer (zone dédiée + toute la fiche PDP) ----
+  _dropHasFiles(ev) { return !!(ev.dataTransfer && Array.from(ev.dataTransfer.types || []).includes('Files')); },
+  docDragOver(ev) { if (!this._dropHasFiles(ev)) return; ev.preventDefault(); ev.stopPropagation(); ev.dataTransfer.dropEffect = 'copy'; ev.currentTarget.classList.add('over'); },
+  docDragLeave(ev) { ev.currentTarget.classList.remove('over'); },
+  async docDrop(ev) {
+    if (!this._dropHasFiles(ev)) return;
+    ev.preventDefault(); ev.stopPropagation();
+    ev.currentTarget.classList.remove('over');
+    document.body.classList.remove('doc-drag-active');
+    const files = Array.from(ev.dataTransfer.files || []);
+    if (files.length) await this.addDocumentFiles(files);
+  },
+  // Dépôt n'importe où sur la fiche PDP ouverte : même traitement, catégorie du sélecteur.
+  _initGlobalDrop() {
+    if (this._globalDropInit) return; this._globalDropInit = true;
+    let depth = 0;
+    const active = () => this.currentView === 'pdp-detail' && !!this.currentPDP;
+    document.addEventListener('dragenter', ev => { if (!active() || !this._dropHasFiles(ev)) return; ev.preventDefault(); depth++; document.body.classList.add('doc-drag-active'); });
+    document.addEventListener('dragover', ev => { if (!active() || !this._dropHasFiles(ev)) return; ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; });
+    document.addEventListener('dragleave', ev => { if (!active()) return; depth = Math.max(0, depth - 1); if (!depth) document.body.classList.remove('doc-drag-active'); });
+    document.addEventListener('drop', async ev => {
+      depth = 0; document.body.classList.remove('doc-drag-active');
+      if (!active() || !this._dropHasFiles(ev)) return;
+      ev.preventDefault();
+      const files = Array.from(ev.dataTransfer.files || []);
+      if (!files.length) return;
+      this.showPDPSection('annexes');
+      await this.addDocumentFiles(files);
+    });
+  },
+
+  // ---- Courriels (.msg Outlook / .eml) → PDF lisible + pièces jointes ----
+  // Bibliothèques chargées à la demande (bundles ESM jsDelivr), jamais au démarrage.
+  _MSGREADER_URL: 'https://cdn.jsdelivr.net/npm/@kenjiuno/msgreader@1.28.0/+esm',
+  _POSTALMIME_URL: 'https://cdn.jsdelivr.net/npm/postal-mime@2.4.3/+esm',
+  async _parseMailFile(f) {
+    const buf = await f.arrayBuffer();
+    const mail = { objet:'', de:'', a:[], cc:[], date:'', texte:'', pj:[] };
+    const fmtAddr = (n, e) => (n && e && n !== e) ? `${n} <${e}>` : (e || n || '');
+    if (/\.msg$/i.test(f.name) || f.type === 'application/vnd.ms-outlook') {
+      const mod = await import(this._MSGREADER_URL);
+      const MsgReader = (mod.default && mod.default.default) || mod.default || mod.MsgReader;
+      const reader = new MsgReader(buf);
+      const d = reader.getFileData();
+      if (d.error) throw new Error(d.error);
+      mail.objet = d.subject || d.normalizedSubject || '';
+      mail.de = fmtAddr(d.senderName, d.senderEmail);
+      for (const r of (d.recipients || [])) { if (r.recipType === 'bcc') continue; (r.recipType === 'cc' ? mail.cc : mail.a).push(fmtAddr(r.name, r.email)); }
+      const dt = d.clientSubmitTime || d.messageDeliveryTime || d.creationTime || '';
+      mail.date = dt ? new Date(dt).toLocaleString('fr-FR') : '';
+      mail.texte = (d.body || '').replace(/\r\n/g, '\n');
+      if (!mail.texte && d.bodyHtml) mail.texte = this._htmlToText(d.bodyHtml);
+      (d.attachments || []).forEach((a, i) => {
+        if (a.attachmentHidden) return;
+        if (a.pidContentId && /^image\//i.test(a.attachMimeTag || '')) return; // images incorporées au corps (signatures, logos)
+        try {
+          const att = reader.getAttachment(i);
+          if (!att || !att.content) return;
+          mail.pj.push({ nom: att.fileName || a.fileName || `piece-jointe-${i+1}`, mime: a.attachMimeTag || '', bytes: att.content });
+        } catch (e) { console.warn('Pièce jointe non lue :', a.fileName, e); }
+      });
+    } else {
+      const mod = await import(this._POSTALMIME_URL);
+      const PostalMime = mod.default || mod.PostalMime;
+      const e = await new PostalMime().parse(buf);
+      mail.objet = e.subject || '';
+      mail.de = e.from ? fmtAddr(e.from.name, e.from.address) : '';
+      mail.a = (e.to || []).map(x => fmtAddr(x.name, x.address));
+      mail.cc = (e.cc || []).map(x => fmtAddr(x.name, x.address));
+      mail.date = e.date ? new Date(e.date).toLocaleString('fr-FR') : '';
+      mail.texte = e.text || (e.html ? this._htmlToText(e.html) : '');
+      for (const a of (e.attachments || [])) {
+        if (a.disposition === 'inline' && /^image\//i.test(a.mimeType || '')) continue;
+        mail.pj.push({ nom: a.filename || 'piece-jointe', mime: a.mimeType || '', bytes: new Uint8Array(a.content) });
+      }
+    }
+    return mail;
+  },
+  _htmlToText(html) {
+    try {
+      const doc = new DOMParser().parseFromString(String(html), 'text/html');
+      doc.querySelectorAll('style,script,head').forEach(n => n.remove());
+      doc.querySelectorAll('br').forEach(n => n.replaceWith('\n'));
+      doc.querySelectorAll('p,div,tr,li,h1,h2,h3,h4').forEach(n => n.append('\n'));
+      return (doc.body?.textContent || '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    } catch (_) { return String(html).replace(/<[^>]+>/g, ' '); }
+  },
+  // PDF A4 du courriel (jsPDF) : en-tête (De / À / Cc / Date / Objet / PJ) + corps paginé.
+  _mailToPdfDataURL(mail, fileName) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'mm', format:'a4' });
+    const W = 210, M = 15, maxW = W - 2*M; let y = M;
+    const nl = () => { doc.addPage(); y = M; };
+    doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.setTextColor(41,47,108);
+    doc.text('Courriel joint au plan de prévention', M, y); y += 7;
+    doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(90);
+    doc.text(`Fichier d'origine : ${fileName}`, M, y); y += 6;
+    doc.setDrawColor(0,127,133); doc.setLineWidth(0.5); doc.line(M, y, W-M, y); y += 5;
+    const row = (label, val) => {
+      if (!val) return;
+      doc.setFont('helvetica','bold'); doc.setTextColor(18); doc.setFontSize(10);
+      doc.text(label, M, y);
+      doc.setFont('helvetica','normal');
+      const lines = doc.splitTextToSize(String(val), maxW - 28);
+      doc.text(lines, M + 28, y); y += lines.length * 4.6 + 1.2;
+    };
+    row('De', mail.de); row('À', mail.a.join(' ; ')); row('Cc', mail.cc.join(' ; ')); row('Date', mail.date); row('Objet', mail.objet);
+    row('Pièces jointes', mail.pj.length ? mail.pj.map(p => p.nom).join(' ; ') : '');
+    y += 2; doc.setDrawColor(200); doc.setLineWidth(0.2); doc.line(M, y, W-M, y); y += 6;
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(18);
+    // Re-flux prudent du texte brut (Outlook coupe à ~76 caractères) : une ligne longue
+    // suivie d'une ligne non vide qui ne commence pas par une puce/numéro est recollée.
+    const raw = (mail.texte || '(courriel sans texte)').replace(/\t/g, '    ').split('\n');
+    const paras = [];
+    for (const ln of raw) {
+      const prev = paras[paras.length - 1];
+      if (prev !== undefined && prev.length > 60 && ln.trim() && !/^\s*([-•*>]|\d+[.)])\s/.test(ln) && !/^\s{2,}/.test(ln)) paras[paras.length - 1] = prev.replace(/\s+$/, '') + ' ' + ln.trim();
+      else paras.push(ln);
+    }
+    for (const para of paras) {
+      const lines = para.trim() ? doc.splitTextToSize(para, maxW) : [''];
+      for (const ln of lines) {
+        if (y > 297 - M) nl();
+        doc.text(ln, M, y); y += 4.8;
+      }
+    }
+    // jsPDF ajoute « ;filename=generated.pdf » : normalisé en data URL base64 classique (upload/strip/export)
+    return doc.output('datauristring').replace(/^data:application\/pdf;[^,]*base64,/, 'data:application/pdf;base64,');
+  },
+  _bytesToDataURL(bytes, mime) {
+    let bin = ''; const CH = 0x8000;
+    for (let i = 0; i < bytes.length; i += CH) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+    return `data:${mime || 'application/octet-stream'};base64,` + btoa(bin);
+  },
+  async importMailFile(f) {
+    const mail = await this._parseMailFile(f);
+    const base = (mail.objet || f.name.replace(/\.(msg|eml)$/i, '')).replace(/[\\/:*?"<>|]+/g, '-').slice(0, 90);
+    const now = new Date().toISOString();
+    // 1. PDF lisible (annexé automatiquement au dossier PDF exporté)
+    const pdfData = this._mailToPdfDataURL(mail, f.name);
+    this.currentPDP.documents.push({ nom: `Courriel - ${base}.pdf`, type: 'application/pdf', taille: Math.round((pdfData.length - pdfData.indexOf(',') - 1) * 3 / 4), data: pdfData, date: now, categorie: 'courriel', courriel: { de: mail.de, date: mail.date, objet: mail.objet, source: f.name } });
+    // 2. Fichier d'origine conservé (preuve, réouvrable dans Outlook ; inclus dans le ZIP)
+    const orig = await this._readFileAsDataURL(f);
+    const origType = f.type || (/\.msg$/i.test(f.name) ? 'application/vnd.ms-outlook' : 'message/rfc822');
+    this.currentPDP.documents.push({ nom: f.name, type: origType, taille: f.size, data: orig.replace(/^data:[^;]*;/, `data:${origType};`), date: now, categorie: 'courriel' });
+    // 3. Pièces jointes du courriel : documents à part entière (PDF/images annexés à l'export)
+    let nbPj = 0;
+    for (const pj of mail.pj) {
+      try {
+        const mime = pj.mime || this._mimeFromName(pj.nom);
+        let data = this._bytesToDataURL(pj.bytes, mime), type = mime, taille = pj.bytes.length;
+        if (/^image\//i.test(mime)) { const comp = await this._compressImageDataURL(data); if (comp && comp.data) { data = comp.data; type = comp.mime; } }
+        this.currentPDP.documents.push({ nom: pj.nom, type, taille, data, date: now, categorie: 'courriel', courriel: { source: f.name, objet: mail.objet } });
+        nbPj++;
+      } catch (e) { console.warn('PJ courriel :', pj.nom, e); }
+    }
+    this.renderDocuments();
+    this.toast(`Courriel « ${mail.objet || f.name} » joint (PDF + original${nbPj ? ` + ${nbPj} pièce${nbPj>1?'s':''} jointe${nbPj>1?'s':''}` : ''})`, 'success', 6000);
+  },
+  _mimeFromName(n) {
+    const ext = (n || '').split('.').pop().toLowerCase();
+    return { pdf:'application/pdf', jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', gif:'image/gif', docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document', doc:'application/msword', xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', xls:'application/vnd.ms-excel', pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation', txt:'text/plain', msg:'application/vnd.ms-outlook', eml:'message/rfc822', zip:'application/zip' }[ext] || 'application/octet-stream';
   },
 
   // Rattache les FDS marquées "standard" de la bibliothèque au PDP donné (si pas déjà rattachées).
@@ -13961,9 +14244,10 @@ const App = {
     const c = document.getElementById('documents-list-container');
     const docs = this.currentPDP?.documents||[];
     if (!docs.length) { c.innerHTML = '<p class="text-muted small">Aucun document.</p>'; return; }
-    const catColors = {plan:'primary',mode_operatoire:'info',habilitations:'success',fds:'warning',analyse_risques:'danger',permis_feu:'danger',fiche_reflexe:'secondary',attestation:'secondary',photo:'info',autre:'secondary'};
+    const catColors = {plan:'primary',mode_operatoire:'info',habilitations:'success',fds:'warning',analyse_risques:'danger',permis_feu:'danger',fiche_reflexe:'secondary',attestation:'secondary',courriel:'primary',photo:'info',autre:'secondary'};
     c.innerHTML = docs.map((d,i) => {
-      const icon = d.type?.includes('pdf')?'file-pdf':d.type?.includes('image')?'file-image':'file-earmark';
+      const isMail = /outlook|rfc822/i.test(d.type||'') || /\.(msg|eml)$/i.test(d.nom||'');
+      const icon = isMail?'envelope':d.type?.includes('pdf')?'file-pdf':d.type?.includes('image')?'file-image':/word|officedocument/i.test(d.type||'')?'file-earmark-word':'file-earmark';
       const cat = d.categorie||'autre';
       const catLabel = this._docCatLabels[cat]||cat;
       const catColor = catColors[cat]||'secondary';
@@ -15612,7 +15896,7 @@ const App = {
     document.getElementById('icp-date')?.classList.remove('is-invalid');
     document.getElementById('icp-site')?.classList.remove('is-invalid');
     try {
-      const wasNew = !v.id;
+      const wasNew = !v.id || !!(this._lazyNewIds && this._lazyNewIds.has(v.id)); // #21 création paresseuse : l'id existe déjà
       // Prérequis externalisation : stabiliser/persister les id photos.
       this._ensurePhotoFields(v);
       if (v.id) { await db.icps.put(v); }
@@ -15627,6 +15911,7 @@ const App = {
       // B5 : externalise les binaires photos de cette ICP en tâche de fond (data conservé)
       this._externalizeOnSave(v, db.icps);
       if (typeof ActivityLog !== 'undefined') ActivityLog.log(wasNew ? 'icp.create' : 'icp.update', { id: v.id, numero: v.numero, site: v.site, pdpId: v.pdpId || null });
+      if (this._lazyNewIds) this._lazyNewIds.delete(v.id);
       // Auto-archivage SharePoint dès que l'ICP est réalisée (effectuée ou validée),
       // et re-archivage à CHAQUE modification ultérieure (garde le PDF/Word à jour, écrase l'ancien).
       if (this._icpRealisee(v)) await this._autoArchiveICP(v);
