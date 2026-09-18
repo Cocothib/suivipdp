@@ -56,6 +56,7 @@ Read avec offset/limit. Les `index.backup-*.html` sont des sauvegardes historiqu
     (v215, 18/09/2026 : glisser-déposer de documents sur la fiche PDP — `addDocumentFiles`, `_initGlobalDrop`,
     `importMailFile` .msg/.eml → PDF jsPDF + PJ ; correctif #21 : `_materializeNewForm`/`_flushCurrentForm`
     appellent `DataSync.markDirty()`, backoff `_saveRetryAt` dans le poll, journal agrégé, file ActivityLog en localStorage)
+    (#22 : `DataSync.reserveSequence(prefix)` sur `SuiviPDP/counters.json` + `App._addWithReservedId(table, obj, prefix)` pour toute création PDP/ICP)
 
 ## Schéma Dexie (v35, l.3929)
 ```

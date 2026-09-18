@@ -16,8 +16,8 @@
 - File d'envoi mise en miroir dans localStorage : plus de perte des événements au rechargement / kill de la PWA, événements hors ligne conservés et envoyés à la reconnexion, nouvelle tentative 30 s après un échec d'envoi.
 - `conflit_merge` : un événement par fiche (liste des champs) au lieu d'un par champ ; `otherUser` = auteur du fichier de l'entité concernée (avant : celui du fichier PDP pour tout). `numero_dedup` : un événement agrégé par fusion (le 21/08, 3 942 lignes unitaires avaient saturé le journal). Erreurs de sauvegarde 401/403/autres journalisées (`sauvegarde_erreur`). Rétention 5 000 → 8 000 événements.
 
-### Non corrigé (connu)
-- Collision d'id Dexie entre postes (ICP-202609-4520 créée par deux techniciens le 14/09 → renumérotée 4521, photo uploadée sous deux dossiers Media) : inhérent à la numérotation locale ; nécessiterait une réservation de numéro côté serveur.
+### Numérotation inter-postes (#22)
+- Collision d'id Dexie entre postes (ICP-202609-4520 créée par deux techniciens le 14/09 → renumérotée 4521 après coup, photo uploadée sous deux dossiers Media) : à la création d'un PDP / d'une ICP (saisie, création paresseuse, création croisée PDP↔ICP, duplication), le poste connecté **réserve le prochain numéro** dans `SuiviPDP/counters.json` (écriture conditionnelle If-Match, relecture + nouvel essai sur 412, valeur ≥ max local) et l'utilise comme id local explicite → id et numéro identiques sur tous les postes, plus de renumérotation. Hors ligne ou en cas d'échec : auto-incrément local comme avant (journal `numero_non_reserve`), `_dedupeNumeros` reste en filet de sécurité. Champ `numeroReserve: true` sur les fiches concernées.
 
 ## 2026-09-15 — Restauration d'un PDP / d'une ICP depuis son rapport PDF
 

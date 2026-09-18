@@ -4041,6 +4041,7 @@ const SP_CONFIG = {
     FDS_FOLDER:       'SuiviPDP/Shared/FDS',
     MEDIA_FOLDER:     'SuiviPDP/Media',
     ACTIVITY_LOG_FILE:'SuiviPDP/activity-log.json',
+    COUNTERS_FILE:    'SuiviPDP/counters.json',   // #22 : compteurs de numérotation partagés (réservation d'id inter-postes)
     SCOPES: ['Files.ReadWrite.All', 'User.Read', 'Sites.ReadWrite.All'],
     MAIL_SCOPES: ['Mail.Send'],
     // Normalisé SANS index.html : l'URI de redirection doit être identique quelle que
@@ -6452,6 +6453,53 @@ const DataSync = {
         });
         // Lot 1 : publication différée du référentiel partagé après une sauvegarde réussie
         try { schedulePublishReferentielsPdp(); } catch (_) {}
+    },
+
+    // #22 : RÉSERVATION D'UN NUMÉRO DE SÉQUENCE PARTAGÉ (PDP / ICP).
+    // Les id Dexie sont auto-incrémentés PAR APPAREIL : deux techniciens qui créent
+    // une ICP en même temps obtiennent le même id, donc le même numéro
+    // (ICP-202609-4520 en double le 14/09 → renumérotée après coup par
+    // _dedupeNumeros, photos sous deux dossiers Media). Ici, à la création et si
+    // le poste est connecté, on réserve le prochain numéro dans un petit fichier
+    // SharePoint `counters.json` via écriture conditionnelle (If-Match → 412 →
+    // relecture + nouvel essai) : deux postes ne peuvent pas obtenir la même
+    // valeur. Le numéro réservé sert d'id local explicite (Dexie accepte une clé
+    // fournie sur une table ++id) → id ET numéro identiques sur tous les postes,
+    // plus de remap ni de renumérotation. Hors ligne ou en cas d'échec : repli sur
+    // l'auto-incrément local (comportement historique, dedup en filet de sécurité).
+    _localMaxSeq: async function (table) {
+        let max = 0;
+        try { const last = await table.orderBy('id').last(); if (last && typeof last.id === 'number') max = last.id; } catch (_) {}
+        try {
+            const byNum = await table.orderBy('numero').last();
+            const m = /^(?:PDP|ICP)-\d{6}-(\d{4,})$/.exec((byNum && byNum.numero) || '');
+            if (m) max = Math.max(max, parseInt(m[1], 10));
+        } catch (_) {}
+        return max;
+    },
+    async reserveSequence(prefix) {
+        if (!this._connected) return null;
+        const key = String(prefix || '').toLowerCase();
+        if (key !== 'pdp' && key !== 'icp') return null;
+        const table = key === 'icp' ? db.icps : db.pdps;
+        const localMax = await this._localMaxSeq(table);
+        for (let attempt = 0; attempt < 4; attempt++) {
+            let r;
+            try { r = await _readJsonFileMeta(SP_CONFIG.COUNTERS_FILE); } catch (e) { console.warn('reserveSequence: lecture impossible', e); return null; }
+            const data = (r && r.data && typeof r.data === 'object' && !Array.isArray(r.data)) ? r.data : {};
+            const next = Math.max(Number(data[key]) || 0, localMax) + 1;
+            data[key] = next;
+            data._meta = { lastSaved: new Date().toISOString(), savedBy: this.getUserName() || 'inconnu' };
+            try {
+                await _writeJsonFile(SP_CONFIG.COUNTERS_FILE, data, r.etag || null);
+                return next;
+            } catch (e) {
+                if (e && e._precondition && attempt < 3) { await new Promise(res => setTimeout(res, 120 + Math.floor(Math.random() * 250))); continue; }
+                console.warn('reserveSequence: écriture impossible', e);
+                return null;
+            }
+        }
+        return null;
     },
 
     markDirty() {
@@ -10094,7 +10142,7 @@ const App = {
       this._ensurePhotoFields(p);
       this._ensureDocFields(p);
       if (p.id) { await db.pdps.put(p); }
-      else { if (!p.uid) p.uid = _uid(); p.id = await db.pdps.add(p); p.numero = `PDP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(p.id).padStart(4,'0')}`; await db.pdps.put(p); }
+      else { if (!p.uid) p.uid = _uid(); p.id = await this._addWithReservedId(db.pdps, p, 'PDP'); p.numero = `PDP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(p.id).padStart(4,'0')}`; await db.pdps.put(p); }
       let displayTitle = p.numero || ('PDP #' + p.id);
       let dispRef = p.refOperation || '';
       if (!dispRef && p.icpId) { try { const v = await db.icps.get(p.icpId); if (v?.refOperation) dispRef = v.refOperation; } catch {} }
@@ -10237,7 +10285,7 @@ const App = {
     copy.dateCreation = new Date().toISOString();
     copy.dateModification = copy.dateCreation;
     try {
-      const newId = await db.pdps.add(copy);
+      const newId = await this._addWithReservedId(db.pdps, copy, 'PDP');
       copy.id = newId;
       copy.numero = `PDP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(newId).padStart(4,'0')}`;
       await db.pdps.put(copy);
@@ -10380,6 +10428,29 @@ const App = {
     this._materializeNewForm();
   },
 
+  // #22 : insertion d'une fiche nouvelle avec un id RÉSERVÉ côté serveur quand c'est
+  // possible (cf. DataSync.reserveSequence), sinon auto-incrément local. Toutes les
+  // créations de PDP/ICP (saisie, matérialisation, création croisée, duplication)
+  // passent ici. Retourne l'id inséré ; l'appelant l'affecte à son objet.
+  async _addWithReservedId(table, obj, prefix) {
+    let reserved = null;
+    try { reserved = await DataSync.reserveSequence(prefix); } catch (_) { reserved = null; }
+    if (reserved) {
+      try {
+        const id = await table.add({ ...obj, id: reserved });
+        obj.numeroReserve = true;
+        return id;
+      } catch (e) {
+        // id déjà occupé localement (fiche créée hors ligne par ce poste avec cet id) : repli.
+        console.warn('_addWithReservedId: id réservé déjà pris localement', reserved, e && e.name);
+      }
+    } else if (DataSync._connected && typeof ActivityLog !== 'undefined') {
+      ActivityLog.log('numero_non_reserve', { type: prefix });
+    }
+    const id = await table.add(obj);
+    return id;
+  },
+
   // Création paresseuse : transforme la fiche en cours (NOUVELLE, sans id) en
   // enregistrement persistant. Idempotent (guard __creatingForm) car _markEditing est
   // appelé en rafale par les listeners input/change avant que le 1er add résolve.
@@ -10398,7 +10469,7 @@ const App = {
       else { try { this.collectICPForm(); } catch {} }
       if (cur.id) return; // un save concurrent a pu lui donner un id entre-temps
       if (!cur.uid) cur.uid = _uid();
-      const newId = await table.add(cur);
+      const newId = await this._addWithReservedId(table, cur, v === 'pdp-detail' ? 'PDP' : 'ICP');
       cur.id = newId;
       // Numérotation identique à savePDP/saveICP (basée sur l'id), puis put.
       const yyyymm = `${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}`;
@@ -15900,7 +15971,7 @@ const App = {
       // Prérequis externalisation : stabiliser/persister les id photos.
       this._ensurePhotoFields(v);
       if (v.id) { await db.icps.put(v); }
-      else { if (!v.uid) v.uid = _uid(); v.id = await db.icps.add(v); v.numero = `ICP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(v.id).padStart(4,'0')}`; await db.icps.put(v); }
+      else { if (!v.uid) v.uid = _uid(); v.id = await this._addWithReservedId(db.icps, v, 'ICP'); v.numero = `ICP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(v.id).padStart(4,'0')}`; await db.icps.put(v); }
       document.getElementById('icp-detail-title').textContent = [v.refOperation, v.numero || ('ICP #' + v.id), v.objet].filter(Boolean).join(' | ');
       document.getElementById('btn-delete-icp').style.display = '';
       document.getElementById('btn-duplicate-icp').style.display = '';
@@ -15947,7 +16018,7 @@ const App = {
     copy.dateCreation = new Date().toISOString();
     copy.dateModification = copy.dateCreation;
     try {
-      const newId = await db.icps.add(copy);
+      const newId = await this._addWithReservedId(db.icps, copy, 'ICP');
       copy.id = newId;
       copy.numero = `ICP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(newId).padStart(4,'0')}`;
       await db.icps.put(copy);
@@ -16431,7 +16502,7 @@ const App = {
     };
     await this.attachStandardFDS(pdp);
     pdp.uid = _uid();
-    const pdpId = await db.pdps.add(pdp);
+    const pdpId = await this._addWithReservedId(db.pdps, pdp, 'PDP');
     pdp.id = pdpId;
     pdp.numero = `PDP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(pdpId).padStart(4,'0')}`;
     await db.pdps.put(pdp);
@@ -16629,7 +16700,7 @@ const App = {
       pdpId: p.id||null,
       dateCreation:new Date().toISOString(), dateModification:new Date().toISOString()
     };
-    const icpId = await db.icps.add(newIcp);
+    const icpId = await this._addWithReservedId(db.icps, newIcp, 'ICP');
     newIcp.id = icpId;
     newIcp.numero = `ICP-${new Date().getFullYear()}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(icpId).padStart(4,'0')}`;
     await db.icps.put(newIcp);
