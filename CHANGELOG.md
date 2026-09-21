@@ -1,5 +1,14 @@
 # Changelog SuiviPDP — historique simplifié
 
+## 2026-09-21 — Charte graphique Générations Renouvelables (v217)
+
+- Palette officielle : bleu marine #292F6C (barre, boutons primaires, titres, liens), teal #007F85 (succès / info), jaune #FFCE00 (avertissements, texte noir), orange #EC820B, texte #121212, fond #F7F7F7. Les anciennes variables `--agw-green*` restent en alias ; le rouge de danger est inchangé, les couleurs des catégories de risques aussi.
+- Police Century Gothic (repli URW Gothic / Questrial / Futura / Avenir / Segoe UI), titres en gras bleu, menu resserré.
+- Classes Bootstrap `success` / `info` / `warning` ramenées dans la palette via les variables 5.3 (opacités et alertes conservées).
+- Logo complet blanc Générations Renouvelables dans la barre, favicon / manifeste / `theme-color` bleus.
+- Exports PDF (jsPDF) et DOCX : titres et bandeaux verts passés au bleu marine, périodes validées du permis de feu en teal ; mise en page inchangée. Courriels de notification : boutons bleus.
+- Aucune modification fonctionnelle ni de données.
+
 ## 2026-09-18 — Glisser-déposer de documents et courriels dans un PDP ; correctifs de synchronisation (#21)
 
 ### Documents joints
