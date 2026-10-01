@@ -4471,7 +4471,25 @@ async function _downloadFileAsDataURL(filePath) {
     const resp = await _graphFetch(`https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${filePath}:/content`);
     if (!resp.ok) throw new Error('Download échoué: ' + resp.status);
     const blob = await resp.blob();
-    return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+    const url = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+    return _retypeDataURL(url);
+}
+
+// Les binaires FDS sont rangés SANS extension (_fdsFilePath) : SharePoint les sert en
+// application/octet-stream (ou avec un type périmé, ex. FR-01 migrée PNG → PDF) → l'export
+// PDF ne reconnaissait plus le PDF (« FDS ne peuvent être annexées »). On retype la dataURL
+// d'après la signature des premiers octets (%PDF, PNG, JPEG).
+function _retypeDataURL(url) {
+    if (typeof url !== 'string' || !url.startsWith('data:')) return url;
+    const i = url.indexOf(';base64,');
+    if (i < 0) return url;
+    let head = '';
+    try { head = atob(url.slice(i + 8, i + 8 + 12)); } catch (e) { return url; }
+    const sniff = head.startsWith('%PDF') ? 'application/pdf'
+        : head.startsWith('\x89PNG') ? 'image/png'
+        : head.startsWith('\xFF\xD8\xFF') ? 'image/jpeg' : null;
+    if (!sniff || url.slice(5, i) === sniff) return url;
+    return 'data:' + sniff + url.slice(i);
 }
 
 // Supprime un fichier sur SharePoint (silencieux si absent)
@@ -13856,6 +13874,7 @@ const App = {
     // Cohérence data/mime : le binaire ne voyage pas dans la sync — après un changement
     // de format sur un autre poste (ex. migration FR-01 PNG → PDF), le data local est
     // périmé. On le jette pour re-télécharger la version SharePoint à jour.
+    if (f.data) f.data = _retypeDataURL(f.data); // cache local téléchargé en octet-stream
     if (f.data && f.mime && !String(f.data).startsWith('data:' + f.mime)) f.data = null;
     if (!f.data && DataSync._connected) {
       try {
@@ -22098,6 +22117,7 @@ const App = {
             // Document PDF non-FDS externalisé : résolution à la demande.
             try { dataUrl = await this.ensureDocumentData(d); } catch (e) { console.warn('Doc PDF ref non résolu:', e); }
           }
+          dataUrl = _retypeDataURL(dataUrl); // binaire mis en cache avec un type générique (octet-stream)
           // Pièce jointe IMAGE des catégories à incruster (fiche réflexe / permis de feu) :
           // pas de PDF à fusionner → on ajoute une page A4 portrait avec l'image centrée.
           if (dataUrl && /^data:image\//i.test(dataUrl) && (d.categorie === 'fiche_reflexe' || d.categorie === 'permis_feu')) {
