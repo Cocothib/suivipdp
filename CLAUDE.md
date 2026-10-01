@@ -36,6 +36,18 @@ Read avec offset/limit. Les `index.backup-*.html` sont des sauvegardes historiqu
     `section-chimiques` (#pc-container), pictogrammes officiels `../suivichimique/pictos/SGH0X.svg|png`
     (visualiseur `../suivichimique/pictos/?code=SGH0X`), infobulles `data-pc-tip`, carte Paramètres `#pc-settings-status`,
     `exportSection(p)` (tableau PDF/Word), `fdsAnnexes(p)` + `fdsDataURL(chemin)` (ZIP, cache media `chim:<chemin>`)
+  - juste après `ProduitsChimiques` : **`PictosPDP`** (bannière `// ==== PICTOGRAMMES ISO 7010 ====`) — onglet Pictogrammes de la
+    fiche PDP en signaux OFFICIELS : interdictions P / avertissements W de `pictos/` (= `../suivipdp/pictos/`), EPI M de
+    `../suiviepi/pictos/` ; catalogues JSON + secours en dur (`SECOURS_P/W/M`) ; anciens ids conservés (`ANCIENS_INT` :
+    vapoter→P002, flamme→P003, feu→P039, entreposage→P023, stimulateur→P007 ; `ANCIENS_EPI` : casque→M014, chaussures→M008,
+    vetement→M010, gants→M009, antichute→M018) ; SANS équivalent ISO, dessins maison `App.PICTO_SVG_RAW` gardés : vitesse,
+    acces, telephone. Rendu `rendre()` dans `#picto-ui-int/-epi/-avert` (éléments de base + cochés toujours visibles,
+    reste dans `<details class="picto-autres">` par famille), `appliquer(pictos)` (openPDP), `collecter(ancien)` (collectForm,
+    ordre : anciens ids dans l'ordre historique puis codes ISO), `png(id)` pour les exports (`App._getPictoPngDataUrl` :
+    PNG officiel, cache mémoire + media `iso:<code>`, repli dessin maison puis libellé seul), `libelles(ids)`.
+    EPI des produits chimiques : `ajouterEPIProduit` / `retirerEPIProduit` (appelés par `ProduitsChimiques.ajouter`,
+    `ajouterKit`, `retirer`, `mettreAJour`), `codesProduit` (epiCodes publié, sinon déduit des libellés via `reconnaitre`),
+    `epiProduit` (colonne « EPI demandés » : pictogramme M + libellé précis)
   - 4729–4928 : Lot 1 — publication du référentiel partagé (owner : suivipdp)
   - 4929–6720 : **DATASYNC — CŒUR SYNCHRO SharePoint** : etags (#8, If-None-Match), clamp d'horloge (#5),
     `_mergeStore` (l.5425), `_collapseClones` (l.5581), `_mergeByKey` (l.5706), fusion FDS dédiée (#14, l.5738),
@@ -82,13 +94,21 @@ settings: key
 entite, agenceId, dateDebut/Fin, site, lieu, gps, description, materiel, nbSalaries, horaires,
 eu:{nom,adresse,siret,responsable,tel,email,fonction}, entreprisesExt:[], visite:{date,heure,participants,
 observations,effectuee,photos}, risques:[], mesures:[], instructions, exigences:[], urgence:{...},
-environnement:{...}, pictogrammes:{interdictions,epiObligatoires,remarques}, signatureEU:{nom,date,data},
+environnement:{...}, pictogrammes:{interdictions,epiObligatoires,avertissements?,remarques,epiSources?}, signatureEU:{nom,date,data},
 signaturesEE:[], modifications:[], historique:[], documents:[], icpId, refOperation, dateCreation, dateModification,
 produitsChimiques:{ aucun, items:[{ id(=uid), uid, numero, nom, fournisseur, pictogrammes, mentionsH, mentionsEUH,
-mentionAvertissement, cmr, cmrCategorie, inflammable, dangerEnvironnement, epi, fds:{version,notation,dateRevision,langue,fichier},
+mentionAvertissement, cmr, cmrCategorie, inflammable, dangerEnvironnement, epi, epiCodes, fds:{version,notation,dateRevision,langue,fichier},
 ajouteLe, ajoutePar, majLe? }] } }` — produitsChimiques = copies FIGÉES du registre SuiviChimique (v224) ; un PDP signé
 (signature EU/EE dessinée) garde sa FDS. Exports : tableau dans PDF/Word (FDS non annexées), PDF des FDS en fichiers
 séparés dans les ZIP.
+
+**Pictogrammes** (v227, 01/10/2026) : `interdictions` / `epiObligatoires` = anciens ids (vapoter, acces, casque…) OU codes ISO
+('P024', 'M004') ; `avertissements` = codes W (absent = aucun) ; défauts des nouveaux PDP inchangés (vapoter, acces + casque,
+chaussures, vetement, gants, antichute). `epiSources = { <id ou code EPI>: [uids produits] }` : EPI passés de décoché à coché
+par l'ajout d'un produit chimique (+ produits suivants qui demandent le même EPI) ; au retrait d'un produit (ou EPI disparu
+d'une FDS mise à jour) l'EPI n'est décoché que s'il est dans `epiSources`, que plus aucun produit restant ne le demande et
+qu'il n'a pas été retouché à la main (toute coche/décoche manuelle supprime l'entrée). Fusion : `_mergeRecord` récursif ;
+sous-tableaux en union (suppressions locales respectées), clé supprimée localement → liste vide (= EPI « manuel »).
 
 **ICP** (l.16122) : `{ id, uid, numero ('ICP-AAAAMM-0000'), refOperation, statut, dateVisite, heure, site,
 lieu, objet, entite, agenceId, euInfo, euParticipant:{nom,fonction,tel}, euParticipants:[], eeRepresentant

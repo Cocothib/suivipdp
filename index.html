@@ -253,8 +253,11 @@ body {
 .pc-table { width: 100%; table-layout: fixed; font-size: .82rem; margin-bottom: .5rem; }
 .pc-table.table > thead > tr > th { --bs-table-bg: var(--agw-green); --bs-table-color: #fff; background: var(--agw-green); color: #fff; font-weight: 600; vertical-align: bottom; line-height: 1.15; }
 .pc-table td, .pc-table th { overflow-wrap: anywhere; word-break: normal; vertical-align: middle; padding: .3rem .35rem; }
-.pc-table .pc-col-num { width: 9%; } .pc-table .pc-col-prod { width: 21%; } .pc-table .pc-col-picto { width: 13%; }
-.pc-table .pc-col-h { width: 15%; } .pc-table .pc-col-fds { width: 19%; } .pc-table .pc-col-epi { width: 13%; } .pc-table .pc-col-act { width: 10%; }
+.pc-table .pc-col-num { width: 9%; } .pc-table .pc-col-prod { width: 19%; } .pc-table .pc-col-picto { width: 13%; }
+.pc-table .pc-col-h { width: 13%; } .pc-table .pc-col-fds { width: 19%; } .pc-table .pc-col-epi { width: 17%; } .pc-table .pc-col-act { width: 10%; }
+.pc-epi { display: flex; align-items: center; gap: 4px; line-height: 1.15; margin-bottom: 2px; min-width: 0; }
+.pc-epi span { min-width: 0; overflow-wrap: anywhere; }
+.pc-epi-img { flex: 0 0 auto; }
 .pc-pill { display: inline-block; border-radius: 10px; padding: 0 6px; font-size: .7rem; font-weight: 600; line-height: 1.5; white-space: nowrap; }
 .pc-pill-red { background: #fdecea; color: #b02a37; border: 1px solid #f1aeb5; }
 .pc-pill-orange { background: #fff3e0; color: #a65800; border: 1px solid #f6c48a; }
@@ -467,6 +470,10 @@ textarea.form-control { min-height: 70px; }
 .check-card.checked { border-color: var(--agw-green); background: #eceef7; }
 .check-card .form-check-input { margin: 0; }
 .check-card .picto-img { width: 36px; height: 36px; flex-shrink: 0; }
+.check-card .picto-txt { display: inline-flex; align-items: center; justify-content: center; font-size: .62rem; font-weight: 700; border: 1px solid #adb5bd; border-radius: 50%; color: #495057; }
+.picto-famille { font-size: .72rem; font-weight: 700; color: #6c757d; margin: .35rem 0 .2rem; }
+details.picto-autres { margin-top: .5rem; border: 1px dashed #ced4da; border-radius: 8px; padding: .35rem .6rem; background: #fafbfc; }
+details.picto-autres > summary { cursor: pointer; font-size: .82rem; font-weight: 600; color: var(--agw-teal, #007F85); }
 
 /* ---- Empty state ---- */
 .empty-state {
@@ -2088,28 +2095,20 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="section-helper"><i class="bi bi-lightbulb"></i>Les pictogrammes rappellent visuellement les obligations et interdictions sur le chantier.</div>
       <div class="form-section">
         <div class="form-section-title"><i class="bi bi-sign-stop"></i>Pictogrammes et règles de sécurité</div>
+        <div class="small mb-2 d-flex flex-wrap gap-3"><span class="text-muted"><i class="bi bi-info-circle me-1"></i>Signaux officiels ISO 7010. Les éléments cochés restent toujours visibles.</span>
+          <a href="pictos/" target="_blank" rel="noopener" id="picto-lien-pw"><i class="bi bi-sign-stop me-1"></i>Signification des signaux (interdictions, avertissements)</a>
+          <a href="../suiviepi/pictos/" target="_blank" rel="noopener" id="picto-lien-epi"><i class="bi bi-shield-check me-1"></i>Signification des signaux (EPI et obligations)</a></div>
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-x-octagon"></i>Interdictions</div>
-          <div class="row g-2 mb-3" id="picto-interdictions-row">
-            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="picto-vapoter" onchange="App.updatePictos()"><img class="picto-img" alt="" /><span>Interdiction de vapoter et fumer</span></label></div>
-            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="picto-vitesse" onchange="App.updatePictos()"><img class="picto-img" alt="" /><span>Vitesse limitée à 30 Km/h</span></label></div>
-            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="picto-acces" onchange="App.updatePictos()"><img class="picto-img" alt="" /><span>Accès limité aux personnes autorisées</span></label></div>
-            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="picto-flamme" onchange="App.updatePictos()"><img class="picto-img" alt="" /><span>Flamme nue interdite sur toitures PV</span></label></div>
-            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="picto-feu" onchange="App.updatePictos()"><img class="picto-img" alt="" /><span>Feu interdit sur le site</span></label></div>
-            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="picto-entreposage" onchange="App.updatePictos()"><img class="picto-img" alt="" /><span>Ne rien entreposer hors zones balisées</span></label></div>
-            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="picto-stimulateur" onchange="App.updatePictos()"><img class="picto-img" alt="" /><span>Accès interdit stimulateur cardiaque</span></label></div>
-          </div>
+          <div class="mb-3" id="picto-ui-int"></div>
         </div>
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-shield-check"></i>EPI Obligatoires</div>
-          <div class="row g-2 mb-3" id="picto-epi-row">
-            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="epi-casque" onchange="App.updatePictos()"><img class="picto-img" alt="" /><span>Casque avec jugulaire</span></label></div>
-            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="epi-chaussures" onchange="App.updatePictos()"><img class="picto-img" alt="" /><span>Chaussures de sécurité</span></label></div>
-            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="epi-telephone" onchange="App.updatePictos()"><img class="picto-img" alt="" /><span>Téléphone portable obligatoire en toiture</span></label></div>
-            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="epi-vetement" onchange="App.updatePictos()"><img class="picto-img" alt="" /><span>Vêtement de travail adapté</span></label></div>
-            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="epi-gants" onchange="App.updatePictos()"><img class="picto-img" alt="" /><span>Gants de protection mécanique</span></label></div>
-            <div class="col-6 col-md-4"><label class="check-card"><input class="form-check-input" type="checkbox" id="epi-antichute" onchange="App.updatePictos()"><img class="picto-img" alt="" /><span>Protection contre les chutes de hauteur</span></label></div>
-          </div>
+          <div class="mb-3" id="picto-ui-epi"></div>
+        </div>
+        <div class="field-group">
+          <div class="field-group-title"><i class="bi bi-exclamation-triangle"></i>Avertissements</div>
+          <div class="mb-3" id="picto-ui-avert"></div>
         </div>
         <div class="field-group">
           <div class="field-group-title"><i class="bi bi-chat-text"></i>Remarques</div>
@@ -3093,7 +3092,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <li><strong>Urgence</strong> — Responsable site + tél pré-remplis depuis le contact EU. Inclut l'encart <em>Environnement</em> : matériaux absorbants à disposition en cas de déversement accidentel (Oui/Non + précisions)</li>
           <li><strong>Signatures</strong> — EU + EE sous-traitantes + tous les participants ICP EE</li>
           <li><strong>Modif.</strong> — Historique des modifications / avenants ; chaque ajout incrémente le numéro de version</li>
-          <li><strong>Pictogrammes</strong> — Cochés par défaut : interdiction vapoter + accès limité + 5 EPI essentiels (casque, chaussures, vêtement, gants, antichute)</li>
+          <li><strong>Pictogrammes</strong> — Signaux officiels ISO 7010. Cochés par défaut : interdiction vapoter + accès limité + 5 EPI essentiels (casque, chaussures, vêtement, gants, antichute) ; autres interdictions, autres EPI (lunettes, protection respiratoire…) et avertissements dans les parties repliables. Les EPI demandés par les FDS des produits chimiques retenus sont cochés automatiquement</li>
           <li><strong>Permis de feu</strong> — onglet masqué par défaut, s'affiche dès qu'un risque/mesure « points chauds » est coché (voir §6 et §14)</li>
           <li><strong>Émargement</strong> — Liste auto-générée des intervenants à signer avant accès chantier + un bloc de <strong>20 lignes vierges</strong> pour les visiteurs / intervenants occasionnels</li>
           <li><strong>Autorisations</strong> — Génère les autorisations internes AGRIWATT pour chaque intervenant identifié en base habilitations (bouton <em>Tout générer</em>) ; les PDF sont rattachés aux documents joints</li>
@@ -3222,10 +3221,13 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
           <li>Bouton "+" pour ajouter mesures personnalisées (validables par admin)</li>
           <li>Risques personnalisés possibles (ex: "Accès toiture par crinoline")</li>
         </ul>
-        <p><strong>Pictogrammes (normés INRS / ISO 7010) :</strong></p>
+        <p><strong>Pictogrammes (signaux officiels ISO 7010) :</strong></p>
         <ul>
           <li><strong>Cochés par défaut à la création</strong> : interdiction vapoter, accès limité + EPI casque, chaussures, vêtement, gants, antichute</li>
-          <li>Apparaissent en grille visuelle avec images dans les exports Word/PDF</li>
+          <li><strong>Autres interdictions</strong>, <strong>Autres EPI</strong> (lunettes, écran facial, protection auditive, masque FFP, protection respiratoire, ARI, gilet haute visibilité…) et <strong>Avertissements</strong> (danger électrique, chute, charge suspendue…) : parties repliables ; un élément coché reste toujours visible</li>
+          <li>Vitesse limitée à 30 km/h, accès limité aux personnes autorisées et téléphone obligatoire en toiture n'ont pas d'équivalent ISO : pictogrammes Agriwatt conservés</li>
+          <li>Produits chimiques : les EPI demandés par la FDS d'un produit ajouté sont cochés automatiquement (message discret) ; au retrait du dernier produit qui les demande, ils sont décochés, sauf s'ils étaient déjà cochés avant ou ont été retouchés à la main</li>
+          <li>Liens « Signification des signaux » vers les bibliothèques de pictogrammes ; grille d'images officielles dans les exports Word/PDF</li>
         </ul>
       </div></div></div>
 
@@ -5106,6 +5108,8 @@ const ProduitsChimiques = {
       pictogrammes: arr(prod.pictogrammes), mentionsH: arr(prod.mentionsH), mentionsEUH: arr(prod.mentionsEUH),
       mentionAvertissement: prod.mentionAvertissement || '', cmr: !!prod.cmr, cmrCategorie: prod.cmrCategorie || '',
       inflammable: !!prod.inflammable, dangerEnvironnement: !!prod.dangerEnvironnement, epi: arr(prod.epi),
+      // codes ISO 7010 des EPI (publiés par SuiviChimique ; sinon déduits des libellés)
+      epiCodes: Array.isArray(prod.epiCodes) ? arr(prod.epiCodes) : PictosPDP.codesProduit({ epi: arr(prod.epi) }),
       fds: f ? { version: f.version || '', notation: f.notation || 'v', dateRevision: f.dateRevision || '', langue: f.langue || '', fichier: f.fichier || '' } : null,
       ajouteLe: new Date().toISOString(),
       ajoutePar: (typeof localStorage !== 'undefined' && localStorage.getItem('pdp_user_name')) || ''
@@ -5307,11 +5311,19 @@ const ProduitsChimiques = {
       <td data-l="Pictogrammes"><div class="pc-cell">${this.pictosHtml(it.pictogrammes, 24)}</div></td>
       <td data-l="Mentions H"><div class="pc-cell"${hs.length ? ` data-pc-tip="${this.esc(hs.join(', '))}"` : ''}>${hs.length ? this.esc(hCourt) : '<span class="text-muted">—</span>'}</div></td>
       <td data-l="FDS jointe"><div class="pc-cell">${fdsHtml}</div></td>
-      <td data-l="EPI"><div class="pc-cell">${(it.epi || []).length ? this.esc(it.epi.join(', ')) : '<span class="text-muted">—</span>'}</div></td>
+      <td data-l="EPI"><div class="pc-cell">${this.epiHtml(it)}</div></td>
       <td data-l=""><div class="pc-cell d-flex flex-wrap gap-1">
         <a class="btn btn-sm btn-outline-secondary py-0 px-1" href="${this.lienProduit(it.uid, 'fds')}" target="_blank" rel="noopener" aria-label="Voir dans SuiviChimique" data-pc-tip="Voir la fiche dans SuiviChimique, onglet FDS et versions (nouvel onglet)"><i class="bi bi-box-arrow-up-right"></i></a>
         ${ro ? '' : `<button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" aria-label="Retirer" data-pc-tip="Retirer ce produit du PDP" onclick="ProduitsChimiques.retirer('${uidJs}')"><i class="bi bi-trash"></i></button>`}
       </div></td></tr>`;
+  },
+
+  // EPI d'un produit : pictogramme officiel ISO 7010 (petit, infobulle au survol) + libellé précis de la FDS
+  epiHtml(it) {
+    const { lignes, libres } = PictosPDP.epiProduit(it);
+    if (!lignes.length && !libres.length) return '<span class="text-muted">—</span>';
+    return lignes.map(l => `<div class="pc-epi"><img class="pc-epi-img" src="${PictosPDP.url(l.code)}" alt="${this.esc(l.code)}" width="20" height="20" data-pc-tip="${this.esc(l.code + ' — ' + PictosPDP.nomCatalogue(l.code) + (l.libelle !== PictosPDP.nomCatalogue(l.code) ? ' : ' + l.libelle : ''))}" onerror="ProduitsChimiques._pictoKo(this)"><span>${this.esc(l.libelle)}</span></div>`).join('')
+      + libres.map(l => `<div class="pc-epi"><span>${this.esc(l)}</span></div>`).join('');
   },
 
   // Recherche dans le registre (sans accents ni majuscules) ; « Retiré » exclus.
@@ -5385,9 +5397,10 @@ const ProduitsChimiques = {
   _ajouterSansRendu(prod) {
     const pc = this._pc();
     if (!pc || !prod || pc.items.some(i => i.uid === prod.uid)) return false;
-    pc.items.push(this.snapshot(prod));
+    const it = this.snapshot(prod);
+    pc.items.push(it);
     pc.aucun = false;
-    return true;
+    return it;
   },
   ajouter(uid) {
     const p = this._pdp();
@@ -5400,6 +5413,8 @@ const ProduitsChimiques = {
     if (!ok) { App.toast('Produit déjà dans le PDP', 'info'); return; }
     this._modifie();
     this.render();
+    // EPI demandés par la FDS → cases « EPI obligatoires » de l'onglet Pictogrammes (toast discret)
+    try { PictosPDP.ajouterEPIProduit(p, ok); } catch (e) { console.warn('EPI du produit :', e); }
     if (this.statutNorm(prod.statut) === 'a substituer') App.toast(`${prod.nom} ajouté — produit à substituer : privilégier une alternative`, 'warning', 6000);
     else App.toast(`${prod.nom} ajouté au PDP`);
     // Curseur rendu à la barre sans rouvrir la liste complète (elle masquerait le tableau) ; un clic la rouvre.
@@ -5412,13 +5427,19 @@ const ProduitsChimiques = {
     const kit = this.kits().find(k => k.uid === kitUid);
     if (!kit) return;
     let n = 0, absents = 0;
+    const epiAjoutes = [], noms = [];
     for (const u of (kit.produitUids || [])) {
       const prod = this.produit(u);
       if (!prod || this.statutNorm(prod.statut) === 'retire') { absents++; continue; }
-      if (this._ajouterSansRendu(prod)) n++;
+      const it = this._ajouterSansRendu(prod);
+      if (it) {
+        n++;
+        try { const a = PictosPDP.ajouterEPIProduit(p, it, { silencieux: true }); if (a.length) { epiAjoutes.push(...a); noms.push(it.nom); } } catch (e) { console.warn('EPI du produit :', e); }
+      }
     }
     if (n) this._modifie();
     this.render();
+    if (epiAjoutes.length) App.toast(`${PictosPDP._liste([...new Set(epiAjoutes)])} ${PictosPDP._accord([...new Set(epiAjoutes)], 'ajoutée', 'ajoutées', 'ajouté', 'ajoutés')} aux EPI obligatoires (FDS de ${noms.join(', ')})`, 'info', 5000);
     App.toast(n ? `Kit « ${kit.nom} » : ${n} produit(s) ajouté(s)${absents ? `, ${absents} retiré(s) du registre ignoré(s)` : ''}` : `Kit « ${kit.nom} » : produits déjà présents`, n ? 'success' : 'info');
   },
   async retirer(uid) {
@@ -5432,6 +5453,8 @@ const ProduitsChimiques = {
     this._modifie();
     this.render();
     App.toast(`${it.nom} retiré du PDP`);
+    // EPI cochés automatiquement pour ce produit : décochés si plus aucun produit ne les demande
+    try { PictosPDP.retirerEPIProduit(p, uid); } catch (e) { console.warn('EPI du produit :', e); }
   },
   basculerAucun(v) {
     const p = this._pdp();
@@ -5460,6 +5483,12 @@ const ProduitsChimiques = {
     this._modifie();
     this.render();
     App.toast(`FDS de ${prod.nom} mise à jour`);
+    // EPI de la nouvelle FDS cochés ; ceux qui en ont disparu sont décochés s'ils avaient été cochés pour ce produit seul
+    try {
+      PictosPDP.ajouterEPIProduit(p, neuf);
+      const garder = PictosPDP.codesProduit(neuf).map(c => PictosPDP.idEpi(c));
+      PictosPDP.retirerEPIProduit(p, uid, { garder, restants: pc.items.filter(i => i.uid !== uid) });
+    } catch (e) { console.warn('EPI du produit :', e); }
   },
   // ---- Infobulles (survol seulement, une à la fois, fermées au clic/défilement/après 6 s) ----
   _bound: false,
@@ -5532,6 +5561,340 @@ const ProduitsChimiques = {
   },
 };
 try { window.ProduitsChimiques = ProduitsChimiques; } catch (_) {}
+
+// ==================== PICTOGRAMMES ISO 7010 (onglet « Pictogrammes » de la fiche PDP) ====================
+// Signaux OFFICIELS des bibliothèques communes (même hôte OVH) : interdictions P et avertissements W de
+// SuiviPDP (pictos/ = ../suivipdp/pictos/), obligations / EPI M de SuiviEPI (../suiviepi/pictos/).
+// Modèle rétro-compatible : pdp.pictogrammes = { interdictions:[ids], epiObligatoires:[ids], avertissements:[codes W],
+// remarques, epiSources? } — les anciens ids (vapoter, casque…) restent valables et gardent leur libellé ; les
+// nouveaux éléments sont stockés par leur code ISO ('M004', 'P024'). Sans équivalent ISO (dessins maison conservés) :
+// vitesse (30 km/h), acces (accès limité aux personnes autorisées), telephone (téléphone obligatoire en toiture).
+// epiSources = { <id ou code EPI>: [uids des produits chimiques qui l'ont coché automatiquement] } : seuls ces EPI
+// sont décochés au retrait du dernier produit qui les demande ; toute coche/décoche manuelle retire l'entrée.
+const PictosPDP = {
+  PICTOS_PDP: 'pictos/',
+  PICTOS_EPI: '../suiviepi/pictos/',
+  ANCIENS_INT: { vapoter: 'P002', vitesse: null, acces: null, flamme: 'P003', feu: 'P039', entreposage: 'P023', stimulateur: 'P007' },
+  ANCIENS_EPI: { casque: 'M014', chaussures: 'M008', telephone: null, vetement: 'M010', gants: 'M009', antichute: 'M018' },
+  FAMILLE_ANCIENS_EPI: { telephone: 'Travail en hauteur' },
+  LIB_ANCIENS: {
+    vapoter: 'Interdiction de vapoter et fumer', vitesse: 'Vitesse limitée à 30 Km/h', acces: 'Accès limité aux personnes autorisées',
+    flamme: 'Flamme nue interdite sur toitures PV', feu: 'Feu interdit sur le site', entreposage: 'Ne rien entreposer hors zones balisées',
+    stimulateur: 'Accès interdit stimulateur cardiaque', casque: 'Casque avec jugulaire', chaussures: 'Chaussures de sécurité',
+    telephone: 'Téléphone portable obligatoire en toiture', vetement: 'Vêtement de travail adapté', gants: 'Gants de protection mécanique',
+    antichute: 'Protection contre les chutes de hauteur'
+  },
+  DEFAUTS: { interdictions: ['vapoter', 'acces'], epiObligatoires: ['casque', 'chaussures', 'vetement', 'gants', 'antichute'] },
+  // Catalogues de secours (hors connexion / JSON illisible) : [code, nom, famille]
+  SECOURS_P: [['P002','Interdiction de fumer et de vapoter','Feu'],['P003','Flamme nue interdite (feu, cigarette)','Feu'],['P039','Travaux par point chaud interdits','Feu'],['P011',"Ne pas éteindre avec de l'eau",'Feu'],['P016','Ne pas arroser','Feu'],['P068','Ne pas exposer au soleil ni à une surface chaude','Feu'],['P001','Interdiction générale','Accès'],['P004','Interdit aux piétons','Accès'],['P006','Interdit aux chariots élévateurs','Accès'],['P007','Accès interdit aux porteurs de stimulateur cardiaque','Accès'],['P014',"Accès interdit aux porteurs d'implants métalliques",'Accès'],['P071','Ne pas franchir la barrière','Accès'],['P024','Ne pas marcher sur cette surface','Toiture et hauteur'],['P009',"Interdiction d'escalader",'Toiture et hauteur'],['P025','Echafaudage incomplet : ne pas utiliser','Toiture et hauteur'],['P012','Pas de charge lourde','Toiture et hauteur'],['P023','Ne pas encombrer / ne rien entreposer','Organisation'],['P010','Ne pas toucher','Electrique'],['P031','Ne pas manoeuvrer (consignation)','Electrique'],['P008','Objets métalliques et montres interdits','Electrique'],['P013','Téléphone portable interdit','Organisation'],['P022','Interdiction de manger et de boire','Hygiène']],
+  SECOURS_W: [['W001','Danger général','Général'],['W012','Danger électrique','Electrique'],['W026','Batteries en charge','Electrique'],['W018','Démarrage automatique','Electrique'],['W008','Risque de chute (dénivellation)','Toiture et hauteur'],['W035',"Chute d'objets",'Toiture et hauteur'],['W064','Vent fort','Météo'],['W084','Orage','Météo'],['W007','Risque de trébuchement','Circulation'],['W011','Surface glissante','Circulation'],['W020','Obstacle en hauteur (tête)','Circulation'],['W014','Chariots élévateurs et engins','Circulation'],['W015','Charge suspendue','Levage'],['W019',"Risque d'écrasement",'Levage'],['W024','Risque de blessure aux mains','Outils'],['W022','Objets coupants','Outils'],['W017','Surface chaude','Feu'],['W021','Matières inflammables','Produits'],['W002','Matières explosives','Produits'],['W028','Matières comburantes','Produits'],['W029','Bouteilles de gaz','Produits'],['W023','Matières corrosives','Produits'],['W016','Matières toxiques','Produits'],['W071','Danger pour la santé','Produits'],['W072',"Danger pour l'environnement",'Produits'],['W009','Risque biologique','Produits']],
+  SECOURS_M: [['M014','Casque de protection','Tête',['casque']],['M004','Lunettes de protection','Yeux et visage',['lunettes','protection des yeux','protection oculaire','eye protection','goggles','safety glasses']],['M013','Ecran facial / visière','Yeux et visage',['ecran facial','visiere','face shield']],['M007','Lunettes opaques','Yeux et visage',['lunettes opaques']],['M019','Masque de soudage','Yeux et visage',['masque de soudage','welding']],['M003','Protection auditive','Oreilles',['protection auditive',"bouchons d'oreilles",'casque antibruit']],['M016','Masque de protection (FFP)','Voies respiratoires',['ffp1','ffp2','ffp3','masque anti-poussiere','masque jetable']],['M017','Protection respiratoire (masque à cartouche)','Voies respiratoires',['protection respiratoire','demi-masque','masque complet','a2p2','a1p2','respirator']],['M047','Appareil respiratoire isolant','Voies respiratoires',['appareil respiratoire isolant','ari','scba']],['M009','Gants de protection','Mains',['gants','nitrile','neoprene','butyle','gloves']],['M022','Crème protectrice','Mains',['creme protectrice','creme barriere']],['M010','Vêtement de protection','Corps',['vetement de protection','combinaison','protective clothing']],['M026','Tablier de protection','Corps',['tablier']],['M059','Blouse','Corps',['blouse']],['M015','Gilet haute visibilité','Corps',['haute visibilite','gilet fluorescent']],['M008','Chaussures de sécurité','Pieds',['chaussures de securite','bottes','safety shoes']],['M032','Chaussures antistatiques','Pieds',['chaussures antistatiques']],['M018','Harnais antichute','Travail en hauteur',['harnais']]],
+  // Mots qui désignent l'EPI dans un libellé de produit (« Masque FFP2 », « Demi-masque à cartouche A2P2 »)
+  TETES: { M014: ['casque'], M004: ['lunettes'], M013: ['ecran', 'visiere'], M007: ['lunettes opaques'], M019: ['masque de soudage'], M003: ['bouchons', 'protection auditive'],
+    M016: ['masque', 'ffp'], M017: ['cartouche', 'protection respiratoire', 'demi-masque', 'filtre'], M047: ['appareil respiratoire isolant', 'ari'], M009: ['gants'], M022: ['creme'],
+    M010: ['vetement', 'combinaison'], M026: ['tablier'], M059: ['blouse'], M015: ['gilet'], M008: ['chaussures', 'bottes'], M032: ['chaussures antistatiques'], M018: ['harnais'] },
+  // Accord des messages : m, f, mp, fp
+  GENRE: { M014: 'm', M004: 'fp', M013: 'm', M007: 'fp', M019: 'm', M003: 'f', M016: 'm', M017: 'f', M047: 'm', M009: 'mp', M022: 'f', M010: 'm', M026: 'm', M059: 'f', M015: 'm', M008: 'fp', M032: 'fp', M018: 'm' },
+
+  p: [], w: [], m: [],
+  _promesse: null,
+  _etat: { interdictions: new Set(), epiObligatoires: new Set(), avertissements: new Set() },
+  _ouverts: { interdictions: false, epiObligatoires: false, avertissements: false },
+  _pngCache: new Map(),
+
+  _initSecours() {
+    if (!this.p.length) this.p = this.SECOURS_P.map(([code, nom, famille]) => ({ code, type: 'interdiction', nom, famille, ancienId: Object.keys(this.ANCIENS_INT).find(k => this.ANCIENS_INT[k] === code) }));
+    if (!this.w.length) this.w = this.SECOURS_W.map(([code, nom, famille]) => ({ code, type: 'avertissement', nom, famille }));
+    if (!this.m.length) this.m = this.SECOURS_M.map(([code, nom, famille, motsCles]) => ({ code, nom, famille, epi: true, motsCles }));
+  },
+  // Catalogues communs (JSON) ; le secours en dur reste en place s'ils ne se chargent pas
+  charger() {
+    this._initSecours();
+    if (!this._promesse) {
+      const lire = url => fetch(url, { cache: 'no-cache' }).then(r => (r.ok ? r.json() : null)).catch(() => null);
+      this._promesse = Promise.all([lire(this.PICTOS_PDP + 'catalogue.json'), lire(this.PICTOS_EPI + 'catalogue.json')]).then(([pw, ep]) => {
+        let change = false;
+        if (pw && Array.isArray(pw.signaux)) {
+          const p = pw.signaux.filter(s => /^P\d{3}$/.test(s.code)), w = pw.signaux.filter(s => /^W\d{3}$/.test(s.code));
+          if (p.length) { this.p = p; change = true; }
+          if (w.length) { this.w = w; change = true; }
+        }
+        if (ep && Array.isArray(ep.signaux)) {
+          const m = ep.signaux.filter(s => s && s.epi && /^M\d{3}$/.test(s.code)).map(s => ({ ...s, motsCles: Array.isArray(s.motsCles) ? s.motsCles : [] }));
+          if (m.length) { this.m = m; change = true; }
+        }
+        if (change && document.getElementById('picto-ui-int')) this.rendre();
+      });
+    }
+    return this._promesse;
+  },
+
+  esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); },
+  norm(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim(); },
+
+  // ---- Identifiants ----
+  codeDe(id) {
+    if (id in this.ANCIENS_INT) return this.ANCIENS_INT[id];
+    if (id in this.ANCIENS_EPI) return this.ANCIENS_EPI[id];
+    return /^[PWM]\d{3}$/.test(id) ? id : null;
+  },
+  // Code M → id à cocher (ancien id s'il existe : casque, chaussures, vetement, gants, antichute)
+  idEpi(code) { return Object.keys(this.ANCIENS_EPI).find(k => this.ANCIENS_EPI[k] === code) || code; },
+  signal(code) {
+    this._initSecours();
+    return [...this.p, ...this.w, ...this.m].find(s => s.code === code) || null;
+  },
+  nomCatalogue(code) { const s = this.signal(code); return s ? s.nom : code; },
+  libelle(id) { return this.LIB_ANCIENS[id] || this.nomCatalogue(id); },
+  url(code, ext = 'svg') { return (code[0] === 'M' ? this.PICTOS_EPI : this.PICTOS_PDP) + code + '.' + ext; },
+  dom(groupe, id) { return (groupe === 'interdictions' ? 'picto-' : groupe === 'epiObligatoires' ? 'epi-' : 'avert-') + id; },
+
+  // ---- Listes de l'écran ----
+  _items(groupe) {
+    this._initSecours();
+    if (groupe === 'interdictions') {
+      const anciens = Object.keys(this.ANCIENS_INT).map(id => ({ id, famille: '' }));
+      const autres = this.p.filter(s => !Object.values(this.ANCIENS_INT).includes(s.code)).map(s => ({ id: s.code, famille: s.famille }));
+      return { visibles: anciens.map(a => a.id), tous: [...anciens, ...autres] };
+    }
+    if (groupe === 'epiObligatoires') {
+      const tous = [];
+      for (const s of this.m) tous.push({ id: this.idEpi(s.code), famille: s.famille });
+      // téléphone (pas d'équivalent ISO) rangé avec le travail en hauteur
+      const i = tous.findIndex(x => x.id === 'antichute');
+      tous.splice(i < 0 ? tous.length : i + 1, 0, { id: 'telephone', famille: this.FAMILLE_ANCIENS_EPI.telephone });
+      return { visibles: Object.keys(this.ANCIENS_EPI), tous };
+    }
+    return { visibles: [], tous: this.w.map(s => ({ id: s.code, famille: s.famille })) };
+  },
+  // Ordre des données : anciens ids d'abord dans leur ordre historique (exports identiques), puis codes ISO
+  ordonner(groupe, ids) {
+    const anciens = groupe === 'interdictions' ? Object.keys(this.ANCIENS_INT) : groupe === 'epiObligatoires' ? Object.keys(this.ANCIENS_EPI) : [];
+    const ordre = this._items(groupe).tous.map(x => x.id);
+    const rang = id => { const k = anciens.indexOf(id); if (k >= 0) return k; const i = ordre.indexOf(id); return i < 0 ? 9999 : 100 + i; };
+    return [...new Set(ids)].sort((a, b) => rang(a) - rang(b));
+  },
+
+  _carte(groupe, id, ro) {
+    const code = this.codeDe(id);
+    const coche = this._etat[groupe].has(id);
+    const lib = this.libelle(id);
+    const src = code ? this.url(code) : (App._pictoToDataUri ? App._pictoToDataUri(id) : '');
+    const tip = code ? code + ' — ' + this.nomCatalogue(code) : 'Pas de signal ISO 7010 équivalent : pictogramme Agriwatt conservé';
+    return `<div class="col-6 col-md-4"><label class="check-card" data-pc-tip="${this.esc(tip)}"><input class="form-check-input" type="checkbox" id="${this.dom(groupe, id)}" data-groupe="${groupe}" data-id="${this.esc(id)}" ${coche ? 'checked' : ''} ${ro ? 'disabled' : ''} onchange="PictosPDP.change(this)"><img class="picto-img" src="${this.esc(src)}" alt="${this.esc(code || '')}" data-ancien="${this.esc(id)}" onerror="PictosPDP.imgKo(this)"><span>${this.esc(lib)}</span></label></div>`;
+  },
+  _grille(groupe, ids, ro, parFamille) {
+    if (!ids.length) return '';
+    if (!parFamille) return `<div class="row g-2">${ids.map(id => this._carte(groupe, id, ro)).join('')}</div>`;
+    const items = this._items(groupe).tous;
+    const familles = [];
+    for (const id of ids) {
+      const f = (items.find(x => x.id === id) || {}).famille || 'Autres';
+      let g = familles.find(x => x.f === f); if (!g) familles.push(g = { f, ids: [] });
+      g.ids.push(id);
+    }
+    return familles.map(g => `<div class="picto-famille">${this.esc(g.f)}</div><div class="row g-2 mb-1">${g.ids.map(id => this._carte(groupe, id, ro)).join('')}</div>`).join('');
+  },
+
+  rendre() {
+    this._initSecours();
+    const p = (typeof App !== 'undefined') ? App.currentPDP : null;
+    const ro = !!(p && p.statut === 'cloture');
+    const blocs = [
+      ['interdictions', 'picto-ui-int', 'Autres interdictions'],
+      ['epiObligatoires', 'picto-ui-epi', 'Autres EPI'],
+      ['avertissements', 'picto-ui-avert', 'Choisir des avertissements']
+    ];
+    for (const [groupe, boxId, titreAutres] of blocs) {
+      const box = document.getElementById(boxId);
+      if (!box) continue;
+      const { visibles, tous } = this._items(groupe);
+      const coches = this._etat[groupe];
+      // toujours visibles : éléments de base + éléments cochés ; le reste dans la partie repliable
+      const vis = tous.map(x => x.id).filter(id => visibles.includes(id) || coches.has(id));
+      const autres = tous.map(x => x.id).filter(id => !vis.includes(id));
+      // partie visible en grille compacte ; familles dans la partie repliable
+      let h = this._grille(groupe, vis, ro, false);
+      if (groupe === 'avertissements' && !vis.length) h += '<p class="small text-muted mb-1">Aucun avertissement retenu.</p>';
+      if (autres.length && !ro) {
+        h += `<details class="picto-autres" data-groupe="${groupe}" ${this._ouverts[groupe] ? 'open' : ''} ontoggle="PictosPDP._ouverts['${groupe}']=this.open"><summary>${this.esc(titreAutres)} (${autres.length})</summary><div class="pt-2">${this._grille(groupe, autres, ro, true)}</div></details>`;
+      }
+      box.innerHTML = h;
+      if (ro) box.querySelectorAll('input').forEach(el => { el.disabled = true; el._wasDisabled = true; });
+    }
+    try { ProduitsChimiques._bindGlobal(); } catch (_) {}
+  },
+  imgKo(img) {
+    const id = img.getAttribute('data-ancien');
+    if (id && App.PICTO_SVG_RAW && App.PICTO_SVG_RAW[id] && !img.src.startsWith('data:')) { img.src = App._pictoToDataUri(id); return; }
+    const s = document.createElement('span');
+    s.className = 'picto-img picto-txt';
+    s.textContent = img.alt || '?';
+    img.replaceWith(s);
+  },
+
+  // Fiche ouverte : cases cochées = données du PDP (ids inconnus conservés tels quels)
+  appliquer(pictos) {
+    pictos = pictos || {};
+    this._etat = {
+      interdictions: new Set(pictos.interdictions || []),
+      epiObligatoires: new Set(pictos.epiObligatoires || []),
+      avertissements: new Set(pictos.avertissements || [])
+    };
+    this.rendre();
+    this.charger();
+  },
+  // Formulaire → données (collectForm)
+  collecter(ancien) {
+    ancien = ancien || {};
+    const out = {
+      interdictions: this.ordonner('interdictions', [...this._etat.interdictions]),
+      epiObligatoires: this.ordonner('epiObligatoires', [...this._etat.epiObligatoires]),
+      avertissements: this.ordonner('avertissements', [...this._etat.avertissements]),
+      remarques: (document.getElementById('picto-remarques')?.value || '').trim()
+    };
+    const src = ancien.epiSources;
+    if (src && typeof src === 'object') {
+      const garde = {};
+      for (const [id, l] of Object.entries(src)) if (Array.isArray(l) && l.length && this._etat.epiObligatoires.has(id)) garde[id] = l.slice();
+      out.epiSources = garde;
+    }
+    return out;
+  },
+  // Coche / décoche MANUELLE : l'EPI n'est plus jamais décoché automatiquement
+  change(input) {
+    const groupe = input.dataset.groupe, id = input.dataset.id;
+    if (!groupe || !this._etat[groupe]) return;
+    if (input.checked) this._etat[groupe].add(id); else this._etat[groupe].delete(id);
+    if (groupe === 'epiObligatoires') {
+      const p = App.currentPDP;
+      if (p && p.pictogrammes && p.pictogrammes.epiSources) delete p.pictogrammes.epiSources[id];
+    }
+    // redessin différé : l'élément coché rejoint la partie toujours visible
+    setTimeout(() => this.rendre(), 0);
+  },
+  // Coche programmatique (produits chimiques) : écran + données du PDP courant
+  _cocher(p, id, on) {
+    if (on) this._etat.epiObligatoires.add(id); else this._etat.epiObligatoires.delete(id);
+    const pic = p.pictogrammes || (p.pictogrammes = { interdictions: [], epiObligatoires: [], remarques: '' });
+    const l = new Set(pic.epiObligatoires || []);
+    if (on) l.add(id); else l.delete(id);
+    pic.epiObligatoires = this.ordonner('epiObligatoires', [...l]);
+    const el = document.getElementById(this.dom('epiObligatoires', id));
+    if (el) el.checked = on;
+  },
+
+  // ---- EPI demandés par les FDS des produits chimiques ----
+  // Codes M d'un produit : epiCodes publié par SuiviChimique, sinon déduits des libellés
+  codesProduit(it) {
+    if (!it) return [];
+    if (Array.isArray(it.epiCodes)) return [...new Set(it.epiCodes.filter(c => /^M\d{3}$/.test(c)))];
+    return [...new Set((it.epi || []).map(l => this.reconnaitre(l)).filter(Boolean))];
+  },
+  // Libellé (« Gants nitrile ») → code M, ou null
+  reconnaitre(lib) {
+    this._initSecours();
+    const n = this.norm(lib);
+    if (!n) return null;
+    for (const s of this.m) if (n === this.norm(s.nom)) return s.code;
+    const cand = [];
+    for (const s of this.m) {
+      for (const t of [...(this.TETES[s.code] || []), ...(s.motsCles || [])]) {
+        const k = this.norm(t);
+        if (k.length < 3) continue;
+        const re = new RegExp('(^|[^a-z0-9])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + 's?($|[^a-z0-9])');
+        if (re.test(n)) cand.push({ code: s.code, l: k.length });
+      }
+    }
+    if (!cand.length) return null;
+    cand.sort((a, b) => b.l - a.l);
+    return cand[0].code;
+  },
+  // [{ code, libelle }] pour l'affichage d'un produit + libellés sans code
+  epiProduit(it) {
+    const codes = this.codesProduit(it);
+    const libs = (it && it.epi) || [];
+    const lignes = codes.map(code => ({ code, libelle: libs.find(l => this.reconnaitre(l) === code) || this.nomCatalogue(code) }));
+    const libres = libs.filter(l => !lignes.some(x => x.libelle === l) && !codes.includes(this.reconnaitre(l)));
+    return { lignes, libres };
+  },
+  _accord(codes, f, fp, m, mp) {
+    const g = codes.map(c => this.GENRE[c] || 'm');
+    if (codes.length === 1) return { m, f, mp, fp }[g[0]];
+    return g.every(x => x === 'f' || x === 'fp') ? fp : mp;
+  },
+  _liste(codes) { return codes.map(c => this.nomCatalogue(c)).join(', ').replace(/, ([^,]*)$/, ' et $1'); },
+
+  // Produit ajouté (ou FDS mise à jour) : coche les EPI qu'il demande ; ancien id si l'EPI en a un
+  // (pas de doublon). Seuls les EPI passés de décoché à coché entrent dans epiSources.
+  ajouterEPIProduit(p, it, { silencieux = false } = {}) {
+    if (!p || !it || !it.uid) return [];
+    const pic = p.pictogrammes || (p.pictogrammes = { interdictions: [], epiObligatoires: [], remarques: '' });
+    const src = (pic.epiSources && typeof pic.epiSources === 'object') ? pic.epiSources : (pic.epiSources = {});
+    const ajoutes = [];
+    for (const code of this.codesProduit(it)) {
+      const id = this.idEpi(code);
+      const coche = this._etat.epiObligatoires.has(id) || (pic.epiObligatoires || []).includes(id);
+      if (!coche) { this._cocher(p, id, true); src[id] = [it.uid]; ajoutes.push(code); }
+      else if (Array.isArray(src[id]) && src[id].length && !src[id].includes(it.uid)) src[id].push(it.uid);
+    }
+    if (ajoutes.length) {
+      this.rendre();
+      if (!silencieux) App.toast(`${this._liste(ajoutes)} ${this._accord(ajoutes, 'ajoutée', 'ajoutées', 'ajouté', 'ajoutés')} aux EPI obligatoires (FDS de ${it.nom || it.numero || 'produit'})`, 'info', 5000);
+    }
+    return ajoutes;
+  },
+  // Produit retiré (ou EPI disparu de sa FDS) : retire son uid ; décoche l'EPI seulement s'il avait été coché
+  // automatiquement, que plus aucun produit restant ne le demande et qu'il n'a pas été retouché à la main.
+  retirerEPIProduit(p, uid, { garder = [], restants = null, silencieux = false } = {}) {
+    const pic = p && p.pictogrammes;
+    const src = pic && pic.epiSources;
+    if (!src || typeof src !== 'object') return [];
+    const items = restants || ((p.produitsChimiques && p.produitsChimiques.items) || []).filter(i => i && i.uid !== uid);
+    const retires = [];
+    for (const id of Object.keys(src)) {
+      const l = src[id];
+      if (!Array.isArray(l) || !l.includes(uid) || garder.includes(id)) continue;
+      const reste = l.filter(u => u !== uid);
+      // autre produit restant qui demande cet EPI (même s'il n'était pas dans la liste) : on garde la coche
+      const demandeurs = items.filter(i => this.codesProduit(i).some(c => this.idEpi(c) === id)).map(i => i.uid);
+      const tous = [...new Set([...reste, ...demandeurs])].filter(u => items.some(i => i.uid === u));
+      if (tous.length) { src[id] = tous; continue; }
+      delete src[id];
+      this._cocher(p, id, false);
+      retires.push(this.codeDe(id) || id);
+    }
+    if (retires.length) {
+      this.rendre();
+      if (!silencieux) App.toast(`${this._liste(retires)} ${this._accord(retires, 'retirée', 'retirées', 'retiré', 'retirés')} des EPI obligatoires (plus aucun produit ne ${this._accord(retires, 'la', 'les', 'le', 'les')} demande)`, 'info', 5000);
+    }
+    return retires;
+  },
+
+  // ---- Exports : PNG officiels (dataURL, cache mémoire puis store media pour le hors connexion) ----
+  async png(id) {
+    const code = this.codeDe(id);
+    if (!code) return null;
+    if (this._pngCache.has(code)) return this._pngCache.get(code);
+    let url = null;
+    try {
+      const r = await fetch(this.url(code, 'png'));
+      if (r.ok) {
+        const b = await r.blob();
+        if (b.size > 100) url = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); });
+        url = _retypeDataURL(url);
+        if (url && !/^data:image\/png/i.test(url)) url = null;
+        if (url) { try { App._mediaPut('iso:' + code, url).catch(() => {}); } catch (_) {} }
+      }
+    } catch (_) { url = null; }
+    if (!url) { try { url = await App._mediaGet('iso:' + code); } catch (_) { url = null; } }
+    this._pngCache.set(code, url || null);
+    return url || null;
+  },
+  // Libellés des exports (anciens ids + codes ISO)
+  libelles(ids) { const o = {}; (ids || []).forEach(id => { o[id] = this.libelle(id); }); return o; }
+};
+try { window.PictosPDP = PictosPDP; } catch (_) {}
 
 /* ==============================================================
    Lot 1 — Publication du référentiel partagé (owner : suivipdp)
@@ -10745,14 +11108,7 @@ const App = {
     this.renderEmargements();
     // Pictogrammes
     const pictos = p.pictogrammes || {};
-    ['vapoter','vitesse','acces','flamme','feu','entreposage','stimulateur'].forEach(id => {
-      const el = document.getElementById('picto-'+id);
-      if (el) el.checked = (pictos.interdictions||[]).includes(id);
-    });
-    ['casque','chaussures','telephone','vetement','gants','antichute'].forEach(id => {
-      const el = document.getElementById('epi-'+id);
-      if (el) el.checked = (pictos.epiObligatoires||[]).includes(id);
-    });
+    PictosPDP.appliquer(pictos);   // anciens ids + codes ISO (P, M, W) ; signaux officiels
     document.getElementById('picto-remarques').value = pictos.remarques || '';
 
     // Permis de feu
@@ -10861,11 +11217,8 @@ const App = {
     // Émargements
     this.captureEmargementSigs();
     // Pictogrammes
-    p.pictogrammes = {
-      interdictions: ['vapoter','vitesse','acces','flamme','feu','entreposage','stimulateur'].filter(id => document.getElementById('picto-'+id)?.checked),
-      epiObligatoires: ['casque','chaussures','telephone','vetement','gants','antichute'].filter(id => document.getElementById('epi-'+id)?.checked),
-      remarques: document.getElementById('picto-remarques').value.trim()
-    };
+    // anciens ids conservés tels quels, nouveaux éléments par code ISO ; epiSources (coches automatiques des FDS) gardé
+    p.pictogrammes = PictosPDP.collecter(p.pictogrammes);
 
     // Permis de feu
     p.permisFeu = p.permisFeu || {};
@@ -11549,6 +11902,8 @@ const App = {
   },
 
   async _getPictoPngDataUrl(id, size=120) {
+    // Signal ISO officiel (PNG de la bibliothèque commune) ; repli : dessin maison s'il existe, sinon rien (libellé seul)
+    try { const u = await PictosPDP.png(id); if (u) return u; } catch (_) {}
     const svg = this.PICTO_SVG_RAW[id];
     if (!svg) return '';
     return this._svgToPngDataUrl(svg, size);
@@ -11564,17 +11919,10 @@ const App = {
     return arr.buffer;
   },
 
+  // Onglet Pictogrammes : signaux officiels ISO 7010 (PictosPDP) ; les dessins ci-dessus ne servent plus qu'aux
+  // éléments sans équivalent ISO (vitesse, acces, telephone) et de repli hors connexion.
   _initPictoImages() {
-    const interdictions = ['vapoter','vitesse','acces','flamme','feu','entreposage','stimulateur'];
-    const epis = ['casque','chaussures','telephone','vetement','gants','antichute'];
-    interdictions.forEach(id => {
-      const img = document.querySelector(`#picto-${id}`)?.parentElement?.querySelector('.picto-img');
-      if (img) img.src = this._pictoToDataUri(id);
-    });
-    epis.forEach(id => {
-      const img = document.querySelector(`#epi-${id}`)?.parentElement?.querySelector('.picto-img');
-      if (img) img.src = this._pictoToDataUri(id);
-    });
+    try { PictosPDP.rendre(); PictosPDP.charger(); } catch (e) { console.warn('Pictogrammes :', e); }
   },
 
   RISK_DEFAULTS: {
@@ -21179,9 +21527,10 @@ const App = {
 
     // Pictogrammes
     const pictos = p.pictogrammes||{};
-    const pictoIntLabels = {vapoter:'Interdiction de vapoter et fumer',vitesse:'Vitesse limitée à 30 Km/h',acces:'Accès limité aux personnes autorisées',flamme:'Flamme nue interdite sur toitures PV',feu:'Feu interdit sur le site',entreposage:'Ne rien entreposer hors zones balisées',stimulateur:'Accès interdit stimulateur cardiaque'};
-    const epiLabels = {casque:'Casque avec jugulaire',chaussures:'Chaussures de sécurité',telephone:'Téléphone portable obligatoire en toiture',vetement:'Vêtement de travail adapté',gants:'Gants de protection mécanique',antichute:'Protection contre les chutes de hauteur'};
-    if ((pictos.interdictions||[]).length || (pictos.epiObligatoires||[]).length || pictos.remarques) {
+    const pictoIntLabels = PictosPDP.libelles(pictos.interdictions);
+    const epiLabels = PictosPDP.libelles(pictos.epiObligatoires);
+    const avertLabels = PictosPDP.libelles(pictos.avertissements);
+    if ((pictos.interdictions||[]).length || (pictos.epiObligatoires||[]).length || (pictos.avertissements||[]).length || pictos.remarques) {
       secNum++;
       children.push(secTitle(String(secNum),'PICTOGRAMMES ET RÈGLES DE SÉCURITÉ'));
       // Helper: build pictogram grid (image + label) with text fallback
@@ -21239,6 +21588,15 @@ const App = {
           items.forEach(it => children.push(it));
         } catch(e) {
           pictos.epiObligatoires.forEach(id => children.push(new Paragraph({children:[new TextRun({text:'🔵 '+(epiLabels[id]||id),size:20,font:'Calibri'})],spacing:{before:20,after:20}})));
+        }
+      }
+      if ((pictos.avertissements||[]).length) {
+        children.push(new Paragraph({children:[new TextRun({text:'Avertissements :',size:20,bold:true,font:'Calibri',color:'B8860B'})],spacing:{before:100,after:50}}));
+        try {
+          const items = await docxPictoGrid(pictos.avertissements, avertLabels, '⚠');
+          items.forEach(it => children.push(it));
+        } catch(e) {
+          pictos.avertissements.forEach(id => children.push(new Paragraph({children:[new TextRun({text:'⚠ '+(avertLabels[id]||id),size:20,font:'Calibri'})],spacing:{before:20,after:20}})));
         }
       }
       if (pictos.remarques) {
@@ -22728,9 +23086,10 @@ const App = {
 
     // Pictogrammes
     const pictos = p.pictogrammes||{};
-    const pictoIntLabels = {vapoter:'Interdiction de vapoter et fumer',vitesse:'Vitesse limitée à 30 Km/h',acces:'Accès limité aux personnes autorisées',flamme:'Flamme nue interdite sur toitures PV',feu:'Feu interdit sur le site',entreposage:'Ne rien entreposer hors zones balisées',stimulateur:'Accès interdit stimulateur cardiaque'};
-    const epiLabels = {casque:'Casque avec jugulaire',chaussures:'Chaussures de sécurité',telephone:'Téléphone portable obligatoire en toiture',vetement:'Vêtement de travail adapté',gants:'Gants de protection mécanique',antichute:'Protection contre les chutes de hauteur'};
-    if ((pictos.interdictions||[]).length || (pictos.epiObligatoires||[]).length || pictos.remarques) {
+    const pictoIntLabels = PictosPDP.libelles(pictos.interdictions);
+    const epiLabels = PictosPDP.libelles(pictos.epiObligatoires);
+    const avertLabels = PictosPDP.libelles(pictos.avertissements);
+    if ((pictos.interdictions||[]).length || (pictos.epiObligatoires||[]).length || (pictos.avertissements||[]).length || pictos.remarques) {
       secTitle(`${secNum}. PICTOGRAMMES ET RÈGLES DE SÉCURITÉ`);
       // Helper to render a grid of pictograms with text fallback
       const pdfPictoGrid = async (ids, labels, colorRGB) => {
@@ -22783,6 +23142,12 @@ const App = {
         doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(0,85,164);
         doc.text('EPI Obligatoires :', m, y); y+=6; doc.setTextColor(0,0,0);
         await pdfPictoGrid(pictos.epiObligatoires, epiLabels, [0,85,164]);
+      }
+      if ((pictos.avertissements||[]).length) {
+        checkPage(30);
+        doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(184,134,11);
+        doc.text('Avertissements :', m, y); y+=6; doc.setTextColor(0,0,0);
+        await pdfPictoGrid(pictos.avertissements, avertLabels, [184,134,11]);
       }
       if (pictos.remarques) { checkPage(15); doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.text('Remarques :',m,y); y+=5; doc.setFont('helvetica','normal'); const lines=doc.splitTextToSize(pictos.remarques,pw-5); lines.forEach(l=>{doc.text(l,m+3,y);y+=4;}); y+=2; }
       secNum++;
