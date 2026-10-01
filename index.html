@@ -242,6 +242,34 @@ body {
 .section-tab.tab-done { border-color: var(--agw-green); color: var(--agw-green); }
 .section-tab.tab-done.active { background: var(--agw-green); color: #fff; }
 
+/* ---- Produits chimiques (registre SuiviChimique) : tableau sans barre horizontale ---- */
+.pc-sgh { display: inline-block; vertical-align: middle; margin: 1px; }
+.pc-search-wrap { position: relative; flex: 1 1 260px; min-width: 0; }
+.pc-sugg, .pc-kits-menu { position: absolute; left: 0; right: 0; top: 100%; z-index: 1050; background: #fff; border: 1px solid #ced4da; border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.12); max-height: 340px; overflow-y: auto; margin-top: 2px; }
+.pc-kits-menu { left: auto; min-width: 260px; max-width: calc(100vw - 32px); }
+.pc-sugg-item { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid #f0f0f0; background: #fff; padding: 6px 10px; font-size: .85rem; cursor: pointer; }
+.pc-sugg-item:hover, .pc-sugg-item.pc-hl { background: #f1f3f9; }
+.pc-sugg-item[disabled] { cursor: default; color: #888; background: #fafafa; }
+.pc-table { width: 100%; table-layout: fixed; font-size: .82rem; margin-bottom: .5rem; }
+.pc-table.table > thead > tr > th { --bs-table-bg: var(--agw-green); --bs-table-color: #fff; background: var(--agw-green); color: #fff; font-weight: 600; vertical-align: bottom; line-height: 1.15; }
+.pc-table td, .pc-table th { overflow-wrap: anywhere; word-break: normal; vertical-align: middle; padding: .3rem .35rem; }
+.pc-table .pc-col-num { width: 9%; } .pc-table .pc-col-prod { width: 21%; } .pc-table .pc-col-picto { width: 13%; }
+.pc-table .pc-col-h { width: 15%; } .pc-table .pc-col-fds { width: 19%; } .pc-table .pc-col-epi { width: 13%; } .pc-table .pc-col-act { width: 10%; }
+.pc-pill { display: inline-block; border-radius: 10px; padding: 0 6px; font-size: .7rem; font-weight: 600; line-height: 1.5; white-space: nowrap; }
+.pc-pill-red { background: #fdecea; color: #b02a37; border: 1px solid #f1aeb5; }
+.pc-pill-orange { background: #fff3e0; color: #a65800; border: 1px solid #f6c48a; }
+.pc-pill-blue { background: #e7f1ff; color: #1d4f91; border: 1px solid #a6c8f3; }
+.pc-pill-gray { background: #eceff1; color: #495057; border: 1px solid #ced4da; }
+#pc-tip { position: fixed; z-index: 2000; max-width: 340px; background: #212529; color: #fff; font-size: .78rem; padding: 5px 8px; border-radius: 5px; pointer-events: none; box-shadow: 0 3px 10px rgba(0,0,0,.25); white-space: pre-line; }
+@media (max-width: 767.98px) {
+  .pc-table, .pc-table tbody, .pc-table tr, .pc-table td { display: block; width: 100%; }
+  .pc-table colgroup, .pc-table thead { display: none; }
+  .pc-table tr { border: 1px solid #dee2e6; border-radius: 6px; margin-bottom: .5rem; padding: .25rem .4rem; background: #fff; }
+  .pc-table td { border: 0 !important; padding: .2rem 0; display: flex; gap: .5rem; align-items: flex-start; }
+  .pc-table td::before { content: attr(data-l); flex: 0 0 92px; font-weight: 600; color: #6c757d; font-size: .75rem; }
+  .pc-table td > .pc-cell { flex: 1 1 auto; min-width: 0; }
+}
+
 /* ---- Progress bar PDP ---- */
 .pdp-progress-bar {
     height: 6px;
@@ -1587,6 +1615,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <span class="section-tab" onclick="App.showPDPSection('permisfeu')" id="tab-permisfeu" style="display:none"><i class="bi bi-fire me-1"></i>Permis de feu</span>
       <span class="section-tab" onclick="App.showPDPSection('emargement')"><i class="bi bi-person-check me-1"></i>Émargement</span>
       <span class="section-tab" onclick="App.showPDPSection('autorisations')"><i class="bi bi-patch-check me-1"></i>Autorisations</span>
+      <span class="section-tab" onclick="App.showPDPSection('chimiques')"><i class="bi bi-droplet-half me-1"></i>Produits chimiques</span>
       <span class="section-tab" onclick="App.showPDPSection('annexes')"><i class="bi bi-paperclip me-1"></i>Documents joints</span>
       <span class="section-tab" onclick="App.showPDPSection('documents')"><i class="bi bi-download me-1"></i>Export</span>
     </div>
@@ -2341,6 +2370,15 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       </div>
     </div>
 
+    <!-- Section: Produits chimiques (registre SuiviChimique, contenu rendu par ProduitsChimiques.render) -->
+    <div id="section-chimiques" class="pdp-section" style="display:none">
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Choisissez dans le registre SuiviChimique les produits chimiques utilisés sur le chantier. Chaque produit est copié dans le PDP avec la FDS en vigueur au moment de l'ajout. Les exports PDF et Word en reprennent le tableau ; les PDF des FDS sont ajoutés comme fichiers séparés dans les ZIP complets.</div>
+      <div class="form-section">
+        <div class="form-section-title"><i class="bi bi-droplet-half"></i>Produits chimiques</div>
+        <div id="pc-container"></div>
+      </div>
+    </div>
+
     <!-- Section: Documents joints (annexes) -->
     <div id="section-annexes" class="pdp-section" style="display:none">
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Joignez les documents nécessaires au PDP : plans, habilitations, fiches de données de sécurité, analyses de risques...</div>
@@ -2819,6 +2857,17 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <button class="btn btn-outline-success btn-sm" onclick="App.backfillFichesReflexe()" title="Ajoute les fiches réflexe marquées « Par défaut » (FR-01, FR-02…) à tous les PDP existants, sans toucher aux FDS"><i class="bi bi-clipboard-plus me-1"></i>Ajouter les fiches réflexe aux PDP existants</button>
         <button class="btn btn-outline-danger btn-sm" onclick="App.removeNonStandardFDS()" title="Retire des PDP existants les FDS dont la case « Par défaut » est décochée dans la bibliothèque (fiches réflexe et permis de feu conservés)"><i class="bi bi-clipboard-minus me-1"></i>Retirer des PDP les FDS non « Par défaut »</button>
       </div>
+    </div>
+    <div class="form-section" data-stab="documents">
+      <div class="form-section-title d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-droplet-half"></i>Registre des produits chimiques (SuiviChimique)</span>
+        <span class="d-flex gap-2">
+          <button class="btn btn-sm btn-outline-primary" onclick="ProduitsChimiques.actualiserParametres()"><i class="bi bi-arrow-clockwise me-1"></i>Actualiser</button>
+          <a class="btn btn-sm btn-outline-secondary" href="https://zbpbasv.cluster121.hosting.ovh.net/suivichimique/" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i>Ouvrir SuiviChimique</a>
+        </span>
+      </div>
+      <div class="section-helper"><i class="bi bi-lightbulb"></i> Registre central des produits chimiques et de leurs FDS, publié par l'application SuiviChimique (lecture seule ici). Il alimente l'onglet « Produits chimiques » des PDP ; les FDS des produits retenus sont ajoutées comme fichiers séparés dans les ZIP complets.</div>
+      <div id="pc-settings-status" class="small"></div>
     </div>
     <div class="form-section" data-stab="documents">
       <div class="form-section-title d-flex justify-content-between align-items-center">
@@ -4881,6 +4930,578 @@ SharedRef.configure({
   userName:  () => localStorage.getItem('pdp_user_name') || 'Inconnu',
 });
 try { window.SharedRef = SharedRef; } catch (_) {}
+
+// ======== PRODUITS CHIMIQUES (registre SuiviChimique) ========
+// Lecture SEULE du registre central publié par l'appli SuiviChimique sur le site QHSE :
+// Shared/produits-chimiques.json { _meta, produits:[…], kits:[…] } ; PDF des FDS dans
+// SuiviChimique/FDS/ (même drive). SuiviPDP n'écrit jamais dans ce fichier.
+// Cache hors connexion : localStorage 'pdp_produits_chimiques_cache' — PAS la table
+// `settings`, qui est synchronisée sur SharePoint (shared.json) par DataSync.
+// Les produits retenus dans un PDP sont des COPIES FIGÉES (pdp.produitsChimiques.items,
+// chaque item porte id = uid pour que _mergeArray fusionne par clé et non par contenu) :
+// un PDP signé garde la FDS jointe à la signature, la mise à jour est volontaire.
+// Exports : section « Produits chimiques » (tableau) dans le PDF et le Word, SANS annexer les
+// PDF des FDS (trop lourd, choix de Thibault 01/10/2026) ; les PDF des FDS sont ajoutés comme
+// fichiers séparés dans les ZIP complets (Documents_joints/).
+// PDF des FDS : cache mémoire + store `media` (clé 'chim:' + chemin, append-only ; le
+// chemin contient version et date de révision, donc un fichier = un contenu).
+const ProduitsChimiques = {
+  PATH: 'Shared/produits-chimiques.json',
+  CACHE_KEY: 'pdp_produits_chimiques_cache',
+  REFRESH_MS: 10 * 60 * 1000,            // relecture au plus toutes les 10 min
+  APP_URL: 'https://zbpbasv.cluster121.hosting.ovh.net/suivichimique/',
+  // Pictogrammes SGH OFFICIELS hébergés par SuiviChimique sur le même hôte OVH (même origine,
+  // pas de CORS) : SVG pour l'écran, PNG 256×256 transparents pour jsPDF et le Word.
+  PICTOS_URL: '../suivichimique/pictos/',
+  SGH: { SGH01:'Explosif', SGH02:'Inflammable', SGH03:'Comburant', SGH04:'Gaz sous pression', SGH05:'Corrosif',
+         SGH06:'Toxicité aiguë', SGH07:'Nocif / irritant', SGH08:'Danger pour la santé', SGH09:"Danger pour l'environnement" },
+  _pngCache: new Map(), // code SGH → dataURL PNG (ou null si introuvable)
+  _mem: null,          // { data, fetchedAt } — miroir mémoire du cache localStorage
+  _loading: null,      // promesse de lecture en cours (pas de lectures concurrentes)
+  _erreur: null,       // dernier message d'erreur de lecture
+  _fdsCache: new Map(),// chemin → dataURL des PDF de FDS
+  _q: '',              // recherche en cours (onglet PDP)
+  _hl: -1,             // suggestion surlignée au clavier
+
+  // ---- Registre : lecture, cache ----
+  _cacheGet() {
+    if (this._mem) return this._mem;
+    try { const c = JSON.parse(localStorage.getItem(this.CACHE_KEY) || 'null'); if (c && c.data) this._mem = c; } catch (_) {}
+    return this._mem;
+  },
+  _cacheSet(c) {
+    this._mem = c;
+    try { localStorage.setItem(this.CACHE_KEY, JSON.stringify(c)); } catch (_) {}
+  },
+  data() { const c = this._cacheGet(); return c ? c.data : null; },
+  lu() { const c = this._cacheGet(); return c ? c.fetchedAt : null; },
+  produits() { const d = this.data(); return (d && Array.isArray(d.produits)) ? d.produits : []; },
+  kits() { const d = this.data(); return (d && Array.isArray(d.kits)) ? d.kits : []; },
+  produit(uid) { return this.produits().find(x => x && x.uid === uid) || null; },
+
+  // Lit le registre si connecté (au plus toutes les 10 min sauf force) ; renvoie les
+  // données (fraîches ou du cache) ou null si le registre n'a jamais pu être lu.
+  async charger({ force = false } = {}) {
+    const c = this._cacheGet();
+    if (!force && c && (Date.now() - (c.fetchedAt || 0) < this.REFRESH_MS)) return c.data;
+    if (!(typeof DataSync !== 'undefined' && DataSync._connected)) return c ? c.data : null;
+    if (this._loading) return this._loading;
+    this._loading = (async () => {
+      try {
+        const data = await _readJsonFile(this.PATH);
+        if (data && Array.isArray(data.produits)) {
+          this._cacheSet({ data, fetchedAt: Date.now() });
+          this._erreur = null;
+          return data;
+        }
+        this._erreur = data ? 'format du fichier inattendu' : 'fichier introuvable sur SharePoint';
+      } catch (e) {
+        this._erreur = (e && e.message) || 'lecture impossible';
+        console.warn('[ProduitsChimiques] lecture du registre échouée, cache conservé :', this._erreur);
+      } finally { this._loading = null; }
+      const c2 = this._cacheGet();
+      return c2 ? c2.data : null;
+    })();
+    return this._loading;
+  },
+
+  // ---- Utilitaires ----
+  norm(s) { return String(s == null ? '' : s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim(); },
+  esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); },
+  sghLibelle(code) { return this.SGH[code] || code; },
+  // Écran : image SVG officielle ; repli sur le code texte si l'image ne charge pas.
+  // lien=true : clic → visualiseur de pictogrammes SuiviChimique (?code=SGH0X) dans un nouvel onglet.
+  sghSvg(code, size = 24, lien = false) {
+    const c = String(code || '').replace(/[^A-Za-z0-9]/g, '');
+    const lib = this.esc(c + ' — ' + this.sghLibelle(c) + (lien ? ' (clic : signification)' : ''));
+    const img = `<img class="pc-sgh" src="${this.PICTOS_URL}${c}.svg" alt="${this.esc(c)}" width="${size}" height="${size}" data-pc-tip="${lib}" onerror="ProduitsChimiques._pictoKo(this)">`;
+    return lien ? `<a class="pc-sgh-lien" href="${this.PICTOS_URL}?code=${encodeURIComponent(c)}" target="_blank" rel="noopener">${img}</a>` : img;
+  },
+  _pictoKo(img) {
+    const s = document.createElement('span');
+    s.className = 'pc-pill pc-pill-gray pc-sgh-txt';
+    s.textContent = img.alt || 'SGH';
+    s.setAttribute('data-pc-tip', img.getAttribute('data-pc-tip') || '');
+    img.replaceWith(s);
+  },
+  // Exports : PNG officiels en dataURL (cache mémoire, puis store media pour le hors connexion).
+  async pictoPng(code) {
+    const c = String(code || '').replace(/[^A-Za-z0-9]/g, '');
+    if (!c) return null;
+    if (this._pngCache.has(c)) return this._pngCache.get(c);
+    let url = null;
+    try {
+      const r = await fetch(this.PICTOS_URL + c + '.png');
+      if (r.ok) {
+        const b = await r.blob();
+        if (/png/i.test(b.type) || b.size > 0) url = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); });
+        url = _retypeDataURL(url);
+        if (url && !/^data:image\/png/i.test(url)) url = null;
+        if (url) { try { App._mediaPut('sgh:' + c, url).catch(() => {}); } catch (_) {} }
+      }
+    } catch (_) { url = null; }
+    if (!url) { try { url = await App._mediaGet('sgh:' + c); } catch (_) { url = null; } }
+    this._pngCache.set(c, url || null);
+    return url || null;
+  },
+  async pictosPng(codes) {
+    const m = new Map();
+    for (const c of new Set((codes || []).filter(Boolean))) m.set(c, await this.pictoPng(c));
+    return m;
+  },
+  pictosHtml(list, size) {
+    const l = (list || []).filter(Boolean);
+    return l.length ? l.map(c => this.sghSvg(c, size, true)).join('') : '<span class="text-muted small">—</span>';
+  },
+  fmtVersion(f) {
+    if (!f) return '';
+    const v = String(f.version || '').trim();
+    if (!v) return 'version ?';
+    return f.notation === 'rev' ? 'rév. ' + v : 'v' + v;
+  },
+  fmtDate(iso) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? `${m[3]}/${m[2]}/${m[1]}` : (iso || ''); },
+  estFrancais(langue) { const l = this.norm(langue); return !l || l === 'francais' || l === 'fr' || l.startsWith('fr-'); },
+  plusDe3Ans(iso) {
+    if (!iso) return false;
+    const d = new Date(iso + 'T00:00:00'); if (isNaN(d)) return false;
+    const lim = new Date(); lim.setFullYear(lim.getFullYear() - 3);
+    return d < lim;
+  },
+  statutNorm(st) { return this.norm(st); },          // 'actif' | 'a verifier' | 'a substituer' | 'retire'
+  lienProduit(uid) { return this.APP_URL + '#produit/' + encodeURIComponent(uid || ''); },
+  nomFichier(chemin) { return String(chemin || '').split('/').pop() || 'FDS.pdf'; },
+  fdsTexte(f) {
+    if (!f) return 'Pas de FDS';
+    return [this.fmtVersion(f), this.fmtDate(f.dateRevision), f.langue || ''].filter(Boolean).join(' — ');
+  },
+
+  // Copie figée d'un produit du registre (celle stockée dans le PDP).
+  snapshot(prod) {
+    const f = prod.fdsEnVigueur || null;
+    const arr = a => Array.isArray(a) ? a.filter(Boolean).map(String) : [];
+    return {
+      id: prod.uid, uid: prod.uid, numero: prod.numero || '', nom: prod.nom || '', fournisseur: prod.fournisseur || '',
+      pictogrammes: arr(prod.pictogrammes), mentionsH: arr(prod.mentionsH), mentionsEUH: arr(prod.mentionsEUH),
+      mentionAvertissement: prod.mentionAvertissement || '', cmr: !!prod.cmr, cmrCategorie: prod.cmrCategorie || '',
+      inflammable: !!prod.inflammable, dangerEnvironnement: !!prod.dangerEnvironnement, epi: arr(prod.epi),
+      fds: f ? { version: f.version || '', notation: f.notation || 'v', dateRevision: f.dateRevision || '', langue: f.langue || '', fichier: f.fichier || '' } : null,
+      ajouteLe: new Date().toISOString(),
+      ajoutePar: (typeof localStorage !== 'undefined' && localStorage.getItem('pdp_user_name')) || ''
+    };
+  },
+  // La FDS en vigueur du registre est-elle plus récente que celle figée dans le PDP ?
+  nouvelleFds(item) {
+    const reg = this.produit(item.uid);
+    const rf = reg && reg.fdsEnVigueur;
+    if (!rf || !rf.fichier) return null;
+    const f = item.fds || {};
+    if (rf.fichier === f.fichier) return null;
+    if ((rf.dateRevision || '') < (f.dateRevision || '')) return null;
+    return rf;
+  },
+  // Section « Produits chimiques » des exports PDF / Word : en-têtes + lignes (codes SGH en texte).
+  EXPORT_ENTETES: ['N°', 'Produit', 'Fournisseur', 'Pictogrammes', 'Mentions H', 'FDS (version, révision, langue)', 'EPI'],
+  EXPORT_MENTION: 'Les fiches de données de sécurité sont tenues à jour dans le registre SuiviChimique et transmises sur demande.',
+  exportSection(p) {
+    const pc = p && p.produitsChimiques;
+    const items = (pc && Array.isArray(pc.items)) ? pc.items.filter(Boolean) : [];
+    if (!items.length && !(pc && pc.aucun)) return null;   // section absente (PDP antérieur ou non renseigné)
+    const lignes = items.map(it => {
+      const compl = [it.mentionAvertissement || '', it.cmr ? 'CMR' + (it.cmrCategorie ? ' ' + it.cmrCategorie : '') : ''].filter(Boolean).join(' · ');
+      return [
+        it.numero || '',
+        (it.nom || '') + (compl ? '\n' + compl : ''),
+        it.fournisseur || '',
+        (it.pictogrammes || []).join(', ') || '—',
+        [...(it.mentionsH || []), ...(it.mentionsEUH || [])].join(', ') || '—',
+        this.fdsTexte(it.fds),
+        (it.epi || []).join(', ') || '—'
+      ];
+    });
+    return { aucun: !items.length, lignes, pictos: items.map(it => (it.pictogrammes || []).filter(Boolean)) };
+  },
+  // FDS à joindre au ZIP : une seule fois par fichier (plusieurs produits peuvent partager une FDS).
+  fdsAnnexes(p) {
+    const items = (p && p.produitsChimiques && Array.isArray(p.produitsChimiques.items)) ? p.produitsChimiques.items : [];
+    const parFichier = new Map();
+    for (const it of items) {
+      const fi = it && it.fds && it.fds.fichier;
+      if (!fi) continue;
+      if (!parFichier.has(fi)) parFichier.set(fi, { fichier: fi, nomFichier: this.nomFichier(fi), produits: [] });
+      parFichier.get(fi).produits.push(it.nom || it.numero || 'Produit');
+    }
+    return [...parFichier.values()].map(a => ({ ...a, nom: 'FDS ' + a.produits.join(' / ') }));
+  },
+  // Contenu PDF d'une FDS (dataURL retypée) : mémoire → store media → SharePoint (si connecté).
+  async fdsDataURL(fichier) {
+    if (!fichier) return null;
+    if (this._fdsCache.has(fichier)) return this._fdsCache.get(fichier);
+    const key = 'chim:' + fichier;
+    let url = null;
+    try { url = await App._mediaGet(key); } catch (_) { url = null; }
+    if (!url && typeof DataSync !== 'undefined' && DataSync._connected) {
+      url = _retypeDataURL(await _downloadFileAsDataURL(fichier));
+      if (url) { try { App._mediaPut(key, url).catch(() => {}); } catch (_) {} }
+    }
+    url = _retypeDataURL(url);
+    if (url) this._fdsCache.set(fichier, url);
+    return url;
+  },
+
+  // ---- Données du PDP courant ----
+  _pdp() { return (typeof App !== 'undefined') ? App.currentPDP : null; },
+  _pc(p) {
+    p = p || this._pdp();
+    if (!p) return null;
+    if (!p.produitsChimiques || typeof p.produitsChimiques !== 'object') p.produitsChimiques = { aucun: false, items: [] };
+    if (!Array.isArray(p.produitsChimiques.items)) p.produitsChimiques.items = [];
+    p.produitsChimiques.aucun = !!p.produitsChimiques.aucun;
+    return p.produitsChimiques;
+  },
+  complet(p) {
+    const pc = p && p.produitsChimiques;
+    return !!(pc && ((Array.isArray(pc.items) && pc.items.length) || pc.aucun));
+  },
+  // PDP signé = au moins une signature dessinée (EU ou EE) ; un PDP clôturé est en lecture seule.
+  estSigne(p) {
+    if (!p) return false;
+    if (p.signatureEU && p.signatureEU.data) return true;
+    if ((p.signaturesEE || []).some(s => s && s.data)) return true;
+    const cv = document.getElementById('sig-eu-canvas');
+    return !!(cv && cv._hasDrawing && p === this._pdp());
+  },
+  _lectureSeule(p) { return !!(p && p.statut === 'cloture'); },
+  _modifie() {
+    // Mécanismes de formulaire existants : _markEditing → _formDirty + _materializeNewForm
+    // (fiche nouvelle) ; _flushCurrentForm (veille/fermeture) puis DataSync.markDirty.
+    try { App._markEditing(); } catch (_) {}
+    try { App.updateProgress(); } catch (_) {}
+  },
+
+  // ---- Onglet « Produits chimiques » de la fiche PDP ----
+  async ouvrirOnglet() {
+    this._bindGlobal();
+    this._q = '';
+    this.render();
+    const avant = this.lu();
+    await this.charger();
+    if (this.lu() !== avant || !avant) this.render();
+  },
+  async actualiser() {
+    if (!(typeof DataSync !== 'undefined' && DataSync._connected)) { App.toast('Hors connexion : registre non actualisé (dernière copie conservée)', 'warning'); return; }
+    await this.charger({ force: true });
+    this.render();
+    this.renderParametres();
+    if (this._erreur) App.toast('Registre des produits chimiques : ' + this._erreur, 'warning');
+    else App.toast('Registre des produits chimiques actualisé');
+  },
+
+  render() {
+    const box = document.getElementById('pc-container');
+    if (!box) return;
+    const p = this._pdp();
+    if (!p) { box.innerHTML = ''; return; }
+    const pc = this._pc(p);
+    const ro = this._lectureSeule(p);
+    const signe = this.estSigne(p);
+    const data = this.data();
+    const lu = this.lu();
+    const dis = ro ? ' disabled' : '';
+    let h = '';
+    // Ligne d'état du registre
+    if (!data) {
+      h += `<div class="alert alert-warning small py-2 mb-2"><i class="bi bi-wifi-off me-1"></i><strong>Registre des produits chimiques indisponible</strong> : il n'a encore jamais pu être lu sur ce poste${this._erreur ? ' (' + this.esc(this._erreur) + ')' : ''}. Se connecter à SharePoint puis rouvrir cet onglet. Les produits déjà retenus restent affichés et exportés.</div>`;
+    } else {
+      const nbP = this.produits().length, nbK = this.kits().length;
+      h += `<div class="d-flex flex-wrap align-items-center gap-2 small text-muted mb-2"><span><i class="bi bi-database me-1"></i>Registre SuiviChimique lu le ${new Date(lu).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })} — ${nbP} produit(s), ${nbK} kit(s)</span>`
+        + `<button type="button" class="btn btn-link btn-sm p-0" onclick="ProduitsChimiques.actualiser()"><i class="bi bi-arrow-clockwise me-1"></i>Actualiser</button>`
+        + `<a class="btn btn-link btn-sm p-0" href="${this.APP_URL}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i>Ouvrir SuiviChimique</a>`
+        + `<a class="btn btn-link btn-sm p-0" id="pc-lien-pictos" href="${this.PICTOS_URL}" target="_blank" rel="noopener"><i class="bi bi-sign-stop me-1"></i>Signification des pictogrammes</a></div>`;
+    }
+    // Recherche + kits
+    if (data && !ro) {
+      h += `<div class="d-flex flex-wrap gap-2 align-items-start mb-2">
+        <div class="pc-search-wrap" id="pc-search-wrap">
+          <div class="input-icon-wrap"><i class="bi bi-search input-icon"></i><input type="search" class="form-control form-control-sm" id="pc-search" autocomplete="off" placeholder="Rechercher un produit : nom, fournisseur, n° PRD, mention H…" value="${this.esc(this._q)}" oninput="ProduitsChimiques.rechercher(this.value)" onfocus="ProduitsChimiques.rechercher(this.value)" onkeydown="ProduitsChimiques.clavier(event)"></div>
+          <div class="pc-sugg" id="pc-sugg" style="display:none"></div>
+        </div>
+        <div class="pc-search-wrap" style="flex:0 0 auto">
+          <button type="button" class="btn btn-outline-primary btn-sm" onclick="ProduitsChimiques.basculerKits(event)"><i class="bi bi-box-seam me-1"></i>Ajouter un kit</button>
+          <div class="pc-kits-menu" id="pc-kits-menu" style="display:none;right:0"></div>
+        </div>
+      </div>`;
+    }
+    // Case « Aucun produit »
+    const nb = pc.items.length;
+    h += `<div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="pc-aucun" ${pc.aucun ? 'checked' : ''} ${(ro || nb) ? 'disabled' : ''} onchange="ProduitsChimiques.basculerAucun(this.checked)">
+      <label class="form-check-label small" for="pc-aucun">Aucun produit chimique utilisé sur ce chantier</label>${nb ? '<span class="small text-muted ms-2">(décochée tant que des produits sont retenus)</span>' : ''}</div>`;
+    if (signe && nb) h += `<div class="small text-muted mb-2"><i class="bi bi-pen me-1"></i>PDP signé : les FDS jointes restent celles de la signature (mise à jour désactivée).</div>`;
+    // Tableau des produits retenus
+    if (!nb) {
+      h += `<p class="text-muted small mb-0">${pc.aucun ? 'Aucun produit chimique déclaré pour ce chantier.' : 'Aucun produit retenu pour le moment.'}</p>`;
+    } else {
+      h += `<table class="table table-sm table-bordered pc-table" id="pc-table"><colgroup><col class="pc-col-num"><col class="pc-col-prod"><col class="pc-col-picto"><col class="pc-col-h"><col class="pc-col-fds"><col class="pc-col-epi"><col class="pc-col-act"></colgroup>
+        <thead><tr><th>N°</th><th>Produit</th><th>Pictogrammes</th><th>Mentions H</th><th>FDS jointe</th><th>EPI demandés</th><th></th></tr></thead><tbody>`;
+      pc.items.forEach(it => { h += this._ligne(it, { ro, signe }); });
+      h += `</tbody></table>`;
+    }
+    box.innerHTML = h;
+    try { App._updateTabIndicators && App.updateProgress(); } catch (_) {}
+  },
+
+  _ligne(it, { ro, signe }) {
+    const reg = this.produit(it.uid);
+    const st = reg ? this.statutNorm(reg.statut) : '';
+    const hs = [...(it.mentionsH || []), ...(it.mentionsEUH || [])];
+    const hCourt = hs.slice(0, 3).join(', ') + (hs.length > 3 ? ` +${hs.length - 3}` : '');
+    const f = it.fds;
+    let fdsHtml;
+    if (!f || !f.fichier) fdsHtml = '<span class="pc-pill pc-pill-red">Pas de FDS</span>';
+    else {
+      fdsHtml = `<div>${this.esc(this.fmtVersion(f))} — ${this.esc(this.fmtDate(f.dateRevision))}</div><div class="d-flex flex-wrap gap-1 mt-1">`;
+      fdsHtml += this.estFrancais(f.langue)
+        ? `<span class="pc-pill pc-pill-gray">${this.esc(f.langue || 'Français')}</span>`
+        : `<span class="pc-pill pc-pill-red" data-pc-tip="FDS non rédigée en français : demander la version française au fournisseur">${this.esc(f.langue)}</span>`;
+      if (this.plusDe3Ans(f.dateRevision)) fdsHtml += `<span class="pc-pill pc-pill-orange" data-pc-tip="Révision de plus de 3 ans : vérifier auprès du fournisseur qu'il n'existe pas de version plus récente">Plus de 3 ans</span>`;
+      fdsHtml += '</div>';
+    }
+    const nv = this.nouvelleFds(it);
+    if (nv) {
+      fdsHtml += `<div class="mt-1"><span class="pc-pill pc-pill-blue" data-pc-tip="${this.esc('FDS en vigueur dans le registre : ' + this.fdsTexte(nv))}">Nouvelle FDS disponible</span>`
+        + (ro ? '' : ` <button type="button" class="btn btn-sm btn-outline-primary py-0 px-1 mt-1" ${signe ? 'disabled' : ''} onclick="ProduitsChimiques.mettreAJour('${this.esc(it.uid)}')" ${signe ? 'data-pc-tip="PDP signé : il garde la version jointe à la signature"' : ''}>Mettre à jour</button>`)
+        + '</div>';
+    }
+    let alertes = '';
+    if (st === 'a substituer') alertes += ` <span class="pc-pill pc-pill-orange" data-pc-tip="Produit à substituer : privilégier une alternative moins dangereuse">A substituer</span>`;
+    if (st === 'retire') alertes += ` <span class="pc-pill pc-pill-red" data-pc-tip="Produit retiré du registre SuiviChimique">Retiré du registre</span>`;
+    if (it.cmr) alertes += ` <span class="pc-pill pc-pill-red">CMR${it.cmrCategorie ? ' ' + this.esc(it.cmrCategorie) : ''}</span>`;
+    const uidJs = this.esc(it.uid);
+    return `<tr data-uid="${uidJs}">
+      <td data-l="N°"><div class="pc-cell">${this.esc(it.numero || '')}</div></td>
+      <td data-l="Produit"><div class="pc-cell"><strong>${this.esc(it.nom)}</strong> <span class="text-muted">${this.esc(it.fournisseur || '')}</span>${alertes ? '<div>' + alertes + '</div>' : ''}</div></td>
+      <td data-l="Pictogrammes"><div class="pc-cell">${this.pictosHtml(it.pictogrammes, 24)}</div></td>
+      <td data-l="Mentions H"><div class="pc-cell"${hs.length ? ` data-pc-tip="${this.esc(hs.join(', '))}"` : ''}>${hs.length ? this.esc(hCourt) : '<span class="text-muted">—</span>'}</div></td>
+      <td data-l="FDS jointe"><div class="pc-cell">${fdsHtml}</div></td>
+      <td data-l="EPI"><div class="pc-cell">${(it.epi || []).length ? this.esc(it.epi.join(', ')) : '<span class="text-muted">—</span>'}</div></td>
+      <td data-l=""><div class="pc-cell d-flex flex-wrap gap-1">
+        <a class="btn btn-sm btn-outline-secondary py-0 px-1" href="${this.lienProduit(it.uid)}" target="_blank" rel="noopener" aria-label="Voir dans SuiviChimique" data-pc-tip="Voir la fiche dans SuiviChimique (nouvel onglet)"><i class="bi bi-box-arrow-up-right"></i></a>
+        ${ro ? '' : `<button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" aria-label="Retirer" data-pc-tip="Retirer ce produit du PDP" onclick="ProduitsChimiques.retirer('${uidJs}')"><i class="bi bi-trash"></i></button>`}
+      </div></td></tr>`;
+  },
+
+  // Recherche dans le registre (sans accents ni majuscules) ; « Retiré » exclus.
+  resultats(q) {
+    const mots = this.norm(q).split(/\s+/).filter(Boolean);
+    if (!mots.length) return [];
+    return this.produits().filter(x => x && this.statutNorm(x.statut) !== 'retire').filter(x => {
+      const txt = this.norm([x.nom, x.fournisseur, x.numero, ...(x.mentionsH || []), ...(x.mentionsEUH || [])].join(' '));
+      return mots.every(m => txt.includes(m));
+    }).slice(0, 15);
+  },
+  rechercher(q) {
+    this._q = q || '';
+    this._hl = -1;
+    this.fermerKits();
+    const box = document.getElementById('pc-sugg');
+    if (!box) return;
+    const res = this.resultats(this._q);
+    if (!this.norm(this._q)) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    const pris = new Set((this._pc() || { items: [] }).items.map(i => i.uid));
+    if (!res.length) { box.innerHTML = '<div class="small text-muted px-2 py-2">Aucun produit trouvé dans le registre.</div>'; box.style.display = ''; return; }
+    box.innerHTML = res.map((x, i) => {
+      const deja = pris.has(x.uid);
+      const sub = this.statutNorm(x.statut) === 'a substituer';
+      return `<button type="button" class="pc-sugg-item" data-i="${i}" ${deja ? 'disabled' : ''} onclick="ProduitsChimiques.ajouter('${this.esc(x.uid)}')">
+        <div class="d-flex align-items-center gap-2"><span class="flex-grow-1" style="min-width:0"><strong>${this.esc(x.nom)}</strong> <span class="text-muted">${this.esc(x.fournisseur || '')}</span> <span class="text-muted small">${this.esc(x.numero || '')}</span></span><span class="text-nowrap">${(x.pictogrammes || []).map(c => this.sghSvg(c, 18)).join('')}</span></div>
+        ${sub ? '<div class="small text-danger"><i class="bi bi-exclamation-triangle me-1"></i>A substituer : privilégier une alternative moins dangereuse</div>' : ''}
+        ${deja ? '<div class="small">Déjà dans le PDP</div>' : ''}
+      </button>`;
+    }).join('');
+    box.style.display = '';
+  },
+  clavier(e) {
+    const box = document.getElementById('pc-sugg');
+    if (e.key === 'Escape') { this.fermerSuggestions(); return; }
+    if (!box || box.style.display === 'none') return;
+    const items = [...box.querySelectorAll('.pc-sugg-item:not([disabled])')];
+    if (!items.length) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      this._hl = (this._hl + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      items.forEach((b, i) => b.classList.toggle('pc-hl', i === this._hl));
+      items[this._hl].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      (items[this._hl >= 0 ? this._hl : 0]).click();
+    }
+  },
+  fermerSuggestions() { const b = document.getElementById('pc-sugg'); if (b) { b.style.display = 'none'; } this._hl = -1; },
+  fermerKits() { const b = document.getElementById('pc-kits-menu'); if (b) b.style.display = 'none'; },
+  basculerKits(e) {
+    if (e) e.stopPropagation();
+    const m = document.getElementById('pc-kits-menu');
+    if (!m) return;
+    if (m.style.display !== 'none') { m.style.display = 'none'; return; }
+    this.fermerSuggestions();
+    const kits = this.kits();
+    m.innerHTML = kits.length
+      ? kits.map(k => {
+          const n = (k.produitUids || []).filter(u => { const x = this.produit(u); return x && this.statutNorm(x.statut) !== 'retire'; }).length;
+          return `<button type="button" class="pc-sugg-item" onclick="ProduitsChimiques.ajouterKit('${this.esc(k.uid)}')"><strong>${this.esc(k.nom)}</strong> <span class="text-muted small">${n} produit(s)</span></button>`;
+        }).join('')
+      : '<div class="small text-muted px-2 py-2">Aucun kit dans le registre SuiviChimique.</div>';
+    m.style.display = '';
+  },
+
+  _ajouterSansRendu(prod) {
+    const pc = this._pc();
+    if (!pc || !prod || pc.items.some(i => i.uid === prod.uid)) return false;
+    pc.items.push(this.snapshot(prod));
+    pc.aucun = false;
+    return true;
+  },
+  ajouter(uid) {
+    const p = this._pdp();
+    if (!p || this._lectureSeule(p)) return;
+    const prod = this.produit(uid);
+    if (!prod) { App.toast('Produit introuvable dans le registre', 'warning'); return; }
+    const ok = this._ajouterSansRendu(prod);
+    this._q = '';
+    this.fermerSuggestions();
+    if (!ok) { App.toast('Produit déjà dans le PDP', 'info'); return; }
+    this._modifie();
+    this.render();
+    if (this.statutNorm(prod.statut) === 'a substituer') App.toast(`${prod.nom} ajouté — produit à substituer : privilégier une alternative`, 'warning', 6000);
+    else App.toast(`${prod.nom} ajouté au PDP`);
+    const s = document.getElementById('pc-search'); if (s) s.focus();
+  },
+  ajouterKit(kitUid) {
+    const p = this._pdp();
+    if (!p || this._lectureSeule(p)) return;
+    this.fermerKits();
+    const kit = this.kits().find(k => k.uid === kitUid);
+    if (!kit) return;
+    let n = 0, absents = 0;
+    for (const u of (kit.produitUids || [])) {
+      const prod = this.produit(u);
+      if (!prod || this.statutNorm(prod.statut) === 'retire') { absents++; continue; }
+      if (this._ajouterSansRendu(prod)) n++;
+    }
+    if (n) this._modifie();
+    this.render();
+    App.toast(n ? `Kit « ${kit.nom} » : ${n} produit(s) ajouté(s)${absents ? `, ${absents} retiré(s) du registre ignoré(s)` : ''}` : `Kit « ${kit.nom} » : produits déjà présents`, n ? 'success' : 'info');
+  },
+  async retirer(uid) {
+    const p = this._pdp();
+    if (!p || this._lectureSeule(p)) return;
+    const pc = this._pc(p);
+    const it = pc.items.find(i => i.uid === uid);
+    if (!it) return;
+    if (this.estSigne(p) && !(await App.confirm(`Ce PDP est signé. Retirer « ${this.esc(it.nom)} » et sa FDS du PDP ?`))) return;
+    pc.items = pc.items.filter(i => i.uid !== uid);
+    this._modifie();
+    this.render();
+    App.toast(`${it.nom} retiré du PDP`);
+  },
+  basculerAucun(v) {
+    const p = this._pdp();
+    if (!p || this._lectureSeule(p)) return;
+    const pc = this._pc(p);
+    if (pc.items.length) { pc.aucun = false; this.render(); return; }
+    pc.aucun = !!v;
+    this._modifie();
+    this.render();
+  },
+  mettreAJour(uid) {
+    const p = this._pdp();
+    if (!p || this._lectureSeule(p)) return;
+    if (this.estSigne(p)) { App.toast('PDP signé : la FDS jointe à la signature est conservée', 'warning'); return; }
+    const pc = this._pc(p);
+    const idx = pc.items.findIndex(i => i.uid === uid);
+    const prod = this.produit(uid);
+    if (idx < 0 || !prod) return;
+    const ancien = pc.items[idx];
+    const neuf = this.snapshot(prod);
+    neuf.ajouteLe = ancien.ajouteLe || neuf.ajouteLe;
+    neuf.ajoutePar = ancien.ajoutePar || neuf.ajoutePar;
+    neuf.majLe = new Date().toISOString();
+    pc.items[idx] = neuf;
+    try { App.addHist && App.addHist(`FDS mise à jour : ${prod.nom} (${this.fdsTexte(ancien.fds)} → ${this.fdsTexte(neuf.fds)})`); } catch (_) {}
+    this._modifie();
+    this.render();
+    App.toast(`FDS de ${prod.nom} mise à jour`);
+  },
+  // ---- Infobulles (survol seulement, une à la fois, fermées au clic/défilement/après 6 s) ----
+  _bound: false,
+  _tipTimer: null,
+  _bindGlobal() {
+    if (this._bound) return;
+    this._bound = true;
+    document.addEventListener('click', (e) => {
+      this._tipHide();
+      if (!e.target.closest('#pc-search-wrap')) this.fermerSuggestions();
+      if (!e.target.closest('#pc-kits-menu')) this.fermerKits();
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { this.fermerSuggestions(); this.fermerKits(); this._tipHide(); } });
+    window.addEventListener('scroll', () => this._tipHide(), true);
+    document.addEventListener('pointerover', (e) => {
+      if (e.pointerType && e.pointerType !== 'mouse') return;
+      const el = e.target.closest && e.target.closest('[data-pc-tip]');
+      if (!el) return;
+      if (this._tipEl === el) return;
+      this._tipShow(el);
+    });
+    document.addEventListener('pointerout', (e) => {
+      const el = e.target.closest && e.target.closest('[data-pc-tip]');
+      if (el && el === this._tipEl && !(e.relatedTarget && el.contains(e.relatedTarget))) this._tipHide();
+    });
+  },
+  _tipShow(el) {
+    this._tipHide();
+    const txt = el.getAttribute('data-pc-tip');
+    if (!txt) return;
+    const t = document.createElement('div');
+    t.id = 'pc-tip'; t.textContent = txt;
+    document.body.appendChild(t);
+    const r = el.getBoundingClientRect();
+    const tw = t.offsetWidth, th = t.offsetHeight;
+    let left = Math.min(Math.max(8, r.left + r.width / 2 - tw / 2), window.innerWidth - tw - 8);
+    let top = r.top - th - 6; if (top < 8) top = r.bottom + 6;
+    t.style.left = left + 'px'; t.style.top = top + 'px';
+    this._tipEl = el;
+    this._tipTimer = setTimeout(() => this._tipHide(), 6000);
+  },
+  _tipHide() {
+    if (this._tipTimer) { clearTimeout(this._tipTimer); this._tipTimer = null; }
+    this._tipEl = null;
+    const t = document.getElementById('pc-tip'); if (t) t.remove();
+  },
+
+  // ---- Carte Paramètres > Documents & habilitations ----
+  async renderParametres({ charger = true } = {}) {
+    const el = document.getElementById('pc-settings-status');
+    if (!el) return;
+    this._bindGlobal();
+    const peindre = () => {
+      const d = this.data();
+      if (!d) { el.innerHTML = `<span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Registre jamais lu sur ce poste${this._erreur ? ' (' + this.esc(this._erreur) + ')' : ''} — connexion SharePoint nécessaire.</span>`; return; }
+      const meta = d._meta || {};
+      el.innerHTML = `<div><i class="bi bi-clock-history me-1"></i>Dernière lecture : <strong>${new Date(this.lu()).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</strong></div>
+        <div><i class="bi bi-droplet-half me-1"></i><strong>${this.produits().length}</strong> produit(s) dont ${this.produits().filter(x => this.statutNorm(x.statut) === 'retire').length} retiré(s), <strong>${this.kits().length}</strong> kit(s)</div>
+        ${meta.lastSaved ? `<div class="text-muted"><i class="bi bi-pencil-square me-1"></i>Registre modifié le ${new Date(meta.lastSaved).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}${meta.savedBy ? ' par ' + this.esc(meta.savedBy) : ''}</div>` : ''}
+        ${this._erreur ? `<div class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Dernière tentative de lecture : ${this.esc(this._erreur)} (copie précédente conservée)</div>` : ''}`;
+    };
+    peindre();
+    if (charger) { await this.charger(); peindre(); }
+  },
+  async actualiserParametres() {
+    if (!(typeof DataSync !== 'undefined' && DataSync._connected)) { App.toast('Hors connexion : registre non actualisé (dernière copie conservée)', 'warning'); return; }
+    await this.charger({ force: true });
+    await this.renderParametres({ charger: false });
+    App.toast(this._erreur ? 'Registre des produits chimiques : ' + this._erreur : 'Registre des produits chimiques actualisé', this._erreur ? 'warning' : 'success');
+  },
+};
+try { window.ProduitsChimiques = ProduitsChimiques; } catch (_) {}
 
 /* ==============================================================
    Lot 1 — Publication du référentiel partagé (owner : suivipdp)
@@ -9183,7 +9804,7 @@ const App = {
     if (view === 'icps') this.renderICPList();
     if (view === 'entreprises') this.renderEntreprises();
     if (view === 'habilitations') AutorisationInterne.init();
-    if (view === 'settings') { this.renderSettingsView(); this.settingsTab(this._settingsTab); }
+    if (view === 'settings') { this.renderSettingsView(); this.settingsTab(this._settingsTab); ProduitsChimiques.renderParametres(); }
     if (view === 'trophees') this.renderTrophees();
     if (view === 'tutoriel') this.helpInit();
     // Collapse mobile navbar
@@ -9879,6 +10500,7 @@ const App = {
       risques: [], mesures: [], instructions:'', exigences: [],
       urgence: { responsable:'', telResponsable:'', sst:'', telSst:'', numeros:'Pompiers : 18  |  SAMU : 15  |  Gendarmerie : 17  |  Urgences : 112', consignes:'' },
       environnement: { absorbants: null, precisions: '' },
+      produitsChimiques: { aucun: false, items: [] },
       signatureEU: { nom:'', fonction:'', date:'', data:null }, signaturesEE: [],
       modifications: [], historique: [], documents: [], icpId: null,
 
@@ -10424,6 +11046,9 @@ const App = {
     copy.modifications = [];
     copy.historique = [{ action: 'Dupliqué depuis ' + (src.numero || ('PDP #' + src.id)), timestamp: new Date().toISOString() }];
     copy.permisFeu = { actif: false, types: [], description: '', risqueStructure: '', risqueActivite: '', risqueEnvironnement: '', dateDebut: '', heureDebut: '', dateFin: '', heureFin: '', operateurs: [], consignes: { avant: [], pendant: [], apres: [] }, autresPrescriptions: '', rondeNecessaire: '', rondeHeuresApres: '', rondes: [], renouvellements: [], signatureEU: { nom: '', fonction: '', telephone: '', date: '', data: null }, signatureEE: { nom: '', date: '', data: null }, signatureSurveillance: { nom: '', fonction: '', telephone: '', date: '', data: null }, signatureExec: { nom: '', societe: '', date: '', data: null } };
+    // Produits chimiques : la liste est reprise (copies figées des FDS) ; la copie n'est pas signée,
+    // l'utilisateur peut donc mettre à jour les FDS plus récentes depuis l'onglet.
+    copy.produitsChimiques = (copy.produitsChimiques && Array.isArray(copy.produitsChimiques.items)) ? copy.produitsChimiques : { aucun: false, items: [] };
     copy.documents = (copy.documents || []).filter(d => d && !d.genere_auto).map(d => { const n = { ...d }; delete n._pfSig; delete n._periode; return n; });
     copy.dateCreation = new Date().toISOString();
     copy.dateModification = copy.dateCreation;
@@ -10449,7 +11074,7 @@ const App = {
   },
 
   // Liste ordonnée des sections pour navigation
-  _sectionOrder: ['general','entreprises','visite','risques','mesures','exigences','urgence','signatures','modifications','pictogrammes','permisfeu','emargement','autorisations','annexes','documents'],
+  _sectionOrder: ['general','entreprises','visite','risques','mesures','exigences','urgence','signatures','modifications','pictogrammes','permisfeu','emargement','autorisations','chimiques','annexes','documents'],
 
   showPDPSection(section) {
     document.querySelectorAll('.pdp-section').forEach(s => s.style.display = 'none');
@@ -10460,6 +11085,7 @@ const App = {
     if (section === 'risques') { this._riskPickerCtx = 'pdp'; this.updateRiskCounters(); }
     if (section === 'emargement') { this.prefillEmargements(); this.prefillEmargementsLibres(); }
     if (section === 'autorisations') AutorisationInterne.renderPDPSection();
+    if (section === 'chimiques') ProduitsChimiques.ouvrirOnglet();
     if (section === 'signatures') { this.renderSignaturesEE(); this.prefillSignatureEU(); }
     if (section === 'permisfeu') { this.prefillPermisFeuSignataires(); this._wirePFAccordion(); }
     if (section === 'permisfeu') setTimeout(() => { this._initPFSigCanvases(); }, 100);
@@ -10535,6 +11161,16 @@ const App = {
         if (existing) existing.remove();
       }
     });
+    // Produits chimiques : complet = au moins un produit OU case « Aucun produit chimique » cochée
+    // (pastille seule, hors pourcentage de progression).
+    const pcTab = document.querySelector('#pdp-section-tabs .section-tab[onclick*="chimiques"]');
+    if (pcTab) {
+      const ok = ProduitsChimiques.complet(this.currentPDP);
+      const ex = pcTab.querySelector('.tab-check');
+      pcTab.classList.toggle('tab-done', ok);
+      if (ok && !ex) { const span = document.createElement('span'); span.className = 'tab-check'; span.innerHTML = '<i class="bi bi-check-circle-fill"></i>'; pcTab.appendChild(span); }
+      else if (!ok && ex) ex.remove();
+    }
   },
 
   _renderSectionNav(section) {
@@ -16639,6 +17275,7 @@ const App = {
       mesures:[], instructions:'', exigences:[],
       urgence: { responsable:'', telResponsable:'', sst:'', telSst:'', numeros:'Pompiers : 18  |  SAMU : 15  |  Gendarmerie : 17  |  Urgences : 112', consignes:'' },
       environnement: { absorbants: null, precisions: '' },
+      produitsChimiques: { aucun: false, items: [] },
       pictogrammes: { interdictions: ['vapoter','acces'], epiObligatoires: ['casque','chaussures','vetement','gants','antichute'], remarques: '' },
       signatureEU:{nom:'',date:'',data:null}, signaturesEE:[],
       modifications:[], historique:[{action:'Créé depuis ICP '+v.numero, date:new Date().toISOString()}], documents:[], icpId: v.id||null,
@@ -20634,6 +21271,36 @@ const App = {
       }
     }
 
+    // Produits chimiques (registre SuiviChimique) — tableau seul, PDF des FDS non incrustés
+    // (ajoutés au ZIP complet comme fichiers séparés).
+    const _pcExpW = ProduitsChimiques.exportSection(p);
+    if (_pcExpW) {
+      secNum++;
+      children.push(secTitle(String(secNum),'PRODUITS CHIMIQUES'));
+      if (_pcExpW.aucun) {
+        children.push(new Paragraph({children:[new TextRun({text:'Aucun produit chimique utilisé sur ce chantier.',size:20,font:'Calibri'})],spacing:{after:80}}));
+      } else {
+        const _pcW = [9,18,13,12,18,18,12];
+        const _pcRows = [new TableRow({tableHeader:true,cantSplit:true,children:ProduitsChimiques.EXPORT_ENTETES.map((t,k) => hCell(t,_pcW[k]))})];
+        // Colonne Pictogrammes : vrais pictogrammes SGH (PNG officiels) ; codes en texte si une image manque.
+        const _pcPngW = await ProduitsChimiques.pictosPng(_pcExpW.pictos.flat());
+        const _pcPictoCell = (codes) => {
+          if (!codes.length || !codes.every(c => _pcPngW.get(c))) return null;
+          try {
+            const runs = codes.map(c => {
+              const raw = atob(_pcPngW.get(c).split(',')[1] || '');
+              const arr = new Uint8Array(raw.length); for (let k = 0; k < raw.length; k++) arr[k] = raw.charCodeAt(k);
+              return new ImageRun({data:arr.buffer,transformation:{width:24,height:24},type:'png'});
+            });
+            return new TableCell({children:[new Paragraph({children:runs,spacing:{before:20,after:20}})],width:{size:_pcW[3],type:WidthType.PERCENTAGE},verticalAlign:VerticalAlign.CENTER});
+          } catch (e) { console.warn('Pictogrammes SGH (Word):', e); return null; }
+        };
+        _pcExpW.lignes.forEach((l, r) => _pcRows.push(new TableRow({cantSplit:true,children:l.map((t,k) => (k === 3 && _pcPictoCell(_pcExpW.pictos[r])) || cell(t,{width:_pcW[k],size:18}))})));
+        children.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:_pcRows}));
+        children.push(new Paragraph({children:[new TextRun({text:ProduitsChimiques.EXPORT_MENTION,size:18,font:'Calibri',italics:true,color:'666666'})],spacing:{before:80,after:80}}));
+      }
+    }
+
     // Documents joints / Annexes
     const _docs = p.documents||[];
     const _incrustedDocs = new Set(); // permis de feu rastérisés+incrustés (exclus du compte « PDF non inclus »)
@@ -22143,6 +22810,41 @@ const App = {
       secNum++;
     }
 
+    // Produits chimiques (registre SuiviChimique) — copies figées dans le PDP. Les PDF des FDS
+    // ne sont PAS annexés (trop lourd) : ils sont ajoutés au ZIP complet comme fichiers séparés.
+    const _pcExp = ProduitsChimiques.exportSection(p);
+    if (_pcExp) {
+      secTitle(`${secNum}. PRODUITS CHIMIQUES`);
+      doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0);
+      if (_pcExp.aucun) { doc.text('Aucun produit chimique utilisé sur ce chantier.', m, y); y += 6; }
+      else {
+        // Colonne Pictogrammes : vrais pictogrammes SGH (PNG officiels SuiviChimique) ; si une
+        // image manque pour un produit, la ligne garde les codes SGH en texte.
+        const _pcPng = await ProduitsChimiques.pictosPng(_pcExp.pictos.flat());
+        const _pcSz = 7, _pcGap = 0.6, _pcColW = 22;
+        const _pcParLigne = Math.max(1, Math.floor((_pcColW - 2 + _pcGap) / (_pcSz + _pcGap)));
+        const _pcImgsOk = _pcExp.pictos.map(l => l.length > 0 && l.every(c => _pcPng.get(c)));
+        addTable(ProduitsChimiques.EXPORT_ENTETES, _pcExp.lignes, {columnStyles:{0:{cellWidth:17},1:{cellWidth:32},2:{cellWidth:23},3:{cellWidth:_pcColW},4:{cellWidth:31},5:{cellWidth:31},6:{cellWidth:24}},
+          didParseCell: (d) => {
+            if (d.section !== 'body' || d.column.index !== 3 || !_pcImgsOk[d.row.index]) return;
+            d.cell.text = [''];
+            d.cell.styles.minCellHeight = Math.ceil(_pcExp.pictos[d.row.index].length / _pcParLigne) * (_pcSz + _pcGap) + 2;
+          },
+          didDrawCell: (d) => {
+            if (d.section !== 'body' || d.column.index !== 3 || !_pcImgsOk[d.row.index]) return;
+            _pcExp.pictos[d.row.index].forEach((c, k) => {
+              const col = k % _pcParLigne, row = Math.floor(k / _pcParLigne);
+              try { doc.addImage(_pcPng.get(c), 'PNG', d.cell.x + 1 + col * (_pcSz + _pcGap), d.cell.y + 1 + row * (_pcSz + _pcGap), _pcSz, _pcSz, 'sgh-' + c); } catch (e) { console.warn('Pictogramme SGH (PDF):', c, e); }
+            });
+          }});
+        checkPage(10);
+        doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(90,90,90);
+        doc.text(ProduitsChimiques.EXPORT_MENTION, m, y); y += 6;
+        doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0);
+      }
+      secNum++;
+    }
+
     // Documents joints / Annexes
     const _docsPDF = p.documents||[];
     if (_docsPDF.length) {
@@ -22437,6 +23139,17 @@ const App = {
         const b64 = dataUrl.split(',')[1];
         if (b64) zip.file(`Documents_joints/${fileName}`, b64, {base64: true});
       }
+    }
+    // 2 bis. FDS des produits chimiques retenus (registre SuiviChimique) : fichiers séparés,
+    // sous leur nom de fichier, une seule fois par fichier (le PDP lui-même ne les incruste pas).
+    for (const a of ProduitsChimiques.fdsAnnexes(p)) {
+      let dataUrl = null;
+      try { dataUrl = _retypeDataURL(await ProduitsChimiques.fdsDataURL(a.fichier)); } catch (e) { console.warn('FDS produit chimique non résolue:', a.fichier, e); }
+      if (!dataUrl || !dataUrl.startsWith('data:')) { skipped.push(a.nom); continue; }
+      let fn = a.nomFichier.replace(/[<>:"/\\|?*]/g,'_');
+      if (/^data:application\/pdf/i.test(dataUrl) && !/\.pdf$/i.test(fn)) fn += '.pdf';
+      const b64 = dataUrl.split(',')[1];
+      if (b64) zip.file(`Documents_joints/${fn}`, b64, {base64: true});
     }
 
     // 3. Si des pièces manquent : confirmation EXPLICITE avant de livrer un dossier

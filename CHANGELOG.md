@@ -1,5 +1,15 @@
 # Changelog SuiviPDP — historique simplifié
 
+## 2026-10-01 — Onglet « Produits chimiques » (registre SuiviChimique) (v224)
+
+- Nouvel onglet de la fiche PDP, juste avant « Documents joints » (pastille de complétude : au moins un produit ou case « Aucun produit chimique utilisé sur ce chantier »).
+- Lecture seule du registre central `Shared/produits-chimiques.json` (site QHSE) publié par SuiviChimique : module `ProduitsChimiques`, relecture au plus toutes les 10 min et à l'ouverture de l'onglet, copie hors connexion en localStorage `pdp_produits_chimiques_cache` (pas dans la table `settings`, synchronisée).
+- Recherche sans accents ni majuscules (nom, fournisseur, n° PRD, mention H), produits « Retiré » exclus, « A substituer » signalés ; bouton « Ajouter un kit » (sans doublon) ; tableau n°, produit, pictogrammes SGH officiels (SVG de SuiviChimique, clic = visualiseur `?code=SGH0X`, lien « Signification des pictogrammes »), mentions H (liste complète au survol), FDS jointe (pastille rouge si langue ≠ français, orange si révision > 3 ans), EPI, lien vers la fiche SuiviChimique, retrait.
+- « Nouvelle FDS disponible » + « Mettre à jour » quand le registre a une FDS plus récente ; bouton désactivé si le PDP est signé (signature EU ou EE dessinée) : le PDP garde la FDS jointe à la signature.
+- Donnée `pdp.produitsChimiques = { aucun, items:[…] }` : copies figées des produits (item.id = uid pour la fusion par clé), présente par défaut à la création, depuis une ICP et à la duplication.
+- Exports PDF et Word : section « Produits chimiques » (tableau avec vrais pictogrammes PNG, codes SGH en repli) + « Les fiches de données de sécurité sont tenues à jour dans le registre SuiviChimique et transmises sur demande. » ; les PDF des FDS ne sont PAS annexés au PDF ni au Word. ZIP complets : PDF des FDS ajoutés en fichiers séparés dans `Documents_joints/` (cache `media` clé `chim:<chemin>`), pièce manquante signalée hors connexion.
+- Paramètres > Documents & habilitations : carte « Registre des produits chimiques (SuiviChimique) » (dernière lecture, nombre de produits/kits, Actualiser, lien).
+
 ## 2026-09-21 — Charte graphique Générations Renouvelables (v217)
 
 - Palette officielle : bleu marine #292F6C (barre, boutons primaires, titres, liens), teal #007F85 (succès / info), jaune #FFCE00 (avertissements, texte noir), orange #EC820B, texte #121212, fond #F7F7F7. Les anciennes variables `--agw-green*` restent en alias ; le rouge de danger est inchangé, les couleurs des catégories de risques aussi.

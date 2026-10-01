@@ -30,6 +30,12 @@ Read avec offset/limit. Les `index.backup-*.html` sont des sauvegardes historiqu
   - 4133–4600 : MSAL + GRAPH API — `_uid()` (l.4283), externalisation binaires (strip/ré-hydratation
     base64 photos & documents), upload chunké Graph (contrôles #7)
   - 4601–4728 : `SharedRef` — référentiel partagé inter-apps QSE (`Shared/referentiels.json` sur site QHSE)
+  - ~4934–5480 : **`ProduitsChimiques`** (bannière `// ======== PRODUITS CHIMIQUES (registre SuiviChimique) ========`) —
+    lecture seule de `Shared/produits-chimiques.json` (QHSE, publié par SuiviChimique), cache localStorage
+    `pdp_produits_chimiques_cache` (PAS `settings`, synchronisée), relecture ≤ 10 min ; rendu de l'onglet PDP
+    `section-chimiques` (#pc-container), pictogrammes officiels `../suivichimique/pictos/SGH0X.svg|png`
+    (visualiseur `../suivichimique/pictos/?code=SGH0X`), infobulles `data-pc-tip`, carte Paramètres `#pc-settings-status`,
+    `exportSection(p)` (tableau PDF/Word), `fdsAnnexes(p)` + `fdsDataURL(chemin)` (ZIP, cache media `chim:<chemin>`)
   - 4729–4928 : Lot 1 — publication du référentiel partagé (owner : suivipdp)
   - 4929–6720 : **DATASYNC — CŒUR SYNCHRO SharePoint** : etags (#8, If-None-Match), clamp d'horloge (#5),
     `_mergeStore` (l.5425), `_collapseClones` (l.5581), `_mergeByKey` (l.5706), fusion FDS dédiée (#14, l.5738),
@@ -77,7 +83,12 @@ entite, agenceId, dateDebut/Fin, site, lieu, gps, description, materiel, nbSalar
 eu:{nom,adresse,siret,responsable,tel,email,fonction}, entreprisesExt:[], visite:{date,heure,participants,
 observations,effectuee,photos}, risques:[], mesures:[], instructions, exigences:[], urgence:{...},
 environnement:{...}, pictogrammes:{interdictions,epiObligatoires,remarques}, signatureEU:{nom,date,data},
-signaturesEE:[], modifications:[], historique:[], documents:[], icpId, refOperation, dateCreation, dateModification }`
+signaturesEE:[], modifications:[], historique:[], documents:[], icpId, refOperation, dateCreation, dateModification,
+produitsChimiques:{ aucun, items:[{ id(=uid), uid, numero, nom, fournisseur, pictogrammes, mentionsH, mentionsEUH,
+mentionAvertissement, cmr, cmrCategorie, inflammable, dangerEnvironnement, epi, fds:{version,notation,dateRevision,langue,fichier},
+ajouteLe, ajoutePar, majLe? }] } }` — produitsChimiques = copies FIGÉES du registre SuiviChimique (v224) ; un PDP signé
+(signature EU/EE dessinée) garde sa FDS. Exports : tableau dans PDF/Word (FDS non annexées), PDF des FDS en fichiers
+séparés dans les ZIP.
 
 **ICP** (l.16122) : `{ id, uid, numero ('ICP-AAAAMM-0000'), refOperation, statut, dateVisite, heure, site,
 lieu, objet, entite, agenceId, euInfo, euParticipant:{nom,fonction,tel}, euParticipants:[], eeRepresentant
