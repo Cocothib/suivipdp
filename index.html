@@ -6075,7 +6075,17 @@ const DataSync = {
             if (!ex) byKey.set(k, f);
             else if (ts(f) > ts(ex)) byKey.set(k, { ...f, id: ex.id });
         }
-        return Array.from(byKey.values());
+        // Même document dont le chemin SharePoint a changé (ex. FR-01 renommée en .pdf) :
+        // deux clés, même id et même nom hors extension → on garde la version la plus récente.
+        const base = f => String(f.nom || '').replace(/\.pdf$/i, '').trim().toLowerCase();
+        const byId = new Map(), outArr = [];
+        for (const f of byKey.values()) {
+            const ex = f && f.id != null ? byId.get(f.id) : null;
+            if (ex && base(ex.f) === base(f)) { if (ts(f) > ts(ex.f)) { outArr[ex.i] = f; ex.f = f; } continue; }
+            if (f && f.id != null && !ex) byId.set(f.id, { f, i: outArr.length });
+            outArr.push(f);
+        }
+        return outArr;
     },
 
     // Applique sites / habilitations / signataires depuis un objet shared.
@@ -18800,7 +18810,62 @@ const App = {
           } catch (e) { console.warn('Migration FR-01 en PDF échouée:', e); }
         }
       }
+      await this._fixFR01Library();
     } catch (e) { console.warn('seedFR01:', e); }
+  },
+
+  // C4 — FR-01 en double (seed lancé sur deux postes avant la synchro du flag fr01Seeded :
+  // fiches n° 28 et 29), sans extension sur SharePoint et taille 0 Ko. Idempotent, rejoué à
+  // chaque démarrage sur chaque poste (choix déterministe : plus petit id conservé) :
+  // 1) une seule FR-01, les PDP qui pointaient sur le doublon pointent sur la fiche conservée ;
+  // 2) nom en « .pdf » et fichier SharePoint correspondant (l'ancien fichier reste en place
+  //    pour les postes pas encore à jour) ; 3) taille renseignée, recopiée dans les PDP.
+  async _fixFR01Library() {
+    try {
+      const fr = (await db.fds.toArray()).filter(f => f.categorie === 'fiche_reflexe' && /FR-01/i.test(f.nom || '')).sort((a, b) => a.id - b.id);
+      if (!fr.length) return;
+      const keep = fr[0], dupIds = new Set(fr.slice(1).map(f => f.id));
+      const now = new Date().toISOString();
+      let dirty = false;
+      for (const id of dupIds) { await db.fds.delete(id); dirty = true; }
+      // Nom en .pdf + fichier SharePoint au bon nom (seulement si le binaire PDF est disponible)
+      let f = await db.fds.get(keep.id);
+      if (/pdf/i.test(f.mime || '') && (!/\.pdf$/i.test(f.nom || '') || !f.taille)) {
+        const full = await this.ensureFDSData(keep.id);
+        if (full?.data && /^data:application\/pdf/i.test(full.data)) {
+          const b64 = full.data.split(',')[1] || '';
+          const taille = Math.floor(b64.length * 3 / 4) - (b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0);
+          const renamed = { ...full, nom: /\.pdf$/i.test(full.nom || '') ? full.nom : (full.nom || 'Fiche réflexe FR-01').trim() + '.pdf', taille };
+          const path = _fdsFilePath(renamed);
+          let ok = path === full._spPath;
+          if (!ok && DataSync._connected) {
+            try { await _uploadBinaryFromDataURL(path, full.data, 'application/pdf'); renamed._spPath = path; ok = true; }
+            catch (e) { console.warn('Upload FR-01 .pdf :', e); }
+          }
+          if (ok) { renamed.dateModification = now; await db.fds.put(renamed); f = renamed; dirty = true; }
+        }
+      }
+      // PDP : doublon → fiche conservée (sans doublon), nom/taille/type alignés sur la bibliothèque
+      for (const p of await db.pdps.toArray()) {
+        const docs = p.documents || [];
+        let changed = false;
+        const out = [];
+        const seen = new Set(docs.filter(d => d && d.fdsRef === keep.id).length ? [keep.id] : []);
+        for (const d of docs) {
+          if (d && dupIds.has(d.fdsRef)) {
+            if (seen.has(keep.id)) { changed = true; continue; }
+            d.fdsRef = keep.id; seen.add(keep.id); changed = true;
+          }
+          if (d && d.fdsRef === keep.id && (d.nom !== f.nom || (f.taille && d.taille !== f.taille) || d.type !== f.mime)) {
+            d.nom = f.nom; if (f.taille) d.taille = f.taille; d.type = f.mime; changed = true;
+          }
+          out.push(d);
+        }
+        if (changed) { p.documents = out; p.dateModification = now; await db.pdps.put(p); dirty = true; }
+      }
+      if (this.currentPDP?.id != null && dirty) { try { const fresh = await db.pdps.get(this.currentPDP.id); if (fresh) this.currentPDP = fresh; } catch (_) {} }
+      if (dirty) DataSync.markDirty();
+    } catch (e) { console.warn('_fixFR01Library:', e); }
   },
 
   // Migration unique : copie responsable/fonction/tel/email des anciens "sites" vers les agences correspondantes.
