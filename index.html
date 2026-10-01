@@ -18948,6 +18948,9 @@ const App = {
     const f = await db.fds.get(id);
     if (!f) return;
     f.standard = !!checked;
+    // Date obligatoire : sans elle, _mergeFds (égalité → version locale gardée) laisse un autre
+    // poste réécrire l'ancienne valeur « Par défaut » à sa prochaine sauvegarde.
+    f.dateModification = new Date().toISOString();
     await db.fds.put(f);
     DataSync.markDirty();
   },
