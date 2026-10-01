@@ -5068,7 +5068,29 @@ const ProduitsChimiques = {
     return d < lim;
   },
   statutNorm(st) { return this.norm(st); },          // 'actif' | 'a verifier' | 'a substituer' | 'retire'
-  lienProduit(uid) { return this.APP_URL + '#produit/' + encodeURIComponent(uid || ''); },
+  lienProduit(uid, onglet) { return this.APP_URL + '#produit/' + encodeURIComponent(uid || '') + (onglet ? '/' + onglet : ''); },
+  // Ouvre le PDF de la FDS figée dans le PDP. L'onglet est ouvert tout de suite (dans le clic,
+  // sinon le navigateur bloque la fenêtre), puis reçoit le PDF ; à défaut, la fiche SuiviChimique
+  // sur l'onglet « FDS et versions ».
+  async ouvrirFds(uid) {
+    const it = ((this._pc() || { items: [] }).items || []).find(i => i.uid === uid);
+    const fichier = it && it.fds && it.fds.fichier;
+    const repli = this.lienProduit(uid, 'fds');
+    const w = window.open('', '_blank');
+    if (w) { try { w.document.title = 'FDS — chargement…'; w.document.body.innerHTML = '<p style="font-family:sans-serif;padding:20px">Chargement de la FDS…</p>'; } catch (_) {} }
+    try {
+      const url = fichier ? await this.fdsDataURL(fichier) : null;
+      if (!url || !/^data:application\/pdf/i.test(url)) throw new Error('FDS indisponible');
+      const blob = await (await fetch(url)).blob();
+      const href = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+      if (w) w.location.href = href; else window.open(href, '_blank');
+      setTimeout(() => URL.revokeObjectURL(href), 120000);
+    } catch (e) {
+      console.warn('Ouverture FDS:', fichier, e);
+      App.toast('PDF de la FDS indisponible (hors connexion ?) : ouverture de la fiche dans SuiviChimique', 'warning', 6000);
+      if (w) w.location.href = repli; else window.open(repli, '_blank', 'noopener');
+    }
+  },
   nomFichier(chemin) { return String(chemin || '').split('/').pop() || 'FDS.pdf'; },
   fdsTexte(f) {
     if (!f) return 'Pas de FDS';
@@ -5258,7 +5280,7 @@ const ProduitsChimiques = {
     let fdsHtml;
     if (!f || !f.fichier) fdsHtml = '<span class="pc-pill pc-pill-red">Pas de FDS</span>';
     else {
-      fdsHtml = `<div>${this.esc(this.fmtVersion(f))} — ${this.esc(this.fmtDate(f.dateRevision))}</div><div class="d-flex flex-wrap gap-1 mt-1">`;
+      fdsHtml = `<div><button type="button" class="btn btn-link p-0 align-baseline text-start" onclick="ProduitsChimiques.ouvrirFds('${this.esc(it.uid)}')" data-pc-tip="Ouvrir le PDF de la FDS (nouvel onglet)"><i class="bi bi-file-earmark-pdf me-1"></i>${this.esc(this.fmtVersion(f))} — ${this.esc(this.fmtDate(f.dateRevision))}</button></div><div class="d-flex flex-wrap gap-1 mt-1">`;
       fdsHtml += this.estFrancais(f.langue)
         ? `<span class="pc-pill pc-pill-gray">${this.esc(f.langue || 'Français')}</span>`
         : `<span class="pc-pill pc-pill-red" data-pc-tip="FDS non rédigée en français : demander la version française au fournisseur">${this.esc(f.langue)}</span>`;
@@ -5284,7 +5306,7 @@ const ProduitsChimiques = {
       <td data-l="FDS jointe"><div class="pc-cell">${fdsHtml}</div></td>
       <td data-l="EPI"><div class="pc-cell">${(it.epi || []).length ? this.esc(it.epi.join(', ')) : '<span class="text-muted">—</span>'}</div></td>
       <td data-l=""><div class="pc-cell d-flex flex-wrap gap-1">
-        <a class="btn btn-sm btn-outline-secondary py-0 px-1" href="${this.lienProduit(it.uid)}" target="_blank" rel="noopener" aria-label="Voir dans SuiviChimique" data-pc-tip="Voir la fiche dans SuiviChimique (nouvel onglet)"><i class="bi bi-box-arrow-up-right"></i></a>
+        <a class="btn btn-sm btn-outline-secondary py-0 px-1" href="${this.lienProduit(it.uid, 'fds')}" target="_blank" rel="noopener" aria-label="Voir dans SuiviChimique" data-pc-tip="Voir la fiche dans SuiviChimique, onglet FDS et versions (nouvel onglet)"><i class="bi bi-box-arrow-up-right"></i></a>
         ${ro ? '' : `<button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" aria-label="Retirer" data-pc-tip="Retirer ce produit du PDP" onclick="ProduitsChimiques.retirer('${uidJs}')"><i class="bi bi-trash"></i></button>`}
       </div></td></tr>`;
   },
