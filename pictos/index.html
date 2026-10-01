@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signaux de sécurité ISO 7010</title>
+<style>
+:root{--bleu:#292F6C;--teal:#007F85;--jaune:#FFCE00;--orange:#EC820B;--noir:#121212;--gris:#F7F7F7;--trait:#dfe2ee}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Century Gothic","URW Gothic","Questrial","Futura","Avenir",sans-serif;color:var(--noir);background:var(--gris);font-size:15px;line-height:1.45}
+header{background:var(--bleu);color:#fff;padding:14px 20px}
+header h1{margin:0;font-size:1.3rem}
+header p{margin:2px 0 0;opacity:.85;font-size:.85rem}
+header a{color:var(--jaune)}
+body.embed header{display:none}
+main{max-width:1200px;margin:0 auto;padding:16px}
+.outils{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.outils input[type=search]{flex:1;min-width:220px;max-width:420px;padding:7px 12px;border:1px solid #c9cde0;border-radius:8px;font:inherit}
+.outils label{font-size:.85rem;display:flex;align-items:center;gap:6px}
+.outils small{color:#555}
+h2{color:var(--bleu);font-size:1.05rem;margin:18px 0 8px;border-bottom:2px solid var(--orange);padding-bottom:3px}
+.grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.carte{background:#fff;border:2px solid transparent;border-radius:12px;padding:10px;text-align:center;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.carte:hover,.carte:focus{border-color:var(--teal);box-shadow:0 3px 12px rgba(41,47,108,.12);outline:none}
+.carte.on{border-color:var(--orange)}
+.carte img{width:84px;height:84px}
+.carte b{display:block;color:var(--bleu);margin-top:4px}
+.carte span{font-size:.82rem;color:#444}
+.detail{background:#fff;border-radius:12px;padding:18px;margin:16px 0;display:none;grid-template-columns:200px 1fr;gap:20px;border-left:5px solid var(--orange)}
+.detail.on{display:grid}
+.detail img{width:180px;height:180px}
+.detail h3{margin:0 0 6px;color:var(--bleu)}
+.mots{display:flex;flex-wrap:wrap;gap:6px}
+.mots span{background:#eef0f7;border-radius:6px;padding:2px 8px;font-size:.82rem}
+.fermer{float:right;border:1px solid #c9cde0;background:#fff;border-radius:6px;padding:2px 10px;cursor:pointer;font:inherit}
+.note{font-size:.8rem;color:#555;margin-top:18px}
+@media (max-width:640px){.detail.on{grid-template-columns:1fr}.detail img{width:120px;height:120px}.grille{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}.carte img{width:64px;height:64px}}
+@media print{body{background:#fff}.outils,.fermer{display:none}.carte,.detail{break-inside:avoid;border:1px solid var(--trait)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Signaux d'interdiction et d'avertissement (ISO 7010)</h1>
+  <p>Signalétique officielle des applis Suivi. Voir aussi : <a href="../../suiviepi/pictos/" target="_blank" rel="noopener">EPI obligatoires</a> · <a href="../../suivichimique/pictos/" target="_blank" rel="noopener">dangers des produits (CLP)</a>.</p>
+</header>
+<main>
+  <div class="outils">
+    <input id="q" type="search" placeholder="Rechercher : fumer, électrique, chute, toiture, chariot…" aria-label="Rechercher un signal">
+    <label><input type="checkbox" id="seulEpi"> Interdictions seulement</label>
+    <small id="nb"></small>
+  </div>
+  <section class="detail" id="detail" aria-live="polite"></section>
+  <div id="familles"></div>
+  <p class="note">Pictogrammes de la norme ISO 7010 (interdiction : cercle rouge barré ; avertissement : triangle jaune), fichiers de Wikimedia Commons dans le domaine public ou sous licence CC0 ; W035 sous licence CC BY-SA 4.0 (voir LISEZMOI.md).</p>
+</main>
+<script>
+const params = new URLSearchParams(location.search);
+if (params.get('embed') === '1') document.body.classList.add('embed');
+const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let SIGNAUX = [], courant = null;
+const q = document.getElementById('q'), seulEpi = document.getElementById('seulEpi'), zone = document.getElementById('familles'), detail = document.getElementById('detail');
+function rendre(){
+  const mots = norm(q.value).split(/\s+/).filter(Boolean);
+  const liste = SIGNAUX.filter(s => (!seulEpi.checked || s.type === 'interdiction') && mots.every(m => norm([s.code, s.nom, s.famille, ...(s.motsCles||[])].join(' ')).includes(m)));
+  const familles = [...new Set(liste.map(s => s.famille))];
+  zone.innerHTML = familles.map(f => `<h2>${esc(f)}</h2><div class="grille">${liste.filter(s => s.famille === f).map(s => `<div class="carte${s.code===courant?' on':''}" tabindex="0" role="button" data-code="${s.code}" aria-label="${esc(s.code+' '+s.nom)}"><img src="${s.code}.svg" alt="${s.code}"><b>${s.code}</b><span>${esc(s.nom)}</span></div>`).join('')}</div>`).join('') || '<p>Aucun signal ne correspond.</p>';
+  document.getElementById('nb').textContent = liste.length + ' / ' + SIGNAUX.length;
+}
+function ouvrir(code){
+  const s = SIGNAUX.find(x => x.code === code); if (!s) return;
+  courant = code; rendre();
+  detail.innerHTML = `<div><img src="${s.code}.svg" alt="${s.code}"></div><div><button class="fermer" type="button" aria-label="Fermer">✕</button>
+    <h3>${s.code} — ${esc(s.nom)}</h3>
+    <div>Famille : <b>${esc(s.famille)}</b> · ${s.type === 'interdiction' ? 'Signal d’interdiction (cercle rouge)' : 'Signal d’avertissement (triangle jaune)'}</div>
+    ${(s.motsCles||[]).length ? `<p style="margin:12px 0 4px">Proposé automatiquement quand la section 8 d'une FDS mentionne :</p><div class="mots">${s.motsCles.map(m=>`<span>${esc(m)}</span>`).join('')}</div>` : ''}
+    <p style="margin-top:12px"><a href="${s.code}.svg" download>Télécharger le SVG</a> · <a href="${s.code}.png" download>Télécharger le PNG</a></p></div>`;
+  detail.classList.add('on');
+  detail.querySelector('.fermer').onclick = () => { courant = null; detail.classList.remove('on'); rendre(); };
+  detail.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+zone.addEventListener('click', e => { const c = e.target.closest('.carte'); if (c) ouvrir(c.dataset.code); });
+zone.addEventListener('keydown', e => { const c = e.target.closest('.carte'); if (c && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); ouvrir(c.dataset.code); } });
+q.addEventListener('input', rendre); seulEpi.addEventListener('change', rendre);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && courant) { courant = null; detail.classList.remove('on'); rendre(); } });
+fetch('catalogue.json').then(r => r.json()).then(d => { SIGNAUX = d.signaux || []; rendre(); if (params.get('code')) ouvrir(params.get('code').toUpperCase()); })
+  .catch(() => { zone.innerHTML = '<p>Catalogue indisponible (hors connexion ?).</p>'; });
+</script>
+</body>
+</html>
