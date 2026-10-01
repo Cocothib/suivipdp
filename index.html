@@ -22191,7 +22191,7 @@ const App = {
     // Si des FDS manquent : confirmation d'incomplétude (cohérent avec le ZIP), sans bloquer l'export.
     let pdfFnFinal = pdfFn;
     if (skippedPDF.length) {
-      const ok = await this.confirm(`${skippedPDF.length} FDS ne peuvent être annexées au PDF (hors-ligne, introuvables ou corrompues) : ${skippedPDF.join(', ')}. Le dossier PDF sera INCOMPLET. Se reconnecter à SharePoint puis régénérer pour un dossier complet. Télécharger quand même un PDF incomplet ?`);
+      const ok = await this.confirm(`${skippedPDF.length} document(s) joint(s) ne peuvent être annexés au PDF (hors-ligne, introuvables ou corrompus) : ${skippedPDF.join(', ')}. Le dossier PDF sera INCOMPLET. Se reconnecter à SharePoint puis régénérer pour un dossier complet. Télécharger quand même un PDF incomplet ?`);
       if (!ok) { this.toast('Export PDF annulé — se reconnecter pour annexer toutes les FDS', 'info', 6000); return; }
       pdfFnFinal = 'INCOMPLET_' + pdfFn;
     }
