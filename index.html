@@ -5244,8 +5244,11 @@ const ProduitsChimiques = {
     if (data && !ro) {
       h += `<div class="d-flex flex-wrap gap-2 align-items-start mb-2">
         <div class="pc-search-wrap" id="pc-search-wrap">
-          <div class="input-icon-wrap"><i class="bi bi-search input-icon"></i><input type="search" class="form-control form-control-sm" id="pc-search" autocomplete="off" placeholder="Rechercher un produit : nom, fournisseur, n° PRD, mention H…" value="${this.esc(this._q)}" oninput="ProduitsChimiques.rechercher(this.value)" onfocus="ProduitsChimiques.rechercher(this.value)" onkeydown="ProduitsChimiques.clavier(event)"></div>
+          <div class="input-icon-wrap"><i class="bi bi-search input-icon"></i><input type="search" class="form-control form-control-sm" id="pc-search" autocomplete="off" placeholder="Choisir un produit dans la liste, ou rechercher : nom, fournisseur, n° PRD, mention H…" value="${this.esc(this._q)}" oninput="ProduitsChimiques.rechercher(this.value)" onfocus="ProduitsChimiques.rechercher(this.value)" onclick="ProduitsChimiques.rechercher(this.value)" onkeydown="ProduitsChimiques.clavier(event)"></div>
           <div class="pc-sugg" id="pc-sugg" style="display:none"></div>
+        </div>
+        <div class="pc-search-wrap" style="flex:0 0 auto">
+          <button type="button" class="btn btn-outline-primary btn-sm" onclick="event.stopPropagation();const i=document.getElementById('pc-search');i.value='';ProduitsChimiques.rechercher('');i.focus()"><i class="bi bi-list-ul me-1"></i>Tous les produits</button>
         </div>
         <div class="pc-search-wrap" style="flex:0 0 auto">
           <button type="button" class="btn btn-outline-primary btn-sm" onclick="ProduitsChimiques.basculerKits(event)"><i class="bi bi-box-seam me-1"></i>Ajouter un kit</button>
@@ -5314,23 +5317,26 @@ const ProduitsChimiques = {
   // Recherche dans le registre (sans accents ni majuscules) ; « Retiré » exclus.
   resultats(q) {
     const mots = this.norm(q).split(/\s+/).filter(Boolean);
-    if (!mots.length) return [];
-    return this.produits().filter(x => x && this.statutNorm(x.statut) !== 'retire').filter(x => {
+    const actifs = this.produits().filter(x => x && this.statutNorm(x.statut) !== 'retire');
+    // Barre vide : tout le registre, trié par nom (liste déroulante pour choisir sans connaître le produit)
+    if (!mots.length) return actifs.slice().sort((a, b) => String(a.nom || '').localeCompare(String(b.nom || ''), 'fr', { sensitivity: 'base' }));
+    return actifs.filter(x => {
       const txt = this.norm([x.nom, x.fournisseur, x.numero, ...(x.mentionsH || []), ...(x.mentionsEUH || [])].join(' '));
       return mots.every(m => txt.includes(m));
     }).slice(0, 15);
   },
   rechercher(q) {
+    if (this._sansListe) return;
     this._q = q || '';
     this._hl = -1;
     this.fermerKits();
     const box = document.getElementById('pc-sugg');
     if (!box) return;
     const res = this.resultats(this._q);
-    if (!this.norm(this._q)) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    const tous = !this.norm(this._q);
     const pris = new Set((this._pc() || { items: [] }).items.map(i => i.uid));
-    if (!res.length) { box.innerHTML = '<div class="small text-muted px-2 py-2">Aucun produit trouvé dans le registre.</div>'; box.style.display = ''; return; }
-    box.innerHTML = res.map((x, i) => {
+    if (!res.length) { box.innerHTML = `<div class="small text-muted px-2 py-2">${tous ? 'Le registre SuiviChimique ne contient aucun produit.' : 'Aucun produit trouvé dans le registre.'}</div>`; box.style.display = ''; return; }
+    box.innerHTML = (tous ? `<div class="small text-muted px-2 py-1 border-bottom">${res.length} produit(s) du registre — taper pour filtrer</div>` : '') + res.map((x, i) => {
       const deja = pris.has(x.uid);
       const sub = this.statutNorm(x.statut) === 'a substituer';
       return `<button type="button" class="pc-sugg-item" data-i="${i}" ${deja ? 'disabled' : ''} onclick="ProduitsChimiques.ajouter('${this.esc(x.uid)}')">
@@ -5343,8 +5349,9 @@ const ProduitsChimiques = {
   },
   clavier(e) {
     const box = document.getElementById('pc-sugg');
-    if (e.key === 'Escape') { this.fermerSuggestions(); return; }
-    if (!box || box.style.display === 'none') return;
+    // Échap : fermer sans effacer (sinon l'effacement du champ « search » rouvrirait la liste complète)
+    if (e.key === 'Escape') { e.preventDefault(); this.fermerSuggestions(); return; }
+    if (!box || box.style.display === 'none') { if (e.key === 'ArrowDown') { e.preventDefault(); this.rechercher(e.target.value); } return; }
     const items = [...box.querySelectorAll('.pc-sugg-item:not([disabled])')];
     if (!items.length) return;
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -5395,7 +5402,8 @@ const ProduitsChimiques = {
     this.render();
     if (this.statutNorm(prod.statut) === 'a substituer') App.toast(`${prod.nom} ajouté — produit à substituer : privilégier une alternative`, 'warning', 6000);
     else App.toast(`${prod.nom} ajouté au PDP`);
-    const s = document.getElementById('pc-search'); if (s) s.focus();
+    // Curseur rendu à la barre sans rouvrir la liste complète (elle masquerait le tableau) ; un clic la rouvre.
+    const s = document.getElementById('pc-search'); if (s) { this._sansListe = true; try { s.focus(); } finally { this._sansListe = false; } }
   },
   ajouterKit(kitUid) {
     const p = this._pdp();
