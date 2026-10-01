@@ -2835,6 +2835,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <button class="btn btn-outline-primary btn-sm" onclick="App.archiveMissingICP()" title="Archive uniquement les ICP réalisées (effectuée/validée) qui n'ont pas encore de fichier dans SuiviPDP/ICP/Exports"><i class="bi bi-cloud-arrow-up me-1"></i>Archiver les ICP réalisées manquantes</button>
         <button class="btn btn-outline-warning btn-sm" onclick="App.archiveAllOldExports()" title="Génère les Word + PDF de tous les PDP/ICP existants et les uploade sur SharePoint avec les nouveaux noms"><i class="bi bi-arrow-repeat me-1"></i>Re-archiver tous les PDP/ICP</button>
         <button class="btn btn-outline-success btn-sm" onclick="App.backfillFichesReflexe()" title="Ajoute les fiches réflexe marquées « Par défaut » (FR-01, FR-02…) à tous les PDP existants, sans toucher aux FDS"><i class="bi bi-clipboard-plus me-1"></i>Ajouter les fiches réflexe aux PDP existants</button>
+        <button class="btn btn-outline-danger btn-sm" onclick="App.removeNonStandardFDS()" title="Retire des PDP existants les FDS dont la case « Par défaut » est décochée dans la bibliothèque (fiches réflexe et permis de feu conservés)"><i class="bi bi-clipboard-minus me-1"></i>Retirer des PDP les FDS non « Par défaut »</button>
       </div>
     </div>
 
@@ -19007,6 +19008,32 @@ const App = {
     // Recharge le PDP ouvert (sa copie mémoire ne porte pas les fiches ajoutées en base).
     if (this.currentPDP?.id != null) { try { const fresh = await db.pdps.get(this.currentPDP.id); if (fresh) { this.currentPDP = fresh; this.renderDocuments(); } } catch(_){} }
     this.toast(`${addedTotal} fiche(s) ajoutée(s) sur ${modifiedPdps} PDP.`, 'success', 8000);
+  },
+
+  // ---- Retrait des FDS non « Par défaut » des PDP existants ----
+  // Décocher « Par défaut » n'agit qu'à la création d'un PDP : les PDP déjà créés gardent
+  // les FDS dans leurs documents joints (et les annexent à l'export). Ce nettoyage retire
+  // de TOUS les PDP les pièces fdsRef de catégorie FDS dont le modèle n'est plus « Par défaut ».
+  // Fiches réflexe et permis de feu ne sont pas touchés. Le modèle reste dans la bibliothèque.
+  async removeNonStandardFDS() {
+    const lib = await db.fds.toArray();
+    const cible = new Set(lib.filter(f => !f.standard && (f.categorie || 'fds') === 'fds').map(f => f.id));
+    if (!cible.size) { this.toast('Toutes les FDS de la bibliothèque sont « Par défaut » : rien à retirer.', 'info', 6000); return; }
+    const pdps = await db.pdps.toArray();
+    const aRetirer = d => d && d.fdsRef != null && cible.has(d.fdsRef);
+    const touches = pdps.filter(p => (p.documents || []).some(aRetirer));
+    const total = touches.reduce((n, p) => n + p.documents.filter(aRetirer).length, 0);
+    if (!total) { this.toast('Aucun PDP ne contient de FDS non « Par défaut ».', 'info', 6000); return; }
+    if (!await this.confirm(`Retirer ${total} FDS non « Par défaut » des documents joints de ${touches.length} PDP ? Une FDS ajoutée exprès sur un PDP sera aussi retirée. Les fiches réflexe, permis de feu et la bibliothèque ne sont pas modifiés. Enregistrez d'abord un éventuel PDP ouvert en cours d'édition.`)) return;
+    const now = new Date().toISOString();
+    for (const p of touches) {
+      p.documents = p.documents.filter(d => !aRetirer(d));
+      p.dateModification = now;
+      await db.pdps.put(p);
+    }
+    DataSync.markDirty();
+    if (this.currentPDP?.id != null) { try { const fresh = await db.pdps.get(this.currentPDP.id); if (fresh) { this.currentPDP = fresh; this.renderDocuments(); } } catch(_){} }
+    this.toast(`${total} FDS retirée(s) de ${touches.length} PDP.`, 'success', 8000);
   },
 
   // ---- Archivage batch des PDP/ICP existants vers SharePoint ----
