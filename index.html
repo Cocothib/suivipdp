@@ -1335,7 +1335,15 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
 .help-editing .accordion-body:focus { box-shadow: 0 0 0 .2rem rgba(41,47,108,.25); }
 .help-toolbar { position: sticky; top: 0; z-index: 100; background: white; border-bottom: 1px solid #ddd; padding: .5rem; display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin-bottom: .75rem; border-radius: .25rem; box-shadow: 0 2px 4px rgba(0,0,0,.05); }
 .help-reset-btn { margin-top: .5rem; }
-  </style>
+    /* Paramètres : onglets + recherche */
+  .settings-tabs-bar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; justify-content: space-between; padding: .5rem 0; margin-bottom: .75rem; border-bottom: 1px solid #e5e7eb; }
+  .settings-tabs-bar .nav-pills { flex-wrap: wrap; gap: .25rem; }
+  .settings-tabs-bar .nav-link { padding: .3rem .75rem; font-size: .9rem; transition: none; background: transparent; color: var(--agw-blue, #292F6C); border: 1px solid #d6d9e8; border-radius: 999px; opacity: 1; }
+  .settings-tabs-bar .nav-link:hover { background: #eef0f7; color: var(--agw-blue, #292F6C); }
+  .settings-tabs-bar .nav-link.active, .settings-tabs-bar .nav-link.active:hover { background: var(--agw-blue, #292F6C); color: #fff; border-color: var(--agw-blue, #292F6C); }
+  .settings-tabs-bar #settings-search { max-width: 260px; }
+  @media (max-width: 576px) { .settings-tabs-bar #settings-search { max-width: none; } }
+</style>
 </head>
 <body>
 
@@ -2764,16 +2772,27 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
   <div id="view-settings" class="view fade-in" style="display:none">
     <h5 class="mb-3"><i class="bi bi-gear me-1"></i>Paramètres</h5>
     <div class="section-helper"><i class="bi bi-lightbulb"></i> Configurez les paramètres par défaut de l'application.</div>
-    <div class="form-section">
+    <div class="settings-tabs-bar">
+      <ul class="nav nav-pills" id="settings-tabs">
+        <li class="nav-item"><a class="nav-link" href="#" data-stab="general" onclick="event.preventDefault();App.settingsTab('general')"><i class="bi bi-sliders me-1"></i>Général</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-stab="documents" onclick="event.preventDefault();App.settingsTab('documents')"><i class="bi bi-file-earmark-pdf me-1"></i>Documents &amp; habilitations</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-stab="risques" onclick="event.preventDefault();App.settingsTab('risques')"><i class="bi bi-shield-exclamation me-1"></i>Risques &amp; photos</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-stab="sync" onclick="event.preventDefault();App.settingsTab('sync')"><i class="bi bi-cloud me-1"></i>Synchronisation &amp; données</a></li>
+        <li class="nav-item"><a class="nav-link" href="#" data-stab="suivi" onclick="event.preventDefault();App.settingsTab('suivi')"><i class="bi bi-journal-text me-1"></i>Journal &amp; trophées</a></li>
+      </ul>
+      <input type="search" class="form-control form-control-sm" id="settings-search" placeholder="Rechercher un réglage…" oninput="App.settingsSearch(this.value)">
+    </div>
+    <div id="settings-search-empty" class="small text-muted mb-3" style="display:none">Aucun réglage ne correspond à la recherche.</div>
+    <div class="form-section" data-stab="general">
       <div class="form-section-title"><i class="bi bi-question-circle"></i>Aide</div>
       <button class="btn btn-outline-primary btn-sm" onclick="App.resetOnboarding()"><i class="bi bi-arrow-counterclockwise me-1"></i>Réactiver le tour d'aide</button>
       <div class="small text-muted mt-2">Le tour d'aide se déclenchera automatiquement à la prochaine ouverture d'une fiche ICP ou PDP.</div>
     </div>
-    <div class="form-section">
+    <div class="form-section" data-stab="general">
       <div class="form-section-title"><i class="bi bi-cone-striped text-warning"></i>Mode « Travail en cours »</div>
       <div id="settings-maintenance"></div>
     </div>
-    <div class="form-section">
+    <div class="form-section" data-stab="general">
       <div class="form-section-title d-flex justify-content-between align-items-center">
         <span><i class="bi bi-buildings"></i>Agences Agriwatt / Enersolys</span>
         <button class="btn btn-sm btn-outline-primary" onclick="App.openAgenceForm()"><i class="bi bi-plus-lg me-1"></i>Ajouter une agence</button>
@@ -2781,7 +2800,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Liste des agences sélectionnables à la création d'un PDP. Modifier l'adresse et le SIRET pour qu'ils apparaissent dans les exports.</div>
       <div id="agences-list-container"></div>
     </div>
-    <div class="form-section">
+    <div class="form-section" data-stab="sync">
       <div class="form-section-title d-flex justify-content-between align-items-center">
         <span><i class="bi bi-diagram-3"></i>Référentiel partagé (inter-apps)</span>
         <button class="btn btn-sm btn-primary" onclick="App.publishSharedRefNow()"><i class="bi bi-cloud-upload me-1"></i>Publier maintenant</button>
@@ -2789,15 +2808,19 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Données de référence publiées par SuiviPDP pour les autres applications QSE (entreprises, chantiers, personnel, agences). Publication automatique après chaque sauvegarde SharePoint réussie.</div>
       <div id="sharedref-status-container"></div>
     </div>
-    <div class="form-section">
+    <div class="form-section" data-stab="documents">
       <div class="form-section-title d-flex justify-content-between align-items-center">
         <span><i class="bi bi-file-earmark-pdf"></i>Bibliothèque de documents</span>
         <label class="btn btn-sm btn-outline-primary mb-0"><i class="bi bi-upload me-1"></i>Importer<input type="file" accept="application/pdf,image/*,.doc,.docx" multiple style="display:none" onchange="App.importFDSFiles(event)"></label>
       </div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Choisir une catégorie pour chaque document. Un document coché « Par défaut » est automatiquement joint à chaque nouveau PDP ; pour les PDP existants, le rattacher manuellement via le bouton « Importer documents par défaut » de l'onglet Documents.</div>
       <div id="fds-list-container"></div>
+      <div class="d-flex flex-wrap gap-2 mt-2">
+        <button class="btn btn-outline-success btn-sm" onclick="App.backfillFichesReflexe()" title="Ajoute les fiches réflexe marquées « Par défaut » (FR-01, FR-02…) à tous les PDP existants, sans toucher aux FDS"><i class="bi bi-clipboard-plus me-1"></i>Ajouter les fiches réflexe aux PDP existants</button>
+        <button class="btn btn-outline-danger btn-sm" onclick="App.removeNonStandardFDS()" title="Retire des PDP existants les FDS dont la case « Par défaut » est décochée dans la bibliothèque (fiches réflexe et permis de feu conservés)"><i class="bi bi-clipboard-minus me-1"></i>Retirer des PDP les FDS non « Par défaut »</button>
+      </div>
     </div>
-    <div class="form-section">
+    <div class="form-section" data-stab="documents">
       <div class="form-section-title d-flex justify-content-between align-items-center">
         <span><i class="bi bi-patch-check"></i>Habilitations &amp; Signataires</span>
         <button class="btn btn-sm btn-primary" onclick="App.showView('habilitations')"><i class="bi bi-arrow-right me-1"></i>Gérer</button>
@@ -2827,49 +2850,47 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <div id="habilitations-sync-status" class="small mt-2"></div>
       </div>
     </div>
-    <div class="form-section">
+    <div class="form-section" data-stab="sync">
       <div class="form-section-title"><i class="bi bi-cloud"></i>Synchronisation SharePoint</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Synchronise les PDP, ICP et entreprises avec SharePoint pour les partager entre appareils et collègues.</div>
       <div id="settings-sync-status"></div>
       <div class="d-flex flex-wrap gap-2 mt-2">
         <button class="btn btn-outline-primary btn-sm" onclick="App.archiveMissingICP()" title="Archive uniquement les ICP réalisées (effectuée/validée) qui n'ont pas encore de fichier dans SuiviPDP/ICP/Exports"><i class="bi bi-cloud-arrow-up me-1"></i>Archiver les ICP réalisées manquantes</button>
         <button class="btn btn-outline-warning btn-sm" onclick="App.archiveAllOldExports()" title="Génère les Word + PDF de tous les PDP/ICP existants et les uploade sur SharePoint avec les nouveaux noms"><i class="bi bi-arrow-repeat me-1"></i>Re-archiver tous les PDP/ICP</button>
-        <button class="btn btn-outline-success btn-sm" onclick="App.backfillFichesReflexe()" title="Ajoute les fiches réflexe marquées « Par défaut » (FR-01, FR-02…) à tous les PDP existants, sans toucher aux FDS"><i class="bi bi-clipboard-plus me-1"></i>Ajouter les fiches réflexe aux PDP existants</button>
-        <button class="btn btn-outline-danger btn-sm" onclick="App.removeNonStandardFDS()" title="Retire des PDP existants les FDS dont la case « Par défaut » est décochée dans la bibliothèque (fiches réflexe et permis de feu conservés)"><i class="bi bi-clipboard-minus me-1"></i>Retirer des PDP les FDS non « Par défaut »</button>
       </div>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" data-stab="general">
       <div class="form-section-title"><i class="bi bi-person-gear"></i>Administrateurs</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Les administrateurs peuvent valider ou rejeter les nouveaux risques proposés par les utilisateurs.</div>
       <div id="settings-admins"></div>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" data-stab="general">
       <div class="form-section-title"><i class="bi bi-tools"></i>Équipe maintenance (techniciens ICP)</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Liste des techniciens dont les ICP sont rattachées automatiquement (badge « Maintenance », filtre Technicien, Trophées, dashboard d'avancement). La détection se fait sur le prénom <em>et</em> le nom de famille — indispensable pour distinguer deux personnes ayant le même prénom.</div>
       <div id="settings-maintenance-team"></div>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" data-stab="general">
       <div class="form-section-title"><i class="bi bi-envelope-at"></i>Notifications par mail</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Adresses qui reçoivent un mail à chaque nouveau risque proposé. Le mail est envoyé depuis le compte SharePoint de l'utilisateur qui propose.</div>
       <div id="settings-notify-emails"></div>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" data-stab="general">
       <div class="form-section-title"><i class="bi bi-person-vcard"></i>Conducteurs de travaux</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Liste des conducteurs de travaux notifiés par mail à chaque génération de permis de feu. Le rapprochement se fait par nom avec le responsable AGRIWATT/ENERSOLYS saisi dans le PDP (ordre prénom/nom et accents indifférents). Une entrée sans email ne pourra pas être notifiée.</div>
       <div id="settings-cond-travaux"></div>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" data-stab="risques">
       <div class="form-section-title"><i class="bi bi-camera"></i>Étapes de prise de photos (ICP / visite)</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Oriente la prise de photos par zones successives (entrée, cheminement, tableau, toiture…). Modifiable selon le type de site (toiture, sol…).</div>
       <div id="settings-photo-etapes"></div>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" data-stab="risques">
       <div class="form-section-title"><i class="bi bi-shield-exclamation"></i>Gestion des risques</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Un seul endroit pour tous les risques (catalogue standard + personnalisés). <strong>Modifier</strong> ouvre l'éditeur (intitulé, catégorie, situation, prévention, cotation). Les risques <strong>en attente</strong> s'y valident. Synchronisé via SharePoint ; n'affecte pas les PDP/ICP déjà saisis.</div>
       <div class="d-flex gap-2 mb-2 flex-wrap align-items-center">
@@ -2885,7 +2906,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div id="settings-risks-manager"></div>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" data-stab="risques">
       <div class="form-section-title"><i class="bi bi-file-earmark-text"></i>Document Unique d'Évaluation des Risques (DUERP)</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Le Document Unique est désormais géré dans l'application dédiée SuiviDUERP (unités de travail, cotation par unité, versions conservées, plan d'actions, pénibilité). Elle réutilise automatiquement le catalogue de risques de SuiviPDP.</div>
       <div class="d-flex gap-2 flex-wrap">
@@ -2893,19 +2914,19 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       </div>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" data-stab="suivi">
       <div class="form-section-title"><i class="bi bi-journal-text"></i>Journal d'activité</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Historique des connexions, sauvegardes et modifications faites par les utilisateurs (5000 derniers événements).</div>
       <div id="activity-log-container"></div>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" data-stab="suivi">
       <div class="form-section-title"><i class="bi bi-trophy"></i>🏆 Trophées maintenance</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Activer/désactiver chaque trophée, ajuster les paliers (bronze/argent/or) et les règles de calcul. La configuration est partagée via SharePoint.</div>
       <div id="settings-trophees"></div>
     </div>
 
-    <div class="form-section">
+    <div class="form-section" data-stab="sync">
       <div class="form-section-title"><i class="bi bi-database"></i>Données</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Exporter les données pour les transférer vers un autre appareil ou créer une sauvegarde.</div>
       <div class="d-flex flex-wrap gap-2 mb-2">
@@ -2921,7 +2942,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
         <button class="btn btn-outline-danger btn-sm" onclick="App.resetData()"><i class="bi bi-trash me-1"></i>Réinitialiser</button>
       </div>
     </div>
-    <div class="form-section">
+    <div class="form-section" data-stab="sync">
       <div class="form-section-title"><i class="bi bi-file-earmark-pdf"></i>Restaurer un PDP / une ICP depuis un rapport PDF</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Les copies PDF archivées sur SharePoint (<code>SuiviPDP/PDP/Exports</code> et <code>SuiviPDP/ICP/Exports</code>) embarquent une copie complète de la fiche (photos et signatures comprises). Si une fiche a été saisie sur un appareil qui n'a jamais pu synchroniser ses données, récupérez son PDF archivé et déposez-le ici pour la recréer. Les PDF téléchargés, les ZIP et les pièces jointes de mail n'embarquent rien.</div>
       <div class="form-check form-switch mb-2">
@@ -2933,7 +2954,7 @@ body.icp-mode-express #view-icp-detail .icp-advanced { display: none !important;
       <div id="pdf-restore-preview" class="mt-3 d-none"></div>
       <p class="small text-muted mt-2 mb-0">Les PDF archivés avant cette fonctionnalité (ou avec l'option désactivée) ne contiennent pas de pièce jointe et ne peuvent pas être restaurés.</p>
     </div>
-    <div class="form-section">
+    <div class="form-section" data-stab="sync">
       <div class="form-section-title"><i class="bi bi-plug"></i>Intégration Sellsy</div>
       <div class="section-helper"><i class="bi bi-lightbulb"></i> Connecte l'app au compte Sellsy via un proxy PHP hébergé sur OVH. Permet la recherche live et la synchronisation du répertoire entreprises depuis Sellsy.</div>
       <div class="field-group">
@@ -9077,10 +9098,41 @@ const App = {
     }
   },
 
+  // ---- Paramètres : onglets + recherche (sections .form-section[data-stab]) ----
+  settingsTab(tab) {
+    const tabs = ['general', 'documents', 'risques', 'sync', 'suivi'];
+    if (!tabs.includes(tab)) { try { tab = localStorage.getItem('pdp_settings_tab'); } catch (e) { tab = null; } }
+    if (!tabs.includes(tab)) tab = 'general';
+    this._settingsTab = tab;
+    try { localStorage.setItem('pdp_settings_tab', tab); } catch (e) {}
+    const q = document.getElementById('settings-search');
+    if (q && q.value) { q.value = ''; }
+    document.querySelectorAll('#settings-tabs .nav-link').forEach(a => a.classList.toggle('active', a.dataset.stab === tab));
+    document.querySelectorAll('#view-settings .form-section[data-stab]').forEach(sec => { sec.style.display = sec.dataset.stab === tab ? '' : 'none'; });
+    const empty = document.getElementById('settings-search-empty'); if (empty) empty.style.display = 'none';
+  },
+
+  // Recherche : affiche toutes les sections (tous onglets) dont le texte contient les mots saisis.
+  settingsSearch(q) {
+    const norm = t => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const mots = norm(q).split(/\s+/).filter(Boolean);
+    if (!mots.length) { this.settingsTab(this._settingsTab); return; }
+    let n = 0;
+    document.querySelectorAll('#settings-tabs .nav-link').forEach(a => a.classList.remove('active'));
+    document.querySelectorAll('#view-settings .form-section[data-stab]').forEach(sec => {
+      const txt = norm(sec.textContent + ' ' + [...sec.querySelectorAll('[title],[placeholder]')].map(e => (e.title || '') + ' ' + (e.placeholder || '')).join(' '));
+      const ok = mots.every(m => txt.includes(m));
+      sec.style.display = ok ? '' : 'none';
+      if (ok) n++;
+    });
+    const empty = document.getElementById('settings-search-empty'); if (empty) empty.style.display = n ? 'none' : '';
+  },
+
   _scrollToSettingsSection(id, tries = 0) {
     const el = document.getElementById(id);
     if (el) {
       const card = el.closest('.form-section') || el;
+      if (card.dataset && card.dataset.stab) this.settingsTab(card.dataset.stab);
       card.scrollIntoView({ behavior: 'smooth', block: 'start' });
       card.style.transition = 'background-color .6s';
       card.style.backgroundColor = '#fff8e1';
@@ -9121,7 +9173,7 @@ const App = {
     if (view === 'icps') this.renderICPList();
     if (view === 'entreprises') this.renderEntreprises();
     if (view === 'habilitations') AutorisationInterne.init();
-    if (view === 'settings') this.renderSettingsView();
+    if (view === 'settings') { this.renderSettingsView(); this.settingsTab(this._settingsTab); }
     if (view === 'trophees') this.renderTrophees();
     if (view === 'tutoriel') this.helpInit();
     // Collapse mobile navbar
