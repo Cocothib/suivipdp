@@ -5571,7 +5571,15 @@ try { window.ProduitsChimiques = ProduitsChimiques; } catch (_) {}
 // vitesse (30 km/h), acces (accès limité aux personnes autorisées), telephone (téléphone obligatoire en toiture).
 // epiSources = { <id ou code EPI>: [uids des produits chimiques qui l'ont coché automatiquement] } : seuls ces EPI
 // sont décochés au retrait du dernier produit qui les demande ; toute coche/décoche manuelle retire l'entrée.
+// Liste des EPI (M ISO 7010 + signaux personnalisés X00n avec image intégrée), dans cet ordre : fichier partagé
+// Shared/signaletique-epi.json (géré dans SuiviEPI > Signalétique, lu quand l'appli est connectée, au plus toutes
+// les 10 min) → copie localStorage 'pdp_signaletique_cache' (PAS la table settings, synchronisée) → catalogue
+// statique ../suiviepi/pictos/catalogue.json → SECOURS_M. Seuls les signaux epi + actif sont proposés (this.m) ;
+// un code masqué déjà coché dans un PDP reste affiché et exporté (this.mTous).
 const PictosPDP = {
+  SIG_PATH: 'Shared/signaletique-epi.json',
+  SIG_CACHE_KEY: 'pdp_signaletique_cache',
+  SIG_REFRESH_MS: 10 * 60 * 1000,
   PICTOS_PDP: 'pictos/',
   PICTOS_EPI: '../suiviepi/pictos/',
   ANCIENS_INT: { vapoter: 'P002', vitesse: null, acces: null, flamme: 'P003', feu: 'P039', entreposage: 'P023', stimulateur: 'P007' },
@@ -5597,6 +5605,10 @@ const PictosPDP = {
   GENRE: { M014: 'm', M004: 'fp', M013: 'm', M007: 'fp', M019: 'm', M003: 'f', M016: 'm', M017: 'f', M047: 'm', M009: 'mp', M022: 'f', M010: 'm', M026: 'm', M059: 'f', M015: 'm', M008: 'fp', M032: 'fp', M018: 'm' },
 
   p: [], w: [], m: [],
+  mTous: [],            // tous les signaux M / X connus (masqués et consignes compris)
+  sourceM: 'secours',   // 'partage' | 'cache' | 'catalogue' | 'secours'
+  _sigLu: 0,
+  _sigPromesse: null,
   _promesse: null,
   _etat: { interdictions: new Set(), epiObligatoires: new Set(), avertissements: new Set() },
   _ouverts: { interdictions: false, epiObligatoires: false, avertissements: false },
@@ -5605,7 +5617,45 @@ const PictosPDP = {
   _initSecours() {
     if (!this.p.length) this.p = this.SECOURS_P.map(([code, nom, famille]) => ({ code, type: 'interdiction', nom, famille, ancienId: Object.keys(this.ANCIENS_INT).find(k => this.ANCIENS_INT[k] === code) }));
     if (!this.w.length) this.w = this.SECOURS_W.map(([code, nom, famille]) => ({ code, type: 'avertissement', nom, famille }));
-    if (!this.m.length) this.m = this.SECOURS_M.map(([code, nom, famille, motsCles]) => ({ code, nom, famille, epi: true, motsCles }));
+    if (!this.m.length) {
+      let c = null;
+      try { c = JSON.parse(localStorage.getItem(this.SIG_CACHE_KEY) || 'null'); } catch (_) { c = null; }
+      if (!(c && Array.isArray(c.signaux) && this._appliquerM(c.signaux, 'cache'))) {
+        this.m = this.SECOURS_M.map(([code, nom, famille, motsCles]) => ({ code, nom, famille, epi: true, actif: true, motsCles }));
+        this.mTous = this.m.slice();
+        this.sourceM = 'secours';
+      }
+    }
+  },
+  // Liste des signaux EPI (fichier partagé, copie locale ou catalogue) → this.mTous / this.m
+  _appliquerM(liste, source) {
+    let l = (Array.isArray(liste) ? liste : []).filter(x => x && /^(M\d{3}|X\d{3,})$/.test(String(x.code || '')))
+      .map((x, i) => ({ ...x, nom: x.nom || x.code, famille: x.famille || 'Général', motsCles: Array.isArray(x.motsCles) ? x.motsCles : [], actif: x.actif !== false, _i: i }));
+    if (!l.length) return false;
+    if (l.some(x => Number.isFinite(Number(x.ordre)))) l.sort((a, b) => (Number(a.ordre) || 0) - (Number(b.ordre) || 0) || a._i - b._i);
+    this.mTous = l;
+    this.m = l.filter(x => x.epi && x.actif);
+    this.sourceM = source;
+    return true;
+  },
+  // Fichier partagé Shared/signaletique-epi.json : connecté seulement, au plus toutes les 10 min (sauf force)
+  chargerSignaletique({ force = false } = {}) {
+    const connecte = typeof DataSync !== 'undefined' && DataSync._connected && typeof _readJsonFile === 'function';
+    if (!connecte || this._sigPromesse || (!force && Date.now() - this._sigLu < this.SIG_REFRESH_MS)) return this._sigPromesse || Promise.resolve(false);
+    this._sigLu = Date.now();
+    this._sigPromesse = (async () => {
+      try {
+        const d = await _readJsonFile(this.SIG_PATH);
+        if (d && Array.isArray(d.signaux) && this._appliquerM(d.signaux, 'partage')) {
+          try { localStorage.setItem(this.SIG_CACHE_KEY, JSON.stringify({ _meta: d._meta || null, lu: new Date().toISOString(), signaux: d.signaux })); } catch (_) {}
+          if (document.getElementById('picto-ui-epi')) this.rendre();
+          return true;
+        }
+      } catch (e) { console.warn('[PictosPDP] liste des signaux partagée illisible, copie locale ou catalogue conservé', e); }
+      finally { this._sigPromesse = null; }
+      return false;
+    })();
+    return this._sigPromesse;
   },
   // Catalogues communs (JSON) ; le secours en dur reste en place s'ils ne se chargent pas
   charger() {
@@ -5619,13 +5669,12 @@ const PictosPDP = {
           if (p.length) { this.p = p; change = true; }
           if (w.length) { this.w = w; change = true; }
         }
-        if (ep && Array.isArray(ep.signaux)) {
-          const m = ep.signaux.filter(s => s && s.epi && /^M\d{3}$/.test(s.code)).map(s => ({ ...s, motsCles: Array.isArray(s.motsCles) ? s.motsCles : [] }));
-          if (m.length) { this.m = m; change = true; }
-        }
+        // catalogue statique : seulement si ni le fichier partagé ni sa copie locale n'ont fourni la liste
+        if (ep && Array.isArray(ep.signaux) && this.sourceM === 'secours' && this._appliquerM(ep.signaux.map(s => ({ ...s, actif: true })), 'catalogue')) change = true;
         if (change && document.getElementById('picto-ui-int')) this.rendre();
       });
     }
+    this.chargerSignaletique();
     return this._promesse;
   },
 
@@ -5636,17 +5685,21 @@ const PictosPDP = {
   codeDe(id) {
     if (id in this.ANCIENS_INT) return this.ANCIENS_INT[id];
     if (id in this.ANCIENS_EPI) return this.ANCIENS_EPI[id];
-    return /^[PWM]\d{3}$/.test(id) ? id : null;
+    return /^([PWM]\d{3}|X\d{3,})$/.test(id) ? id : null;
   },
   // Code M → id à cocher (ancien id s'il existe : casque, chaussures, vetement, gants, antichute)
   idEpi(code) { return Object.keys(this.ANCIENS_EPI).find(k => this.ANCIENS_EPI[k] === code) || code; },
   signal(code) {
     this._initSecours();
-    return [...this.p, ...this.w, ...this.m].find(s => s.code === code) || null;
+    return [...this.p, ...this.w, ...this.m, ...this.mTous].find(s => s.code === code) || null;
   },
   nomCatalogue(code) { const s = this.signal(code); return s ? s.nom : code; },
   libelle(id) { return this.LIB_ANCIENS[id] || this.nomCatalogue(id); },
-  url(code, ext = 'svg') { return (code[0] === 'M' ? this.PICTOS_EPI : this.PICTOS_PDP) + code + '.' + ext; },
+  url(code, ext = 'svg') {
+    // signal personnalisé (X00n) : image intégrée au fichier partagé (PNG), pour l'écran comme pour les exports
+    if (code[0] === 'X') { const s = this.signal(code); return s && s.image && /^data:image\/(png|svg\+xml)/.test(s.image) ? s.image : ''; }
+    return (code[0] === 'M' ? this.PICTOS_EPI : this.PICTOS_PDP) + code + '.' + ext;
+  },
   dom(groupe, id) { return (groupe === 'interdictions' ? 'picto-' : groupe === 'epiObligatoires' ? 'epi-' : 'avert-') + id; },
 
   // ---- Listes de l'écran ----
@@ -5663,6 +5716,12 @@ const PictosPDP = {
       // téléphone (pas d'équivalent ISO) rangé avec le travail en hauteur
       const i = tous.findIndex(x => x.id === 'antichute');
       tous.splice(i < 0 ? tous.length : i + 1, 0, { id: 'telephone', famille: this.FAMILLE_ANCIENS_EPI.telephone });
+      // EPI masqués dans la liste partagée mais déjà cochés dans ce PDP : toujours affichés (jamais perdus)
+      for (const id of this._etat.epiObligatoires) {
+        if (tous.some(x => x.id === id)) continue;
+        const code = this.codeDe(id), s = code ? this.signal(code) : null;
+        tous.push({ id, famille: (s && s.famille) || 'Autres' });
+      }
       return { visibles: Object.keys(this.ANCIENS_EPI), tous };
     }
     return { visibles: [], tous: this.w.map(s => ({ id: s.code, famille: s.famille })) };
@@ -5788,7 +5847,7 @@ const PictosPDP = {
   // Codes M d'un produit : epiCodes publié par SuiviChimique, sinon déduits des libellés
   codesProduit(it) {
     if (!it) return [];
-    if (Array.isArray(it.epiCodes)) return [...new Set(it.epiCodes.filter(c => /^M\d{3}$/.test(c)))];
+    if (Array.isArray(it.epiCodes)) return [...new Set(it.epiCodes.filter(c => /^(M\d{3}|X\d{3,})$/.test(c)))];
     return [...new Set((it.epi || []).map(l => this.reconnaitre(l)).filter(Boolean))];
   },
   // Libellé (« Gants nitrile ») → code M, ou null
@@ -5875,6 +5934,7 @@ const PictosPDP = {
   async png(id) {
     const code = this.codeDe(id);
     if (!code) return null;
+    if (code[0] === 'X') { const u = this.url(code, 'png'); return /^data:image\/png/i.test(u) ? u : null; }   // image intégrée (PNG)
     if (this._pngCache.has(code)) return this._pngCache.get(code);
     let url = null;
     try {

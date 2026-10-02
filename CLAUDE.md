@@ -45,6 +45,11 @@ Read avec offset/limit. Les `index.backup-*.html` sont des sauvegardes historiqu
     reste dans `<details class="picto-autres">` par famille), `appliquer(pictos)` (openPDP), `collecter(ancien)` (collectForm,
     ordre : anciens ids dans l'ordre historique puis codes ISO), `png(id)` pour les exports (`App._getPictoPngDataUrl` :
     PNG officiel, cache mémoire + media `iso:<code>`, repli dessin maison puis libellé seul), `libelles(ids)`.
+    Liste des EPI (02/10/2026) : `Shared/signaletique-epi.json` (géré dans SuiviEPI > Signalétique) lu par `chargerSignaletique()`
+    quand connecté (≤ 10 min, appelé par `charger()`) → copie localStorage `pdp_signaletique_cache` (PAS `settings`) → catalogue
+    `../suiviepi/pictos/catalogue.json` → `SECOURS_M` ; `m` = EPI actifs proposés, `mTous` = tous les codes connus (`signal()`),
+    un EPI masqué déjà coché reste affiché (`_items` l'ajoute) et exporté ; codes personnalisés `X00n` : image PNG intégrée
+    (`url()` / `png()` renvoient la dataURL), `codeDe`/`codesProduit` les acceptent. Test : scratchpad `signaletique_pdp_test.js` (9).
     EPI des produits chimiques : `ajouterEPIProduit` / `retirerEPIProduit` (appelés par `ProduitsChimiques.ajouter`,
     `ajouterKit`, `retirer`, `mettreAJour`), `codesProduit` (epiCodes publié, sinon déduit des libellés via `reconnaitre`),
     `epiProduit` (colonne « EPI demandés » : pictogramme M + libellé précis)
